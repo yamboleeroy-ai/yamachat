@@ -1,0 +1,11 @@
+{
+  "source": "Existing project RNNoise assets, downloaded from its Supabase Edge Function",
+  "upstream": "https://github.com/wegylexy/rnnoise_wasm",
+  "assets": {
+    "rnnoise.mjs": "ed30ea3f71c9e4c43498afc8fe442e8165ca94df3eaf3ddbf4e83d4581ce4256",
+    "rnnoise.worklet.js": "70247663ef1afca4e5d338722f09439c2e85d08091dd9270bd85bf54ae5535aa",
+    "rnnoise.wasm": "d35096e542660d140c5fca130c3789ee48baef124d186e69f536efcaf6c1cf94",
+    "mic-gate.worklet.js": "f225df0069b3b642113b7a60d64cb5e88fc547b1ecf2f57335c1c02b33303134"
+  },
+  "modifiedWorklet": "Audio-thread RNNoise VAD gating with off/balanced/strict modes and empty input guard; original WASM retained"
+}
