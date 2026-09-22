@@ -54,8 +54,16 @@ declare global {
   const hideSplash = async () => {
     try { await SplashScreen.hide(); } catch {}
   };
-  if (document.readyState === 'complete') setTimeout(hideSplash, 120);
-  else window.addEventListener('load', () => setTimeout(hideSplash, 120), { once: true });
+  // Never let a delayed image/network resource leave the native launch screen
+  // covering Yamachat indefinitely. DOM readiness shows the bundled Yamachat
+  // boot/auth UI; load remains the normal path and the timeout is a hard guard.
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => setTimeout(hideSplash, 120), { once: true });
+  } else {
+    setTimeout(hideSplash, 120);
+  }
+  window.addEventListener('load', () => setTimeout(hideSplash, 120), { once: true });
+  setTimeout(hideSplash, 2200);
 
   try {
     await Keyboard.addListener('keyboardWillShow', () => {document.documentElement.dataset.nativeKeyboard='true';document.documentElement.classList.add('yc-keyboard-open')});
