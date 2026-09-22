@@ -1,4 +1,4 @@
-name: Yamachat Mobile Android
+name: Yamachat Android APK
 
 on:
   workflow_dispatch:
@@ -53,16 +53,17 @@ jobs:
           npx cap sync android
           node scripts/patch-native.mjs android
 
-      - name: Build installable test APK
+      - name: Build installable APK
         working-directory: mobile/android
         run: |
           chmod +x gradlew
           ./gradlew assembleDebug
-          cp app/build/outputs/apk/debug/app-debug.apk ../../Yamachat-Android-test.apk
+          cp app/build/outputs/apk/debug/app-debug.apk ../../Yamachat-Android.apk
 
-      - name: Upload APK artifact
+      - name: Upload Yamachat APK
         uses: actions/upload-artifact@v4
         with:
-          name: Yamachat-Android-test
-          path: Yamachat-Android-test.apk
+          name: Yamachat-Android
+          path: Yamachat-Android.apk
           if-no-files-found: error
+          retention-days: 30
