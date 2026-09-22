@@ -79,3 +79,7 @@ iOS build a instalace na reálný iPhone vyžaduje Apple Developer účet a pode
 Oprávnění a iOS background-audio režim jsou připravené. Hlasový chat v aktivní aplikaci používá existující WebRTC logiku Yamachatu.
 
 Spolehlivý hovor při dlouhém zamknutí telefonu / agresivním uspání Androidu je další nativní krok: Android foreground call service a iOS audio-session/call lifecycle. Ten není dobré simulovat pouze WebView kódem; bude doplněn jako samostatná vrstva, aby se nerozbila současná voice logika.
+
+## CI kontrola
+
+Při změně mobilního projektu GitHub automaticky sestaví testovací Android APK a na macOS ověří kompilaci iOS projektu. Android testovací APK je dostupné jako artifact příslušného GitHub Actions běhu.
