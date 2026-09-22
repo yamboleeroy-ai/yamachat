@@ -1,5 +1,7 @@
 (()=>{
  const mobile=matchMedia('(max-width:1100px)');
+ const iosLike=/iP(?:hone|ad|od)/i.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
+ document.documentElement.classList.toggle('yc-ios-mobile',iosLike);
  let activeDrawer=null,returnFocus=null;
  const panels=()=>[document.getElementById('ycGlobalNav'),document.getElementById('side'),document.querySelector('.yc-v3-content-grid>.right')].filter(Boolean);
  function close(){for(const p of panels()){p.classList.remove('yc-mobile-open','mobile-open');p.inert=mobile.matches}document.getElementById('app')?.classList.remove('yc-mobile-drawer-open');document.querySelectorAll('[aria-controls][aria-expanded]').forEach(b=>b.setAttribute('aria-expanded','false'));activeDrawer=null;returnFocus?.focus();returnFocus=null}
@@ -24,7 +26,38 @@
  // Desktop double-click joins a voice channel. A deliberate touch tap invokes the same handler.
  document.addEventListener('click',e=>{const room=e.target.closest?.('.voice-channel[data-voice]');if(room&&e.pointerType==='touch'&&mobile.matches){room.dispatchEvent(new MouseEvent('dblclick',{bubbles:true}));close()}});
  window.ycCloseMobileSurface=()=>{if(activeDrawer){close();return true}const modal=document.querySelector('.modal-back:not(.hidden) .x,.yc-rankxp-overlay:not(.hidden) .yc-rankxp-close');if(modal){modal.click();return true}return false};
- let frame=0;function viewport(){cancelAnimationFrame(frame);frame=requestAnimationFrame(()=>{const v=window.visualViewport;const h=v?.height||innerHeight;document.documentElement.style.setProperty('--yc-viewport-height',h+'px');const typing=/^(INPUT|TEXTAREA)$/.test(document.activeElement?.tagName);document.documentElement.classList.toggle('yc-keyboard-open',document.documentElement.dataset.nativeKeyboard==='true'||(typing&&innerHeight-h>120));})}
- visualViewport?.addEventListener('resize',viewport);window.addEventListener('resize',viewport);document.addEventListener('focusin',viewport);document.addEventListener('focusout',viewport);viewport();
+ let frame=0,lastKeyboardOpen=false,lastIosOffset=0;
+ const resetIosViewport=()=>{
+  if(!iosLike)return;
+  for(const delay of [0,70,180,320])setTimeout(()=>{
+   try{window.scrollTo(0,0);document.documentElement.scrollTop=0;document.body.scrollTop=0}catch{}
+  },delay);
+ };
+ function viewport(){
+  cancelAnimationFrame(frame);
+  frame=requestAnimationFrame(()=>{
+   const v=window.visualViewport;
+   const h=Math.max(240,Math.round(v?.height||innerHeight));
+   const offset=Math.max(0,Math.round(v?.offsetTop||0));
+   const root=document.documentElement;
+   root.style.setProperty('--yc-viewport-height',h+'px');
+   root.style.setProperty('--yc-viewport-offset-top',offset+'px');
+   const typing=/^(INPUT|TEXTAREA)$/.test(document.activeElement?.tagName);
+   const nativeKeyboard=root.dataset.nativeKeyboard==='true';
+   const visualKeyboard=typing&&((innerHeight-h)>120||offset>24);
+   const keyboardOpen=nativeKeyboard||visualKeyboard;
+   root.classList.toggle('yc-keyboard-open',keyboardOpen);
+   if(iosLike&&keyboardOpen&&(!lastKeyboardOpen||Math.abs(offset-lastIosOffset)>2))resetIosViewport();
+   if(iosLike&&!keyboardOpen&&lastKeyboardOpen)resetIosViewport();
+   lastKeyboardOpen=keyboardOpen;lastIosOffset=offset;
+  });
+ }
+ visualViewport?.addEventListener('resize',viewport);
+ visualViewport?.addEventListener('scroll',viewport);
+ window.addEventListener('resize',viewport);
+ document.addEventListener('focusin',viewport);
+ document.addEventListener('focusout',viewport);
+ new MutationObserver(viewport).observe(document.documentElement,{attributes:true,attributeFilter:['data-native-keyboard']});
+ viewport();
  const password=document.getElementById('password');if(password){password.autocomplete='current-password';password.setAttribute('autocapitalize','none');password.setAttribute('autocorrect','off');password.spellcheck=false;const b=document.createElement('button');b.type='button';b.className='ghost';b.textContent='Zobrazit heslo';b.onclick=()=>{const show=password.type==='password';password.type=show?'text':'password';b.textContent=show?'Skrýt heslo':'Zobrazit heslo';b.setAttribute('aria-pressed',String(show))};password.after(b)}
 })();
