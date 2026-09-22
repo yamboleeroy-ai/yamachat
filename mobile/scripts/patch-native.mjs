@@ -6,6 +6,77 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, '..');
 const target = process.argv[2] || 'all';
 
+function walk(dir, visitor) {
+  if (!fs.existsSync(dir)) return;
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    const full = path.join(dir, entry.name);
+    if (entry.isDirectory()) walk(full, visitor);
+    else visitor(full);
+  }
+}
+
+function patchAndroidBranding(res) {
+  const preferredLogo = path.join(root, 'www/build/yamachat-logo-symbol.png');
+  const fallbackLogo = path.join(root, 'www/icons/icon-512.png');
+  const brandLogo = fs.existsSync(preferredLogo) ? preferredLogo : fallbackLogo;
+  if (!fs.existsSync(brandLogo) || !fs.existsSync(res)) return;
+
+  // Launcher: prefer the clean, transparent Yamachat symbol generated from the
+  // desktop-derived web assets instead of Capacitor's default icon.
+  for (const dir of fs.readdirSync(res).filter(x => /^mipmap-(mdpi|hdpi|xhdpi|xxhdpi|xxxhdpi)$/.test(x))) {
+    const dst = path.join(res, dir);
+    for (const name of ['ic_launcher.png', 'ic_launcher_round.png', 'ic_launcher_foreground.png']) {
+      const out = path.join(dst, name);
+      if (fs.existsSync(out)) fs.copyFileSync(brandLogo, out);
+    }
+  }
+
+  // Native launch screen: remove Capacitor's generated white splash bitmaps and
+  // replace the shared @drawable/splash resource with Yamachat branding.
+  walk(res, file => {
+    if (path.basename(file) === 'splash.png') fs.rmSync(file, { force: true });
+  });
+
+  const nodpi = path.join(res, 'drawable-nodpi');
+  fs.mkdirSync(nodpi, { recursive: true });
+  fs.copyFileSync(brandLogo, path.join(nodpi, 'yamachat_splash_logo.png'));
+
+  const drawable = path.join(res, 'drawable');
+  fs.mkdirSync(drawable, { recursive: true });
+  fs.writeFileSync(path.join(drawable, 'splash.xml'), `<?xml version="1.0" encoding="utf-8"?>
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item>
+        <shape android:shape="rectangle">
+            <solid android:color="#071019" />
+        </shape>
+    </item>
+    <item android:gravity="center" android:width="176dp" android:height="176dp">
+        <bitmap android:src="@drawable/yamachat_splash_logo" android:gravity="fill" />
+    </item>
+</layer-list>
+`, 'utf8');
+
+  // Android 12+ may render a system splash before Capacitor gets control.
+  // Keep that system stage in the same Yamachat colors/logo when those theme
+  // items exist in the generated project.
+  walk(res, file => {
+    if (!file.endsWith('.xml') || !file.includes(`${path.sep}values`)) return;
+    let xml = fs.readFileSync(file, 'utf8');
+    const before = xml;
+    xml = xml.replace(
+      /(<item\s+name="(?:android:)?windowSplashScreenBackground">)[\s\S]*?(<\/item>)/g,
+      '$1#071019$2'
+    );
+    xml = xml.replace(
+      /(<item\s+name="(?:android:)?windowSplashScreenAnimatedIcon">)[\s\S]*?(<\/item>)/g,
+      '$1@drawable/yamachat_splash_logo$2'
+    );
+    if (xml !== before) fs.writeFileSync(file, xml, 'utf8');
+  });
+
+  console.log('Android Yamachat launcher and native splash branding patched.');
+}
+
 function patchAndroid() {
   const p = path.join(root, 'android/app/src/main/AndroidManifest.xml');
   if (!fs.existsSync(p)) {
@@ -27,24 +98,8 @@ function patchAndroid() {
   }
   fs.writeFileSync(p, xml, 'utf8');
 
-  // Use the Yamachat artwork for the generated Android launcher icon.
-  const icon = path.join(root, 'www/icons/icon-512.png');
-  const res = path.join(root, 'android/app/src/main/res');
-  if (fs.existsSync(icon) && fs.existsSync(res)) {
-    // Only replace existing PNG launcher resources. Do not create PNG files in
-    // mipmap-anydpi-v26, because that directory already contains adaptive-icon XML
-    // resources with the same names and Android treats them as duplicates.
-    for (const dir of fs.readdirSync(res).filter(x => /^mipmap-(mdpi|hdpi|xhdpi|xxhdpi|xxxhdpi)$/.test(x))) {
-      const dst = path.join(res, dir);
-      for (const name of ['ic_launcher.png', 'ic_launcher_round.png', 'ic_launcher_foreground.png']) {
-        const out = path.join(dst, name);
-        if (fs.existsSync(out)) {
-          try { fs.copyFileSync(icon, out); } catch {}
-        }
-      }
-    }
-  }
-  console.log('Android permissions and Yamachat launcher artwork patched.');
+  patchAndroidBranding(path.join(root, 'android/app/src/main/res'));
+  console.log('Android permissions and Yamachat native branding patched.');
 }
 
 function plistEntry(key, value) {
