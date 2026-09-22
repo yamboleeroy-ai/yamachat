@@ -66,11 +66,11 @@ body{min-height:100dvh;padding:env(safe-area-inset-top) env(safe-area-inset-righ
 
       <article class="card android">
         <div class="icon">🤖</div>
-        <div class="state ready">Zdarma · instalovatelná PWA</div>
+        <div class="state ready">Zdarma · skutečná Android aplikace</div>
         <h2>Android</h2>
-        <p>V Chrome můžeš Yamachat nainstalovat jako webovou aplikaci. Pokud prohlížeč nabídne instalaci, spustíme ji rovnou.</p>
-        <button id="androidInstallBtn" class="btn" type="button" style="cursor:pointer">Nainstalovat na Android</button>
-        <div id="androidNote" class="note"><b>Ruční postup:</b> Chrome → ⋮ → Nainstalovat a vytvořit zástupce / Nainstalovat.</div>
+        <p>Stáhni skutečný Yamachat APK. Po stažení Android požádá o potvrzení instalace aplikace mimo Google Play.</p>
+        <a id="androidInstallBtn" class="btn" href="./Yamachat-Android.apk" download>Stáhnout Yamachat pro Android (.APK)</a>
+        <div id="androidNote" class="note"><b>Instalace:</b> Stáhnout APK → otevřít stažený soubor → případně povolit instalaci z tohoto zdroje → Nainstalovat → Otevřít.</div>
       </article>
     </div>
 
@@ -84,16 +84,8 @@ body{min-height:100dvh;padding:env(safe-area-inset-top) env(safe-area-inset-righ
   </section>
 </main>
 <script>
-let deferredInstallPrompt=null;
-const isStandalone=()=>window.matchMedia?.('(display-mode: standalone)')?.matches||window.navigator.standalone===true;
-window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();deferredInstallPrompt=e;document.getElementById('androidInstallBtn').textContent='Nainstalovat Yamachat';});
 document.getElementById('iosInstallBtn').addEventListener('click',()=>{
   alert('iPhone / iPad:\n\n1. Otevři yamachat.eu v Safari.\n2. Klepni na Sdílet.\n3. Zvol Přidat na plochu.\n4. Zapni Otevřít jako webovou aplikaci.\n5. Klepni na Přidat.');
-});
-document.getElementById('androidInstallBtn').addEventListener('click',async()=>{
-  if(isStandalone()){alert('Yamachat už je na tomto zařízení nainstalovaný.');return}
-  if(deferredInstallPrompt){deferredInstallPrompt.prompt();await deferredInstallPrompt.userChoice;deferredInstallPrompt=null;return}
-  alert('Android / Chrome:\n\n1. Otevři menu ⋮.\n2. Klepni na Nainstalovat a vytvořit zástupce nebo Nainstalovat.\n3. Potvrď instalaci.');
 });
 </script>
 </body>
