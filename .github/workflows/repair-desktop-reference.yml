@@ -3,6 +3,7 @@ name: Verify desktop 1.0.78 and generated web
 on:
   push:
     branches:
+      - main
       - desktop-1.0.78-web-android
     paths:
       - reference/desktop-1.0.78/**
