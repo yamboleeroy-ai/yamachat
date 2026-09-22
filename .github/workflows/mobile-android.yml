@@ -11,7 +11,7 @@ on:
       - ".github/workflows/mobile-android.yml"
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   build-android:
@@ -60,7 +60,18 @@ jobs:
           ./gradlew assembleDebug
           cp app/build/outputs/apk/debug/app-debug.apk ../../Yamachat-Android.apk
 
-      - name: Upload Yamachat APK
+      - name: Publish APK for yamachat.eu
+        run: |
+          mkdir -p download
+          cp Yamachat-Android.apk download/Yamachat-Android.apk
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -f download/Yamachat-Android.apk
+          git diff --cached --quiet && exit 0
+          git commit -m "Publish latest Yamachat Android APK [skip ci]"
+          git push
+
+      - name: Upload Yamachat APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: Yamachat-Android
