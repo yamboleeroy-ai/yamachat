@@ -53,7 +53,8 @@ html.yc-native-keyboard-open .yc-v3-ribbon{display:none!important}
 html.yc-native-keyboard-open .yc-v3-workspace{grid-template-rows:54px minmax(0,1fr) 0!important}
 html.yc-native-keyboard-open .yc-v3-voice-host{display:none!important}
 </style>`;
-html = html.replace('</head>', nativeCss + '\n<script id="ycNativeBootDiagnostics">
+const nativeDiagnostics = `
+<script id="ycNativeBootDiagnostics">
 window.addEventListener('error',function(e){
   var s=document.querySelector('#ycBootSplash small');
   if(s) s.textContent='Chyba při spuštění: '+(e.message||'neznámá chyba');
@@ -63,7 +64,8 @@ window.addEventListener('unhandledrejection',function(e){
   var m=e.reason&&e.reason.message?e.reason.message:String(e.reason||'neznámá chyba');
   if(s) s.textContent='Chyba při spuštění: '+m;
 });
-</script>\n</head>');
+</script>`;
+html = html.replace('</head>', nativeCss + '\n' + nativeDiagnostics + '\n</head>');
 
 fs.writeFileSync(path.join(out, 'index.html'), html, 'utf8');
 console.log('Yamachat web copied to mobile/www');
