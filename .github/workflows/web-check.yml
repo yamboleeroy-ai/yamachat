@@ -1,0 +1,22 @@
+name: Desktop-derived web checks
+on: [push, pull_request, workflow_dispatch]
+permissions:
+  contents: read
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node scripts/check.mjs
+      - name: Prepare web deployment
+        run: |
+          mkdir -p web-dist
+          cp index.html sw.js boot-guard.js favicon.ico manifest.webmanifest offline.html CNAME .nojekyll web-dist/
+          cp -r icons audio vendor build download web-dist/
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Yamachat-Web
+          path: web-dist

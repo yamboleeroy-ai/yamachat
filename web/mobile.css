@@ -1,0 +1,41 @@
+/* Platform adaptation only; desktop reference files are never edited. */
+:root{--yc-viewport-height:100dvh}
+#ycAuthDownloads{margin-top:20px;border-top:1px solid var(--line);padding-top:12px}
+#ycAuthDownloads h2{font-size:14px;margin:0 0 8px}
+.yc-download-offers{display:grid;gap:8px;text-align:left}
+.yc-download-offers details{padding:10px;border:1px solid var(--line);border-radius:10px;background:#0b1721}
+.yc-download-offers summary{cursor:pointer;min-height:28px;display:list-item;font-weight:700}
+.yc-download-offers p{font-size:13px;line-height:1.5;color:var(--muted)}
+.yc-download-offers a{display:inline-block;text-decoration:none;white-space:normal}
+.yc-download-offers small{display:block;margin-top:6px}
+@media(max-width:1100px){
+ html,body{width:100%;height:var(--yc-viewport-height)!important;min-height:0!important;min-width:0!important;overflow:hidden!important}
+ .app.yc-v3-ready{height:100%!important;min-height:0!important;min-width:0!important}
+ .yc-v3-workspace{height:100%!important;min-height:0!important;padding-top:env(safe-area-inset-top)!important;padding-left:env(safe-area-inset-left)!important;padding-right:env(safe-area-inset-right)!important}
+ .yc-v3-content-grid>.side,.yc-v3-content-grid>.right{top:calc(56px + env(safe-area-inset-top))!important;bottom:env(safe-area-inset-bottom)!important;visibility:hidden;pointer-events:none}
+ .yc-v3-global-nav{visibility:hidden;pointer-events:none;padding-top:max(14px,env(safe-area-inset-top))!important}
+ .yc-v3-global-nav.yc-mobile-open,.side.mobile-open,.right.yc-mobile-open{visibility:visible;pointer-events:auto}
+ .yc-mobile-head-btn,#mobileMenu{min-width:44px!important;min-height:44px!important;width:44px!important;height:44px!important;flex-basis:44px!important}
+ .yc-mobile-header-brand{min-width:0!important;flex:1!important}
+ .yc-mobile-header-brand img{width:min(110px,28vw)!important;object-fit:contain}
+ .yc-mobile-header-brand strong{display:none!important}
+ .composer{flex-wrap:wrap!important;gap:4px!important}
+ .composer #messageInput{flex:1 1 120px!important;min-width:80px!important;font-size:16px!important}
+ .composer #gifBtn{display:inline-flex!important}
+ .composer button,.channel,.dm,.modal button{min-height:44px!important}
+ .composer .iconbtn{min-width:44px!important}
+ .yc-v3-voice-host .voice-controls{grid-template-columns:minmax(0,.6fr) minmax(0,1.4fr)!important}
+ .yc-v3-voice-host .voice-btn{min-width:44px!important;min-height:44px!important}
+ .modal-back,.yc-rankxp-overlay{padding:max(8px,env(safe-area-inset-top)) max(8px,env(safe-area-inset-right)) max(8px,env(safe-area-inset-bottom)) max(8px,env(safe-area-inset-left))!important}
+ .modal,.steam-profile,.yc-rankxp-shell{max-height:calc(var(--yc-viewport-height) - 24px)!important;min-width:0!important;overflow:auto!important}
+ .auth{height:100%!important;min-height:0!important;overflow:auto!important;align-items:safe center;padding:max(12px,env(safe-area-inset-top)) 12px max(12px,env(safe-area-inset-bottom))!important}
+ .auth input,.modal input,.modal textarea{font-size:16px!important}
+ html.yc-keyboard-open .yc-v3-ribbon{display:none!important}
+ html.yc-keyboard-open .yc-v3-workspace{grid-template-rows:54px 0 minmax(0,1fr) 64px!important}
+ html.yc-keyboard-open .yc-v3-voice-host,html.yc-keyboard-open .yc-v3-voice-host .voice-controls{height:64px!important;min-height:64px!important}
+ .yc-app-settings-grid,.steam-profile-columns{max-width:100%;min-width:0}
+ .message{min-width:0}.m-body{overflow-wrap:anywhere}
+}
+@media(max-width:600px){.yc-app-settings-grid,.yc-settings-grid{grid-template-columns:1fr!important}}
+@media(max-height:500px) and (max-width:1100px){.yc-v3-ribbon{display:none!important}.yc-v3-workspace{grid-template-rows:54px 0 minmax(0,1fr) 64px!important}}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;animation:none!important;transition:none!important}}
