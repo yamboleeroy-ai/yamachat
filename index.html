@@ -7020,6 +7020,22 @@ body.yc-stream-resizing *{cursor:ns-resize!important}
  .composer .iconbtn{min-width:44px!important}
  .yc-v3-voice-host .voice-controls{grid-template-columns:minmax(0,.6fr) minmax(0,1.4fr)!important}
  .yc-v3-voice-host .voice-btn{min-width:44px!important;min-height:44px!important}
+
+ /* Native Android keeps its own system navigation/gesture area at the bottom.
+    Move the whole voice dock into the already-unused gap above it and leave the
+    physical bottom edge free so Android controls never cover Yamachat buttons. */
+ html.yc-native-android{--yc-native-bottom-controls-clearance:max(38px,env(safe-area-inset-bottom))}
+ html.yc-native-android .yc-v3-voice-host{
+   position:relative!important;
+   bottom:var(--yc-native-bottom-controls-clearance)!important;
+   z-index:1003!important;
+ }
+ html.yc-native-android .yc-v3-voice-host #soundboardPanel{
+   bottom:calc(82px + var(--yc-native-bottom-controls-clearance))!important;
+ }
+ /* When the software keyboard is open, Android already reserves its own area. */
+ html.yc-native-android.yc-keyboard-open .yc-v3-voice-host{bottom:0!important}
+ html.yc-native-android.yc-keyboard-open .yc-v3-voice-host #soundboardPanel{bottom:70px!important}
  .modal-back,.yc-rankxp-overlay{padding:max(8px,env(safe-area-inset-top)) max(8px,env(safe-area-inset-right)) max(8px,env(safe-area-inset-bottom)) max(8px,env(safe-area-inset-left))!important}
  .modal,.steam-profile,.yc-rankxp-shell{max-height:calc(var(--yc-viewport-height) - 24px)!important;min-width:0!important;overflow:auto!important}
  .auth{height:100%!important;min-height:0!important;overflow:auto!important;align-items:safe center;padding:max(12px,env(safe-area-inset-top)) 12px max(12px,env(safe-area-inset-bottom))!important}
@@ -7033,9 +7049,178 @@ body.yc-stream-resizing *{cursor:ns-resize!important}
 @media(max-width:600px){.yc-app-settings-grid,.yc-settings-grid{grid-template-columns:1fr!important}}
 @media(max-height:500px) and (max-width:1100px){.yc-v3-ribbon{display:none!important}.yc-v3-workspace{grid-template-rows:54px 0 minmax(0,1fr) 64px!important}}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;animation:none!important;transition:none!important}}
+
+@media(max-width:520px){
+ html.yc-native-android .yc-v3-voice-host #soundboardPanel{bottom:calc(76px + var(--yc-native-bottom-controls-clearance))!important}
+ html.yc-native-android.yc-keyboard-open .yc-v3-voice-host #soundboardPanel{bottom:70px!important}
+}
+@media(max-height:500px) and (max-width:1100px){
+ html.yc-native-android .yc-v3-voice-host #soundboardPanel{bottom:calc(70px + var(--yc-native-bottom-controls-clearance))!important}
+ html.yc-native-android.yc-keyboard-open .yc-v3-voice-host #soundboardPanel{bottom:70px!important}
+}
+
+
+/* iPhone/iPad keyboard guard.
+   iOS may pan the visual viewport when an input gets focus. Keep the whole app
+   pinned to the actually visible viewport and give the conversation all space
+   while typing. This is mobile-only and never touches the desktop reference. */
+@media(max-width:1100px){
+ html.yc-ios-mobile.yc-keyboard-open,
+ html.yc-ios-mobile.yc-keyboard-open body{
+   position:fixed!important;
+   inset:0!important;
+   width:100%!important;
+   max-width:100%!important;
+   height:var(--yc-viewport-height)!important;
+   min-height:0!important;
+   overflow:hidden!important;
+ }
+ html.yc-ios-mobile.yc-keyboard-open .app.yc-v3-ready{
+   position:absolute!important;
+   inset:0!important;
+   height:100%!important;
+   min-height:0!important;
+   overflow:hidden!important;
+ }
+ html.yc-ios-mobile.yc-keyboard-open .yc-v3-workspace{
+   height:100%!important;
+   min-height:0!important;
+   grid-template-rows:50px 0 minmax(0,1fr) 0!important;
+ }
+ html.yc-ios-mobile.yc-keyboard-open .yc-v3-voice-host{
+   display:none!important;
+ }
+ html.yc-ios-mobile.yc-keyboard-open .yc-v3-content-grid,
+ html.yc-ios-mobile.yc-keyboard-open .yc-v3-content-grid>.chat{
+   height:100%!important;
+   min-height:0!important;
+ }
+ html.yc-ios-mobile.yc-keyboard-open .yc-v3-content-grid>.chat>.messages{
+   min-height:0!important;
+ }
+ html.yc-ios-mobile.yc-keyboard-open .yc-v3-content-grid>.chat>.composer-wrap{
+   flex:0 0 auto!important;
+   position:relative!important;
+   z-index:1010!important;
+   padding-bottom:max(6px,env(safe-area-inset-bottom))!important;
+ }
+}
+
+/* Portrait phones: one compact voice row.
+   Avatar/name stay visible at the left; voice buttons sit directly next to it
+   instead of collapsing/overlapping. Extra connected controls remain horizontally
+   scrollable rather than covering each other. */
+@media(max-width:520px) and (orientation:portrait){
+ .yc-v3-voice-host,
+ .yc-v3-voice-host .voice-controls{
+   height:68px!important;
+   min-height:68px!important;
+ }
+ .yc-v3-voice-host .voice-controls{
+   display:grid!important;
+   grid-template-columns:minmax(118px,1fr) minmax(128px,auto)!important;
+   grid-template-rows:1fr!important;
+   align-items:center!important;
+   gap:7px!important;
+   padding:7px max(7px,env(safe-area-inset-right)) max(7px,env(safe-area-inset-bottom)) max(7px,env(safe-area-inset-left))!important;
+   overflow:hidden!important;
+ }
+ .yc-v3-voice-host #voiceConnectionPanel{
+   display:none!important;
+ }
+ .yc-v3-voice-host .yc-voice-self-row{
+   display:flex!important;
+   grid-column:1!important;
+   grid-row:1!important;
+   align-items:center!important;
+   min-width:0!important;
+   margin:0!important;
+   padding:0!important;
+   gap:7px!important;
+ }
+ .yc-v3-voice-host .yc-voice-self-avatar{
+   width:40px!important;
+   height:40px!important;
+   flex:0 0 40px!important;
+ }
+ .yc-v3-voice-host .yc-voice-self-avatar>.rank-crest>.avatar{
+   width:32px!important;
+   height:32px!important;
+ }
+ .yc-v3-voice-host .yc-voice-self-copy{
+   min-width:0!important;
+ }
+ .yc-v3-voice-host .yc-voice-self-copy strong{
+   font-size:11px!important;
+ }
+ .yc-v3-voice-host .yc-voice-self-copy small{
+   font-size:9px!important;
+ }
+ .yc-v3-voice-host .discord-voice-buttons{
+   grid-column:2!important;
+   grid-row:1!important;
+   display:flex!important;
+   align-items:center!important;
+   justify-content:flex-end!important;
+   min-width:0!important;
+   max-width:calc(100vw - 132px)!important;
+   gap:5px!important;
+   overflow-x:auto!important;
+   overflow-y:hidden!important;
+   scrollbar-width:none!important;
+ }
+ .yc-v3-voice-host .discord-voice-buttons::-webkit-scrollbar{display:none!important}
+ .yc-v3-voice-host .voice-btn{
+   flex:0 0 38px!important;
+   width:38px!important;
+   min-width:38px!important;
+   height:42px!important;
+   min-height:42px!important;
+   padding:0!important;
+ }
+}
+
+/* Landscape phones/tablets: let the same dock breathe and stretch across the
+   available width, similar to the wide desktop dock. */
+@media(max-width:1100px) and (orientation:landscape){
+ .yc-v3-voice-host .voice-controls{
+   display:grid!important;
+   grid-template-columns:minmax(190px,.85fr) minmax(0,1.65fr)!important;
+   align-items:center!important;
+   gap:10px!important;
+ }
+ .yc-v3-voice-host #voiceConnectionPanel{
+   display:none!important;
+ }
+ .yc-v3-voice-host .yc-voice-self-row{
+   display:flex!important;
+   grid-column:1!important;
+   grid-row:1!important;
+   align-items:center!important;
+   min-width:0!important;
+   margin:0!important;
+   padding:0!important;
+ }
+ .yc-v3-voice-host .discord-voice-buttons{
+   grid-column:2!important;
+   grid-row:1!important;
+   display:flex!important;
+   width:100%!important;
+   min-width:0!important;
+   gap:8px!important;
+   overflow:hidden!important;
+ }
+ .yc-v3-voice-host .voice-btn{
+   flex:1 1 0!important;
+   width:auto!important;
+   min-width:44px!important;
+ }
+}
 </style>
 <script>(()=>{
  const mobile=matchMedia('(max-width:1100px)');
+ const iosLike=/iP(?:hone|ad|od)/i.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
+ document.documentElement.classList.toggle('yc-ios-mobile',iosLike);
  let activeDrawer=null,returnFocus=null;
  const panels=()=>[document.getElementById('ycGlobalNav'),document.getElementById('side'),document.querySelector('.yc-v3-content-grid>.right')].filter(Boolean);
  function close(){for(const p of panels()){p.classList.remove('yc-mobile-open','mobile-open');p.inert=mobile.matches}document.getElementById('app')?.classList.remove('yc-mobile-drawer-open');document.querySelectorAll('[aria-controls][aria-expanded]').forEach(b=>b.setAttribute('aria-expanded','false'));activeDrawer=null;returnFocus?.focus();returnFocus=null}
@@ -7060,8 +7245,39 @@ body.yc-stream-resizing *{cursor:ns-resize!important}
  // Desktop double-click joins a voice channel. A deliberate touch tap invokes the same handler.
  document.addEventListener('click',e=>{const room=e.target.closest?.('.voice-channel[data-voice]');if(room&&e.pointerType==='touch'&&mobile.matches){room.dispatchEvent(new MouseEvent('dblclick',{bubbles:true}));close()}});
  window.ycCloseMobileSurface=()=>{if(activeDrawer){close();return true}const modal=document.querySelector('.modal-back:not(.hidden) .x,.yc-rankxp-overlay:not(.hidden) .yc-rankxp-close');if(modal){modal.click();return true}return false};
- let frame=0;function viewport(){cancelAnimationFrame(frame);frame=requestAnimationFrame(()=>{const v=window.visualViewport;const h=v?.height||innerHeight;document.documentElement.style.setProperty('--yc-viewport-height',h+'px');const typing=/^(INPUT|TEXTAREA)$/.test(document.activeElement?.tagName);document.documentElement.classList.toggle('yc-keyboard-open',document.documentElement.dataset.nativeKeyboard==='true'||(typing&&innerHeight-h>120));})}
- visualViewport?.addEventListener('resize',viewport);window.addEventListener('resize',viewport);document.addEventListener('focusin',viewport);document.addEventListener('focusout',viewport);viewport();
+ let frame=0,lastKeyboardOpen=false,lastIosOffset=0;
+ const resetIosViewport=()=>{
+  if(!iosLike)return;
+  for(const delay of [0,70,180,320])setTimeout(()=>{
+   try{window.scrollTo(0,0);document.documentElement.scrollTop=0;document.body.scrollTop=0}catch{}
+  },delay);
+ };
+ function viewport(){
+  cancelAnimationFrame(frame);
+  frame=requestAnimationFrame(()=>{
+   const v=window.visualViewport;
+   const h=Math.max(240,Math.round(v?.height||innerHeight));
+   const offset=Math.max(0,Math.round(v?.offsetTop||0));
+   const root=document.documentElement;
+   root.style.setProperty('--yc-viewport-height',h+'px');
+   root.style.setProperty('--yc-viewport-offset-top',offset+'px');
+   const typing=/^(INPUT|TEXTAREA)$/.test(document.activeElement?.tagName);
+   const nativeKeyboard=root.dataset.nativeKeyboard==='true';
+   const visualKeyboard=typing&&((innerHeight-h)>120||offset>24);
+   const keyboardOpen=nativeKeyboard||visualKeyboard;
+   root.classList.toggle('yc-keyboard-open',keyboardOpen);
+   if(iosLike&&keyboardOpen&&(!lastKeyboardOpen||Math.abs(offset-lastIosOffset)>2))resetIosViewport();
+   if(iosLike&&!keyboardOpen&&lastKeyboardOpen)resetIosViewport();
+   lastKeyboardOpen=keyboardOpen;lastIosOffset=offset;
+  });
+ }
+ visualViewport?.addEventListener('resize',viewport);
+ visualViewport?.addEventListener('scroll',viewport);
+ window.addEventListener('resize',viewport);
+ document.addEventListener('focusin',viewport);
+ document.addEventListener('focusout',viewport);
+ new MutationObserver(viewport).observe(document.documentElement,{attributes:true,attributeFilter:['data-native-keyboard']});
+ viewport();
  const password=document.getElementById('password');if(password){password.autocomplete='current-password';password.setAttribute('autocapitalize','none');password.setAttribute('autocorrect','off');password.spellcheck=false;const b=document.createElement('button');b.type='button';b.className='ghost';b.textContent='Zobrazit heslo';b.onclick=()=>{const show=password.type==='password';password.type=show?'text':'password';b.textContent=show?'Skrýt heslo':'Zobrazit heslo';b.setAttribute('aria-pressed',String(show))};password.after(b)}
 })();
 </script>
