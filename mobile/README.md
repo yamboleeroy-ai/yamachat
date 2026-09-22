@@ -1,5 +1,9 @@
 # Yamachat Mobile
 
+## Aktuální priorita: iOS
+
+Nejdřív dokončujeme iPhone/iPad a TestFlight. Android projekt zůstává připravený, ale veřejný Android build teď není blokující. Pro Apple postup viz `IOS-TESTFLIGHT.md`.
+
 Společný mobilní projekt Yamachat pro **Android + iOS** postavený na Capacitoru 8. Webová aplikace z kořene repozitáře zůstává zdrojem UI a mobilní build si při buildu vytvoří vlastní kopii do `mobile/www`.
 
 ## Co už je připravené
