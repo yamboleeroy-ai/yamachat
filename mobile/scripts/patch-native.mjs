@@ -26,7 +26,19 @@ function patchAndroid() {
     if (name && !xml.includes(name)) xml = xml.replace(/<manifest([^>]*)>/, '<manifest$1>\n    ' + line);
   }
   fs.writeFileSync(p, xml, 'utf8');
-  console.log('Android permissions patched.');
+
+  // Use the Yamachat artwork for the generated Android launcher icon.
+  const icon = path.join(root, 'www/icons/icon-512.png');
+  const res = path.join(root, 'android/app/src/main/res');
+  if (fs.existsSync(icon) && fs.existsSync(res)) {
+    for (const dir of fs.readdirSync(res).filter(x => x.startsWith('mipmap-'))) {
+      const dst = path.join(res, dir);
+      for (const name of ['ic_launcher.png', 'ic_launcher_round.png', 'ic_launcher_foreground.png']) {
+        try { fs.copyFileSync(icon, path.join(dst, name)); } catch {}
+      }
+    }
+  }
+  console.log('Android permissions and Yamachat launcher artwork patched.');
 }
 
 function plistEntry(key, value) {
