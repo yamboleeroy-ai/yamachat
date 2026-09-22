@@ -1,30 +1,34 @@
-name: Restore exact desktop 1.0.78 reference
+name: Verify released desktop 1.0.78 reference
 
 on:
   push:
     branches:
       - desktop-1.0.78-web-android
     paths:
+      - reference/desktop-1.0.78/**
+      - scripts/build-web.mjs
+      - .github/workflows/repair-desktop-reference.yml
+  pull_request:
+    paths:
+      - reference/desktop-1.0.78/**
+      - scripts/build-web.mjs
       - .github/workflows/repair-desktop-reference.yml
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
-  restore:
+  verify:
     runs-on: ubuntu-latest
     env:
-      EXPECTED_CLIENT_SHA256: d7ba7d308a8bcf24403b3e68e411f5e55592459d9b2965a2cc284c4b95550846
-      EXPECTED_SHELL_SHA256: f7d00c0f4e4eaade86ce6515251fba1b7078f61df1b0f063c215eb50ee839be3
-      EXPECTED_PACKAGE_SHA256: 366defc973c768c50f068f0dc3717acefe1f9867eb446981f947c1652085104e
-      SOURCE_PACKAGE_B64: ewogICJuYW1lIjogInlhbWFjaGF0LXdpbmRvd3MiLAogICJ2ZXJzaW9uIjogIjEuMC43OCIsCiAgImRlc2NyaXB0aW9uIjogIllhbWFjaGF0IGRlc2t0b3Agd2l0aCBzdGFibGUgY2hhdCwgdm9pY2UsIHN0cmVhbWluZyBhbmQgaW4tYXBwIFdpbmRvd3MgYXV0byB1cGRhdGVzIHZpYSBHaXRIdWIgUmVsZWFzZXMiLAogICJtYWluIjogIm1haW4uanMiLAogICJwcm9kdWN0TmFtZSI6ICJZYW1hY2hhdCIsCiAgImF1dGhvciI6ICJZYW1hY2hhdCIsCiAgImxpY2Vuc2UiOiAiSVNDIiwKICAidHlwZSI6ICJjb21tb25qcyIsCiAgInJlcG9zaXRvcnkiOiB7CiAgICAidHlwZSI6ICJnaXQiLAogICAgInVybCI6ICJodHRwczovL2dpdGh1Yi5jb20veWFtYm9sZWVyb3ktYWkveWFtYWNoYXQuZ2l0IgogIH0sCiAgInNjcmlwdHMiOiB7CiAgICAic3RhcnQiOiAiZWxlY3Ryb24gLiIsCiAgICAiZGlzdDp3aW4iOiAiZWxlY3Ryb24tYnVpbGRlciAtLXdpbiBuc2lzIC0teDY0IC0tcHVibGlzaCBuZXZlciIsCiAgICAicmVsZWFzZTp3aW4iOiAiZWxlY3Ryb24tYnVpbGRlciAtLXdpbiBuc2lzIC0teDY0IC0tcHVibGlzaCBuZXZlciIKICB9LAogICJkZXBlbmRlbmNpZXMiOiB7CiAgICAiQHN1cGFiYXNlL3N1cGFiYXNlLWpzIjogIjIuOTUuMCIsCiAgICAiZWxlY3Ryb24tdXBkYXRlciI6ICI2LjguOSIKICB9LAogICJkZXZEZXBlbmRlbmNpZXMiOiB7CiAgICAiZWxlY3Ryb24iOiAiNDQuMy4wIiwKICAgICJlbGVjdHJvbi1idWlsZGVyIjogIjI2LjE2LjEiCiAgfSwKICAiYnVpbGQiOiB7CiAgICAiYXBwSWQiOiAiY3oueWFtYWNoYXQuZGVza3RvcCIsCiAgICAicHJvZHVjdE5hbWUiOiAiWWFtYWNoYXQiLAogICAgImFzYXIiOiBmYWxzZSwKICAgICJkaXJlY3RvcmllcyI6IHsKICAgICAgImJ1aWxkUmVzb3VyY2VzIjogImJ1aWxkIiwKICAgICAgIm91dHB1dCI6ICJkaXN0IgogICAgfSwKICAgICJmaWxlcyI6IFsKICAgICAgIm1haW4uanMiLAogICAgICAidXBkYXRlci5qcyIsCiAgICAgICJ1cGRhdGVyLWhlbHBlci5wczEiLAogICAgICAicHJlbG9hZC5qcyIsCiAgICAgICJub3RpZmljYXRpb24tcHJlbG9hZC5qcyIsCiAgICAgICJkZXNrdG9wLmh0bWwiLAogICAgICAiZGVza3RvcC1jbGllbnQuaHRtbCIsCiAgICAgICJhdWRpby8qKi8qIiwKICAgICAgImJ1aWxkLyoqLyoiCiAgICBdLAogICAgIndpbiI6IHsKICAgICAgInRhcmdldCI6IFsKICAgICAgICB7CiAgICAgICAgICAidGFyZ2V0IjogIm5zaXMiLAogICAgICAgICAgImFyY2giOiBbCiAgICAgICAgICAgICJ4NjQiCiAgICAgICAgICBdCiAgICAgICAgfQogICAgICBdLAogICAgICAiaWNvbiI6ICJidWlsZC9pY29uLmljbyIsCiAgICAgICJhcnRpZmFjdE5hbWUiOiAiWWFtYWNoYXQtU2V0dXAtJHt2ZXJzaW9ufS4ke2V4dH0iCiAgICB9LAogICAgIm5zaXMiOiB7CiAgICAgICJvbmVDbGljayI6IHRydWUsCiAgICAgICJwZXJNYWNoaW5lIjogZmFsc2UsCiAgICAgICJhbGxvd0VsZXZhdGlvbiI6IGZhbHNlLAogICAgICAiY3JlYXRlRGVza3RvcFNob3J0Y3V0IjogdHJ1ZSwKICAgICAgImNyZWF0ZVN0YXJ0TWVudVNob3J0Y3V0IjogdHJ1ZSwKICAgICAgImRlbGV0ZUFwcERhdGFPblVuaW5zdGFsbCI6IGZhbHNlLAogICAgICAicnVuQWZ0ZXJGaW5pc2giOiB0cnVlLAogICAgICAiZGlmZmVyZW50aWFsUGFja2FnZSI6IHRydWUsCiAgICAgICJpbmNsdWRlIjogImJ1aWxkL2luc3RhbGxlci5uc2giCiAgICB9LAogICAgInB1Ymxpc2giOiBbCiAgICAgIHsKICAgICAgICAicHJvdmlkZXIiOiAiZ2l0aHViIiwKICAgICAgICAib3duZXIiOiAieWFtYm9sZWVyb3ktYWkiLAogICAgICAgICJyZXBvIjogInlhbWFjaGF0IiwKICAgICAgICAicmVsZWFzZVR5cGUiOiAicmVsZWFzZSIKICAgICAgfQogICAgXQogIH0KfQo=
+      RELEASE_CLIENT_SHA256: 5debafce14d888d68c1043145558a9411f85c16b16f685f01fd650a518a380ed
+      RELEASE_SHELL_SHA256: e356a49ece52b31580f1c54a248fcddecb59442ac932b05f2f822b4a88b93ed9
+      RELEASE_BOOT_GUARD_SHA256: 9872ac6e41c95c49861533a76b8a2bcd0036f2e0db3d6a8e06db1567c43fe25e
+      RELEASE_PACKAGE_SHA256: 3ac5081bf57f88123fea653f047318ee8854b588ef6f68d263a48f05211df455
 
     steps:
       - uses: actions/checkout@v4
-        with:
-          ref: desktop-1.0.78-web-android
-          fetch-depth: 0
 
       - name: Install extractor
         run: |
@@ -42,7 +46,7 @@ jobs:
             --pattern "Yamachat-Setup-1.0.78.exe" \
             --dir /tmp/yamachat-release
 
-      - name: Extract exact desktop files
+      - name: Verify reference is byte-for-byte released desktop
         run: |
           set -euo pipefail
           mkdir -p /tmp/yamachat-nsis /tmp/yamachat-app
@@ -55,56 +59,35 @@ jobs:
             cp -a /tmp/yamachat-nsis/. /tmp/yamachat-app/
           fi
 
-          client="$(find /tmp/yamachat-app /tmp/yamachat-nsis -type f -path '*/resources/app/desktop-client.html' | head -n 1 || true)"
-          shell="$(find /tmp/yamachat-app /tmp/yamachat-nsis -type f -path '*/resources/app/desktop.html' | head -n 1 || true)"
+          app_root="$(dirname "$(find /tmp/yamachat-app /tmp/yamachat-nsis -type f -path '*/resources/app/desktop-client.html' | head -n 1)")"
+          test -n "$app_root"
 
-          if [ -z "$client" ] || [ -z "$shell" ]; then
-            echo "Desktop files were not found in the released installer."
-            find /tmp/yamachat-nsis -maxdepth 4 -type f | head -n 120
-            exit 1
-          fi
+          for file in desktop-client.html desktop.html boot-guard.js package.json; do
+            test -f "$app_root/$file"
+            test -f "reference/desktop-1.0.78/$file"
+            cmp "$app_root/$file" "reference/desktop-1.0.78/$file"
+          done
 
-          actual_client="$(sha256sum "$client" | awk '{print $1}')"
-          actual_shell="$(sha256sum "$shell" | awk '{print $1}')"
-          echo "Released desktop-client.html SHA256: $actual_client"
-          echo "Expected source desktop-client.html SHA256: $EXPECTED_CLIENT_SHA256"
-          echo "Released desktop.html SHA256: $actual_shell"
-          echo "Expected source desktop.html SHA256: $EXPECTED_SHELL_SHA256"
-          test "$actual_client" = "$EXPECTED_CLIENT_SHA256"
-          test "$actual_shell" = "$EXPECTED_SHELL_SHA256"
+          test "$(sha256sum "$app_root/desktop-client.html" | awk '{print $1}')" = "$RELEASE_CLIENT_SHA256"
+          test "$(sha256sum "$app_root/desktop.html" | awk '{print $1}')" = "$RELEASE_SHELL_SHA256"
+          test "$(sha256sum "$app_root/boot-guard.js" | awk '{print $1}')" = "$RELEASE_BOOT_GUARD_SHA256"
+          test "$(sha256sum "$app_root/package.json" | awk '{print $1}')" = "$RELEASE_PACKAGE_SHA256"
 
-          cp "$client" reference/desktop-1.0.78/desktop-client.html
-          cp "$shell" reference/desktop-1.0.78/desktop.html
-          printf '%s' "$SOURCE_PACKAGE_B64" | base64 -d > reference/desktop-1.0.78/package.json
-          test "$(sha256sum reference/desktop-1.0.78/package.json | awk '{print $1}')" = "$EXPECTED_PACKAGE_SHA256"
+          node -e '
+            const fs=require("fs"),crypto=require("crypto");
+            const expected=JSON.parse(fs.readFileSync("reference/desktop-1.0.78/SHA256.json","utf8"));
+            for(const [file,hash] of Object.entries(expected)){
+              const actual=crypto.createHash("sha256").update(fs.readFileSync("reference/desktop-1.0.78/"+file)).digest("hex");
+              if(actual!==hash)throw new Error(file+" reference hash mismatch");
+            }
+            console.log("PASS: desktop reference is byte-for-byte Yamachat 1.0.78 release.");
+          '
 
-          rm -f reference/desktop-1.0.78/boot-guard.js
-          cat > reference/desktop-1.0.78/SHA256.json <<JSON
-          {
-            "desktop-client.html": "$EXPECTED_CLIENT_SHA256",
-            "desktop.html": "$EXPECTED_SHELL_SHA256",
-            "package.json": "$EXPECTED_PACKAGE_SHA256"
-          }
-          JSON
-
-      - name: Rebuild web from clean desktop reference
+      - name: Verify generated web keeps desktop reference immutable
         run: |
           set -euo pipefail
+          before="$(sha256sum reference/desktop-1.0.78/* | sort)"
           node scripts/check.mjs
-          grep -q '<script src="./boot-guard.js"></script>' index.html
-          grep -q 'YamachatBootGuard?.begin()' index.html
-          test "$(sha256sum reference/desktop-1.0.78/desktop-client.html | awk '{print $1}')" = "$EXPECTED_CLIENT_SHA256"
-          test "$(sha256sum reference/desktop-1.0.78/desktop.html | awk '{print $1}')" = "$EXPECTED_SHELL_SHA256"
-
-      - name: Commit repaired reference
-        run: |
-          set -euo pipefail
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add reference/desktop-1.0.78 index.html
-          if git diff --cached --quiet; then
-            echo "Reference already matches released desktop 1.0.78."
-            exit 0
-          fi
-          git commit -m "Restore exact desktop 1.0.78 reference"
-          git push origin HEAD:desktop-1.0.78-web-android
+          after="$(sha256sum reference/desktop-1.0.78/* | sort)"
+          test "$before" = "$after"
+          echo "PASS: web/mobile generation did not change the desktop reference."
