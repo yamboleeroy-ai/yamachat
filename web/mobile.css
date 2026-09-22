@@ -64,3 +64,161 @@
  html.yc-native-android .yc-v3-voice-host #soundboardPanel{bottom:calc(70px + var(--yc-native-bottom-controls-clearance))!important}
  html.yc-native-android.yc-keyboard-open .yc-v3-voice-host #soundboardPanel{bottom:70px!important}
 }
+
+
+/* iPhone/iPad keyboard guard.
+   iOS may pan the visual viewport when an input gets focus. Keep the whole app
+   pinned to the actually visible viewport and give the conversation all space
+   while typing. This is mobile-only and never touches the desktop reference. */
+@media(max-width:1100px){
+ html.yc-ios-mobile.yc-keyboard-open,
+ html.yc-ios-mobile.yc-keyboard-open body{
+   position:fixed!important;
+   inset:0!important;
+   width:100%!important;
+   max-width:100%!important;
+   height:var(--yc-viewport-height)!important;
+   min-height:0!important;
+   overflow:hidden!important;
+ }
+ html.yc-ios-mobile.yc-keyboard-open .app.yc-v3-ready{
+   position:absolute!important;
+   inset:0!important;
+   height:100%!important;
+   min-height:0!important;
+   overflow:hidden!important;
+ }
+ html.yc-ios-mobile.yc-keyboard-open .yc-v3-workspace{
+   height:100%!important;
+   min-height:0!important;
+   grid-template-rows:50px 0 minmax(0,1fr) 0!important;
+ }
+ html.yc-ios-mobile.yc-keyboard-open .yc-v3-voice-host{
+   display:none!important;
+ }
+ html.yc-ios-mobile.yc-keyboard-open .yc-v3-content-grid,
+ html.yc-ios-mobile.yc-keyboard-open .yc-v3-content-grid>.chat{
+   height:100%!important;
+   min-height:0!important;
+ }
+ html.yc-ios-mobile.yc-keyboard-open .yc-v3-content-grid>.chat>.messages{
+   min-height:0!important;
+ }
+ html.yc-ios-mobile.yc-keyboard-open .yc-v3-content-grid>.chat>.composer-wrap{
+   flex:0 0 auto!important;
+   position:relative!important;
+   z-index:1010!important;
+   padding-bottom:max(6px,env(safe-area-inset-bottom))!important;
+ }
+}
+
+/* Portrait phones: one compact voice row.
+   Avatar/name stay visible at the left; voice buttons sit directly next to it
+   instead of collapsing/overlapping. Extra connected controls remain horizontally
+   scrollable rather than covering each other. */
+@media(max-width:520px) and (orientation:portrait){
+ .yc-v3-voice-host,
+ .yc-v3-voice-host .voice-controls{
+   height:68px!important;
+   min-height:68px!important;
+ }
+ .yc-v3-voice-host .voice-controls{
+   display:grid!important;
+   grid-template-columns:minmax(118px,1fr) minmax(128px,auto)!important;
+   grid-template-rows:1fr!important;
+   align-items:center!important;
+   gap:7px!important;
+   padding:7px max(7px,env(safe-area-inset-right)) max(7px,env(safe-area-inset-bottom)) max(7px,env(safe-area-inset-left))!important;
+   overflow:hidden!important;
+ }
+ .yc-v3-voice-host #voiceConnectionPanel{
+   display:none!important;
+ }
+ .yc-v3-voice-host .yc-voice-self-row{
+   display:flex!important;
+   grid-column:1!important;
+   grid-row:1!important;
+   align-items:center!important;
+   min-width:0!important;
+   margin:0!important;
+   padding:0!important;
+   gap:7px!important;
+ }
+ .yc-v3-voice-host .yc-voice-self-avatar{
+   width:40px!important;
+   height:40px!important;
+   flex:0 0 40px!important;
+ }
+ .yc-v3-voice-host .yc-voice-self-avatar>.rank-crest>.avatar{
+   width:32px!important;
+   height:32px!important;
+ }
+ .yc-v3-voice-host .yc-voice-self-copy{
+   min-width:0!important;
+ }
+ .yc-v3-voice-host .yc-voice-self-copy strong{
+   font-size:11px!important;
+ }
+ .yc-v3-voice-host .yc-voice-self-copy small{
+   font-size:9px!important;
+ }
+ .yc-v3-voice-host .discord-voice-buttons{
+   grid-column:2!important;
+   grid-row:1!important;
+   display:flex!important;
+   align-items:center!important;
+   justify-content:flex-end!important;
+   min-width:0!important;
+   max-width:calc(100vw - 132px)!important;
+   gap:5px!important;
+   overflow-x:auto!important;
+   overflow-y:hidden!important;
+   scrollbar-width:none!important;
+ }
+ .yc-v3-voice-host .discord-voice-buttons::-webkit-scrollbar{display:none!important}
+ .yc-v3-voice-host .voice-btn{
+   flex:0 0 38px!important;
+   width:38px!important;
+   min-width:38px!important;
+   height:42px!important;
+   min-height:42px!important;
+   padding:0!important;
+ }
+}
+
+/* Landscape phones/tablets: let the same dock breathe and stretch across the
+   available width, similar to the wide desktop dock. */
+@media(max-width:1100px) and (orientation:landscape){
+ .yc-v3-voice-host .voice-controls{
+   display:grid!important;
+   grid-template-columns:minmax(190px,.85fr) minmax(0,1.65fr)!important;
+   align-items:center!important;
+   gap:10px!important;
+ }
+ .yc-v3-voice-host #voiceConnectionPanel{
+   display:none!important;
+ }
+ .yc-v3-voice-host .yc-voice-self-row{
+   display:flex!important;
+   grid-column:1!important;
+   grid-row:1!important;
+   align-items:center!important;
+   min-width:0!important;
+   margin:0!important;
+   padding:0!important;
+ }
+ .yc-v3-voice-host .discord-voice-buttons{
+   grid-column:2!important;
+   grid-row:1!important;
+   display:flex!important;
+   width:100%!important;
+   min-width:0!important;
+   gap:8px!important;
+   overflow:hidden!important;
+ }
+ .yc-v3-voice-host .voice-btn{
+   flex:1 1 0!important;
+   width:auto!important;
+   min-width:44px!important;
+ }
+}
