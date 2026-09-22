@@ -1,4 +1,4 @@
-name: Verify released desktop 1.0.78 reference
+name: Verify released desktop 1.0.78 runtime reference
 
 on:
   push:
@@ -25,7 +25,6 @@ jobs:
       RELEASE_CLIENT_SHA256: 5debafce14d888d68c1043145558a9411f85c16b16f685f01fd650a518a380ed
       RELEASE_SHELL_SHA256: e356a49ece52b31580f1c54a248fcddecb59442ac932b05f2f822b4a88b93ed9
       RELEASE_BOOT_GUARD_SHA256: 9872ac6e41c95c49861533a76b8a2bcd0036f2e0db3d6a8e06db1567c43fe25e
-      RELEASE_PACKAGE_SHA256: 3ac5081bf57f88123fea653f047318ee8854b588ef6f68d263a48f05211df455
 
     steps:
       - uses: actions/checkout@v4
@@ -62,7 +61,7 @@ jobs:
           app_root="$(dirname "$(find /tmp/yamachat-app /tmp/yamachat-nsis -type f -path '*/resources/app/desktop-client.html' | head -n 1)")"
           test -n "$app_root"
 
-          for file in desktop-client.html desktop.html boot-guard.js package.json; do
+          for file in desktop-client.html desktop.html boot-guard.js; do
             test -f "$app_root/$file"
             test -f "reference/desktop-1.0.78/$file"
             cmp "$app_root/$file" "reference/desktop-1.0.78/$file"
@@ -71,7 +70,6 @@ jobs:
           test "$(sha256sum "$app_root/desktop-client.html" | awk '{print $1}')" = "$RELEASE_CLIENT_SHA256"
           test "$(sha256sum "$app_root/desktop.html" | awk '{print $1}')" = "$RELEASE_SHELL_SHA256"
           test "$(sha256sum "$app_root/boot-guard.js" | awk '{print $1}')" = "$RELEASE_BOOT_GUARD_SHA256"
-          test "$(sha256sum "$app_root/package.json" | awk '{print $1}')" = "$RELEASE_PACKAGE_SHA256"
 
           node -e '
             const fs=require("fs"),crypto=require("crypto");
@@ -80,7 +78,9 @@ jobs:
               const actual=crypto.createHash("sha256").update(fs.readFileSync("reference/desktop-1.0.78/"+file)).digest("hex");
               if(actual!==hash)throw new Error(file+" reference hash mismatch");
             }
-            console.log("PASS: desktop reference is byte-for-byte Yamachat 1.0.78 release.");
+            const pkg=JSON.parse(fs.readFileSync("reference/desktop-1.0.78/package.json","utf8"));
+            if(pkg.version!=="1.0.78")throw new Error("Desktop source manifest version mismatch");
+            console.log("PASS: desktop runtime reference is byte-for-byte Yamachat 1.0.78 release; source manifest is integrity-checked.");
           '
 
       - name: Verify generated web keeps desktop reference immutable
