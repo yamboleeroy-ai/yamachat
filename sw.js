@@ -1,4 +1,4 @@
-const CACHE='yamachat-web-1.0.79-mobile';
+const CACHE='yamachat-web-1.0.80-mobile-project';
 const SHELL=['./','./index.html','./manifest.webmanifest','./offline.html','./icons/icon-192.png','./icons/icon-512.png','./audio/mic-gate.worklet.js','./audio/rnnoise.worklet.js','./audio/rnnoise.mjs','./audio/rnnoise.wasm'];
 self.addEventListener('install',event=>event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(SHELL))));
 self.addEventListener('activate',event=>event.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k.startsWith('yamachat-web-')&&k!==CACHE).map(k=>caches.delete(k)))).then(()=>self.clients.claim())));
