@@ -4,6 +4,7 @@ import { Keyboard } from '@capacitor/keyboard';
 import { PushNotifications } from '@capacitor/push-notifications';
 import { SplashScreen } from '@capacitor/splash-screen';
 import { StatusBar, Style } from '@capacitor/status-bar';
+import { LocalNotifications } from '@capacitor/local-notifications';
 
 declare global {
   interface Window {
@@ -13,6 +14,10 @@ declare global {
       version: string;
     };
     ycNativeRequestNotifications?: () => Promise<{granted:boolean; token?:string}>;
+    ycCloseMobileSurface?: () => boolean;
+    ycNativeNotificationPermission?: () => Promise<boolean>;
+    ycNativeShowNotification?: (payload: {title?:string;body?:string;where?:string;target?:Record<string,string>}) => Promise<boolean>;
+    ycOpenDesktopNotificationTarget?: (target: Record<string,string>) => Promise<void>;
   }
 }
 
@@ -22,6 +27,16 @@ declare global {
   const platform = Capacitor.getPlatform();
   document.documentElement.classList.add('yc-native-app', 'yc-native-' + platform);
   window.__YAMACHAT_MOBILE__ = { native: true, platform, version: '1.0.0' };
+  window.ycNativeNotificationPermission = async () => (await LocalNotifications.checkPermissions()).display === 'granted';
+  window.ycNativeShowNotification = async payload => {
+    if (!(await window.ycNativeNotificationPermission!())) return false;
+    await LocalNotifications.schedule({notifications:[{id:Math.floor(Math.random()*2147483646)+1,title:payload.title||'Yamachat',body:[payload.where,payload.body].filter(Boolean).join(' · '),extra:payload.target||{},channelId:'yamachat-messages'}]});
+    return true;
+  };
+  if(platform==='android')void LocalNotifications.createChannel({id:'yamachat-messages',name:'Zprávy Yamachat',importance:4}).catch(()=>{});
+  void LocalNotifications.addListener('localNotificationActionPerformed',action=>{
+    void window.ycOpenDesktopNotificationTarget?.(action.notification.extra||{});
+  });
 
   // Capacitor app uses bundled files, not the browser service worker cache.
   try {
@@ -43,8 +58,8 @@ declare global {
   else window.addEventListener('load', () => setTimeout(hideSplash, 120), { once: true });
 
   try {
-    Keyboard.addListener('keyboardWillShow', () => document.documentElement.classList.add('yc-native-keyboard-open'));
-    Keyboard.addListener('keyboardWillHide', () => document.documentElement.classList.remove('yc-native-keyboard-open'));
+    await Keyboard.addListener('keyboardWillShow', () => {document.documentElement.dataset.nativeKeyboard='true';document.documentElement.classList.add('yc-keyboard-open')});
+    await Keyboard.addListener('keyboardWillHide', () => {delete document.documentElement.dataset.nativeKeyboard;document.documentElement.classList.remove('yc-keyboard-open')});
   } catch {}
 
   try {
@@ -52,6 +67,7 @@ declare global {
       window.dispatchEvent(new CustomEvent('yamachat:native-app-state', { detail: { isActive } }));
     });
     App.addListener('backButton', ({ canGoBack }) => {
+      if (window.ycCloseMobileSurface?.()) return;
       const nav = document.getElementById('ycGlobalNav');
       const side = document.getElementById('side');
       const right = document.querySelector('.yc-v3-content-grid>.right');
@@ -89,11 +105,8 @@ declare global {
 
   window.ycNativeRequestNotifications = async () => {
     try {
-      let permission = await PushNotifications.checkPermissions();
-      if (permission.receive === 'prompt') permission = await PushNotifications.requestPermissions();
-      if (permission.receive !== 'granted') return { granted: false };
-      await PushNotifications.register();
-      return { granted: true, token: pushToken || undefined };
+      const permission = await LocalNotifications.requestPermissions();
+      return { granted: permission.display === 'granted' };
     } catch {
       return { granted: false };
     }

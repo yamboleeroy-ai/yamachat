@@ -2,12 +2,17 @@ name: Yamachat Android APK
 
 on:
   workflow_dispatch:
+  pull_request:
   push:
     paths:
       - "mobile/**"
       - "index.html"
       - "icons/**"
       - "audio/**"
+      - "web/**"
+      - "scripts/**"
+      - "reference/**"
+      - "vendor/**"
       - ".github/workflows/mobile-android.yml"
 
 permissions:
@@ -34,7 +39,7 @@ jobs:
 
       - name: Install mobile dependencies
         working-directory: mobile
-        run: npm install
+        run: npm ci
 
       - name: Prepare bundled Yamachat web
         working-directory: mobile
@@ -61,6 +66,7 @@ jobs:
           cp app/build/outputs/apk/debug/app-debug.apk ../../Yamachat-Android.apk
 
       - name: Publish APK for yamachat.eu
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: |
           mkdir -p download
           cp Yamachat-Android.apk download/Yamachat-Android.apk

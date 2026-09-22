@@ -1,0 +1,94 @@
+name: Verify desktop 1.0.78 and generated web
+
+on:
+  push:
+    branches:
+      - desktop-1.0.78-web-android
+    paths:
+      - reference/desktop-1.0.78/**
+      - scripts/build-web.mjs
+      - .github/workflows/repair-desktop-reference.yml
+  pull_request:
+    paths:
+      - reference/desktop-1.0.78/**
+      - scripts/build-web.mjs
+      - .github/workflows/repair-desktop-reference.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    env:
+      RELEASE_CLIENT_SHA256: 5debafce14d888d68c1043145558a9411f85c16b16f685f01fd650a518a380ed
+      RELEASE_SHELL_SHA256: e356a49ece52b31580f1c54a248fcddecb59442ac932b05f2f822b4a88b93ed9
+      RELEASE_BOOT_GUARD_SHA256: 9872ac6e41c95c49861533a76b8a2bcd0036f2e0db3d6a8e06db1567c43fe25e
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install extractor
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq p7zip-full
+
+      - name: Download released desktop 1.0.78
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/yamachat-release
+          gh release download v1.0.78 \
+            --repo "${GITHUB_REPOSITORY}" \
+            --pattern "Yamachat-Setup-1.0.78.exe" \
+            --dir /tmp/yamachat-release
+
+      - name: Verify reference is byte-for-byte released desktop
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/yamachat-nsis /tmp/yamachat-app
+          7z x /tmp/yamachat-release/Yamachat-Setup-1.0.78.exe -o/tmp/yamachat-nsis -y >/dev/null
+
+          archive="$(find /tmp/yamachat-nsis -type f \( -name 'app-64.7z' -o -name 'app-*.7z' \) | head -n 1 || true)"
+          if [ -n "$archive" ]; then
+            7z x "$archive" -o/tmp/yamachat-app -y >/dev/null
+          else
+            cp -a /tmp/yamachat-nsis/. /tmp/yamachat-app/
+          fi
+
+          app_root="$(dirname "$(find /tmp/yamachat-app /tmp/yamachat-nsis -type f -path '*/resources/app/desktop-client.html' | head -n 1)")"
+          test -n "$app_root"
+
+          for file in desktop-client.html desktop.html boot-guard.js; do
+            test -f "$app_root/$file"
+            test -f "reference/desktop-1.0.78/$file"
+            cmp "$app_root/$file" "reference/desktop-1.0.78/$file"
+          done
+
+          test "$(sha256sum "$app_root/desktop-client.html" | awk '{print $1}')" = "$RELEASE_CLIENT_SHA256"
+          test "$(sha256sum "$app_root/desktop.html" | awk '{print $1}')" = "$RELEASE_SHELL_SHA256"
+          test "$(sha256sum "$app_root/boot-guard.js" | awk '{print $1}')" = "$RELEASE_BOOT_GUARD_SHA256"
+
+          node -e '
+            const fs=require("fs"),crypto=require("crypto");
+            const expected=JSON.parse(fs.readFileSync("reference/desktop-1.0.78/SHA256.json","utf8"));
+            for(const [file,hash] of Object.entries(expected)){
+              const actual=crypto.createHash("sha256").update(fs.readFileSync("reference/desktop-1.0.78/"+file)).digest("hex");
+              if(actual!==hash)throw new Error(file+" reference hash mismatch");
+            }
+            const pkg=JSON.parse(fs.readFileSync("reference/desktop-1.0.78/package.json","utf8"));
+            if(pkg.version!=="1.0.78")throw new Error("Desktop source manifest version mismatch");
+            console.log("PASS: desktop runtime reference is byte-for-byte Yamachat 1.0.78 release; source manifest is integrity-checked.");
+          '
+
+      - name: Verify generated web keeps desktop reference immutable
+        run: |
+          set -euo pipefail
+          before="$(sha256sum reference/desktop-1.0.78/* | sort)"
+          node scripts/check.mjs
+          after="$(sha256sum reference/desktop-1.0.78/* | sort)"
+          test "$before" = "$after"
+          git diff --exit-code -- index.html
+          echo "PASS: desktop reference is unchanged and committed index.html matches the desktop-derived generator."
