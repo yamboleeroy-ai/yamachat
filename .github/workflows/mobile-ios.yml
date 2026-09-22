@@ -1,0 +1,60 @@
+name: Yamachat Mobile iOS Check
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "mobile/**"
+      - "index.html"
+      - "icons/**"
+      - "audio/**"
+      - ".github/workflows/mobile-ios.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  build-ios:
+    runs-on: macos-latest
+    timeout-minutes: 35
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install mobile dependencies
+        working-directory: mobile
+        run: npm install
+
+      - name: Prepare bundled Yamachat web
+        working-directory: mobile
+        run: npm run prepare:web
+
+      - name: Create iOS project when missing
+        working-directory: mobile
+        run: |
+          if [ ! -d ios ]; then
+            npx cap add ios
+          fi
+
+      - name: Sync and patch iOS
+        working-directory: mobile
+        run: |
+          npx cap sync ios
+          node scripts/patch-native.mjs ios
+
+      - name: Compile iPhone Simulator build
+        working-directory: mobile
+        run: |
+          xcodebuild \
+            -workspace ios/App/App.xcworkspace \
+            -scheme App \
+            -configuration Debug \
+            -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' \
+            CODE_SIGNING_ALLOWED=NO \
+            build
