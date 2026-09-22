@@ -1,4 +1,4 @@
-name: Verify desktop 1.0.78 and sync generated web
+name: Verify desktop 1.0.78 and generated web
 
 on:
   push:
@@ -16,7 +16,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   verify:
@@ -90,18 +90,5 @@ jobs:
           node scripts/check.mjs
           after="$(sha256sum reference/desktop-1.0.78/* | sort)"
           test "$before" = "$after"
-          echo "PASS: web/mobile generation did not change the desktop reference."
-
-      - name: Sync generated web output on branch
-        if: github.event_name == 'push'
-        run: |
-          set -euo pipefail
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add index.html
-          if git diff --cached --quiet; then
-            echo "Committed index.html already matches the desktop-derived generator."
-            exit 0
-          fi
-          git commit -m "Sync web output from desktop 1.0.78"
-          git push origin HEAD:desktop-1.0.78-web-android
+          git diff --exit-code -- index.html
+          echo "PASS: desktop reference is unchanged and committed index.html matches the desktop-derived generator."
