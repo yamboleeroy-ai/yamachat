@@ -1,0 +1,9 @@
+node_modules/
+www/
+android/.gradle/
+android/local.properties
+android/app/build/
+ios/App/DerivedData/
+ios/App/Pods/
+*.xcuserstate
+.DS_Store
