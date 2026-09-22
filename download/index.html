@@ -52,25 +52,25 @@ body{min-height:100dvh;padding:env(safe-area-inset-top) env(safe-area-inset-righ
 
   <section class="hero">
     <h1>Yamachat do kapsy.</h1>
-    <p>Stejný účet, servery, zprávy a hlasové kanály. Android a iOS vznikají ze společného mobilního projektu, takže obě verze drží stejné funkce a vzhled.</p>
+    <p>Stejný účet, servery, zprávy a hlasové kanály. Teď dokončujeme nejdřív iPhone / iPad přes TestFlight; Android zůstává připravený jako druhý krok.</p>
 
     <div class="platforms">
+      <article class="card ios">
+        <div class="icon"></div>
+        <div id="iosState" class="state">iOS je první priorita</div>
+        <h2>iPhone / iPad</h2>
+        <p>iOS verze je připravená pro první podepsaný build. Jakmile propojíme Apple Developer účet, budeme ji instalovat přes TestFlight.</p>
+        <a id="iosBtn" class="btn ios disabled" href="#" aria-disabled="true">Čeká na první TestFlight build</a>
+        <div class="note">Pro instalaci na iPhone je potřeba Apple podpis. Samotný soubor IPA z webu běžně nestačí.</div>
+      </article>
+
       <article class="card android">
         <div class="icon">🤖</div>
-        <div id="androidState" class="state">Kontroluji vydání</div>
+        <div id="androidState" class="state">Druhý krok</div>
         <h2>Android</h2>
         <p>Instalační APK pro telefon nebo tablet. Po vydání první mobilní verze se tlačítko automaticky propojí s nejnovějším APK v GitHub Releases.</p>
         <a id="androidBtn" class="btn disabled" href="#" aria-disabled="true">APK zatím není vydané</a>
         <div id="androidNote" class="note">Projekt Androidu je připravený. Veřejné APK ještě musí projít prvním buildem a podepsáním.</div>
-      </article>
-
-      <article class="card ios">
-        <div class="icon"></div>
-        <div id="iosState" class="state">Připravuje se</div>
-        <h2>iPhone / iPad</h2>
-        <p>iOS verze používá stejný projekt. Veřejnou instalaci zpřístupníme přes TestFlight a následně App Store nebo schválenou Apple distribuci.</p>
-        <a id="iosBtn" class="btn ios disabled" href="#" aria-disabled="true">TestFlight zatím není aktivní</a>
-        <div class="note">Pro instalaci na iPhone je potřeba Apple podpis. Samotný soubor IPA z webu běžně nestačí.</div>
       </article>
     </div>
 
