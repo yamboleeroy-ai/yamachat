@@ -26,6 +26,22 @@
  .composer .iconbtn{min-width:44px!important}
  .yc-v3-voice-host .voice-controls{grid-template-columns:minmax(0,.6fr) minmax(0,1.4fr)!important}
  .yc-v3-voice-host .voice-btn{min-width:44px!important;min-height:44px!important}
+
+ /* Native Android keeps its own system navigation/gesture area at the bottom.
+    Move the whole voice dock into the already-unused gap above it and leave the
+    physical bottom edge free so Android controls never cover Yamachat buttons. */
+ html.yc-native-android{--yc-native-bottom-controls-clearance:max(38px,env(safe-area-inset-bottom))}
+ html.yc-native-android .yc-v3-voice-host{
+   position:relative!important;
+   bottom:var(--yc-native-bottom-controls-clearance)!important;
+   z-index:1003!important;
+ }
+ html.yc-native-android .yc-v3-voice-host #soundboardPanel{
+   bottom:calc(82px + var(--yc-native-bottom-controls-clearance))!important;
+ }
+ /* When the software keyboard is open, Android already reserves its own area. */
+ html.yc-native-android.yc-keyboard-open .yc-v3-voice-host{bottom:0!important}
+ html.yc-native-android.yc-keyboard-open .yc-v3-voice-host #soundboardPanel{bottom:70px!important}
  .modal-back,.yc-rankxp-overlay{padding:max(8px,env(safe-area-inset-top)) max(8px,env(safe-area-inset-right)) max(8px,env(safe-area-inset-bottom)) max(8px,env(safe-area-inset-left))!important}
  .modal,.steam-profile,.yc-rankxp-shell{max-height:calc(var(--yc-viewport-height) - 24px)!important;min-width:0!important;overflow:auto!important}
  .auth{height:100%!important;min-height:0!important;overflow:auto!important;align-items:safe center;padding:max(12px,env(safe-area-inset-top)) 12px max(12px,env(safe-area-inset-bottom))!important}
@@ -39,3 +55,12 @@
 @media(max-width:600px){.yc-app-settings-grid,.yc-settings-grid{grid-template-columns:1fr!important}}
 @media(max-height:500px) and (max-width:1100px){.yc-v3-ribbon{display:none!important}.yc-v3-workspace{grid-template-rows:54px 0 minmax(0,1fr) 64px!important}}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;animation:none!important;transition:none!important}}
+
+@media(max-width:520px){
+ html.yc-native-android .yc-v3-voice-host #soundboardPanel{bottom:calc(76px + var(--yc-native-bottom-controls-clearance))!important}
+ html.yc-native-android.yc-keyboard-open .yc-v3-voice-host #soundboardPanel{bottom:70px!important}
+}
+@media(max-height:500px) and (max-width:1100px){
+ html.yc-native-android .yc-v3-voice-host #soundboardPanel{bottom:calc(70px + var(--yc-native-bottom-controls-clearance))!important}
+ html.yc-native-android.yc-keyboard-open .yc-v3-voice-host #soundboardPanel{bottom:70px!important}
+}
