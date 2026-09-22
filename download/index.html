@@ -52,29 +52,29 @@ body{min-height:100dvh;padding:env(safe-area-inset-top) env(safe-area-inset-righ
 
   <section class="hero">
     <h1>Yamachat do kapsy.</h1>
-    <p>Stejný účet, servery, zprávy a hlasové kanály. Teď dokončujeme nejdřív iPhone / iPad přes TestFlight; Android zůstává připravený jako druhý krok.</p>
+    <p>Stejný účet, servery, zprávy a hlasové kanály. Yamachat můžeš na iPhone, iPad i Android nainstalovat zdarma jako samostatnou webovou aplikaci přímo na plochu.</p>
 
     <div class="platforms">
       <article class="card ios">
         <div class="icon"></div>
-        <div id="iosState" class="state">iOS je první priorita</div>
+        <div class="state ready">Zdarma · bez App Storu</div>
         <h2>iPhone / iPad</h2>
-        <p>iOS verze je připravená pro první podepsaný build. Jakmile propojíme Apple Developer účet, budeme ji instalovat přes TestFlight.</p>
-        <a id="iosBtn" class="btn ios disabled" href="#" aria-disabled="true">Čeká na první TestFlight build</a>
-        <div class="note">Pro instalaci na iPhone je potřeba Apple podpis. Samotný soubor IPA z webu běžně nestačí.</div>
+        <p>Otevři Yamachat v Safari a přidej ho na plochu. Bude mít vlastní ikonu a otevře se jako samostatná webová aplikace.</p>
+        <button id="iosInstallBtn" class="btn ios" type="button" style="cursor:pointer">Jak nainstalovat na iPhone</button>
+        <div class="note"><b>Postup:</b> Safari → Sdílet → Přidat na plochu → zapnout Otevřít jako webovou aplikaci → Přidat.</div>
       </article>
 
       <article class="card android">
         <div class="icon">🤖</div>
-        <div id="androidState" class="state">Druhý krok</div>
+        <div class="state ready">Zdarma · instalovatelná PWA</div>
         <h2>Android</h2>
-        <p>Instalační APK pro telefon nebo tablet. Po vydání první mobilní verze se tlačítko automaticky propojí s nejnovějším APK v GitHub Releases.</p>
-        <a id="androidBtn" class="btn disabled" href="#" aria-disabled="true">APK zatím není vydané</a>
-        <div id="androidNote" class="note">Projekt Androidu je připravený. Veřejné APK ještě musí projít prvním buildem a podepsáním.</div>
+        <p>V Chrome můžeš Yamachat nainstalovat jako webovou aplikaci. Pokud prohlížeč nabídne instalaci, spustíme ji rovnou.</p>
+        <button id="androidInstallBtn" class="btn" type="button" style="cursor:pointer">Nainstalovat na Android</button>
+        <div id="androidNote" class="note"><b>Ruční postup:</b> Chrome → ⋮ → Nainstalovat a vytvořit zástupce / Nainstalovat.</div>
       </article>
     </div>
 
-    <div class="details">
+        <div class="details">
       <div class="detail"><b>Jeden účet</b><span>Stejný Supabase účet a data jako na webu a desktopu.</span></div>
       <div class="detail"><b>Mobilní rozhraní</b><span>Chat přes celou obrazovku, vysouvací kanály a členové.</span></div>
       <div class="detail"><b>Voice připravený</b><span>Mikrofon a audio oprávnění jsou součástí mobilního projektu.</span></div>
@@ -84,43 +84,17 @@ body{min-height:100dvh;padding:env(safe-area-inset-top) env(safe-area-inset-righ
   </section>
 </main>
 <script>
-const REPO='yamboleeroy-ai/yamachat';
-const TESTFLIGHT_URL='';
-
-async function loadAndroid(){
-  const state=document.getElementById('androidState');
-  const btn=document.getElementById('androidBtn');
-  const note=document.getElementById('androidNote');
-  try{
-    const res=await fetch('https://api.github.com/repos/'+REPO+'/releases/latest',{headers:{Accept:'application/vnd.github+json'}});
-    if(!res.ok)throw new Error('No release');
-    const release=await res.json();
-    const apk=(release.assets||[]).find(a=>/\.apk$/i.test(a.name));
-    if(!apk)throw new Error('No APK');
-    state.textContent='Ke stažení · '+(release.tag_name||'nejnovější verze');
-    state.classList.add('ready');
-    btn.textContent='Stáhnout APK';
-    btn.href=apk.browser_download_url;
-    btn.classList.remove('disabled');
-    btn.removeAttribute('aria-disabled');
-    note.textContent='Soubor: '+apk.name;
-  }catch{
-    state.textContent='Projekt připravený';
-  }
-}
-function loadIos(){
-  if(!TESTFLIGHT_URL)return;
-  const state=document.getElementById('iosState');
-  const btn=document.getElementById('iosBtn');
-  state.textContent='TestFlight aktivní';
-  state.classList.add('ready');
-  btn.textContent='Otevřít TestFlight';
-  btn.href=TESTFLIGHT_URL;
-  btn.classList.remove('disabled');
-  btn.removeAttribute('aria-disabled');
-}
-loadAndroid();
-loadIos();
+let deferredInstallPrompt=null;
+const isStandalone=()=>window.matchMedia?.('(display-mode: standalone)')?.matches||window.navigator.standalone===true;
+window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();deferredInstallPrompt=e;document.getElementById('androidInstallBtn').textContent='Nainstalovat Yamachat';});
+document.getElementById('iosInstallBtn').addEventListener('click',()=>{
+  alert('iPhone / iPad:\n\n1. Otevři yamachat.eu v Safari.\n2. Klepni na Sdílet.\n3. Zvol Přidat na plochu.\n4. Zapni Otevřít jako webovou aplikaci.\n5. Klepni na Přidat.');
+});
+document.getElementById('androidInstallBtn').addEventListener('click',async()=>{
+  if(isStandalone()){alert('Yamachat už je na tomto zařízení nainstalovaný.');return}
+  if(deferredInstallPrompt){deferredInstallPrompt.prompt();await deferredInstallPrompt.userChoice;deferredInstallPrompt=null;return}
+  alert('Android / Chrome:\n\n1. Otevři menu ⋮.\n2. Klepni na Nainstalovat a vytvořit zástupce nebo Nainstalovat.\n3. Potvrď instalaci.');
+});
 </script>
 </body>
 </html>
