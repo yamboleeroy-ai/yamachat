@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="cs">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#071019">
+<title>Stáhnout Yamachat</title>
+<link rel="icon" href="../favicon.ico">
+<style>
+:root{--bg:#050b11;--panel:#0a1823;--panel2:#0e2230;--line:#24485f;--cyan:#70e4e8;--blue:#35bdf5;--text:#ebfaff;--muted:#7897a8;--purple:#bd5cff}
+*{box-sizing:border-box}
+html,body{margin:0;min-height:100%;font-family:Inter,Segoe UI,Arial,sans-serif;color:var(--text);background:
+radial-gradient(circle at 50% -10%,rgba(53,189,245,.18),transparent 34%),
+radial-gradient(circle at 10% 70%,rgba(189,92,255,.09),transparent 35%),
+linear-gradient(180deg,#071019,#03070b)}
+body{min-height:100dvh;padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)}
+.wrap{width:min(980px,100%);margin:0 auto;padding:30px 18px 46px}
+.top{display:flex;align-items:center;gap:12px;margin-bottom:28px}
+.top img{width:54px;height:54px;border-radius:14px;box-shadow:0 0 22px rgba(53,189,245,.22)}
+.top-copy{min-width:0}.top-copy strong{display:block;font-size:22px}.top-copy span{display:block;color:var(--muted);font-size:12px;margin-top:2px}
+.back{margin-left:auto;color:#9ddfff;text-decoration:none;border:1px solid #315971;border-radius:10px;padding:9px 12px;background:#091722}
+.hero{padding:30px;border:1px solid rgba(112,228,232,.24);border-radius:22px;background:linear-gradient(145deg,rgba(13,35,49,.96),rgba(6,17,26,.96));box-shadow:0 24px 70px rgba(0,0,0,.36)}
+.hero h1{font-size:clamp(30px,7vw,54px);line-height:1.02;margin:0;letter-spacing:-.035em}
+.hero p{max-width:700px;color:#94adba;font-size:15px;line-height:1.55;margin:16px 0 0}
+.platforms{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:20px}
+.card{position:relative;overflow:hidden;padding:22px;border:1px solid #24475b;border-radius:18px;background:linear-gradient(180deg,#0c202d,#07131c);min-height:270px}
+.card:before{content:"";position:absolute;inset:0 0 auto 0;height:2px;background:linear-gradient(90deg,var(--cyan),transparent 72%)}
+.card.ios:before{background:linear-gradient(90deg,var(--purple),transparent 72%)}
+.icon{width:58px;height:58px;display:grid;place-items:center;border:1px solid #315c75;border-radius:16px;background:#091a26;font-size:30px;margin-bottom:17px}
+.card h2{font-size:24px;margin:0 0 8px}.card p{color:#7895a6;font-size:13px;line-height:1.5;margin:0 0 18px}
+.state{display:inline-flex;align-items:center;gap:6px;border:1px solid #2d556b;border-radius:999px;padding:5px 8px;font-size:10px;font-weight:850;color:#9bd8ef;background:#081720;margin-bottom:13px}
+.state:before{content:"";width:7px;height:7px;border-radius:50%;background:#e0b84a;box-shadow:0 0 8px rgba(224,184,74,.45)}
+.state.ready:before{background:#59dc84;box-shadow:0 0 8px rgba(89,220,132,.45)}
+.btn{display:flex;align-items:center;justify-content:center;width:100%;min-height:48px;border-radius:12px;text-decoration:none;font-weight:900;border:1px solid #70e4e8;background:linear-gradient(180deg,#6feaf0,#2ba8c8);color:#04131a;box-shadow:0 0 20px rgba(112,228,232,.13)}
+.btn.ios{border-color:#c77bff;background:linear-gradient(180deg,#d19aff,#8750d0);color:#14061f}
+.btn.disabled{pointer-events:none;filter:saturate(.4);opacity:.52;box-shadow:none}
+.note{margin-top:10px;color:#617f91;font-size:10px;line-height:1.45}
+.web{margin-top:16px;padding:15px 17px;border:1px solid #203e50;border-radius:14px;background:#07131c;color:#809cab;font-size:12px;line-height:1.5}
+.web a{color:#83ddff}
+.details{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:16px}
+.detail{padding:13px;border:1px solid #193648;border-radius:12px;background:#07131b}.detail b{display:block;color:#dff9ff;font-size:12px}.detail span{display:block;color:#6e8b9b;font-size:10px;line-height:1.4;margin-top:4px}
+@media(max-width:700px){.wrap{padding:18px 12px 30px}.top{margin-bottom:18px}.hero{padding:22px 16px}.platforms{grid-template-columns:1fr}.card{min-height:0}.details{grid-template-columns:1fr}.back{font-size:12px;padding:8px 9px}}
+</style>
+</head>
+<body>
+<main class="wrap">
+  <div class="top">
+    <img src="../icons/icon-192.png" alt="Yamachat">
+    <div class="top-copy"><strong>Yamachat</strong><span>Mobilní aplikace</span></div>
+    <a class="back" href="../">← Zpět do Yamachatu</a>
+  </div>
+
+  <section class="hero">
+    <h1>Yamachat do kapsy.</h1>
+    <p>Stejný účet, servery, zprávy a hlasové kanály. Android a iOS vznikají ze společného mobilního projektu, takže obě verze drží stejné funkce a vzhled.</p>
+
+    <div class="platforms">
+      <article class="card android">
+        <div class="icon">🤖</div>
+        <div id="androidState" class="state">Kontroluji vydání</div>
+        <h2>Android</h2>
+        <p>Instalační APK pro telefon nebo tablet. Po vydání první mobilní verze se tlačítko automaticky propojí s nejnovějším APK v GitHub Releases.</p>
+        <a id="androidBtn" class="btn disabled" href="#" aria-disabled="true">APK zatím není vydané</a>
+        <div id="androidNote" class="note">Projekt Androidu je připravený. Veřejné APK ještě musí projít prvním buildem a podepsáním.</div>
+      </article>
+
+      <article class="card ios">
+        <div class="icon"></div>
+        <div id="iosState" class="state">Připravuje se</div>
+        <h2>iPhone / iPad</h2>
+        <p>iOS verze používá stejný projekt. Veřejnou instalaci zpřístupníme přes TestFlight a následně App Store nebo schválenou Apple distribuci.</p>
+        <a id="iosBtn" class="btn ios disabled" href="#" aria-disabled="true">TestFlight zatím není aktivní</a>
+        <div class="note">Pro instalaci na iPhone je potřeba Apple podpis. Samotný soubor IPA z webu běžně nestačí.</div>
+      </article>
+    </div>
+
+    <div class="details">
+      <div class="detail"><b>Jeden účet</b><span>Stejný Supabase účet a data jako na webu a desktopu.</span></div>
+      <div class="detail"><b>Mobilní rozhraní</b><span>Chat přes celou obrazovku, vysouvací kanály a členové.</span></div>
+      <div class="detail"><b>Voice připravený</b><span>Mikrofon a audio oprávnění jsou součástí mobilního projektu.</span></div>
+    </div>
+
+    <div class="web">Nechceš čekat na instalační balíček? <a href="../">Otevři Yamachat rovnou ve webu</a> — mobilní rozhraní už je responzivní.</div>
+  </section>
+</main>
+<script>
+const REPO='yamboleeroy-ai/yamachat';
+const TESTFLIGHT_URL='';
+
+async function loadAndroid(){
+  const state=document.getElementById('androidState');
+  const btn=document.getElementById('androidBtn');
+  const note=document.getElementById('androidNote');
+  try{
+    const res=await fetch('https://api.github.com/repos/'+REPO+'/releases/latest',{headers:{Accept:'application/vnd.github+json'}});
+    if(!res.ok)throw new Error('No release');
+    const release=await res.json();
+    const apk=(release.assets||[]).find(a=>/\.apk$/i.test(a.name));
+    if(!apk)throw new Error('No APK');
+    state.textContent='Ke stažení · '+(release.tag_name||'nejnovější verze');
+    state.classList.add('ready');
+    btn.textContent='Stáhnout APK';
+    btn.href=apk.browser_download_url;
+    btn.classList.remove('disabled');
+    btn.removeAttribute('aria-disabled');
+    note.textContent='Soubor: '+apk.name;
+  }catch{
+    state.textContent='Projekt připravený';
+  }
+}
+function loadIos(){
+  if(!TESTFLIGHT_URL)return;
+  const state=document.getElementById('iosState');
+  const btn=document.getElementById('iosBtn');
+  state.textContent='TestFlight aktivní';
+  state.classList.add('ready');
+  btn.textContent='Otevřít TestFlight';
+  btn.href=TESTFLIGHT_URL;
+  btn.classList.remove('disabled');
+  btn.removeAttribute('aria-disabled');
+}
+loadAndroid();
+loadIos();
+</script>
+</body>
+</html>
