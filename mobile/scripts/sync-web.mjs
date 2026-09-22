@@ -35,11 +35,10 @@ html = html.replace(/(["'(=])\/(icons|audio)\//g, '$1./$2/');
 // The native shell should not link back to its own download page.
 html = html.replace(/<a[^>]+class=["'][^"']*yc-mobile-download-link[^"']*["'][\s\S]*?<\/a>/gi, '');
 
-// Browser service workers are unnecessary inside Capacitor and can keep stale HTML.
-html = html.replace(
-  /if\s*\(\s*['"]serviceWorker['"]\s+in\s+navigator\s*\)[\s\S]{0,1200}?register\([^;]+;?/gi,
-  '/* service worker disabled in native Yamachat */'
-);
+// Keep the web service-worker block intact. The previous native regex removed only
+// part of that JavaScript statement and could leave the bundled index.html with
+// invalid syntax, which stopped boot before the login screen. Unsupported service
+// workers already fail safely through the web app's existing feature check/catch.
 
 const bridgeTag = '<script src="./native-bridge.js"></script>';
 if (!html.includes(bridgeTag)) html = html.replace('</body>', bridgeTag + '\n</body>');
@@ -54,7 +53,17 @@ html.yc-native-keyboard-open .yc-v3-ribbon{display:none!important}
 html.yc-native-keyboard-open .yc-v3-workspace{grid-template-rows:54px minmax(0,1fr) 0!important}
 html.yc-native-keyboard-open .yc-v3-voice-host{display:none!important}
 </style>`;
-html = html.replace('</head>', nativeCss + '\n</head>');
+html = html.replace('</head>', nativeCss + '\n<script id="ycNativeBootDiagnostics">
+window.addEventListener('error',function(e){
+  var s=document.querySelector('#ycBootSplash small');
+  if(s) s.textContent='Chyba při spuštění: '+(e.message||'neznámá chyba');
+});
+window.addEventListener('unhandledrejection',function(e){
+  var s=document.querySelector('#ycBootSplash small');
+  var m=e.reason&&e.reason.message?e.reason.message:String(e.reason||'neznámá chyba');
+  if(s) s.textContent='Chyba při spuštění: '+m;
+});
+</script>\n</head>');
 
 fs.writeFileSync(path.join(out, 'index.html'), html, 'utf8');
 console.log('Yamachat web copied to mobile/www');
