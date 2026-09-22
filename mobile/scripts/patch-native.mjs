@@ -31,10 +31,16 @@ function patchAndroid() {
   const icon = path.join(root, 'www/icons/icon-512.png');
   const res = path.join(root, 'android/app/src/main/res');
   if (fs.existsSync(icon) && fs.existsSync(res)) {
-    for (const dir of fs.readdirSync(res).filter(x => x.startsWith('mipmap-'))) {
+    // Only replace existing PNG launcher resources. Do not create PNG files in
+    // mipmap-anydpi-v26, because that directory already contains adaptive-icon XML
+    // resources with the same names and Android treats them as duplicates.
+    for (const dir of fs.readdirSync(res).filter(x => /^mipmap-(mdpi|hdpi|xhdpi|xxhdpi|xxxhdpi)$/.test(x))) {
       const dst = path.join(res, dir);
       for (const name of ['ic_launcher.png', 'ic_launcher_round.png', 'ic_launcher_foreground.png']) {
-        try { fs.copyFileSync(icon, path.join(dst, name)); } catch {}
+        const out = path.join(dst, name);
+        if (fs.existsSync(out)) {
+          try { fs.copyFileSync(icon, out); } catch {}
+        }
       }
     }
   }
