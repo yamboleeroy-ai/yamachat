@@ -64,8 +64,14 @@ jobs:
             exit 1
           fi
 
-          test "$(sha256sum "$client" | awk '{print $1}')" = "$EXPECTED_CLIENT_SHA256"
-          test "$(sha256sum "$shell" | awk '{print $1}')" = "$EXPECTED_SHELL_SHA256"
+          actual_client="$(sha256sum "$client" | awk '{print $1}')"
+          actual_shell="$(sha256sum "$shell" | awk '{print $1}')"
+          echo "Released desktop-client.html SHA256: $actual_client"
+          echo "Expected source desktop-client.html SHA256: $EXPECTED_CLIENT_SHA256"
+          echo "Released desktop.html SHA256: $actual_shell"
+          echo "Expected source desktop.html SHA256: $EXPECTED_SHELL_SHA256"
+          test "$actual_client" = "$EXPECTED_CLIENT_SHA256"
+          test "$actual_shell" = "$EXPECTED_SHELL_SHA256"
 
           cp "$client" reference/desktop-1.0.78/desktop-client.html
           cp "$shell" reference/desktop-1.0.78/desktop.html
