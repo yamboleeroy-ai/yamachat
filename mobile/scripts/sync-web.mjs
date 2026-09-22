@@ -32,6 +32,15 @@ let html = fs.readFileSync(path.join(repoRoot, 'index.html'), 'utf8');
 // relative so the same HTML works inside the APK.
 html = html.replace(/(["'(=])\/(icons|audio)\//g, '$1./$2/');
 
+// Android WebView login hardening. Keep the website unchanged: first try the
+// password exactly as entered; only after invalid_credentials retry without
+// accidental leading/trailing whitespace that can be introduced by mobile paste/autofill.
+html = html.replace(
+  "const {error}=await sb.auth.signInWithPassword({email,password});if(error)throw error",
+  "let {error}=await sb.auth.signInWithPassword({email,password});if(error?.code==='invalid_credentials'){const clean=password.replace(/^[\\s\\u00a0\\u200b]+|[\\s\\u00a0\\u200b]+$/g,'');if(clean!==password)({error}=await sb.auth.signInWithPassword({email,password:clean}))}if(error)throw error"
+);
+
+
 // The native shell should not link back to its own download page.
 html = html.replace(/<a[^>]+class=["'][^"']*yc-mobile-download-link[^"']*["'][\s\S]*?<\/a>/gi, '');
 
@@ -65,7 +74,25 @@ window.addEventListener('unhandledrejection',function(e){
   if(s) s.textContent='Chyba při spuštění: '+m;
 });
 </script>`;
-html = html.replace('</head>', nativeCss + '\n' + nativeDiagnostics + '\n</head>');
+
+const nativeLoginHelpers = `
+<style>
+#ycNativePasswordToggle{margin-top:7px;border:1px solid rgba(112,228,232,.24);border-radius:8px;background:#0b1b27;color:#bfeff2;padding:7px 10px;font-weight:800}
+</style>
+<script>
+document.addEventListener('DOMContentLoaded',function(){
+  var p=document.getElementById('password');
+  if(!p||document.getElementById('ycNativePasswordToggle'))return;
+  p.setAttribute('autocapitalize','none');
+  p.setAttribute('autocorrect','off');
+  p.setAttribute('spellcheck','false');
+  var b=document.createElement('button');
+  b.type='button';b.id='ycNativePasswordToggle';b.textContent='Zobrazit heslo';
+  b.addEventListener('click',function(){var show=p.type==='password';p.type=show?'text':'password';b.textContent=show?'Skrýt heslo':'Zobrazit heslo';});
+  p.parentElement.appendChild(b);
+});
+</script>`;
+html = html.replace('</head>', nativeCss + '\n' + nativeDiagnostics + '\n' + nativeLoginHelpers + '\n</head>');
 
 fs.writeFileSync(path.join(out, 'index.html'), html, 'utf8');
 console.log('Yamachat web copied to mobile/www');
