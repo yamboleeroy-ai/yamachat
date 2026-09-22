@@ -1856,9 +1856,27 @@ window.yamachatDesktop={
 
 
 
+const ycWebAppearanceDeadline=(task,fallback=null,ms=2000)=>{
+  let timer;
+  return Promise.race([
+    Promise.resolve(task).catch(error=>{console.warn('Web appearance',error);return fallback}),
+    new Promise(resolve=>{timer=setTimeout(()=>resolve(fallback),ms)})
+  ]).finally(()=>clearTimeout(timer));
+};
 window.openDesktopServerCardBackgroundModal=openDesktopServerCardBackgroundModal;
 window.decorateDesktopServerCards=decorateDesktopServerCards;
-window.YamachatDesktopAppearance=Object.freeze({loadTheme:async userId=>{await desktopAppearanceLoaded;await loadDesktopThemeColor({userId});return desktopThemeColor},saveTheme:saveDesktopThemeColor,prepare:async()=>{await desktopAppearanceLoaded;installYamachatBranding()}});
+window.YamachatDesktopAppearance=Object.freeze({
+  loadTheme:async userId=>{
+    await ycWebAppearanceDeadline(desktopAppearanceLoaded);
+    await ycWebAppearanceDeadline(loadDesktopThemeColor({userId}));
+    return desktopThemeColor;
+  },
+  saveTheme:saveDesktopThemeColor,
+  prepare:async()=>{
+    await ycWebAppearanceDeadline(desktopAppearanceLoaded);
+    installYamachatBranding();
+  }
+});
 })();</script>
 <script type="module">
 const { createClient } = window.supabase
