@@ -22,8 +22,15 @@ copy('icons');
 copy('audio');
 copy('manifest.webmanifest');
 copy('favicon.ico');
+copy('download');
+copy('sw.js');
 
 let html = fs.readFileSync(path.join(repoRoot, 'index.html'), 'utf8');
+
+// Capacitor loads the bundled app from https://localhost. Absolute root URLs in the
+// web build would therefore point at the native localhost origin. Keep app assets
+// relative so the same HTML works inside the APK.
+html = html.replace(/(["'(=])\/(icons|audio)\//g, '$1./$2/');
 
 // The native shell should not link back to its own download page.
 html = html.replace(/<a[^>]+class=["'][^"']*yc-mobile-download-link[^"']*["'][\s\S]*?<\/a>/gi, '');
