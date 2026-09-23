@@ -16,9 +16,36 @@
  .yc-v3-global-nav{visibility:hidden;pointer-events:none;padding-top:max(14px,env(safe-area-inset-top))!important}
  .yc-v3-global-nav.yc-mobile-open,.side.mobile-open,.right.yc-mobile-open{visibility:visible;pointer-events:auto}
  .yc-mobile-head-btn,#mobileMenu{min-width:44px!important;min-height:44px!important;width:44px!important;height:44px!important;flex-basis:44px!important}
- .yc-mobile-header-brand{min-width:0!important;flex:1!important}
- .yc-mobile-header-brand img{width:min(110px,28vw)!important;object-fit:contain}
+ .yc-mobile-header-brand{
+   position:absolute!important;
+   left:50%!important;
+   top:50%!important;
+   transform:translate(-50%,-50%)!important;
+   display:flex!important;
+   align-items:center!important;
+   justify-content:center!important;
+   width:auto!important;
+   max-width:calc(100% - 210px)!important;
+   min-width:0!important;
+   flex:none!important;
+   margin:0!important;
+   padding:0!important;
+   pointer-events:none!important;
+   z-index:1!important;
+ }
+ .yc-mobile-header-brand img,
+ .yc-mobile-header-brand .yc-mobile-header-logo{
+   display:block!important;
+   width:112px!important;
+   max-width:100%!important;
+   height:auto!important;
+   max-height:29px!important;
+   object-fit:contain!important;
+   border-radius:0!important;
+   filter:drop-shadow(0 0 7px rgba(224,86,253,.20))!important;
+ }
  .yc-mobile-header-brand strong{display:none!important}
+ .yc-mobile-head-btn,#mobileMenu{position:relative!important;z-index:2!important}
  .composer{flex-wrap:wrap!important;gap:4px!important}
  .composer #messageInput{flex:1 1 120px!important;min-width:80px!important;font-size:16px!important}
  .composer #gifBtn{display:inline-flex!important}
@@ -325,4 +352,27 @@ html.yc-ios-mobile body{
 html.yc-ios-mobile .app,
 html.yc-ios-mobile .yc-v3-workspace{
   background-color:#071019!important;
+}
+
+/* Mobile Yamachat wordmark sizing by orientation. */
+@media(max-width:520px) and (orientation:portrait){
+ .yc-mobile-header-brand{max-width:calc(100% - 196px)!important}
+ .yc-mobile-header-brand img,.yc-mobile-header-brand .yc-mobile-header-logo{
+   width:108px!important;
+   max-height:27px!important;
+ }
+}
+@media(max-width:370px) and (orientation:portrait){
+ .yc-mobile-header-brand{max-width:calc(100% - 180px)!important}
+ .yc-mobile-header-brand img,.yc-mobile-header-brand .yc-mobile-header-logo{
+   width:94px!important;
+   max-height:24px!important;
+ }
+}
+@media(max-width:1100px) and (orientation:landscape){
+ .yc-mobile-header-brand{max-width:calc(100% - 260px)!important}
+ .yc-mobile-header-brand img,.yc-mobile-header-brand .yc-mobile-header-logo{
+   width:128px!important;
+   max-height:30px!important;
+ }
 }
