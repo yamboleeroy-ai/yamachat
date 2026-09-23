@@ -90,11 +90,26 @@ function patchAndroid() {
     '<uses-permission android:name="android.permission.CAMERA" />',
     '<uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />',
     '<uses-permission android:name="android.permission.POST_NOTIFICATIONS" />',
-    '<uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />'
+    '<uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />',
+    '<uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />'
   ];
   for (const line of permissions) {
     const name = line.match(/android:name="([^"]+)"/)?.[1];
     if (name && !xml.includes(name)) xml = xml.replace(/<manifest([^>]*)>/, '<manifest$1>\n    ' + line);
+  }
+  if (!xml.includes('android.support.FILE_PROVIDER_PATHS')) {
+    const provider = [
+      '        <provider',
+      '            android:name="androidx.core.content.FileProvider"',
+      '            android:authorities="${applicationId}.fileprovider"',
+      '            android:exported="false"',
+      '            android:grantUriPermissions="true">',
+      '            <meta-data',
+      '                android:name="android.support.FILE_PROVIDER_PATHS"',
+      '                android:resource="@xml/yamachat_file_paths" />',
+      '        </provider>'
+    ].join('\n');
+    xml = xml.replace('</application>', provider + '\n    </application>');
   }
   fs.writeFileSync(p, xml, 'utf8');
 
@@ -117,8 +132,204 @@ function patchAndroid() {
   }
   const apply = "apply from: '../../android-signing.gradle'";
   if (!gradle.includes(apply)) fs.writeFileSync(gradlePath, gradle + '\n' + apply + '\n');
+  patchAndroidUpdater(release);
   patchAndroidBranding(path.join(root, 'android/app/src/main/res'));
   console.log('Android permissions and Yamachat native branding patched.');
+}
+
+
+function patchAndroidUpdater(release) {
+  const pkg = String(release.applicationId || '').trim();
+  if (!pkg) throw new Error('Android updater package is missing');
+
+  const javaDir = path.join(root, 'android/app/src/main/java', ...pkg.split('.'));
+  fs.mkdirSync(javaDir, { recursive: true });
+
+  const pluginSource = `package ${pkg};
+
+import android.app.DownloadManager;
+import android.content.Context;
+import android.content.Intent;
+import android.database.Cursor;
+import android.net.Uri;
+import android.os.Build;
+import android.os.Environment;
+import android.provider.Settings;
+
+import androidx.core.content.FileProvider;
+
+import com.getcapacitor.JSObject;
+import com.getcapacitor.Plugin;
+import com.getcapacitor.PluginCall;
+import com.getcapacitor.PluginMethod;
+import com.getcapacitor.annotation.CapacitorPlugin;
+
+import java.io.File;
+import java.io.FileInputStream;
+import java.security.MessageDigest;
+import java.util.Locale;
+
+@CapacitorPlugin(name = "YamachatUpdate")
+public class YamachatUpdatePlugin extends Plugin {
+    @PluginMethod
+    public void downloadAndInstall(PluginCall call) {
+        final String url = call.getString("url", "").trim();
+        final String version = call.getString("version", "latest").trim();
+        final String expectedSha256 = call.getString("sha256", "").replace(":", "").trim().toLowerCase(Locale.ROOT);
+
+        if (!url.startsWith("https://")) {
+            call.reject("Aktualizační URL není platná.");
+            return;
+        }
+
+        Context context = getContext();
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && !context.getPackageManager().canRequestPackageInstalls()) {
+            Intent settings = new Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:" + context.getPackageName()));
+            if (getActivity() != null) getActivity().startActivity(settings);
+            else {
+                settings.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                context.startActivity(settings);
+            }
+            JSObject result = new JSObject();
+            result.put("permissionRequired", true);
+            call.resolve(result);
+            return;
+        }
+
+        try {
+            String safeVersion = version.replaceAll("[^0-9A-Za-z._-]", "_");
+            String fileName = "Yamachat-" + (safeVersion.isEmpty() ? "update" : safeVersion) + ".apk";
+            File dir = context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS);
+            if (dir == null) throw new IllegalStateException("Android update directory is unavailable");
+            if (!dir.exists() && !dir.mkdirs()) throw new IllegalStateException("Android update directory cannot be created");
+            File target = new File(dir, fileName);
+            if (target.exists()) target.delete();
+
+            DownloadManager manager = (DownloadManager) context.getSystemService(Context.DOWNLOAD_SERVICE);
+            DownloadManager.Request request = new DownloadManager.Request(Uri.parse(url));
+            request.setTitle("Yamachat " + version);
+            request.setDescription("Stahuji aktualizaci Yamachatu");
+            request.setAllowedOverMetered(true);
+            request.setAllowedOverRoaming(false);
+            request.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE);
+            request.setDestinationInExternalFilesDir(context, Environment.DIRECTORY_DOWNLOADS, fileName);
+            long id = manager.enqueue(request);
+
+            JSObject result = new JSObject();
+            result.put("started", true);
+            result.put("downloadId", id);
+            call.resolve(result);
+
+            Thread watcher = new Thread(() -> monitorDownload(manager, id, target, expectedSha256), "yamachat-update-download");
+            watcher.setDaemon(true);
+            watcher.start();
+        } catch (Exception error) {
+            call.reject("Aktualizaci se nepodařilo spustit: " + safeMessage(error));
+        }
+    }
+
+    private void monitorDownload(DownloadManager manager, long id, File target, String expectedSha256) {
+        try {
+            boolean done = false;
+            while (!done) {
+                DownloadManager.Query query = new DownloadManager.Query().setFilterById(id);
+                try (Cursor cursor = manager.query(query)) {
+                    if (cursor == null || !cursor.moveToFirst()) throw new IllegalStateException("Stažení aktualizace zmizelo ze systému.");
+                    int status = cursor.getInt(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_STATUS));
+                    long downloaded = cursor.getLong(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_BYTES_DOWNLOADED_SO_FAR));
+                    long total = cursor.getLong(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_TOTAL_SIZE_BYTES));
+                    double percent = total > 0 ? Math.min(100d, (downloaded * 100d) / total) : 0d;
+
+                    if (status == DownloadManager.STATUS_SUCCESSFUL) {
+                        emit("verifying", 100d, "Ověřuji APK");
+                        if (!target.isFile()) throw new IllegalStateException("Stažená APK nebyla nalezena.");
+                        if (!expectedSha256.isEmpty()) {
+                            String actual = sha256(target);
+                            if (!expectedSha256.equals(actual)) {
+                                target.delete();
+                                throw new SecurityException("Kontrolní součet APK nesouhlasí.");
+                            }
+                        }
+                        emit("ready", 100d, "APK je připravená");
+                        installApk(target);
+                        done = true;
+                    } else if (status == DownloadManager.STATUS_FAILED) {
+                        int reason = cursor.getInt(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_REASON));
+                        throw new IllegalStateException("Android odmítl stažení aktualizace (" + reason + ").");
+                    } else {
+                        emit("downloading", percent, "Stahuji aktualizaci");
+                    }
+                }
+                if (!done) Thread.sleep(500);
+            }
+        } catch (Exception error) {
+            emit("error", 0d, safeMessage(error));
+        }
+    }
+
+    private void installApk(File apk) {
+        Context context = getContext();
+        Uri uri = FileProvider.getUriForFile(context, context.getPackageName() + ".fileprovider", apk);
+        Intent intent = new Intent(Intent.ACTION_VIEW);
+        intent.setDataAndType(uri, "application/vnd.android.package-archive");
+        intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_ACTIVITY_NEW_TASK);
+        context.startActivity(intent);
+    }
+
+    private void emit(String status, double percent, String message) {
+        JSObject data = new JSObject();
+        data.put("status", status);
+        data.put("percent", percent);
+        data.put("message", message == null ? "" : message);
+        if (getActivity() != null) getActivity().runOnUiThread(() -> notifyListeners("updateProgress", data));
+        else notifyListeners("updateProgress", data);
+    }
+
+    private String sha256(File file) throws Exception {
+        MessageDigest digest = MessageDigest.getInstance("SHA-256");
+        try (FileInputStream input = new FileInputStream(file)) {
+            byte[] buffer = new byte[1024 * 128];
+            int read;
+            while ((read = input.read(buffer)) > 0) digest.update(buffer, 0, read);
+        }
+        StringBuilder out = new StringBuilder();
+        for (byte b : digest.digest()) out.append(String.format(Locale.ROOT, "%02x", b));
+        return out.toString();
+    }
+
+    private String safeMessage(Exception error) {
+        String message = error == null ? "" : String.valueOf(error.getMessage());
+        if (message == null || message.trim().isEmpty()) message = error == null ? "Neznámá chyba" : error.getClass().getSimpleName();
+        return message.replaceAll("\\s+", " ").trim();
+    }
+}
+`;
+  fs.writeFileSync(path.join(javaDir, 'YamachatUpdatePlugin.java'), pluginSource, 'utf8');
+
+  const mainActivity = `package ${pkg};
+
+import android.os.Bundle;
+import com.getcapacitor.BridgeActivity;
+
+public class MainActivity extends BridgeActivity {
+    @Override
+    public void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        registerPlugin(YamachatUpdatePlugin.class);
+    }
+}
+`;
+  fs.writeFileSync(path.join(javaDir, 'MainActivity.java'), mainActivity, 'utf8');
+
+  const xmlDir = path.join(root, 'android/app/src/main/res/xml');
+  fs.mkdirSync(xmlDir, { recursive: true });
+  fs.writeFileSync(path.join(xmlDir, 'yamachat_file_paths.xml'), `<?xml version="1.0" encoding="utf-8"?>
+<paths xmlns:android="http://schemas.android.com/apk/res/android">
+    <external-files-path name="yamachat_updates" path="Download/" />
+</paths>
+`, 'utf8');
+
+  console.log('Android in-app APK updater patched.');
 }
 
 function plistEntry(key, value) {
