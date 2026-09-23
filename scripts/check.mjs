@@ -69,7 +69,7 @@ try{
  assert(fs.readFileSync(path.join(root,'email/recovery.html'),'utf8').includes('{{ .TokenHash }}'));
  const passwordRequestSource=fs.readFileSync(path.join(root,'web/password-request.js'),'utf8');
  assert.equal(spawnSync(process.execPath,['--check',path.join(root,'web/password-request.js')],{encoding:'utf8'}).status,0,'In-app password request script must parse');
- for(const marker of ['ycPasswordRequestBack','ycPasswordRequestEmail','Odeslat odkaz',"sb.auth.resetPasswordForEmail(email",{redirectTo:'https://yamachat.eu/reset-password.html'}) assert(generatedWeb.includes(marker),'Generated web missing in-app password request: '+marker);
+ for(const marker of ['ycPasswordRequestBack','ycPasswordRequestEmail','Odeslat odkaz',"sb.auth.resetPasswordForEmail(email","redirectTo:'https://yamachat.eu/reset-password.html'"]) assert(generatedWeb.includes(marker),'Generated web missing in-app password request: '+marker);
  assert(!generatedWeb.includes('id="ycForgotPassword" href="https://yamachat.eu/reset-password.html" target="_blank"'),'Forgot-password request must not leave the app');
  const accountMessagesSource=fs.readFileSync(path.join(root,'web/account-messages.js'),'utf8');
  assert.equal(spawnSync(process.execPath,['--check',path.join(root,'web/account-messages.js')],{encoding:'utf8'}).status,0,'Account messages script must parse');
