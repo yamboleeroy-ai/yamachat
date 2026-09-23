@@ -997,4 +997,443 @@ async function readDesktopState() {
           return state;
         } catch {
           return null;
+        }      })();
+    `, true);
+
+    if (!next || typeof next !== 'object') return;
+
+    if (!next.voiceConnected || next.voiceMuted ||
+        !desktopState.voiceConnected ||
+        String(next.voiceChannelId || '') !== desktopState.voiceChannelId) {
+      traySpeakingHoldUntil = 0;
+    }
+
+    desktopState = {
+      ...desktopState,
+      ...next,
+      voiceConnected: !!next.voiceConnected,
+      voiceChannelId: String(next.voiceChannelId || ''),
+      voiceChannelName: String(next.voiceChannelName || ''),
+      voiceMuted: !!next.voiceMuted,
+      voiceDeafened: !!next.voiceDeafened,
+      voiceSpeaking: !!next.voiceSpeaking,
+      presenceMode: normalizePresenceMode(next.presenceMode),
+      notificationUnreadCount: Math.max(0, Number(next.notificationUnreadCount || 0)),
+      screenShareActive: !!next.screenShareActive
+    };
+
+    refreshTray();
+  } catch {
+    // Renderer can briefly be unavailable while starting/reloading.
+  }
+}
+
+function startTrayVoicePolling() {
+  if (trayPollTimer) return;
+
+  const generation = ++trayPollGeneration;
+  const tick = async () => {
+    if (generation !== trayPollGeneration) return;
+    await readDesktopState();
+    if (generation !== trayPollGeneration) return;
+    // Fast enough for the tray speaking indicator while voice is active,
+    // but avoid crossing the Electron main/renderer boundary 6+ times/sec forever.
+    const delay = desktopState.voiceConnected ? 250 : 900;
+    trayPollTimer = setTimeout(tick, delay);
+  };
+  trayPollTimer = setTimeout(tick, 0);
+}
+
+function stopTrayVoicePolling() {
+  trayPollGeneration += 1;
+  if (!trayPollTimer) return;
+  clearTimeout(trayPollTimer);
+  trayPollTimer = null;
+}
+
+async function askCloseAction(win) {
+  if (!win || win.isDestroyed() || closePromptOpen) return;
+
+  closePromptOpen = true;
+
+  try {
+    const voiceDetail = desktopState.voiceConnected
+      ? `Jsi připojený ve voice kanálu „${desktopState.voiceChannelName || 'Voice'}“. Minimalizace do systémové lišty zachová voice spojení.`
+      : 'Yamachat může zůstat spuštěný na pozadí v systémové liště Windows.';
+
+    const result = await dialog.showMessageBox(win, {
+      type: 'question',
+      title: 'Yamachat',
+      message: 'Chceš Yamachat zavřít, nebo nechat běžet na pozadí?',
+      detail: voiceDetail,
+      buttons: [
+        'Minimalizovat do lišty',
+        'Ukončit Yamachat',
+        'Zrušit'
+      ],
+      defaultId: 0,
+      cancelId: 2,
+      noLink: true
+    });
+
+    if (result.response === 0) {
+      win.hide();
+      wakeBackgroundAudio(win);
+      refreshTray();
+      return;
+    }
+
+    if (result.response === 1) {
+      isQuitting = true;
+      app.quit();
+    }
+  } finally {
+    closePromptOpen = false;
+  }
+}
+
+// ----------------------------------------------------
+// HLAVNÍ YAMACHAT OKNO
+// ----------------------------------------------------
+
+function createWindow() {
+  const win = new BrowserWindow({
+    width: 1400,
+    height: 900,
+    minWidth: 1000,
+    minHeight: 700,
+
+    backgroundColor: '#171d25',
+    autoHideMenuBar: true,
+    frame: false,
+
+    icon: path.join(
+      __dirname,
+      'build',
+      'icon.ico'
+    ),
+
+    webPreferences: {
+      nodeIntegration: false,
+      contextIsolation: true,
+      backgroundThrottling: false,
+      preload: path.join(__dirname, 'preload.js')
+    }
+  });
+
+  mainWindow = win;
+  try { yamachatUpdater?.markWindowCreated?.(); } catch {}
+
+  const sendWindowState = () => {
+    try {
+      if (!win.isDestroyed()) {
+        win.webContents.send('yamachat:window-state', {
+          maximized: win.isMaximized(),
+          fullscreen: win.isFullScreen()
+        });
+      }
+    } catch {}
+  };
+
+  win.on('maximize', sendWindowState);
+  win.on('unmaximize', sendWindowState);
+  win.on('enter-full-screen', sendWindowState);
+  win.on('leave-full-screen', sendWindowState);
+
+  // Keep the main Yamachat renderer active even when minimized/covered.
+  keepRendererAwake(win);
+
+  // Voice-safe minimize: Chromium can suspend live microphone capture while a
+  // BrowserWindow is in the native minimized state on some Windows systems.
+  // Hidden-to-tray is already proven stable in Yamachat, so when voice is active
+  // we convert minimize into a tray hide instead of leaving the renderer minimized.
+  let ycVoiceSafeMinimizeBusy = false;
+  win.on('minimize', () => {
+    wakeBackgroundAudio(win);
+    if (!desktopState.voiceConnected || ycVoiceSafeMinimizeBusy) return;
+    ycVoiceSafeMinimizeBusy = true;
+    setTimeout(() => {
+      try {
+        if (!win.isDestroyed()) {
+          if (win.isMinimized()) win.restore();
+          win.hide();
+          wakeBackgroundAudio(win);
+          refreshTray();
         }
+      } catch (error) {
+        console.warn('Yamachat voice-safe minimize:', error);
+      } finally {
+        ycVoiceSafeMinimizeBusy = false;
+      }
+    }, 0);
+  });
+
+  win.on('restore', () => {
+    wakeBackgroundAudio(win);
+  });
+
+  win.on('show', () => {
+    wakeBackgroundAudio(win);
+  });
+
+  win.on('focus', () => {
+    wakeBackgroundAudio(win);
+  });
+
+  win.on('blur', () => {
+    wakeBackgroundAudio(win);
+  });
+
+  win.loadFile(
+    path.join(
+      __dirname,
+      'desktop.html'
+    )
+  );
+
+  win.webContents.setWindowOpenHandler(
+    ({ url }) => {
+
+      openSafeExternal(url);
+
+      return {
+        action: 'deny'
+      };
+    }
+  );
+
+  win.webContents.on('will-navigate', (event, url) => {
+    if (url !== desktopUrl) { event.preventDefault(); openSafeExternal(url); }
+  });
+  win.webContents.on('will-frame-navigate', (event) => {
+    if (!event.isMainFrame && event.frame?.parent === win.webContents.mainFrame && event.url !== 'about:srcdoc') {
+      event.preventDefault(); openSafeExternal(event.url);
+    }
+  });
+  win.webContents.on('render-process-gone', () => yamachatUpdater?.markRendererUnavailable());
+  win.webContents.on('unresponsive', () => yamachatUpdater?.markRendererUnavailable());
+  win.webContents.on('did-start-loading', () => yamachatUpdater?.markRendererUnavailable());
+
+  win.webContents.on(
+    'did-finish-load',
+    () => {
+      keepRendererAwake(win);
+      void installAudioKeepAlive(win);
+      startTrayVoicePolling();
+      console.log('Yamachat loaded · status + notification + voice speaking tray active');
+    }
+  );
+
+  win.on('close', (event) => {
+    if (isQuitting) return;
+
+    const behavior = appSettings.closeBehavior || 'ask';
+
+    if (behavior === 'tray') {
+      event.preventDefault();
+      win.hide();
+      wakeBackgroundAudio(win);
+      refreshTray();
+      return;
+    }
+
+    if (behavior === 'quit') {
+      event.preventDefault();
+      isQuitting = true;
+      app.quit();
+      return;
+    }
+
+    event.preventDefault();
+    void askCloseAction(win);
+  });
+
+  win.on('closed', () => {
+    if (mainWindow === win) {
+      mainWindow = null;
+    }
+  });
+}
+
+
+// ----------------------------------------------------
+// START ELECTRONU
+// ----------------------------------------------------
+
+app.whenReady().then(async () => {
+  if (!hasInstanceLock) return;
+  app.setAppUserModelId('cz.yamachat.desktop');
+  appSettings = loadAppSettings();
+
+  yamachatUpdater = new YamachatUpdater({ app, getWindow: () => mainWindow });
+  await yamachatUpdater.init();
+
+  handleClientIpc('yamachat:update-get-state', () => yamachatUpdater?.publicState?.() || null);
+  handleClientIpc('yamachat:update-check', () => { void yamachatUpdater?.check?.(true); return yamachatUpdater?.publicState?.() || null; });
+  handleClientIpc('yamachat:update-download', () => { void yamachatUpdater?.download?.(); return yamachatUpdater?.publicState?.() || null; });
+  handleClientIpc('yamachat:update-install', async () => yamachatUpdater?.install?.() || { ok: false });
+  handleClientIpc('yamachat:update-renderer-ready', () => yamachatUpdater?.markRendererReady?.() || true);
+
+  handleClientIpc('yamachat:get-app-settings', () => ({ ...appSettings }));
+  handleClientIpc('yamachat:show-notification', (_event, payload) => showYamachatNotification(payload || {}));
+  handleClientIpc('yamachat:notification-open', () => openYamachatNotificationTarget());
+  handleClientIpc('yamachat:notification-close', () => { closeYamachatNotification(); return true; });
+  handleClientIpc('yamachat:set-app-setting', (_event, key, value) => setAppSetting(key, value));
+  handleClientIpc('yamachat:window-minimize', () => {
+    if (mainWindow && !mainWindow.isDestroyed()) mainWindow.minimize();
+    return true;
+  });
+  handleClientIpc('yamachat:window-toggle-maximize', () => {
+    if (!mainWindow || mainWindow.isDestroyed()) return { maximized: false };
+    if (mainWindow.isMaximized()) mainWindow.unmaximize();
+    else mainWindow.maximize();
+    return { maximized: mainWindow.isMaximized() };
+  });
+  handleClientIpc('yamachat:window-close', () => {
+    if (mainWindow && !mainWindow.isDestroyed()) mainWindow.close();
+    return true;
+  });
+  handleClientIpc('yamachat:get-window-state', () => ({
+    maximized: !!(mainWindow && !mainWindow.isDestroyed() && mainWindow.isMaximized()),
+    fullscreen: !!(mainWindow && !mainWindow.isDestroyed() && mainWindow.isFullScreen())
+  }));
+
+  powerSaveId = powerSaveBlocker.start('prevent-app-suspension');
+
+  // YouTube embedded player in Electron needs an HTTP Referer.
+  // Without it YouTube returns player error 153.
+  const youtubeReferer = 'https://yamboleeroy-ai.github.io/yamachat/';
+
+  session.defaultSession.webRequest.onBeforeSendHeaders(
+    {
+      urls: [
+        '*://www.youtube.com/*',
+        '*://youtube.com/*',
+        '*://www.youtube-nocookie.com/*',
+        '*://youtube-nocookie.com/*'
+      ]
+    },
+    (details, callback) => {
+      const requestHeaders = { ...(details.requestHeaders || {}) };
+      requestHeaders.Referer = youtubeReferer;
+      callback({ requestHeaders });
+    }
+  );
+
+  session.defaultSession
+    .setPermissionRequestHandler(
+      (contents, permission, callback, details) => {
+
+        const allowed = [
+          'media',
+          'microphone',
+          'camera',
+          'display-capture',
+          'notifications'
+        ];
+
+        callback(
+          contents === mainWindow?.webContents && isClientFrame(details?.isMainFrame ? contents.mainFrame : contents.mainFrame.frames.find(frame => frame.url === 'about:srcdoc')) &&
+          (!details?.requestingUrl || details.requestingUrl === desktopUrl || details.requestingUrl === 'about:srcdoc') && allowed.includes(permission)
+        );
+      }
+    );
+
+  session.defaultSession.setPermissionCheckHandler((contents, permission, origin, details) => {
+    const url = details?.requestingUrl;
+    return contents === mainWindow?.webContents && /^file:\/\/\/?$/.test(origin) &&
+      (url === desktopUrl || url === 'about:srcdoc') &&
+      ['media', 'speaker-selection', 'display-capture', 'notifications', 'fullscreen', 'clipboard-sanitized-write'].includes(permission);
+  });
+
+  session.defaultSession
+    .setDisplayMediaRequestHandler(
+      async (request, callback) => {
+
+        if (!isClientFrame(request.frame)) { callback({}); return; }
+
+        try {
+
+          const ownerWindow = mainWindow;
+
+          const source =
+            await chooseDesktopSource(
+              ownerWindow
+            );
+
+          if (!source) {
+            callback({});
+            return;
+          }
+
+          console.log(
+            'Sharing:',
+            source.name,
+            source.id
+          );
+
+          const shareSystemAudio = !!request?.audioRequested;
+
+          console.log(
+            'System audio requested:',
+            shareSystemAudio
+          );
+
+          callback({
+            video: source,
+            ...(shareSystemAudio ? { audio: 'loopback' } : {})
+          });
+
+        } catch (error) {
+
+          console.error(
+            'Screen share error:',
+            error
+          );
+
+          callback({});
+        }
+      }
+    );
+
+  createTray();
+  createWindow();
+  startTrayVoicePolling();
+
+  app.on('activate', () => {
+
+    if (
+      BrowserWindow
+        .getAllWindows()
+        .length === 0
+    ) {
+      createWindow();
+    }
+  });
+});
+
+
+// ----------------------------------------------------
+// WINDOWS CLOSE / TRAY LIFECYCLE
+// ----------------------------------------------------
+
+app.on('before-quit', () => {
+  isQuitting = true;
+  try { yamachatUpdater?.shutdown?.(); } catch {}
+  stopTrayVoicePolling();
+
+  if (powerSaveId !== null) {
+    try {
+      powerSaveBlocker.stop(powerSaveId);
+    } catch {}
+    powerSaveId = null;
+  }
+});
+
+app.on('window-all-closed', () => {
+  // On Windows Yamachat intentionally stays alive in the tray.
+  // A real quit always goes through isQuitting/app.quit().
+  if (process.platform === 'darwin' && !isQuitting) {
+    return;
+  }
+});
