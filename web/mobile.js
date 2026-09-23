@@ -16,7 +16,7 @@
    b.type='button';b.classList.add('yc-mobile-head-btn');b.textContent=text;b.title=label;b.setAttribute('aria-label',label);b.setAttribute('aria-controls',panel.id);b.setAttribute('aria-expanded','false');
    b.addEventListener('click',e=>{if(!mobile.matches)return;e.preventDefault();e.stopImmediatePropagation();open(panel,b)},true);
   }
-  const brand=document.createElement('div');brand.id='ycMobileBrand';brand.className='yc-mobile-header-brand';const img=document.createElement('img');img.src=document.querySelector('.yc-desktop-auth-logo')?.src||'./icons/icon-192.png';img.alt='Yamachat';brand.appendChild(img);document.getElementById('mobileMenu').after(brand);
+  const brand=document.createElement('div');brand.id='ycMobileBrand';brand.className='yc-mobile-header-brand';const img=document.createElement('img');img.src='./build/yamachat-logo-full.png';img.alt='Yamachat';img.className='yc-mobile-header-logo';img.onerror=()=>{img.onerror=null;img.src='./build/yamachat-logo-symbol.png'};brand.appendChild(img);document.getElementById('mobileMenu').after(brand);
   const scrim=document.createElement('div');scrim.id='ycMobileScrim';scrim.className='yc-mobile-scrim';scrim.addEventListener('click',close);app.appendChild(scrim);close();return true;
  }
  const observer=new MutationObserver(()=>{if(mount())observer.disconnect()});observer.observe(document.getElementById('app'),{childList:true,subtree:true});mount();
