@@ -1,7 +1,7 @@
 {
   "name": "yamachat-windows",
-  "version": "1.0.79",
-  "description": "Yamachat desktop 1.0.79 with required-update gate, stable voice/chat and rollback-safe GitHub Releases updater",
+  "version": "1.0.80",
+  "description": "Yamachat desktop 1.0.80 with Platform Admin user management, account messages, password recovery and rollback-safe GitHub Releases updater",
   "main": "main.js",
   "productName": "Yamachat",
   "author": "Yamachat",
