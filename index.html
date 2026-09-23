@@ -668,7 +668,8 @@ input[type="color"]::-webkit-color-swatch{border:0!important;border-radius:5px!i
 #modalRoot .yc-admin-compose textarea{min-height:150px;resize:vertical}
 #modalRoot .yc-admin-warning{margin:6px 0 12px;padding:10px;border:1px solid #6c4d31;border-radius:9px;background:rgba(134,83,34,.12);color:#e2c29f;font-size:11px;line-height:1.45}
 @media(max-width:620px){#modalRoot .yc-admin-user-row{align-items:flex-start;flex-wrap:wrap}#modalRoot .yc-admin-user-main{flex-basis:calc(100% - 56px)}#modalRoot .yc-admin-user-actions{width:100%;justify-content:stretch}#modalRoot .yc-admin-user-actions button{flex:1}}
-</style>\n<meta name="apple-mobile-web-app-capable" content="yes">
+</style>
+<meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="mobile-web-app-capable" content="yes">
 <link rel="manifest" href="./manifest.webmanifest">
@@ -3193,7 +3194,9 @@ async function ycStartAccountMessages(){
 }
 ycOnLifecycle('init',()=>{void ycStartAccountMessages();void ycCheckOwnBanStatus();clearInterval(ycBanStatusTimer);ycBanStatusTimer=setInterval(()=>void ycCheckOwnBanStatus(),60000)});
 ycOnLifecycle('beforeAuth',()=>{ycAccountMessagesCache=[];clearInterval(ycBanStatusTimer);ycBanStatusTimer=null;if(ycAccountMessagesSub){try{sb.removeChannel(ycAccountMessagesSub)}catch{}ycAccountMessagesSub=null}})
-})();\n\n// Message actions - reactions, replies, unread markers and global reports
+})();
+
+// Message actions - reactions, replies, unread markers and global reports
 let ycReplyTarget=null,ycMessageMenu=null,ycMessageRows=new Map(),ycMessageReactions=new Map(),ycUnreadMessageId=null,ycMsgDecorateSeq=0,ycReactionSub=null,ycReportSub=null;
 const YC_DEFAULT_QUICK_REACTIONS=['😂','👍','❤️','😄'];
 const YC_REACTION_EMOJIS=['😀','😃','😄','😁','😆','😅','😂','🤣','😊','🙂','🙃','😉','😍','🥰','😘','😎','🤩','🥳','😏','😴','🤔','🤨','😐','😑','🙄','😬','😮','😱','😭','😤','😡','🤬','🤯','🥶','🥵','🤢','🤮','👻','💀','👽','🤖','👍','👎','👌','✌️','🤞','🤟','🤘','👏','🙌','🙏','💪','🫡','👀','❤️','🧡','💛','💚','💙','💜','🖤','💯','🔥','✨','⚡','💥','🎉','🎮','🏆','🚀','🍺','🍕','🐸','😺','😈','🤡'];
