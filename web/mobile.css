@@ -1036,3 +1036,38 @@ html.yc-ios-mobile .yc-v3-workspace{
    display:none!important;
  }
 }
+
+
+/* Portrait Android voice dock centering.
+   Use the whole reserved area between composer and Android system navigation,
+   and center the 68px voice card vertically inside it. */
+@media(max-width:520px) and (orientation:portrait){
+ html.yc-native-android:not(.yc-keyboard-open) .yc-v3-workspace{
+   grid-template-rows:
+     54px
+     74px
+     minmax(0,1fr)
+     calc(68px + var(--yc-android-nav-bottom))!important;
+ }
+ html.yc-native-android:not(.yc-keyboard-open) .yc-v3-voice-host{
+   display:flex!important;
+   align-items:center!important;
+   justify-content:center!important;
+   height:calc(68px + var(--yc-android-nav-bottom))!important;
+   min-height:calc(68px + var(--yc-android-nav-bottom))!important;
+   max-height:calc(68px + var(--yc-android-nav-bottom))!important;
+   padding:0!important;
+   margin:0!important;
+   overflow:hidden!important;
+ }
+ html.yc-native-android:not(.yc-keyboard-open) .yc-v3-voice-host .voice-controls{
+   flex:0 0 auto!important;
+   width:calc(100% - 16px)!important;
+   max-width:calc(100% - 16px)!important;
+   height:68px!important;
+   min-height:68px!important;
+   max-height:68px!important;
+   margin:0 auto!important;
+   align-self:center!important;
+ }
+}
