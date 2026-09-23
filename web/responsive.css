@@ -381,3 +381,38 @@
   .yc-v3-voice-host .voice-btn{flex-basis:40px!important;width:40px!important;min-width:40px!important;height:42px!important}
   .yc-v3-voice-host #soundboardPanel{bottom:76px!important}
 }
+
+
+/* Web auth can grow when device download/help sections are expanded.
+   Keep it centered while it fits, but make the auth surface itself scrollable
+   when the card becomes taller than the viewport. */
+.auth:not(.hidden){
+  display:flex!important;
+  flex-direction:column!important;
+  align-items:center!important;
+  justify-content:flex-start!important;
+  width:100%!important;
+  height:100dvh!important;
+  min-height:100dvh!important;
+  max-height:100dvh!important;
+  overflow-x:hidden!important;
+  overflow-y:auto!important;
+  overscroll-behavior-y:contain!important;
+  -webkit-overflow-scrolling:touch!important;
+  padding:
+    max(24px,env(safe-area-inset-top))
+    max(24px,env(safe-area-inset-right))
+    max(32px,env(safe-area-inset-bottom))
+    max(24px,env(safe-area-inset-left))!important;
+}
+.auth:not(.hidden)>.auth-card{
+  flex:0 0 auto!important;
+  margin-top:auto!important;
+  margin-bottom:auto!important;
+}
+@media(max-height:760px){
+  .auth:not(.hidden){
+    padding-top:max(14px,env(safe-area-inset-top))!important;
+    padding-bottom:max(24px,env(safe-area-inset-bottom))!important;
+  }
+}
