@@ -109,5 +109,5 @@ async function ycStartAccountMessages(){
   ycAccountMessagesSub=sb.channel('yc-account-messages-'+user.id+'-'+Date.now()).on('postgres_changes',{event:'INSERT',schema:'public',table:'account_messages',filter:'recipient_user_id=eq.'+user.id},async()=>{try{await ycLoadAccountMessages()}catch{}toast('📨 Nový vzkaz od Yamachatu.');setTimeout(()=>void ycOpenAccountInbox(true),250)}).subscribe()
 }
 ycOnLifecycle('init',()=>{void ycStartAccountMessages();void ycCheckOwnBanStatus();clearInterval(ycBanStatusTimer);ycBanStatusTimer=setInterval(()=>void ycCheckOwnBanStatus(),60000)});
-ycOnLifecycle('beforeAuth',()=>{ycAccountMessagesCache=[];clearInterval(ycBanStatusTimer);ycBanStatusTimer=null;if(ycAccountMessagesSub){try{sb.removeChannel(ycAccountMessagesSub)}catch{}ycAccountMessagesSub=null}})
+ycOnLifecycle('beforeAuth',()=>{ycAccountMessagesCache=[];clearInterval(ycBanStatusTimer);ycBanStatusTimer=null;if(ycAccountMessagesSub){try{sb.removeChannel(ycAccountMessagesSub)}catch{}ycAccountMessagesSub=null}});
 })();
