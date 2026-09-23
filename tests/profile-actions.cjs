@@ -4,7 +4,7 @@ const root=path.resolve(__dirname,'..');
 (async()=>{
  const browser=await chromium.launch({headless:true,...(process.env.BROWSER_EXECUTABLE?{executablePath:process.env.BROWSER_EXECUTABLE}:{})});
  try{
-  for(const target of ['index.html','build/desktop-profile-actions/desktop-client.html']){
+  for(const target of ['index.html','desktop-client-dist/desktop-client.html']){
    const html=fs.readFileSync(path.join(root,target),'utf8');
    const renderer=html.slice(html.indexOf('async function ycInjectProfileActions1029(uid){'),html.indexOf('// Desktop v1.0.38: shared headers and stream entry points.'));
    const page=await browser.newPage();
