@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "publishedAt": "2026-09-23T08:13:31Z",
+  "publishedAt": "2026-09-23T08:51:08Z",
   "windows": {
     "latestVersion": "1.0.78",
     "required": true,
@@ -8,11 +8,11 @@
     "notes": []
   },
   "android": {
-    "latestVersion": "1.1.0.81",
-    "latestVersionCode": 200081,
+    "latestVersion": "1.1.0.85",
+    "latestVersionCode": 200085,
     "required": true,
-    "apkUrl": "https://yamachat.eu/download/Yamachat-Android.apk?v=200081",
-    "sha256": "7da4790b35debbb03540a480ab507948e445ba1d406a25201a0740efc7103357",
+    "apkUrl": "https://yamachat.eu/download/Yamachat-Android.apk?v=200085",
+    "sha256": "69b840ea65d9fe3d7d1bcd0ac3cb712d45bc466c67fc08e8376305c5130048e5",
     "notes": []
   }
 }
