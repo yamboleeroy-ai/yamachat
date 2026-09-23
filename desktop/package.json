@@ -1,7 +1,7 @@
 {
   "name": "yamachat-windows",
-  "version": "1.0.80",
-  "description": "Yamachat desktop 1.0.80 with Platform Admin user management, account messages, password recovery and rollback-safe GitHub Releases updater",
+  "version": "1.0.81",
+  "description": "Yamachat desktop 1.0.81 with restored Windows tray/app icons, in-app password recovery request, Platform Admin user management and rollback-safe updater",
   "main": "main.js",
   "productName": "Yamachat",
   "author": "Yamachat",
