@@ -997,7 +997,8 @@ async function readDesktopState() {
           return state;
         } catch {
           return null;
-        }      })();
+        }
+      })();
     `, true);
 
     if (!next || typeof next !== 'object') return;
