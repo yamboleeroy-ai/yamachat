@@ -2,6 +2,11 @@ const fs=require('fs'),path=require('path'),assert=require('node:assert/strict')
 const {chromium}=require('playwright');
 const root=path.resolve(__dirname,'..');
 const jwt=()=>[Buffer.from(JSON.stringify({alg:'HS256',typ:'JWT'})).toString('base64url'),Buffer.from(JSON.stringify({sub:'11111111-1111-4111-8111-111111111111',exp:Math.floor(Date.now()/1000)+3600,iat:Math.floor(Date.now()/1000),role:'authenticated',aud:'authenticated'})).toString('base64url'),'testsignature'].join('.');
+for(const target of ['index.html','desktop-client-dist/desktop-client.html']){
+ const html=fs.readFileSync(path.join(root,target),'utf8');
+ for(const marker of ['id="ycForgotPassword"','id="ycPasswordRequestBack"','id="ycPasswordRequestEmail"',"sb.auth.resetPasswordForEmail(email",'E-mailový server odpovídá pomalu']) assert(html.includes(marker),target+' missing in-app recovery marker '+marker);
+ assert(!html.includes('id="ycForgotPassword" href="https://yamachat.eu/reset-password.html" target="_blank"'),target+' still sends forgot-password request to external page');
+}
 (async()=>{
  const browser=await chromium.launch({headless:true,...(process.env.BROWSER_EXECUTABLE?{executablePath:process.env.BROWSER_EXECUTABLE}:{})});
  try{
