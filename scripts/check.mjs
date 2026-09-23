@@ -63,4 +63,8 @@ try{
    "await joinVoiceChannel(channel)"
  ]) assert(webIntegration.includes(marker),`Missing iOS PWA voice reconnect marker: ${marker}`);
  console.log(`PASS: ${count} scripts parse; desktop SHA-256 and backend constants preserved; runtime assets present.`);
+ const recoveryScript=path.join(root,'build/password-recovery.js');
+ assert.equal(spawnSync(process.execPath,['--check',recoveryScript],{encoding:'utf8'}).status,0,'Recovery script must parse');
+ assert(fs.readFileSync(path.join(root,'reset-password.html'),'utf8').includes('name="referrer" content="no-referrer"'));
+ assert(fs.readFileSync(path.join(root,'email/recovery.html'),'utf8').includes('{{ .TokenHash }}'));
 }finally{fs.rmSync(tmp,{recursive:true,force:true})}

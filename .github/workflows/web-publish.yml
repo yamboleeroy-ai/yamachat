@@ -7,7 +7,7 @@ on:
       - main
     paths:
       - "web/**"
-      - "scripts/build-web.mjs"
+      - "scripts/**"
       - "reference/**"
       - ".github/workflows/web-publish.yml"
 
@@ -34,10 +34,12 @@ jobs:
       - name: Verify generated web
         run: node scripts/check.mjs
 
-      - name: Publish generated index
+      - name: Publish generated web assets
         run: |
           set -euo pipefail
           cp index.html /tmp/yamachat-index.html
+          cp reset-password.html /tmp/yamachat-reset-password.html
+          cp build/password-recovery.js /tmp/yamachat-password-recovery.js
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
@@ -45,7 +47,9 @@ jobs:
             git fetch origin main
             git checkout -B publish-web origin/main
             cp /tmp/yamachat-index.html index.html
-            git add index.html
+            cp /tmp/yamachat-reset-password.html reset-password.html
+            cp /tmp/yamachat-password-recovery.js build/password-recovery.js
+            git add index.html reset-password.html build/password-recovery.js
             if git diff --cached --quiet; then
               exit 0
             fi
