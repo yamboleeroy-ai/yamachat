@@ -18,6 +18,9 @@ on:
       - ".github/workflows/desktop-check.yml"
       - ".github/workflows/publish-yamachat-release.yml"
 
+permissions:
+  contents: read
+
 jobs:
   desktop-safety:
     runs-on: ubuntu-latest
@@ -31,20 +34,41 @@ jobs:
           node --check desktop/preload.js
           node --check desktop/notification-preload.js
 
-      - name: Verify stable desktop runtime core stayed byte-identical
+      - name: Install release extractor
         run: |
-          python - <<'PY'
-          import hashlib, json
-          from pathlib import Path
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq p7zip-full
 
-          baseline=json.loads(Path('desktop/BASELINE-1.0.78.json').read_text())
-          for name in ['main.js','preload.js','notification-preload.js']:
-              expected=baseline['sha256'][name]
-              actual=hashlib.sha256(Path('desktop',name).read_bytes()).hexdigest()
-              if actual != expected:
-                  raise SystemExit(f'{name} changed: {actual} != {expected}')
-              print('PASS stable core',name,actual)
-          PY
+      - name: Download released Windows 1.0.79 baseline
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/yamachat-1079
+          gh release download v1.0.79 \
+            --repo "${GITHUB_REPOSITORY}" \
+            --pattern "Yamachat-Setup-1.0.79.exe" \
+            --dir /tmp/yamachat-1079
+
+      - name: Verify Windows runtime matches released 1.0.79
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/yamachat-1079-nsis /tmp/yamachat-1079-app
+          7z x /tmp/yamachat-1079/Yamachat-Setup-1.0.79.exe -o/tmp/yamachat-1079-nsis -y >/dev/null
+          archive="$(find /tmp/yamachat-1079-nsis -type f \( -name 'app-64.7z' -o -name 'app-*.7z' \) | head -n 1 || true)"
+          if [ -n "$archive" ]; then
+            7z x "$archive" -o/tmp/yamachat-1079-app -y >/dev/null
+          else
+            cp -a /tmp/yamachat-1079-nsis/. /tmp/yamachat-1079-app/
+          fi
+          app_root="$(dirname "$(find /tmp/yamachat-1079-app /tmp/yamachat-1079-nsis -type f -path '*/resources/app/main.js' | head -n 1)")"
+          test -n "$app_root"
+          for file in main.js updater.js updater-helper.ps1 preload.js notification-preload.js desktop.html; do
+            test -f "$app_root/$file"
+            test -f "desktop/$file"
+            cmp "$app_root/$file" "desktop/$file"
+            echo "PASS released 1.0.79 runtime: $file"
+          done
 
       - name: Verify generated desktop client
         run: |
