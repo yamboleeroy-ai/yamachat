@@ -44,5 +44,14 @@ try{
    'html.yc-native-ios:not(.yc-keyboard-open) .yc-v3-voice-host',
    'top:4px!important'
  ]) assert(mobileCss.includes(marker),`Missing iOS mobile layout marker: ${marker}`);
+ const mobileJs=fs.readFileSync(path.join(root,'web/mobile.js'),'utf8');
+ assert(mobileJs.includes("document.documentElement.classList.toggle('yc-ios-pwa',iosPwa)"), 'iOS PWA class detection missing');
+ const mobileCssPwa=fs.readFileSync(path.join(root,'web/mobile.css'),'utf8');
+ for(const marker of [
+   'html.yc-ios-pwa .yc-ss-nav',
+   'html.yc-ios-pwa .yc-ss-tab',
+   'overflow-x:auto!important',
+   'html.yc-ios-pwa:not(.yc-keyboard-open) .yc-v3-voice-host'
+ ]) assert(mobileCssPwa.includes(marker),`Missing iOS PWA layout marker: ${marker}`);
  console.log(`PASS: ${count} scripts parse; desktop SHA-256 and backend constants preserved; runtime assets present.`);
 }finally{fs.rmSync(tmp,{recursive:true,force:true})}
