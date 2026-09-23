@@ -597,3 +597,117 @@ html.yc-ios-mobile .yc-v3-workspace{
  }
  .yc-v3-content-grid>.chat>.chat-head{padding-right:54px!important}
 }
+
+
+/* Native Android must mirror the iOS mobile layout. Keep the system navigation
+   clearance as real layout space instead of shifting the voice dock into chat. */
+@media(max-width:1100px){
+ html.yc-native-android .yc-v3-workspace>.top{
+   position:relative!important;
+   display:block!important;
+   overflow:visible!important;
+ }
+ html.yc-native-android #mobileMenu,
+ html.yc-native-android #ycMobileNavBtn,
+ html.yc-native-android #ycMobileMembersBtn{
+   position:absolute!important;
+   top:50%!important;
+   transform:translateY(-50%)!important;
+   margin:0!important;
+   z-index:5!important;
+ }
+ html.yc-native-android #mobileMenu{
+   left:max(7px,env(safe-area-inset-left))!important;
+ }
+ html.yc-native-android #ycMobileNavBtn{
+   left:calc(max(7px,env(safe-area-inset-left)) + 45px)!important;
+ }
+ html.yc-native-android #ycMobileMembersBtn{
+   left:auto!important;
+   right:max(7px,env(safe-area-inset-right))!important;
+ }
+ html.yc-native-android .yc-mobile-header-brand{
+   position:absolute!important;
+   left:50%!important;
+   right:auto!important;
+   top:50%!important;
+   transform:translate(-50%,-50%)!important;
+   margin:0!important;
+   z-index:4!important;
+   max-width:calc(100% - 190px)!important;
+ }
+ html.yc-native-android #ycMobileServerMenuBtn{
+   display:grid!important;
+   visibility:visible!important;
+   opacity:1!important;
+   pointer-events:auto!important;
+ }
+ html.yc-native-android .yc-v3-voice-host{
+   position:relative!important;
+   bottom:auto!important;
+   top:auto!important;
+   transform:none!important;
+   z-index:3!important;
+ }
+}
+
+/* Portrait Android: reserve the navigation-button area BELOW the 68px voice bar. */
+@media(max-width:520px) and (orientation:portrait){
+ html.yc-native-android .yc-v3-workspace{
+   grid-template-rows:
+     54px
+     74px
+     minmax(0,1fr)
+     calc(68px + var(--yc-native-bottom-controls-clearance))!important;
+ }
+ html.yc-native-android .yc-v3-voice-host{
+   height:calc(68px + var(--yc-native-bottom-controls-clearance))!important;
+   min-height:calc(68px + var(--yc-native-bottom-controls-clearance))!important;
+   max-height:calc(68px + var(--yc-native-bottom-controls-clearance))!important;
+   padding:0 0 var(--yc-native-bottom-controls-clearance)!important;
+   overflow:visible!important;
+ }
+ html.yc-native-android .yc-v3-voice-host .voice-controls{
+   height:68px!important;
+   min-height:68px!important;
+   max-height:68px!important;
+ }
+}
+
+/* Landscape Android uses the same compact wide layout, with navigation
+   clearance below rather than on top of the chat. */
+@media(max-width:1100px) and (orientation:landscape){
+ html.yc-native-android .yc-v3-workspace{
+   grid-template-rows:
+     50px
+     64px
+     minmax(0,1fr)
+     calc(64px + var(--yc-native-bottom-controls-clearance))!important;
+ }
+ html.yc-native-android .yc-v3-voice-host{
+   height:calc(64px + var(--yc-native-bottom-controls-clearance))!important;
+   min-height:calc(64px + var(--yc-native-bottom-controls-clearance))!important;
+   max-height:calc(64px + var(--yc-native-bottom-controls-clearance))!important;
+   padding:0 0 var(--yc-native-bottom-controls-clearance)!important;
+ }
+ html.yc-native-android .yc-v3-voice-host .voice-controls{
+   height:64px!important;
+   min-height:64px!important;
+   max-height:64px!important;
+ }
+}
+
+/* When Android's software keyboard is visible it already reserves the bottom,
+   so do not add the navigation clearance a second time. */
+@media(max-width:1100px){
+ html.yc-native-android.yc-keyboard-open .yc-v3-workspace{
+   grid-template-rows:54px 0 minmax(0,1fr) 64px!important;
+ }
+ html.yc-native-android.yc-keyboard-open .yc-v3-voice-host{
+   height:64px!important;
+   min-height:64px!important;
+   max-height:64px!important;
+   padding-bottom:0!important;
+   bottom:auto!important;
+ }
+}
