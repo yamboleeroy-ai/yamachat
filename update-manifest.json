@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "publishedAt": "2026-09-23T21:06:14Z",
+  "publishedAt": "2026-09-23T22:46:52Z",
   "windows": {
     "latestVersion": "1.0.79",
     "required": true,
@@ -8,15 +8,16 @@
     "notes": "- V profilu jsou nové možnosti \r\n- Napsat zprávu\r\n- Přidat do přátel\r\n- ztlumit\r\n- nahlásit\r\n- zablokovat"
   },
   "android": {
-    "latestVersion": "1.1.0.122",
-    "latestVersionCode": 200122,
+    "latestVersion": "1.1.0.157",
+    "latestVersionCode": 200157,
     "required": true,
-    "apkUrl": "https://yamachat.eu/download/Yamachat-Android.apk?v=200122",
-    "sha256": "02eb596dc3ec35d60d3958b1f7c6f9c4abaa81cce4c54f9feb1ad62917fe7032",
+    "apkUrl": "https://yamachat.eu/download/Yamachat-Android.apk?v=200157",
+    "sha256": "849b4a16ff3743cdc06452cfab57785d6dd527ea5ee07931d2787d9fab1466eb",
     "notes": [
-      "Nový panel akcí pod profilem: přátelé a stav žádosti, soukromá zpráva, blokování a nahlášení.",
-      "Lokální ztlumení hlasu uživatele přímo z profilu.",
-      "Opravené zobrazení profilových akcí a rozložení pro mobilní zařízení."
+      "Platform Admin má správu registrovaných uživatelských účtů včetně e-mailu, registrace a posledního přihlášení.",
+      "Přidaný ban na 24 hodin, 7 dní, 30 dní nebo dlouhodobě, odbanování a záznam důvodu zásahu.",
+      "Admin může uživateli poslat vzkaz přímo do účtu Yamachat.",
+      "Součástí společného klienta je také připravená obnova zapomenutého hesla."
     ]
   }
 }
