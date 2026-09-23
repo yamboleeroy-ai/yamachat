@@ -12,7 +12,7 @@ Existing backend paths are reused:
 | Block/unblock | `user_blocks`, `ycBlockUser`, `ycUnblockUser`, existing `block_user` / `unblock_user` RPCs |
 | Report | `ycOpenProfileReport1029`, existing `report_profile` RPC |
 
-No migrations, new tables, RPC implementations, credentials, update versions or production data are changed. Backend calls exist in the repository; the deployed database schema/RLS and a signed-in two-account production flow have not been independently verified. Read errors disable friend/DM/block actions rather than assuming that a user is unblocked; local mute remains available. Existing RPC errors are surfaced by their existing handlers. No fake local blocking/reporting fallback is introduced.
+No migrations, new tables, RPC implementations, credentials, update versions or production data are changed. Read-only inspection of the deployed database confirmed all four RPC definitions and EXECUTE grants for authenticated users, plus enabled RLS and participant/self policies on friendships and user_blocks. No user rows were read or modified. A signed-in two-account production flow has not been exercised. Read errors disable friend/DM/block actions rather than assuming that a user is unblocked; local mute remains available. Existing RPC errors are surfaced by their existing handlers. No fake local blocking/reporting fallback is introduced.
 
 ## Build and verification
 
