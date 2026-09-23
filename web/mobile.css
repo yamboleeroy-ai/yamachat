@@ -112,78 +112,133 @@
  }
 }
 
-/* Portrait phones: one compact voice row.
-   Avatar/name stay visible at the left; voice buttons sit directly next to it
-   instead of collapsing/overlapping. Extra connected controls remain horizontally
-   scrollable rather than covering each other. */
+/* Portrait phones: keep the complete voice dock visible in one bottom row.
+   The identity block has a fixed compact width and the six controls divide all
+   remaining width, so nothing can slide outside the viewport on iOS or Android. */
 @media(max-width:520px) and (orientation:portrait){
+ .yc-v3-workspace{
+   grid-template-rows:54px 74px minmax(0,1fr) 68px!important;
+ }
  .yc-v3-voice-host,
  .yc-v3-voice-host .voice-controls{
    height:68px!important;
    min-height:68px!important;
+   max-height:68px!important;
  }
- .yc-v3-voice-host .voice-controls{
-   display:grid!important;
-   grid-template-columns:minmax(118px,1fr) minmax(128px,auto)!important;
-   grid-template-rows:1fr!important;
+ .yc-v3-voice-host{
+   width:100%!important;
+   max-width:100%!important;
+   min-width:0!important;
+   overflow:visible!important;
+ }
+ .yc-v3-voice-host .voice-controls,
+ .yc-v3-voice-host .voice-controls:has(.voice-card-top.hidden){
+   display:flex!important;
+   flex-direction:row!important;
    align-items:center!important;
-   gap:7px!important;
-   padding:7px max(7px,env(safe-area-inset-right)) max(7px,env(safe-area-inset-bottom)) max(7px,env(safe-area-inset-left))!important;
+   width:100%!important;
+   max-width:100%!important;
+   min-width:0!important;
+   margin:0!important;
+   padding:6px max(6px,env(safe-area-inset-right)) max(6px,env(safe-area-inset-bottom)) max(6px,env(safe-area-inset-left))!important;
+   gap:6px!important;
    overflow:hidden!important;
+   border-radius:0!important;
  }
  .yc-v3-voice-host #voiceConnectionPanel{
    display:none!important;
  }
- .yc-v3-voice-host .yc-voice-self-row{
+ .yc-v3-voice-host .yc-voice-self-row,
+ .yc-v3-voice-host .voice-controls:has(.voice-card-top.hidden) .yc-voice-self-row{
    display:flex!important;
-   grid-column:1!important;
-   grid-row:1!important;
+   flex:0 1 112px!important;
+   width:112px!important;
+   max-width:112px!important;
+   min-width:92px!important;
+   height:50px!important;
    align-items:center!important;
-   min-width:0!important;
    margin:0!important;
-   padding:0!important;
-   gap:7px!important;
+   padding:2px 4px!important;
+   gap:5px!important;
+   overflow:hidden!important;
+   border-radius:9px!important;
  }
  .yc-v3-voice-host .yc-voice-self-avatar{
-   width:40px!important;
-   height:40px!important;
-   flex:0 0 40px!important;
+   width:36px!important;
+   height:36px!important;
+   flex:0 0 36px!important;
+ }
+ .yc-v3-voice-host .yc-voice-self-avatar>.rank-crest{
+   width:36px!important;
+   height:36px!important;
+   min-width:36px!important;
  }
  .yc-v3-voice-host .yc-voice-self-avatar>.rank-crest>.avatar{
-   width:32px!important;
-   height:32px!important;
+   width:28px!important;
+   height:28px!important;
  }
  .yc-v3-voice-host .yc-voice-self-copy{
    min-width:0!important;
+   flex:1 1 auto!important;
  }
  .yc-v3-voice-host .yc-voice-self-copy strong{
-   font-size:11px!important;
+   font-size:10px!important;
+   line-height:1.1!important;
  }
  .yc-v3-voice-host .yc-voice-self-copy small{
-   font-size:9px!important;
+   font-size:8px!important;
+   line-height:1.1!important;
+   margin-top:2px!important;
  }
- .yc-v3-voice-host .discord-voice-buttons{
-   grid-column:2!important;
-   grid-row:1!important;
-   display:flex!important;
-   align-items:center!important;
-   justify-content:flex-end!important;
+ .yc-v3-voice-host .discord-voice-buttons,
+ .yc-v3-voice-host .voice-controls:has(.voice-card-top.hidden) .discord-voice-buttons{
+   display:grid!important;
+   flex:1 1 0!important;
+   width:auto!important;
+   max-width:none!important;
    min-width:0!important;
-   max-width:calc(100vw - 132px)!important;
-   gap:5px!important;
-   overflow-x:auto!important;
-   overflow-y:hidden!important;
-   scrollbar-width:none!important;
+   grid-template-columns:repeat(6,minmax(0,1fr))!important;
+   grid-auto-flow:column!important;
+   align-items:center!important;
+   gap:3px!important;
+   margin:0!important;
+   overflow:visible!important;
  }
- .yc-v3-voice-host .discord-voice-buttons::-webkit-scrollbar{display:none!important}
+ .yc-v3-voice-host .yc-persistent-voice.is-idle .discord-voice-buttons,
+ .yc-v3-voice-host .voice-controls.yc-persistent-voice.is-idle .discord-voice-buttons{
+   grid-template-columns:repeat(3,minmax(0,1fr))!important;
+ }
  .yc-v3-voice-host .voice-btn{
-   flex:0 0 38px!important;
-   width:38px!important;
-   min-width:38px!important;
-   height:42px!important;
-   min-height:42px!important;
+   width:100%!important;
+   min-width:0!important;
+   max-width:none!important;
+   height:40px!important;
+   min-height:40px!important;
    padding:0!important;
+   font-size:14px!important;
+   border-radius:8px!important;
  }
+ .yc-v3-voice-host #soundboardPanel{
+   left:6px!important;
+   right:6px!important;
+   bottom:74px!important;
+   max-height:46dvh!important;
+ }
+}
+
+@media(max-width:380px) and (orientation:portrait){
+ .yc-v3-voice-host .yc-voice-self-row,
+ .yc-v3-voice-host .voice-controls:has(.voice-card-top.hidden) .yc-voice-self-row{
+   flex-basis:96px!important;
+   width:96px!important;
+   min-width:82px!important;
+ }
+ .yc-v3-voice-host .yc-voice-self-avatar{
+   width:32px!important;
+   height:32px!important;
+   flex-basis:32px!important;
+ }
+ .yc-v3-voice-host .voice-btn{font-size:13px!important}
 }
 
 /* Landscape phones/tablets: let the same dock breathe and stretch across the
@@ -221,4 +276,15 @@
    width:auto!important;
    min-width:44px!important;
  }
+}
+
+/* iOS dark system safe areas. */
+html.yc-ios-mobile,
+html.yc-ios-mobile body{
+  background:#071019!important;
+  background-color:#071019!important;
+}
+html.yc-ios-mobile .app,
+html.yc-ios-mobile .yc-v3-workspace{
+  background-color:#071019!important;
 }
