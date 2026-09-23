@@ -85,6 +85,10 @@ body{min-height:100dvh;padding:env(safe-area-inset-top) env(safe-area-inset-righ
   </section>
 </main>
 <script>
+const androidInstallBtn=document.getElementById('androidInstallBtn');
+const refreshAndroidApkUrl=()=>{androidInstallBtn.href='./Yamachat-Android.apk?v='+Date.now();};
+refreshAndroidApkUrl();
+androidInstallBtn.addEventListener('click',refreshAndroidApkUrl);
 document.getElementById('iosInstallBtn').addEventListener('click',()=>{
   alert('iPhone / iPad:\n\n1. Otevři yamachat.eu v Safari.\n2. Klepni na Sdílet.\n3. Zvol Přidat na plochu.\n4. Zapni Otevřít jako webovou aplikaci.\n5. Klepni na Přidat.');
 });
