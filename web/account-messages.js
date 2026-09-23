@@ -1,4 +1,4 @@
-(()=>{
+;(()=>{
 if(window.__ycAccountMessagesV1)return;window.__ycAccountMessagesV1=true;
 let ycAccountMessagesSub=null,ycAccountMessagesCache=[],ycBanStatusTimer=null;
 const YC_ADMIN_USERS_FUNCTION='yamachat-snapshot-v11';
