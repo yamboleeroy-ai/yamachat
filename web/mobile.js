@@ -1,7 +1,9 @@
 (()=>{
  const mobile=matchMedia('(max-width:1100px)');
  const iosLike=/iP(?:hone|ad|od)/i.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
+ const iosPwa=iosLike&&(navigator.standalone===true||matchMedia('(display-mode: standalone)').matches);
  document.documentElement.classList.toggle('yc-ios-mobile',iosLike);
+ document.documentElement.classList.toggle('yc-ios-pwa',iosPwa);
  let activeDrawer=null,returnFocus=null;
  const panels=()=>[document.getElementById('ycGlobalNav'),document.getElementById('side'),document.querySelector('.yc-v3-content-grid>.right')].filter(Boolean);
  function close(){for(const p of panels()){p.classList.remove('yc-mobile-open','mobile-open');p.inert=mobile.matches}document.getElementById('app')?.classList.remove('yc-mobile-drawer-open');document.querySelectorAll('[aria-controls][aria-expanded]').forEach(b=>b.setAttribute('aria-expanded','false'));activeDrawer=null;returnFocus?.focus();returnFocus=null}

@@ -863,10 +863,10 @@ html.yc-ios-mobile .yc-v3-workspace{
  }
 }
 
-/* Native Android server settings: both columns are genuine touch scrollers.
+/* Native mobile server settings: both columns are genuine touch scrollers.
    This fixes the desktop modal becoming a clipped, non-scrollable surface. */
 @media(max-width:1100px){
- html.yc-native-android .yc-ss-back{
+ html.yc-native-app .yc-ss-back{
    position:fixed!important;
    inset:0!important;
    display:flex!important;
@@ -876,7 +876,7 @@ html.yc-ios-mobile .yc-v3-workspace{
    overflow:hidden!important;
    touch-action:none!important;
  }
- html.yc-native-android .yc-ss-shell{
+ html.yc-native-app .yc-ss-shell{
    width:100%!important;
    max-width:100%!important;
    height:100%!important;
@@ -885,7 +885,7 @@ html.yc-ios-mobile .yc-v3-workspace{
    margin:0!important;
    overflow:hidden!important;
  }
- html.yc-native-android .yc-ss-nav{
+ html.yc-native-app .yc-ss-nav{
    min-height:0!important;
    max-height:100%!important;
    overflow-x:hidden!important;
@@ -894,7 +894,7 @@ html.yc-ios-mobile .yc-v3-workspace{
    -webkit-overflow-scrolling:touch!important;
    touch-action:pan-y!important;
  }
- html.yc-native-android .yc-ss-main{
+ html.yc-native-app .yc-ss-main{
    min-width:0!important;
    min-height:0!important;
    max-height:100%!important;
@@ -902,12 +902,12 @@ html.yc-ios-mobile .yc-v3-workspace{
    display:flex!important;
    flex-direction:column!important;
  }
- html.yc-native-android .yc-ss-head{
+ html.yc-native-app .yc-ss-head{
    flex:0 0 62px!important;
    height:62px!important;
    min-height:62px!important;
  }
- html.yc-native-android .yc-ss-body{
+ html.yc-native-app .yc-ss-body{
    flex:1 1 auto!important;
    min-height:0!important;
    max-height:none!important;
@@ -918,29 +918,29 @@ html.yc-ios-mobile .yc-v3-workspace{
    touch-action:pan-y!important;
    padding-bottom:max(34px,env(safe-area-inset-bottom))!important;
  }
- html.yc-native-android .yc-ss-card,
- html.yc-native-android .yc-role-editor{
+ html.yc-native-app .yc-ss-card,
+ html.yc-native-app .yc-role-editor{
    min-width:0!important;
  }
- html.yc-native-android .yc-ss-field input,
- html.yc-native-android .yc-ss-field textarea,
- html.yc-native-android .yc-ss-field select{
+ html.yc-native-app .yc-ss-field input,
+ html.yc-native-app .yc-ss-field textarea,
+ html.yc-native-app .yc-ss-field select{
    font-size:16px!important;
  }
 }
 
-/* Portrait server settings become mobile-first: tabs are a compact horizontal
+/* Portrait native server settings become mobile-first: tabs are a compact horizontal
    strip, content gets the rest of the screen and can scroll independently. */
 @media(max-width:520px) and (orientation:portrait){
- html.yc-native-android .yc-ss-back{padding:0!important}
- html.yc-native-android .yc-ss-shell{
+ html.yc-native-app .yc-ss-back{padding:0!important}
+ html.yc-native-app .yc-ss-shell{
    border-radius:0!important;
    border-left:0!important;
    border-right:0!important;
    grid-template-columns:1fr!important;
    grid-template-rows:auto minmax(0,1fr)!important;
  }
- html.yc-native-android .yc-ss-nav{
+ html.yc-native-app .yc-ss-nav{
    display:flex!important;
    align-items:center!important;
    gap:6px!important;
@@ -954,17 +954,17 @@ html.yc-ios-mobile .yc-v3-workspace{
    touch-action:pan-x!important;
    scrollbar-width:none!important;
  }
- html.yc-native-android .yc-ss-nav::-webkit-scrollbar{display:none!important}
- html.yc-native-android .yc-ss-server{
+ html.yc-native-app .yc-ss-nav::-webkit-scrollbar{display:none!important}
+ html.yc-native-app .yc-ss-server{
    flex:0 0 118px!important;
    width:118px!important;
    margin:0 4px 0 0!important;
    padding:4px 8px!important;
    border:0!important;
  }
- html.yc-native-android .yc-ss-server strong{font-size:14px!important}
- html.yc-native-android .yc-ss-section{display:none!important}
- html.yc-native-android .yc-ss-tab{
+ html.yc-native-app .yc-ss-server strong{font-size:14px!important}
+ html.yc-native-app .yc-ss-section{display:none!important}
+ html.yc-native-app .yc-ss-tab{
    flex:0 0 auto!important;
    width:auto!important;
    min-height:42px!important;
@@ -973,24 +973,24 @@ html.yc-ios-mobile .yc-v3-workspace{
    white-space:nowrap!important;
    text-align:center!important;
  }
- html.yc-native-android .yc-ss-head{
+ html.yc-native-app .yc-ss-head{
    padding:0 14px!important;
  }
- html.yc-native-android .yc-ss-head strong{font-size:16px!important}
- html.yc-native-android .yc-ss-body{
+ html.yc-native-app .yc-ss-head strong{font-size:16px!important}
+ html.yc-native-app .yc-ss-body{
    padding:14px 12px 32px!important;
  }
- html.yc-native-android .yc-ss-card{padding:13px!important}
- html.yc-native-android .yc-ss-grid,
- html.yc-native-android .yc-perm-grid,
- html.yc-native-android .yc-role-layout{
+ html.yc-native-app .yc-ss-card{padding:13px!important}
+ html.yc-native-app .yc-ss-grid,
+ html.yc-native-app .yc-perm-grid,
+ html.yc-native-app .yc-role-layout{
    grid-template-columns:1fr!important;
  }
- html.yc-native-android .yc-member-manage{
+ html.yc-native-app .yc-member-manage{
    align-items:flex-start!important;
    flex-wrap:wrap!important;
  }
- html.yc-native-android .yc-member-rolechips{max-width:100%!important}
+ html.yc-native-app .yc-member-rolechips{max-width:100%!important}
 }
 
 /* Landscape settings keep a narrow navigation rail and reserve the Android
@@ -1156,4 +1156,238 @@ html.yc-ios-mobile .yc-v3-workspace{
    padding-top:1px!important;
    box-sizing:border-box!important;
  }
+}
+
+
+/* iOS-only portrait parity: server settings tabs + slightly lower voice dock. */
+@media(max-width:600px) and (orientation:portrait){
+  html.yc-native-ios .yc-ss-back{
+    position:fixed!important;
+    inset:0!important;
+    display:flex!important;
+    align-items:stretch!important;
+    justify-content:stretch!important;
+    padding:max(env(safe-area-inset-top),0px) 0 0!important;
+    overflow:hidden!important;
+    touch-action:none!important;
+  }
+  html.yc-native-ios .yc-ss-shell{
+    display:grid!important;
+    grid-template-columns:minmax(0,1fr)!important;
+    grid-template-rows:auto minmax(0,1fr)!important;
+    width:100%!important;
+    max-width:100%!important;
+    height:calc(100dvh - env(safe-area-inset-top))!important;
+    max-height:calc(100dvh - env(safe-area-inset-top))!important;
+    min-height:0!important;
+    margin:0!important;
+    overflow:hidden!important;
+    border-radius:0!important;
+    border-left:0!important;
+    border-right:0!important;
+  }
+  html.yc-native-ios .yc-ss-nav{
+    grid-column:1!important;
+    grid-row:1!important;
+    display:flex!important;
+    flex-direction:row!important;
+    flex-wrap:nowrap!important;
+    align-items:center!important;
+    gap:6px!important;
+    width:100%!important;
+    max-width:100%!important;
+    min-width:0!important;
+    min-height:58px!important;
+    max-height:58px!important;
+    padding:8px 10px!important;
+    border-right:0!important;
+    border-bottom:1px solid rgba(107,208,233,.16)!important;
+    overflow-x:auto!important;
+    overflow-y:hidden!important;
+    overscroll-behavior-x:contain!important;
+    -webkit-overflow-scrolling:touch!important;
+    touch-action:pan-x!important;
+    scrollbar-width:none!important;
+  }
+  html.yc-native-ios .yc-ss-nav::-webkit-scrollbar{display:none!important}
+  html.yc-native-ios .yc-ss-server{
+    flex:0 0 118px!important;
+    width:118px!important;
+    min-width:118px!important;
+    margin:0 4px 0 0!important;
+    padding:4px 8px!important;
+    border:0!important;
+  }
+  html.yc-native-ios .yc-ss-server strong{font-size:14px!important}
+  html.yc-native-ios .yc-ss-section{display:none!important}
+  html.yc-native-ios .yc-ss-tab{
+    flex:0 0 auto!important;
+    width:auto!important;
+    min-width:max-content!important;
+    min-height:42px!important;
+    margin:0!important;
+    padding:9px 12px!important;
+    white-space:nowrap!important;
+    text-align:center!important;
+  }
+  html.yc-native-ios .yc-ss-main{
+    grid-column:1!important;
+    grid-row:2!important;
+    min-width:0!important;
+    min-height:0!important;
+    max-height:100%!important;
+    overflow:hidden!important;
+    display:flex!important;
+    flex-direction:column!important;
+  }
+  html.yc-native-ios .yc-ss-head{
+    flex:0 0 58px!important;
+    height:58px!important;
+    min-height:58px!important;
+    padding:0 14px!important;
+  }
+  html.yc-native-ios .yc-ss-head strong{font-size:16px!important}
+  html.yc-native-ios .yc-ss-body{
+    flex:1 1 auto!important;
+    min-height:0!important;
+    max-height:none!important;
+    overflow-x:hidden!important;
+    overflow-y:auto!important;
+    overscroll-behavior:contain!important;
+    -webkit-overflow-scrolling:touch!important;
+    touch-action:pan-y!important;
+    padding:14px 12px max(32px,env(safe-area-inset-bottom))!important;
+  }
+  html.yc-native-ios .yc-ss-card{padding:13px!important;min-width:0!important}
+  html.yc-native-ios .yc-ss-grid,
+  html.yc-native-ios .yc-perm-grid,
+  html.yc-native-ios .yc-role-layout{
+    grid-template-columns:1fr!important;
+  }
+  html.yc-native-ios .yc-member-manage{
+    align-items:flex-start!important;
+    flex-wrap:wrap!important;
+  }
+  html.yc-native-ios .yc-member-rolechips{max-width:100%!important}
+
+  /* Keep the iPhone voice dock a little closer to the physical bottom edge,
+     without touching Android or desktop layout. */
+  html.yc-native-ios:not(.yc-keyboard-open) .yc-v3-voice-host{
+    position:relative!important;
+    top:4px!important;
+  }
+}
+
+
+/* iOS PWA portrait parity: use the Android-style horizontal server settings tabs. */
+@media(max-width:600px) and (orientation:portrait){
+  html.yc-ios-pwa .yc-ss-back{
+    position:fixed!important;
+    inset:0!important;
+    display:flex!important;
+    align-items:stretch!important;
+    justify-content:stretch!important;
+    padding:max(env(safe-area-inset-top),0px) 0 0!important;
+    overflow:hidden!important;
+    touch-action:none!important;
+  }
+  html.yc-ios-pwa .yc-ss-shell{
+    display:grid!important;
+    grid-template-columns:minmax(0,1fr)!important;
+    grid-template-rows:auto minmax(0,1fr)!important;
+    width:100%!important;
+    max-width:100%!important;
+    height:calc(100dvh - env(safe-area-inset-top))!important;
+    max-height:calc(100dvh - env(safe-area-inset-top))!important;
+    min-height:0!important;
+    margin:0!important;
+    overflow:hidden!important;
+    border-radius:0!important;
+    border-left:0!important;
+    border-right:0!important;
+  }
+  html.yc-ios-pwa .yc-ss-nav{
+    grid-column:1!important;
+    grid-row:1!important;
+    display:flex!important;
+    flex-direction:row!important;
+    flex-wrap:nowrap!important;
+    align-items:center!important;
+    gap:6px!important;
+    width:100%!important;
+    max-width:100%!important;
+    min-width:0!important;
+    min-height:58px!important;
+    max-height:58px!important;
+    padding:8px 10px!important;
+    border-right:0!important;
+    border-bottom:1px solid rgba(107,208,233,.16)!important;
+    overflow-x:auto!important;
+    overflow-y:hidden!important;
+    overscroll-behavior-x:contain!important;
+    -webkit-overflow-scrolling:touch!important;
+    touch-action:pan-x!important;
+    scrollbar-width:none!important;
+  }
+  html.yc-ios-pwa .yc-ss-nav::-webkit-scrollbar{display:none!important}
+  html.yc-ios-pwa .yc-ss-server{
+    flex:0 0 118px!important;
+    width:118px!important;
+    min-width:118px!important;
+    margin:0 4px 0 0!important;
+    padding:4px 8px!important;
+    border:0!important;
+  }
+  html.yc-ios-pwa .yc-ss-server strong{font-size:14px!important}
+  html.yc-ios-pwa .yc-ss-section{display:none!important}
+  html.yc-ios-pwa .yc-ss-tab{
+    flex:0 0 auto!important;
+    width:auto!important;
+    min-width:max-content!important;
+    min-height:42px!important;
+    margin:0!important;
+    padding:9px 12px!important;
+    white-space:nowrap!important;
+    text-align:center!important;
+  }
+  html.yc-ios-pwa .yc-ss-main{
+    grid-column:1!important;
+    grid-row:2!important;
+    min-width:0!important;
+    min-height:0!important;
+    max-height:100%!important;
+    overflow:hidden!important;
+    display:flex!important;
+    flex-direction:column!important;
+  }
+  html.yc-ios-pwa .yc-ss-head{
+    flex:0 0 58px!important;
+    height:58px!important;
+    min-height:58px!important;
+    padding:0 14px!important;
+  }
+  html.yc-ios-pwa .yc-ss-head strong{font-size:16px!important}
+  html.yc-ios-pwa .yc-ss-body{
+    flex:1 1 auto!important;
+    min-height:0!important;
+    max-height:none!important;
+    overflow-x:hidden!important;
+    overflow-y:auto!important;
+    overscroll-behavior:contain!important;
+    -webkit-overflow-scrolling:touch!important;
+    touch-action:pan-y!important;
+    padding:14px 12px max(32px,env(safe-area-inset-bottom))!important;
+  }
+  html.yc-ios-pwa .yc-ss-card{padding:13px!important;min-width:0!important}
+  html.yc-ios-pwa .yc-ss-grid,
+  html.yc-ios-pwa .yc-perm-grid,
+  html.yc-ios-pwa .yc-role-layout{
+    grid-template-columns:1fr!important;
+  }
+  html.yc-ios-pwa .yc-member-manage{
+    align-items:flex-start!important;
+    flex-wrap:wrap!important;
+  }
+  html.yc-ios-pwa .yc-member-rolechips{max-width:100%!important}
+
 }
