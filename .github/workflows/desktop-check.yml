@@ -74,7 +74,9 @@ jobs:
         run: |
           node scripts/build-desktop-client.mjs
           cmp desktop-client-dist/desktop-client.html desktop/desktop-client.html
-          echo "PASS desktop client matches tested generator"
+          grep -q 'id="ycPasswordRequestBack"' desktop/desktop-client.html
+          grep -q 'Platform Admin · uživatelské účty' desktop/desktop-client.html
+          echo "PASS desktop client matches tested generator and contains 1.0.81 features"
 
       - name: Verify tray and app icon restoration recipe
         shell: pwsh
