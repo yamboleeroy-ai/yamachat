@@ -17,6 +17,34 @@
    b.addEventListener('click',e=>{if(!mobile.matches)return;e.preventDefault();e.stopImmediatePropagation();open(panel,b)},true);
   }
   const brand=document.createElement('div');brand.id='ycMobileBrand';brand.className='yc-mobile-header-brand';const img=document.createElement('img');img.src='./build/yamachat-logo-full.png';img.alt='Yamachat';img.className='yc-mobile-header-logo';img.onerror=()=>{img.onerror=null;img.src='./build/yamachat-logo-symbol.png'};brand.appendChild(img);top.appendChild(brand);
+  const chatHead=app.querySelector('.yc-v3-content-grid>.chat>.chat-head');
+  if(chatHead&&!document.getElementById('ycMobileServerMenuBtn')){
+   const serverBtn=document.createElement('button');
+   serverBtn.id='ycMobileServerMenuBtn';
+   serverBtn.type='button';
+   serverBtn.className='yc-mobile-server-menu-btn';
+   serverBtn.textContent='⋯';
+   serverBtn.title='Nabídka serveru';
+   serverBtn.setAttribute('aria-label','Nabídka serveru');
+   serverBtn.addEventListener('click',e=>{
+    if(!mobile.matches)return;
+    e.preventDefault();e.stopPropagation();
+    const source=document.getElementById('ycServerMenuBtn');
+    if(!source)return;
+    source.click();
+    requestAnimationFrame(()=>{
+     const menu=document.getElementById('ycUiMenuRoot');
+     if(!menu||menu.classList.contains('hidden'))return;
+     const a=serverBtn.getBoundingClientRect(),r=menu.getBoundingClientRect();
+     let left=Math.max(8,a.right-r.width),top=a.bottom+6;
+     if(left+r.width>innerWidth-8)left=Math.max(8,innerWidth-r.width-8);
+     if(top+r.height>innerHeight-8)top=Math.max(8,a.top-r.height-6);
+     menu.style.left=Math.round(left)+'px';
+     menu.style.top=Math.round(top)+'px';
+    });
+   },true);
+   chatHead.appendChild(serverBtn);
+  }
   const scrim=document.createElement('div');scrim.id='ycMobileScrim';scrim.className='yc-mobile-scrim';scrim.addEventListener('click',close);app.appendChild(scrim);close();return true;
  }
  const observer=new MutationObserver(()=>{if(mount())observer.disconnect()});observer.observe(document.getElementById('app'),{childList:true,subtree:true});mount();
@@ -42,6 +70,8 @@
    const root=document.documentElement;
    root.style.setProperty('--yc-viewport-height',h+'px');
    root.style.setProperty('--yc-viewport-offset-top',offset+'px');
+   const visualOcclusion=Math.max(0,Math.round(innerHeight-(offset+h)));
+   root.style.setProperty('--yc-keyboard-occlusion',visualOcclusion+'px');
    const typing=/^(INPUT|TEXTAREA)$/.test(document.activeElement?.tagName);
    const nativeKeyboard=root.dataset.nativeKeyboard==='true';
    const visualKeyboard=typing&&((innerHeight-h)>120||offset>24);
