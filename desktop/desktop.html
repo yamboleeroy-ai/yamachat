@@ -1,0 +1,1836 @@
+<!doctype html>
+<html lang="cs">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Yamachat Desktop</title>
+
+  <style>
+    :root {
+      --yc-desktop-accent: #e056fd;
+      --yc-desktop-accent-rgb: 224, 86, 253;
+      --yc-desktop-secondary: color-mix(in srgb, var(--yc-desktop-accent) 48%, #b34dff);
+      --yc-titlebar-h: 42px;
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      border: 0;
+      overflow: hidden;
+      background: #07111b;
+    }
+
+    body {
+      display: flex;
+      flex-direction: column;
+      font-family: Inter, "Segoe UI", Arial, sans-serif;
+    }
+
+    #ycDesktopTitlebar {
+      position: relative;
+      flex: 0 0 var(--yc-titlebar-h);
+      height: var(--yc-titlebar-h);
+      display: grid;
+      grid-template-columns: minmax(120px, 1fr) auto minmax(120px, 1fr);
+      align-items: center;
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-app-region: drag;
+      background:
+        radial-gradient(circle at 42% -120%, rgba(var(--yc-desktop-accent-rgb), .23), transparent 54%),
+        radial-gradient(circle at 60% -140%, color-mix(in srgb, var(--yc-desktop-secondary) 18%, transparent), transparent 52%),
+        linear-gradient(180deg, rgba(7, 25, 38, .995), rgba(4, 14, 24, .995));
+      border-bottom: 1px solid rgba(var(--yc-desktop-accent-rgb), .28);
+      box-shadow: 0 1px 0 rgba(255,255,255,.025) inset, 0 5px 20px rgba(0,0,0,.24);
+      z-index: 1000;
+    }
+
+    #ycDesktopTitlebar::after {
+      content: "";
+      position: absolute;
+      left: 20%;
+      right: 20%;
+      bottom: -1px;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, var(--yc-desktop-accent), transparent);
+      opacity: .55;
+      pointer-events: none;
+    }
+
+    .yc-titlebar-spacer { min-width: 0; }
+
+    .yc-titlebar-tools {
+      grid-column: 1;
+      justify-self: start;
+      align-self: stretch;
+      display: flex;
+      align-items: stretch;
+      padding-left: 4px;
+      -webkit-app-region: no-drag;
+    }
+
+    .yc-titlebar-tool {
+      width: 38px;
+      height: 100%;
+      display: grid;
+      place-items: center;
+      border: 0;
+      border-right: 1px solid rgba(255,255,255,.025);
+      background: transparent;
+      color: #7897a9;
+      cursor: pointer;
+      outline: none;
+      transition: background .14s ease, color .14s ease, box-shadow .14s ease, opacity .14s ease;
+      -webkit-app-region: no-drag;
+    }
+
+    .yc-titlebar-tool svg {
+      width: 14px;
+      height: 14px;
+      stroke: currentColor;
+      fill: none;
+      stroke-width: 1.7;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      vector-effect: non-scaling-stroke;
+    }
+
+    .yc-titlebar-tool:hover {
+      color: #f0fbff;
+      background: linear-gradient(180deg, rgba(var(--yc-desktop-accent-rgb), .12), rgba(var(--yc-desktop-accent-rgb), .06));
+      box-shadow: inset 0 -2px 0 color-mix(in srgb, var(--yc-desktop-secondary) 58%, var(--yc-desktop-accent));
+    }
+
+    .yc-titlebar-tool:disabled {
+      opacity: .34;
+      cursor: default;
+      background: transparent;
+      box-shadow: none;
+    }
+
+    .yc-titlebar-tool.sidebar-active {
+      color: var(--yc-desktop-accent);
+      background: rgba(var(--yc-desktop-accent-rgb), .08);
+    }
+
+    .yc-titlebar-brand {
+      grid-column: 2;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0 16px;
+      min-width: 150px;
+      pointer-events: none;
+    }
+
+    .yc-titlebar-brand img {
+      width: 112px;
+      max-height: 29px;
+      height: auto;
+      object-fit: contain;
+      border-radius: 0;
+      filter: drop-shadow(0 0 7px rgba(var(--yc-desktop-accent-rgb), .24)) drop-shadow(0 0 8px color-mix(in srgb, var(--yc-desktop-secondary) 28%, transparent));
+    }
+
+    .yc-window-controls {
+      grid-column: 3;
+      justify-self: end;
+      align-self: stretch;
+      display: flex;
+      -webkit-app-region: no-drag;
+    }
+
+    .yc-window-btn {
+      width: 47px;
+      height: 100%;
+      display: grid;
+      place-items: center;
+      border: 0;
+      border-left: 1px solid rgba(255,255,255,.035);
+      border-radius: 0;
+      background: transparent;
+      color: #9db3c1;
+      cursor: pointer;
+      outline: none;
+      transition: background .14s ease, color .14s ease, box-shadow .14s ease;
+      -webkit-app-region: no-drag;
+    }
+
+    .yc-window-btn svg {
+      width: 12px;
+      height: 12px;
+      stroke: currentColor;
+      fill: none;
+      stroke-width: 1.55;
+      vector-effect: non-scaling-stroke;
+    }
+
+    .yc-window-btn:hover {
+      color: #f3fbff;
+      background: rgba(var(--yc-desktop-accent-rgb), .13);
+      box-shadow: inset 0 -2px 0 rgba(var(--yc-desktop-accent-rgb), .55);
+    }
+
+    .yc-window-btn.close:hover {
+      background: rgba(221, 58, 72, .86);
+      color: white;
+      box-shadow: none;
+    }
+
+    #yamachat {
+      display: block;
+      flex: 1 1 auto;
+      min-height: 0;
+      width: 100%;
+      border: 0;
+      background: #07111b;
+    }
+
+
+
+    #ycDesktopUpdateGate {
+      position: fixed;
+      inset: 0;
+      z-index: 5000;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 32px;
+      background:
+        radial-gradient(circle at 18% 45%, rgba(53, 231, 255, .08), transparent 34%),
+        radial-gradient(circle at 82% 30%, rgba(224, 86, 253, .08), transparent 32%),
+        rgba(2, 7, 12, .88);
+      backdrop-filter: blur(16px);
+      -webkit-app-region: no-drag;
+    }
+
+    #ycDesktopUpdateGate.show { display: flex; }
+
+    .yc-desktop-update-card {
+      width: min(520px, calc(100vw - 64px));
+      border: 1px solid rgba(224, 86, 253, .46);
+      border-radius: 18px;
+      padding: 30px 34px 32px;
+      background: linear-gradient(180deg, rgba(12, 22, 31, .99), rgba(6, 12, 18, .995));
+      box-shadow: 0 30px 110px rgba(0,0,0,.68), 0 0 46px rgba(53,231,255,.08);
+      color: #edfaff;
+      text-align: center;
+    }
+
+    .yc-desktop-update-brand {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      margin-bottom: 18px;
+    }
+
+    .yc-desktop-update-brand img {
+      width: 42px;
+      height: 42px;
+      object-fit: contain;
+      filter: drop-shadow(0 0 12px rgba(53,231,255,.24));
+    }
+
+    .yc-desktop-update-brand b { font-size: 18px; letter-spacing: .01em; }
+
+    .yc-desktop-update-pill {
+      display: inline-flex;
+      margin-bottom: 10px;
+      padding: 5px 10px;
+      border: 1px solid rgba(53,231,255,.28);
+      border-radius: 999px;
+      color: #8eeaff;
+      background: rgba(53,231,255,.06);
+      font-size: 10px;
+      font-weight: 900;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+    }
+
+    #ycDesktopUpdateTitle { margin: 0; font-size: 24px; line-height: 1.2; }
+    #ycDesktopUpdateText { margin: 9px 0 0; color: #8ba5b5; font-size: 13px; line-height: 1.55; }
+
+    #ycDesktopUpdateDetails {
+      margin: 18px 0 0;
+      border: 1px solid rgba(92,128,149,.24);
+      border-radius: 12px;
+      background: #07131c;
+      text-align: left;
+      overflow: hidden;
+    }
+
+    #ycDesktopUpdateDetails summary {
+      cursor: pointer;
+      list-style: none;
+      padding: 12px 14px;
+      color: #b8d6e5;
+      font-size: 12px;
+      font-weight: 850;
+    }
+
+    #ycDesktopUpdateDetails summary::-webkit-details-marker { display: none; }
+    #ycDesktopUpdateNotes { white-space: pre-wrap; padding: 0 14px 13px; color: #7897a8; font-size: 11px; line-height: 1.55; }
+
+    #ycDesktopUpdateProgress { display: none; margin-top: 18px; text-align: left; }
+    #ycDesktopUpdateProgress.show { display: block; }
+    #ycDesktopUpdateTrack { height: 9px; overflow: hidden; border: 1px solid rgba(53,231,255,.18); border-radius: 999px; background: #102531; }
+    #ycDesktopUpdateBar { height: 100%; width: 0%; background: linear-gradient(90deg,#35e7ff,#8d72ff,#e056fd); transition: width .18s ease; }
+    #ycDesktopUpdateProgressText { display: block; margin-top: 7px; color: #7897a8; font-size: 10px; }
+
+    #ycDesktopUpdateButton {
+      width: 100%;
+      min-height: 52px;
+      margin-top: 20px;
+      border: 1px solid rgba(224,86,253,.75);
+      border-radius: 12px;
+      background: linear-gradient(135deg,#35e7ff 0%,#8d72ff 50%,#e056fd 100%);
+      color: #041017;
+      font-size: 12px;
+      font-weight: 950;
+      letter-spacing: .11em;
+      cursor: pointer;
+      box-shadow: 0 0 30px rgba(224,86,253,.14);
+      -webkit-app-region: no-drag;
+    }
+
+    #ycDesktopUpdateButton:disabled { opacity: .58; cursor: default; }
+    #ycDesktopUpdateError { display: none; margin-top: 10px; color: #ff9faa; font-size: 10px; line-height: 1.4; }
+    #ycDesktopUpdateError.show { display: block; }
+    #ycDesktopUpdateSafety { margin-top: 13px; color: #637f90; font-size: 9px; line-height: 1.4; }
+
+    #error {
+      display: none;
+      position: absolute;
+      inset: var(--yc-titlebar-h) 0 0 0;
+      color: white;
+      background: #07111b;
+      font-family: Arial, sans-serif;
+      padding: 30px;
+      z-index: 900;
+    }
+  </style>
+</head>
+
+<body>
+
+  <div id="ycDesktopTitlebar" aria-label="Yamachat">
+    <div class="yc-titlebar-tools" aria-label="Navigace Yamachat">
+      <button id="ycSidebarToggle" class="yc-titlebar-tool" type="button" title="Skrýt hlavní menu" aria-label="Skrýt hlavní menu">
+        <svg viewBox="0 0 16 16" aria-hidden="true"><rect x="1.8" y="2.2" width="12.4" height="11.6" rx="1.8"/><path d="M5.1 2.5v11"/></svg>
+      </button>
+      <button id="ycNavBack" class="yc-titlebar-tool" type="button" title="Zpět" aria-label="Zpět">
+        <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M9.8 3.2 5 8l4.8 4.8"/></svg>
+      </button>
+      <button id="ycNavForward" class="yc-titlebar-tool" type="button" title="Vpřed" aria-label="Vpřed">
+        <svg viewBox="0 0 16 16" aria-hidden="true"><path d="m6.2 3.2 4.8 4.8-4.8 4.8"/></svg>
+      </button>
+    </div>
+    <div class="yc-titlebar-brand">
+      <img src="build/yamachat-logo-full.png" alt="Yamachat">
+    </div>
+    <div class="yc-window-controls" aria-label="Ovládání okna">
+      <button id="ycWindowMinimize" class="yc-window-btn" type="button" title="Minimalizovat" aria-label="Minimalizovat">
+        <svg viewBox="0 0 12 12" aria-hidden="true"><path d="M2 6.5h8"/></svg>
+      </button>
+      <button id="ycWindowMaximize" class="yc-window-btn" type="button" title="Maximalizovat" aria-label="Maximalizovat">
+        <svg class="yc-max-one" viewBox="0 0 12 12" aria-hidden="true"><rect x="2.2" y="2.2" width="7.6" height="7.6" rx=".4"/></svg>
+        <svg class="yc-max-two" viewBox="0 0 12 12" aria-hidden="true" style="display:none"><path d="M4 2.2h5.8v5.8M2.2 4h5.8v5.8H2.2z"/></svg>
+      </button>
+      <button id="ycWindowClose" class="yc-window-btn close" type="button" title="Zavřít" aria-label="Zavřít">
+        <svg viewBox="0 0 12 12" aria-hidden="true"><path d="M2.5 2.5l7 7M9.5 2.5l-7 7"/></svg>
+      </button>
+    </div>
+  </div>
+
+  <iframe
+  id="yamachat"
+  allow="microphone; camera; display-capture; autoplay; fullscreen"
+  allowfullscreen
+></iframe>
+
+
+
+  <div id="ycDesktopUpdateGate" aria-hidden="true">
+    <div class="yc-desktop-update-card" role="dialog" aria-modal="true" aria-labelledby="ycDesktopUpdateTitle">
+      <div class="yc-desktop-update-brand"><img src="build/yamachat-logo-symbol.png" alt=""><b>Yamachat</b></div>
+      <div class="yc-desktop-update-pill">Povinná aktualizace</div>
+      <h2 id="ycDesktopUpdateTitle">Aktualizace je vyžadována</h2>
+      <p id="ycDesktopUpdateText"></p>
+      <details id="ycDesktopUpdateDetails"><summary>⌄ Co je nového</summary><div id="ycDesktopUpdateNotes"></div></details>
+      <div id="ycDesktopUpdateProgress"><div id="ycDesktopUpdateTrack"><div id="ycDesktopUpdateBar"></div></div><span id="ycDesktopUpdateProgressText"></span></div>
+      <div id="ycDesktopUpdateError"></div>
+      <button id="ycDesktopUpdateButton" type="button">STÁHNOUT A NAINSTALOVAT</button>
+      <div id="ycDesktopUpdateSafety">Aktualizace používá GitHub Releases a stávající bezpečný rollback Yamachatu.</div>
+    </div>
+  </div>
+
+  <script>
+    const iframe = document.getElementById("yamachat");
+
+    let desktopUpdateState = null;
+    let desktopUpdateGateAutoInstall = false;
+    let desktopUpdateGateInstallBusy = false;
+
+    function renderDesktopUpdateGate() {
+      const st = desktopUpdateState || {};
+      const gate = document.getElementById('ycDesktopUpdateGate');
+      const button = document.getElementById('ycDesktopUpdateButton');
+      if (!gate || !button) return;
+
+      const status = String(st.status || '');
+      const required = st.required === true;
+      const visible = required && !!st.availableVersion && ['available','downloading','downloaded','installing','error'].includes(status);
+      gate.classList.toggle('show', visible);
+      gate.setAttribute('aria-hidden', visible ? 'false' : 'true');
+      if (!visible) {
+        desktopUpdateGateAutoInstall = false;
+        desktopUpdateGateInstallBusy = false;
+        return;
+      }
+
+      const pct = Math.max(0, Math.min(100, Number(st.percent || 0)));
+      document.getElementById('ycDesktopUpdateText').textContent = `Verze ${st.availableVersion} je dostupná. Pro pokračování aktualizuj Yamachat.`;
+      document.getElementById('ycDesktopUpdateNotes').textContent = String(st.releaseNotes || '').trim() || 'Opravy, vylepšení stability a nové funkce Yamachatu.';
+
+      const progress = document.getElementById('ycDesktopUpdateProgress');
+      const progressBar = document.getElementById('ycDesktopUpdateBar');
+      const progressText = document.getElementById('ycDesktopUpdateProgressText');
+      const errorBox = document.getElementById('ycDesktopUpdateError');
+      const showProgress = ['downloading','downloaded','installing'].includes(status);
+      progress.classList.toggle('show', showProgress);
+      progressBar.style.width = (status === 'downloaded' || status === 'installing' ? 100 : pct) + '%';
+      errorBox.classList.toggle('show', status === 'error');
+      errorBox.textContent = status === 'error' ? String(st.error || 'Aktualizaci se nepodařilo dokončit.') : '';
+
+      if (status === 'available') {
+        button.disabled = false;
+        button.textContent = 'STÁHNOUT A NAINSTALOVAT';
+        progressText.textContent = '';
+      } else if (status === 'downloading') {
+        button.disabled = true;
+        button.textContent = 'STAHUJI… ' + Math.round(pct) + ' %';
+        progressText.textContent = 'Stahuji aktualizaci… ' + Math.round(pct) + ' %';
+      } else if (status === 'downloaded') {
+        button.disabled = desktopUpdateGateInstallBusy;
+        button.textContent = desktopUpdateGateInstallBusy ? 'SPOUŠTÍM INSTALACI…' : 'RESTARTOVAT A NAINSTALOVAT';
+        progressText.textContent = 'Staženo a ověřeno. Yamachat je připravený k instalaci.';
+      } else if (status === 'installing') {
+        button.disabled = true;
+        button.textContent = 'INSTALUJI AKTUALIZACI…';
+        progressText.textContent = 'Yamachat se zavře, nainstaluje novou verzi a znovu spustí.';
+      } else if (status === 'error') {
+        button.disabled = false;
+        button.textContent = 'ZKUSIT ZNOVU';
+        progressText.textContent = '';
+      }
+    }
+
+    async function installDesktopUpdateFromGate() {
+      if (desktopUpdateGateInstallBusy) return;
+      desktopUpdateGateInstallBusy = true;
+      renderDesktopUpdateGate();
+      try { await window.yamachatDesktop?.installUpdate?.(); }
+      catch (error) {
+        console.warn('Yamachat update install failed', error);
+        desktopUpdateGateInstallBusy = false;
+        renderDesktopUpdateGate();
+      }
+    }
+
+    document.getElementById('ycDesktopUpdateButton')?.addEventListener('click', async () => {
+      const st = desktopUpdateState || {};
+      const status = String(st.status || '');
+      if (status === 'downloaded') {
+        await installDesktopUpdateFromGate();
+        return;
+      }
+      if (status === 'available' || status === 'error') {
+        desktopUpdateGateAutoInstall = true;
+        try { await window.yamachatDesktop?.downloadUpdate?.(); }
+        catch (error) { console.warn('Yamachat update download failed', error); }
+      }
+    });
+
+    function forwardUpdateState(state) {
+      desktopUpdateState = state || null;
+      renderDesktopUpdateGate();
+      if (desktopUpdateGateAutoInstall && desktopUpdateState?.required === true && desktopUpdateState?.status === 'downloaded' && !desktopUpdateGateInstallBusy) {
+        setTimeout(() => { void installDesktopUpdateFromGate(); }, 500);
+      }
+      try {
+        iframe.contentWindow?.postMessage({ type: 'yamachat:update-state', state: desktopUpdateState }, '*');
+      } catch (error) {
+        console.warn('Yamachat update state bridge failed', error);
+      }
+    }
+
+    window.yamachatDesktop?.onUpdateState?.(forwardUpdateState);
+    void window.yamachatDesktop?.getUpdateState?.().then(forwardUpdateState).catch(() => {});
+
+    window.yamachatDesktop?.onOpenNotificationTarget?.((target) => {
+      const deliver = () => {
+        try {
+          const fn = iframe.contentWindow?.ycOpenDesktopNotificationTarget;
+          if (typeof fn === 'function') { fn(target); return true; }
+        } catch (error) {
+          console.warn('Yamachat notification target forward failed', error);
+        }
+        return false;
+      };
+      if (!deliver()) setTimeout(deliver, 350);
+    });
+
+    const YC_DESKTOP_DEFAULT_THEME = '#e056fd';
+    const YC_DESKTOP_THEME_PRESETS = [
+      '#35e7ff', '#7bdcff', '#7b68ee', '#9b59b6', '#e056fd', '#e74c3c', '#e67e22',
+      '#f1c40f', '#2ecc71', '#1abc9c', '#00bcd4', '#95a5a6', '#ecf0f1'
+    ];
+    let desktopThemeColor = YC_DESKTOP_DEFAULT_THEME;
+    let desktopThemeAccountId = null;
+
+    function ycDesktopNormalizeColor(value) {
+      const color = String(value || '').trim().toLowerCase();
+      return /^#[0-9a-f]{6}$/.test(color) ? color : YC_DESKTOP_DEFAULT_THEME;
+    }
+
+    function ycDesktopColorRgb(color) {
+      const c = ycDesktopNormalizeColor(color).slice(1);
+      return [parseInt(c.slice(0, 2), 16), parseInt(c.slice(2, 4), 16), parseInt(c.slice(4, 6), 16)];
+    }
+
+    function applyDesktopChromeTheme(color) {
+      const safe = ycDesktopNormalizeColor(color);
+      desktopThemeColor = safe;
+      const [r, g, b] = ycDesktopColorRgb(safe);
+      document.documentElement.style.setProperty('--yc-desktop-accent', safe);
+      document.documentElement.style.setProperty('--yc-desktop-accent-rgb', `${r}, ${g}, ${b}`);
+      document.documentElement.style.setProperty('--yc-desktop-secondary', `color-mix(in srgb, ${safe} 48%, #b34dff)`);
+      return safe;
+    }
+
+    function detectDesktopThemeAccountId() {
+      try {
+        const storage = iframe.contentWindow?.localStorage;
+        if (!storage) return '';
+        for (let i = 0; i < storage.length; i++) {
+          const key = storage.key(i) || '';
+          if (!key.includes('auth-token')) continue;
+          try {
+            const parsed = JSON.parse(storage.getItem(key) || 'null');
+            const id = String(parsed?.user?.id || parsed?.currentSession?.user?.id || '').trim();
+            if (id) return id;
+          } catch {}
+        }
+      } catch {}
+      return '';
+    }
+
+    async function saveDesktopThemeColor(color, { quiet = false } = {}) {
+      const safe = applyDesktopChromeTheme(color);
+      const userId = desktopThemeAccountId || detectDesktopThemeAccountId();
+      desktopThemeAccountId = userId;
+      try {
+        if (userId) {
+          await window.yamachatDesktop?.setAppSetting?.('uiThemeColorForUser', { userId, color: safe });
+        } else {
+          await window.yamachatDesktop?.setAppSetting?.('uiThemeColor', safe);
+        }
+      } catch (error) {
+        console.warn('Yamachat desktop theme save failed', error);
+      }
+      applyDesktopThemeToIframe();
+      if (!quiet) {
+        try { iframe.contentWindow?.toast?.('Vzhled desktopu uložen jen pro desktop.'); } catch {}
+      }
+      return safe;
+    }
+
+    async function loadDesktopThemeColor({ accountAware = true, userId: explicitUserId } = {}) {
+      try {
+        const settings = await window.yamachatDesktop?.getAppSettings?.();
+        const userId = explicitUserId ?? (accountAware ? detectDesktopThemeAccountId() : '');
+        desktopThemeAccountId = userId;
+        const accountColor = userId && settings?.uiThemeColors && typeof settings.uiThemeColors === 'object'
+          ? settings.uiThemeColors[userId]
+          : null;
+        applyDesktopChromeTheme(accountColor || settings?.uiThemeColor || YC_DESKTOP_DEFAULT_THEME);
+      } catch (error) {
+        console.warn('Yamachat desktop theme load failed', error);
+        applyDesktopChromeTheme(YC_DESKTOP_DEFAULT_THEME);
+      }
+      applyDesktopThemeToIframe();
+    }
+
+    let desktopSidebarCollapsed = false;
+    let desktopSidebarLoaded = false;
+    let desktopViewHistory = [];
+    let desktopViewHistoryIndex = -1;
+    let desktopViewHistoryRestoring = false;
+
+    function updateSidebarToggleButton() {
+      const btn = document.getElementById('ycSidebarToggle');
+      if (!btn) return;
+      btn.classList.toggle('sidebar-active', desktopSidebarCollapsed);
+      btn.title = desktopSidebarCollapsed ? 'Zobrazit hlavní menu' : 'Skrýt hlavní menu';
+      btn.setAttribute('aria-label', btn.title);
+    }
+
+    function applyDesktopSidebarStateToIframe() {
+      try {
+        const doc = iframe.contentWindow?.document;
+        if (!doc) return;
+        doc.documentElement.classList.toggle('yc-desktop-global-nav-collapsed', desktopSidebarCollapsed);
+        doc.body?.classList.toggle('yc-desktop-global-nav-collapsed', desktopSidebarCollapsed);
+      } catch (error) {
+        console.warn('Yamachat sidebar state apply failed', error);
+      }
+      updateSidebarToggleButton();
+    }
+
+    async function loadDesktopSidebarState() {
+      try {
+        const settings = await window.yamachatDesktop?.getAppSettings?.();
+        desktopSidebarCollapsed = settings?.sidebarCollapsed === true;
+      } catch (error) {
+        console.warn('Yamachat sidebar state load failed', error);
+        desktopSidebarCollapsed = false;
+      }
+      desktopSidebarLoaded = true;
+      applyDesktopSidebarStateToIframe();
+      return desktopSidebarCollapsed;
+    }
+
+    async function setDesktopSidebarCollapsed(collapsed) {
+      desktopSidebarCollapsed = !!collapsed;
+      applyDesktopSidebarStateToIframe();
+      try {
+        await window.yamachatDesktop?.setAppSetting?.('sidebarCollapsed', desktopSidebarCollapsed);
+      } catch (error) {
+        console.warn('Yamachat sidebar state save failed', error);
+      }
+      return desktopSidebarCollapsed;
+    }
+
+    function desktopViewState() {
+      try {
+        const doc = iframe.contentWindow?.document;
+        if (!doc) return null;
+        const activeGlobal = doc.querySelector('#ycGlobalNav .active[id], #ycGlobalNav [aria-current="page"][id]');
+        const activeCommunity = doc.querySelector('#rail [data-community].active');
+        const activeChannel = doc.querySelector('#channelList [data-channel].active');
+        const activeThread = doc.querySelector('#dmList [data-thread].active, [data-thread].active');
+        const friendsHome = !!doc.querySelector('#ycFriendsHome:not(.hidden)');
+        return {
+          globalId: activeGlobal?.id || '',
+          communityId: activeCommunity?.dataset?.community || '',
+          channelId: activeChannel?.dataset?.channel || '',
+          threadId: activeThread?.dataset?.thread || '',
+          friendsHome
+        };
+      } catch {
+        return null;
+      }
+    }
+
+    function desktopViewStateKey(state) {
+      return state ? [state.globalId, state.communityId, state.channelId, state.threadId, state.friendsHome ? '1' : '0'].join('|') : '';
+    }
+
+    function updateDesktopHistoryButtons() {
+      const back = document.getElementById('ycNavBack');
+      const forward = document.getElementById('ycNavForward');
+      if (back) back.disabled = desktopViewHistoryIndex <= 0;
+      if (forward) forward.disabled = desktopViewHistoryIndex < 0 || desktopViewHistoryIndex >= desktopViewHistory.length - 1;
+    }
+
+    function rememberDesktopView() {
+      if (desktopViewHistoryRestoring) return;
+      const state = desktopViewState();
+      if (!state) return;
+      const key = desktopViewStateKey(state);
+      const current = desktopViewHistory[desktopViewHistoryIndex];
+      if (current && desktopViewStateKey(current) === key) {
+        updateDesktopHistoryButtons();
+        return;
+      }
+      if (desktopViewHistoryIndex < desktopViewHistory.length - 1) {
+        desktopViewHistory = desktopViewHistory.slice(0, desktopViewHistoryIndex + 1);
+      }
+      desktopViewHistory.push(state);
+      if (desktopViewHistory.length > 40) desktopViewHistory.shift();
+      desktopViewHistoryIndex = desktopViewHistory.length - 1;
+      updateDesktopHistoryButtons();
+    }
+
+    const ycDesktopSleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+
+    async function restoreDesktopView(state) {
+      if (!state) return false;
+      desktopViewHistoryRestoring = true;
+      try {
+        const doc = iframe.contentWindow?.document;
+        if (!doc) return false;
+
+        if (state.globalId) {
+          doc.getElementById(state.globalId)?.click();
+          await ycDesktopSleep(90);
+        }
+        if (state.friendsHome) {
+          doc.getElementById('ycFriendsRailBtn')?.click();
+          await ycDesktopSleep(110);
+        }
+        if (state.communityId) {
+          doc.querySelector(`#rail [data-community="${CSS.escape(state.communityId)}"]`)?.click();
+          await ycDesktopSleep(220);
+        }
+        if (state.channelId) {
+          doc.querySelector(`#channelList [data-channel="${CSS.escape(state.channelId)}"]`)?.click();
+          await ycDesktopSleep(140);
+        }
+        if (state.threadId) {
+          if (!state.friendsHome) doc.getElementById('ycFriendsRailBtn')?.click();
+          await ycDesktopSleep(100);
+          doc.querySelector(`[data-thread="${CSS.escape(state.threadId)}"]`)?.click();
+          await ycDesktopSleep(140);
+        }
+        return true;
+      } catch (error) {
+        console.warn('Yamachat desktop history restore failed', error);
+        return false;
+      } finally {
+        desktopViewHistoryRestoring = false;
+        updateDesktopHistoryButtons();
+      }
+    }
+
+    async function navigateDesktopHistory(delta) {
+      const next = desktopViewHistoryIndex + delta;
+      if (next >= 0 && next < desktopViewHistory.length) {
+        desktopViewHistoryIndex = next;
+        await restoreDesktopView(desktopViewHistory[next]);
+        return;
+      }
+      try {
+        if (delta < 0) iframe.contentWindow?.history?.back?.();
+        else iframe.contentWindow?.history?.forward?.();
+      } catch {}
+      updateDesktopHistoryButtons();
+    }
+
+    function installDesktopHistoryCapture() {
+      try {
+        const doc = iframe.contentWindow?.document;
+        if (!doc || doc.__ycDesktopHistoryBound) return;
+        doc.__ycDesktopHistoryBound = true;
+        const selector = '#ycGlobalNav button, #rail [data-community], #channelList [data-channel], #dmList [data-thread], [data-thread], #friendsTab, #membersTab, #ycFriendsRailBtn';
+        doc.addEventListener('click', event => {
+          if (!event.target?.closest?.(selector)) return;
+          setTimeout(rememberDesktopView, 90);
+          setTimeout(rememberDesktopView, 360);
+        }, true);
+        setTimeout(rememberDesktopView, 250);
+      } catch (error) {
+        console.warn('Yamachat desktop history capture failed', error);
+      }
+    }
+
+    function updateMaximizeButton(state = {}) {
+      const maximized = !!state.maximized;
+      const btn = document.getElementById('ycWindowMaximize');
+      if (!btn) return;
+      const one = btn.querySelector('.yc-max-one');
+      const two = btn.querySelector('.yc-max-two');
+      if (one) one.style.display = maximized ? 'none' : '';
+      if (two) two.style.display = maximized ? '' : 'none';
+      btn.title = maximized ? 'Obnovit velikost' : 'Maximalizovat';
+      btn.setAttribute('aria-label', btn.title);
+    }
+
+    document.getElementById('ycWindowMinimize')?.addEventListener('click', () => {
+      void window.yamachatDesktop?.minimizeWindow?.();
+    });
+    document.getElementById('ycWindowMaximize')?.addEventListener('click', async () => {
+      const state = await window.yamachatDesktop?.toggleMaximizeWindow?.();
+      updateMaximizeButton(state || {});
+    });
+    document.getElementById('ycWindowClose')?.addEventListener('click', () => {
+      void window.yamachatDesktop?.closeWindow?.();
+    });
+    document.getElementById('ycSidebarToggle')?.addEventListener('click', () => {
+      void setDesktopSidebarCollapsed(!desktopSidebarCollapsed);
+    });
+    document.getElementById('ycNavBack')?.addEventListener('click', () => {
+      void navigateDesktopHistory(-1);
+    });
+    document.getElementById('ycNavForward')?.addEventListener('click', () => {
+      void navigateDesktopHistory(1);
+    });
+    document.getElementById('ycDesktopTitlebar')?.addEventListener('dblclick', (event) => {
+      if (event.target.closest('.yc-window-controls, .yc-titlebar-tools')) return;
+      void window.yamachatDesktop?.toggleMaximizeWindow?.();
+    });
+    window.yamachatDesktop?.onWindowState?.(updateMaximizeButton);
+    void window.yamachatDesktop?.getWindowState?.().then(updateMaximizeButton).catch(() => {});
+
+    function installDesktopFullThemeStyle(doc) {
+      if (!doc || doc.getElementById('ycDesktopFullThemeStyle')) return;
+      const style = doc.createElement('style');
+      style.id = 'ycDesktopFullThemeStyle';
+      style.textContent = `
+        :root{
+          --yc-theme-rgb:53,231,255;
+          --yc-logo-secondary:color-mix(in srgb,var(--yc-theme,#35e7ff) 48%,#b34dff);
+          --yc-logo-secondary-soft:color-mix(in srgb,var(--yc-logo-secondary) 18%,transparent);
+          --yc-skin-0:#040a12;
+          --yc-skin-1:#07131f;
+          --yc-skin-2:#0a1a27;
+          --yc-skin-3:#0d2231;
+          --yc-skin-text:#e9f8ff;
+          --yc-skin-muted:#7899aa;
+          --v3-bg:var(--yc-skin-0)!important;
+          --v3-panel:var(--yc-skin-1)!important;
+          --v3-panel2:var(--yc-skin-2)!important;
+          --v3-edge:color-mix(in srgb,var(--yc-theme,#35e7ff) 22%,rgba(80,104,124,.18))!important;
+          --v3-text:var(--yc-skin-text)!important;
+          --v3-muted:var(--yc-skin-muted)!important;
+          --v3-cyan:var(--yc-theme,#35e7ff)!important;
+        }
+        html,body{background:var(--yc-skin-0)!important;color:var(--yc-skin-text)!important}
+        body{background:
+          radial-gradient(circle at 7% -5%,rgba(var(--yc-theme-rgb),.075),transparent 28%),
+          radial-gradient(circle at 88% -12%,var(--yc-logo-secondary-soft),transparent 31%),
+          linear-gradient(145deg,#040a12,#07131f 56%,#050d17)!important}
+        .app.yc-v3-ready{
+          grid-template-columns:142px minmax(0,1fr)!important;
+          transition:grid-template-columns .20s ease!important;
+          background:
+            radial-gradient(circle at 8% -4%,rgba(var(--yc-theme-rgb),.09),transparent 29%),
+            radial-gradient(circle at 82% -12%,var(--yc-logo-secondary-soft),transparent 34%),
+            linear-gradient(145deg,#040a12,#081722 58%,#050d16)!important
+        }
+        html.yc-desktop-global-nav-collapsed .app.yc-v3-ready,
+        body.yc-desktop-global-nav-collapsed .app.yc-v3-ready{grid-template-columns:0 minmax(0,1fr)!important}
+        .yc-v3-global-nav{
+          width:auto!important;min-width:0!important;
+          background:
+            radial-gradient(circle at 45% -2%,rgba(var(--yc-theme-rgb),.105),transparent 28%),
+            linear-gradient(180deg,rgba(7,22,32,.995),rgba(4,12,20,.995))!important;
+          border-right-color:color-mix(in srgb,var(--yc-theme) 25%,#233845)!important;
+          box-shadow:18px 0 50px rgba(0,0,0,.23),inset -1px 0 0 rgba(var(--yc-theme-rgb),.035)!important;
+          transition:transform .20s ease,opacity .16s ease,padding .20s ease,border-color .20s ease!important
+        }
+        html.yc-desktop-global-nav-collapsed .yc-v3-global-nav,
+        body.yc-desktop-global-nav-collapsed .yc-v3-global-nav{
+          width:0!important;min-width:0!important;padding-left:0!important;padding-right:0!important;
+          border-right-color:transparent!important;opacity:0!important;transform:translateX(-100%)!important;
+          pointer-events:none!important;box-shadow:none!important
+        }
+        .yc-v3-nav-btn,.yc-v3-nav-action{transition:background .14s ease,border-color .14s ease,color .14s ease,transform .14s ease!important}
+        .yc-v3-nav-btn:hover,.yc-v3-nav-btn.active,.yc-v3-nav-action:hover,.yc-v3-nav-action.active{
+          color:#f2fdff!important;
+          border-color:color-mix(in srgb,var(--yc-theme) 28%,transparent)!important;
+          background:linear-gradient(90deg,rgba(var(--yc-theme-rgb),.13),color-mix(in srgb,var(--yc-logo-secondary) 7%,transparent))!important;
+          box-shadow:inset 2px 0 0 var(--yc-theme),0 0 18px rgba(var(--yc-theme-rgb),.045)!important
+        }
+        .yc-v3-nav-btn .ico,.yc-v3-nav-action-ico{color:var(--yc-theme)!important;text-shadow:0 0 11px rgba(var(--yc-theme-rgb),.38)!important}
+        .yc-v3-nav-fill{background:linear-gradient(180deg,transparent,rgba(var(--yc-theme-rgb),.025))!important}
+        .yc-v3-user-zone{border-top-color:rgba(var(--yc-theme-rgb),.12)!important}
+        .yc-v3-user-zone .me{background:linear-gradient(135deg,rgba(var(--yc-theme-rgb),.045),rgba(255,255,255,.018))!important;border-color:rgba(var(--yc-theme-rgb),.105)!important}
+        .yc-v3-user-actions .ghost,#ycNotifyBtn{background:#081722!important;border-color:rgba(var(--yc-theme-rgb),.13)!important;color:#9eb8c6!important}
+        .yc-v3-user-actions .ghost:hover,#ycNotifyBtn:hover{background:rgba(var(--yc-theme-rgb),.09)!important;border-color:rgba(var(--yc-theme-rgb),.27)!important;color:#edfbff!important}
+        .yc-v3-workspace{background:transparent!important}
+        .yc-v3-workspace>.top{color:var(--yc-skin-text)!important}
+        .yc-v3-global-search{background:linear-gradient(180deg,rgba(8,24,35,.94),rgba(6,17,26,.94))!important;border-color:rgba(var(--yc-theme-rgb),.18)!important;box-shadow:inset 0 1px 0 rgba(255,255,255,.018)!important}
+        .yc-v3-global-search:focus-within{border-color:rgba(var(--yc-theme-rgb),.48)!important;box-shadow:0 0 0 3px rgba(var(--yc-theme-rgb),.07)!important}
+        .yc-v3-ribbon .server{
+          background:linear-gradient(145deg,rgba(var(--yc-theme-rgb),.055),#081a26 62%,#06121c)!important;
+          border-color:color-mix(in srgb,var(--yc-theme) 24%,#213c4b)!important;
+          color:#eaf8ff!important;box-shadow:inset 0 1px 0 rgba(255,255,255,.03)!important
+        }
+        .yc-v3-ribbon .server:hover{border-color:rgba(var(--yc-theme-rgb),.48)!important;background:linear-gradient(145deg,rgba(var(--yc-theme-rgb),.10),#09202e 62%,#071722)!important}
+        .yc-v3-ribbon .server.active{border-color:rgba(var(--yc-theme-rgb),.62)!important;box-shadow:inset 0 0 0 1px rgba(var(--yc-theme-rgb),.20),0 0 22px rgba(var(--yc-theme-rgb),.08)!important}
+        .yc-v3-ribbon .yc-v3-community-mark{
+          background:linear-gradient(145deg,color-mix(in srgb,var(--yc-server-color,var(--yc-theme)) 38%,#102530),#0b1e2a)!important;
+          border-color:color-mix(in srgb,var(--yc-server-color,var(--yc-theme)) 52%,rgba(255,255,255,.08))!important;
+          box-shadow:0 0 15px color-mix(in srgb,var(--yc-server-color,var(--yc-theme)) 15%,transparent)!important
+        }
+        .yc-v3-content-grid>.side,.yc-v3-content-grid>.chat,.yc-v3-content-grid>.right{
+          background:
+            linear-gradient(180deg,rgba(var(--yc-theme-rgb),.026),transparent 17%),
+            linear-gradient(180deg,rgba(8,22,32,.985),rgba(5,14,22,.99))!important;
+          border-color:color-mix(in srgb,var(--yc-theme) 17%,#203746)!important;
+          box-shadow:0 16px 40px rgba(0,0,0,.22),inset 0 1px 0 rgba(255,255,255,.018)!important
+        }
+        .side-head,.chat-head,.right-tabs,.steam-social-head,.voice-connected,.yc-voice-dock{
+          border-color:color-mix(in srgb,var(--yc-theme) 16%,#203746)!important
+        }
+        .side-head,.chat-head,.right-tabs{background:linear-gradient(180deg,rgba(var(--yc-theme-rgb),.035),rgba(5,15,23,.35))!important}
+        .channel,.dm-item,.person,.steam-member-row,.yc-friends-status-btn,.yc-friends-quick{
+          border-color:transparent!important;transition:background .13s ease,border-color .13s ease,color .13s ease,transform .13s ease!important
+        }
+        .channel:hover,.channel.active,.dm-item:hover,.dm-item.active,.person:hover,.steam-member-row:hover,.yc-friends-status-btn:hover,.yc-friends-quick:hover{
+          background:linear-gradient(90deg,rgba(var(--yc-theme-rgb),.105),color-mix(in srgb,var(--yc-logo-secondary) 4%,transparent))!important;
+          border-color:rgba(var(--yc-theme-rgb),.13)!important;color:#effcff!important
+        }
+        .channel.active,.dm-item.active{box-shadow:inset 2px 0 0 var(--yc-theme)!important}
+        .messages,.chat-body,#messages{background:radial-gradient(circle at 55% 0,rgba(var(--yc-theme-rgb),.025),transparent 38%)!important}
+        .message:hover,.msg:hover{background:rgba(var(--yc-theme-rgb),.025)!important}
+        .composer-wrap,.composer,.chat-composer{background:linear-gradient(180deg,rgba(9,25,36,.96),rgba(6,17,26,.98))!important;border-color:rgba(var(--yc-theme-rgb),.14)!important}
+        input,textarea,select{
+          background:#071722!important;color:#e5f5fb!important;border-color:color-mix(in srgb,var(--yc-theme) 18%,#2a4455)!important
+        }
+        input:focus,textarea:focus,select:focus{outline:none!important;border-color:rgba(var(--yc-theme-rgb),.48)!important;box-shadow:0 0 0 3px rgba(var(--yc-theme-rgb),.065)!important}
+        button.primary,.primary{
+          background:linear-gradient(135deg,color-mix(in srgb,var(--yc-theme) 24%,#12344a),color-mix(in srgb,var(--yc-logo-secondary) 14%,#0d2536))!important;
+          border-color:color-mix(in srgb,var(--yc-theme) 48%,#315b71)!important;color:#f4fdff!important;
+          box-shadow:inset 0 1px 0 rgba(255,255,255,.045),0 0 16px rgba(var(--yc-theme-rgb),.055)!important
+        }
+        button.primary:hover,.primary:hover{border-color:rgba(var(--yc-theme-rgb),.72)!important;filter:brightness(1.08)!important}
+        .ghost{background:linear-gradient(180deg,#0b2030,#081722)!important;border-color:color-mix(in srgb,var(--yc-theme) 18%,#2c4858)!important;color:#bad2df!important}
+        .ghost:hover{background:rgba(var(--yc-theme-rgb),.085)!important;border-color:rgba(var(--yc-theme-rgb),.31)!important;color:#f0fbff!important}
+        .modal{background:
+          radial-gradient(circle at 78% 0,var(--yc-logo-secondary-soft),transparent 33%),
+          linear-gradient(155deg,#091d2a,#050f18)!important;
+          border-color:rgba(var(--yc-theme-rgb),.32)!important;box-shadow:0 28px 80px rgba(0,0,0,.62),0 0 30px rgba(var(--yc-theme-rgb),.06)!important
+        }
+        .modal-back{background:rgba(1,6,12,.78)!important;backdrop-filter:blur(7px)!important}
+        .yc-ui-menu,.yc-channel-menu,.yc-context-menu,[role="menu"]{
+          background:linear-gradient(180deg,#081925,#050f18)!important;border-color:rgba(var(--yc-theme-rgb),.25)!important;
+          box-shadow:0 20px 48px rgba(0,0,0,.58),0 0 20px rgba(var(--yc-theme-rgb),.045)!important
+        }
+        .yc-ui-menu-item:hover,.yc-channel-menu button:hover,.yc-context-menu button:hover,[role="menu"] button:hover{background:rgba(var(--yc-theme-rgb),.10)!important;color:#f3fdff!important}
+        .yc-app-settings-section{background:linear-gradient(180deg,rgba(var(--yc-theme-rgb),.035),#071722)!important;border-color:rgba(var(--yc-theme-rgb),.16)!important}
+        .yc-setting-choice{background:#081a27!important;border-color:rgba(var(--yc-theme-rgb),.13)!important}.yc-setting-choice:hover{background:rgba(var(--yc-theme-rgb),.07)!important;border-color:rgba(var(--yc-theme-rgb),.30)!important}
+        .yc-composer-tool{background:#0a2333!important;color:#cceaf5!important}.yc-composer-tool:hover,.yc-composer-tool.active{background:rgba(var(--yc-theme-rgb),.14)!important;color:white!important}
+        .yc-composer-popout{background:linear-gradient(180deg,#0a202e,#06131d)!important;border-color:rgba(var(--yc-theme-rgb),.28)!important}
+        .yc-emoji-cell{background:#0a1d29!important}.yc-emoji-cell:hover{background:rgba(var(--yc-theme-rgb),.11)!important;border-color:rgba(var(--yc-theme-rgb),.34)!important}
+        .rank-crest{filter:drop-shadow(0 3px 8px rgba(0,0,0,.50)) drop-shadow(0 0 5px rgba(var(--yc-theme-rgb),.04))!important}
+        ::selection{background:rgba(var(--yc-theme-rgb),.28)!important;color:white!important}
+        ::-webkit-scrollbar{width:9px;height:9px}::-webkit-scrollbar-track{background:#050f17}::-webkit-scrollbar-thumb{background:color-mix(in srgb,var(--yc-theme) 26%,#183040);border:2px solid #050f17;border-radius:999px}::-webkit-scrollbar-thumb:hover{background:color-mix(in srgb,var(--yc-theme) 42%,#1b3c4f)}
+        #auth{background:
+          radial-gradient(circle at 50% -8%,rgba(var(--yc-theme-rgb),.13),transparent 36%),
+          radial-gradient(circle at 75% 5%,var(--yc-logo-secondary-soft),transparent 27%),
+          linear-gradient(145deg,#040a12,#071722)!important}
+        @media(max-width:720px){
+          html.yc-desktop-global-nav-collapsed .app.yc-v3-ready,body.yc-desktop-global-nav-collapsed .app.yc-v3-ready{grid-template-columns:0 minmax(0,1fr)!important}
+        }
+      `;
+      doc.head?.appendChild(style);
+    }
+
+    function installDesktopAppearanceStyle(doc) {
+      if (!doc || doc.getElementById('ycDesktopAppearanceStyle')) return;
+      const style = doc.createElement('style');
+      style.id = 'ycDesktopAppearanceStyle';
+      style.textContent = `
+        .yc-desktop-theme-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:10px 0 8px}
+        .yc-desktop-theme-swatches{display:flex;gap:7px;flex-wrap:wrap;flex:1 1 330px}
+        .yc-desktop-theme-swatch{width:28px;height:28px;padding:0;border:2px solid rgba(255,255,255,.12);border-radius:8px;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.2)}
+        .yc-desktop-theme-swatch:hover{transform:translateY(-1px);border-color:#fff}
+        .yc-desktop-theme-swatch.active{border-color:#fff;box-shadow:0 0 0 2px var(--yc-theme-soft),0 0 14px var(--yc-theme-glow)}
+        .yc-desktop-theme-picker{display:flex;align-items:center;gap:9px;padding:8px 10px;border:1px solid #294858;border-radius:9px;background:#101f2a}
+        .yc-desktop-theme-picker input{width:38px;height:30px;padding:0;border:0;background:transparent;cursor:pointer}
+        .yc-desktop-theme-picker span{font-size:10px;color:#8ea8b7}
+        .yc-desktop-theme-actions{display:flex;gap:8px;margin-top:9px}
+        .yc-desktop-theme-actions button{flex:1;min-height:34px;border-radius:8px;font-weight:850;cursor:pointer}
+        .yc-desktop-theme-save{border:1px solid color-mix(in srgb,var(--yc-theme) 62%,#38566a);background:linear-gradient(180deg,color-mix(in srgb,var(--yc-theme) 20%,#183244),#102433);color:#e9f8ff}
+        .yc-desktop-theme-reset{border:1px solid #334b59;background:#0c1822;color:#9ab1bf}
+        #voiceControls.yc-desktop-server-voice-accent{border-color:color-mix(in srgb,var(--yc-server-color) 50%,#2c4d60)!important;box-shadow:inset 0 0 0 1px rgba(var(--yc-server-rgb),.07),0 0 16px rgba(var(--yc-server-rgb),.05)!important}
+        #voiceControls.yc-desktop-server-voice-accent .voice-title,
+        #voiceControls.yc-desktop-server-voice-accent strong{color:color-mix(in srgb,var(--yc-server-color) 55%,#dff8ff)!important}
+      `;
+      doc.head?.appendChild(style);
+    }
+
+    function syncDesktopServerAccentScope(doc) {
+      if (!doc) return;
+      // Server color is deliberately kept away from the global UI skin in desktop.
+      for (const el of [doc.querySelector('#side .side-head'), doc.querySelector('.right')]) {
+        if (!el) continue;
+        el.classList.remove('yc-community-colored');
+        el.style.removeProperty('--yc-server-color');
+        el.style.removeProperty('--yc-server-rgb');
+      }
+
+      const voice = doc.querySelector('#voiceControls');
+      if (!voice) return;
+      const activeServer = doc.querySelector('#rail [data-community].active');
+      const color = activeServer?.style?.getPropertyValue('--yc-server-color')?.trim() || '';
+      const rgb = activeServer?.style?.getPropertyValue('--yc-server-rgb')?.trim() || '';
+      if (/^#[0-9a-f]{6}$/i.test(color)) {
+        voice.style.setProperty('--yc-server-color', color);
+        if (rgb) voice.style.setProperty('--yc-server-rgb', rgb);
+        voice.classList.add('yc-desktop-server-voice-accent');
+      } else {
+        voice.classList.remove('yc-desktop-server-voice-accent');
+        voice.style.removeProperty('--yc-server-color');
+        voice.style.removeProperty('--yc-server-rgb');
+      }
+    }
+
+
+    const YC_SERVER_CARD_DEFAULT_BG = new URL('build/yamachat-logo-symbol.png', window.location.href).href;
+    let desktopServerCardBackgrounds = {};
+    let desktopServerCardBackgroundsLoaded = false;
+
+    function ycSafeCssUrl(value) {
+      return String(value || '').replace(/["\\\n\r]/g, '');
+    }
+
+    async function loadDesktopServerCardBackgrounds() {
+      try {
+        const settings = await window.yamachatDesktop?.getAppSettings?.();
+        desktopServerCardBackgrounds = settings?.serverCardBackgrounds && typeof settings.serverCardBackgrounds === 'object'
+          ? { ...settings.serverCardBackgrounds }
+          : {};
+      } catch (error) {
+        console.warn('Yamachat server card background load failed', error);
+        desktopServerCardBackgrounds = {};
+      }
+      desktopServerCardBackgroundsLoaded = true;
+      decorateDesktopServerCards();
+      return desktopServerCardBackgrounds;
+    }
+    async function saveDesktopServerCardBackground(communityId, background) {
+      const id = String(communityId || '').trim();
+      if (!id) throw new Error('Chybí ID serveru.');
+      const value = String(background || '').trim();
+      const settings = await window.yamachatDesktop?.setAppSetting?.('serverCardBackground', {
+        communityId: id,
+        background: value
+      });
+      desktopServerCardBackgrounds = settings?.serverCardBackgrounds && typeof settings.serverCardBackgrounds === 'object'
+        ? { ...settings.serverCardBackgrounds }
+        : { ...desktopServerCardBackgrounds };
+      if (value) desktopServerCardBackgrounds[id] = value;
+      else delete desktopServerCardBackgrounds[id];
+      decorateDesktopServerCards();
+      return value;
+    }
+
+    function ycDesktopCommunityInfo(doc) {
+      const active = doc?.querySelector('#rail [data-community].active, .yc-v3-ribbon [data-community].active');
+      const first = active || doc?.querySelector('#rail [data-community], .yc-v3-ribbon [data-community]');
+      if (!first) return null;
+      const id = String(first.dataset?.community || '').trim();
+      const copy = first.querySelector('.yc-v3-community-copy strong')?.textContent || first.title || first.textContent || 'Server';
+      return id ? { id, name: String(copy).split('·')[0].trim() || 'Server', el: first } : null;
+    }
+
+    function ycCanManageServerAppearance(win) {
+      try {
+        if (typeof win?.canCommunityPermission === 'function') {
+          return !!win.canCommunityPermission('manage_server');
+        }
+      } catch {}
+      return false;
+    }
+
+    function ycCompressServerCardImage(file) {
+      return new Promise((resolve, reject) => {
+        if (!file || !String(file.type || '').startsWith('image/')) {
+          reject(new Error('Vyber obrázek PNG, JPG nebo WEBP.'));
+          return;
+        }
+        if (file.size > 8 * 1024 * 1024) {
+          reject(new Error('Obrázek je příliš velký. Maximum je 8 MB.'));
+          return;
+        }
+        const reader = new FileReader();
+        reader.onerror = () => reject(new Error('Obrázek se nepodařilo načíst.'));
+        reader.onload = () => {
+          const image = new Image();
+          image.onerror = () => reject(new Error('Obrázek se nepodařilo zpracovat.'));
+          image.onload = () => {
+            try {
+              const maxW = 1280, maxH = 640;
+              const scale = Math.min(1, maxW / image.naturalWidth, maxH / image.naturalHeight);
+              const width = Math.max(1, Math.round(image.naturalWidth * scale));
+              const height = Math.max(1, Math.round(image.naturalHeight * scale));
+              const canvas = document.createElement('canvas');
+              canvas.width = width; canvas.height = height;
+              const ctx = canvas.getContext('2d', { alpha: false });
+              ctx.fillStyle = '#07131f'; ctx.fillRect(0, 0, width, height);
+              ctx.drawImage(image, 0, 0, width, height);
+              let data = canvas.toDataURL('image/webp', .76);
+              if (data.length > 1150000) data = canvas.toDataURL('image/jpeg', .68);
+              if (data.length > 1150000) throw new Error('Obrázek je i po zmenšení příliš velký.');
+              resolve(data);
+            } catch (error) { reject(error); }
+          };
+          image.src = String(reader.result || '');
+        };
+        reader.readAsDataURL(file);
+      });
+    }
+
+    function installDesktopServerCardBackgroundStyle(doc) {
+      if (!doc || doc.getElementById('ycDesktopServerCardBackgroundStyle')) return;
+      const style = doc.createElement('style');
+      style.id = 'ycDesktopServerCardBackgroundStyle';
+      style.textContent = `
+        .yc-v3-ribbon .server[data-community]{
+          isolation:isolate!important;
+          --yc-card-bg:url("${ycSafeCssUrl(YC_SERVER_CARD_DEFAULT_BG)}");
+          --yc-card-bg-opacity:.32;
+          --yc-card-bg-blur:8px;
+          background:linear-gradient(145deg,rgba(5,17,27,.96),rgba(4,12,20,.985))!important;
+          border-color:color-mix(in srgb,var(--yc-server-color,var(--yc-theme)) 44%,#173342)!important;
+        }
+        .yc-v3-ribbon .server[data-community]::before{
+          content:""!important;position:absolute!important;inset:-14px!important;z-index:-2!important;pointer-events:none!important;
+          background-image:
+            linear-gradient(90deg,rgba(3,10,17,.78),rgba(3,10,17,.18) 47%,rgba(3,10,17,.66)),
+            var(--yc-card-bg)!important;
+          background-size:cover!important;background-position:center!important;background-repeat:no-repeat!important;
+          filter:blur(var(--yc-card-bg-blur)) saturate(1.18)!important;transform:scale(1.09)!important;
+          opacity:var(--yc-card-bg-opacity)!important;
+        }
+        .yc-v3-ribbon .server[data-community] .yc-v3-community-mark,
+        .yc-v3-ribbon .server[data-community] .yc-v3-community-copy{position:relative!important;z-index:2!important}
+        .yc-v3-ribbon .server[data-community]::after{
+          content:""!important;position:absolute!important;inset:0!important;z-index:-1!important;pointer-events:none!important;height:auto!important;
+          background:
+            radial-gradient(circle at 10% 50%,color-mix(in srgb,var(--yc-server-color,var(--yc-theme)) 17%,transparent),transparent 42%),
+            linear-gradient(105deg,rgba(3,10,17,.24),transparent 58%),
+            linear-gradient(180deg,rgba(255,255,255,.025),transparent 35%,rgba(0,0,0,.14))!important;
+          border:0!important;border-radius:0!important;width:auto!important;left:0!important;right:0!important;bottom:0!important;box-shadow:none!important;
+        }
+        .yc-v3-ribbon .server[data-community]:hover{--yc-card-bg-opacity:.43!important;--yc-card-bg-blur:6px!important}
+        .yc-v3-ribbon .server[data-community].active{--yc-card-bg-opacity:.49!important;--yc-card-bg-blur:5px!important}
+        .yc-v3-ribbon .server[data-community].active::after{
+          box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--yc-server-color,var(--yc-theme)) 34%,transparent),0 0 28px rgba(var(--yc-theme-rgb),.08)!important
+        }
+
+        /* Current community header — same banner source as server cards, intentionally NOT blurred. */
+        .yc-v3-content-grid .side-head{
+          --yc-current-community-bg:url("${ycSafeCssUrl(YC_SERVER_CARD_DEFAULT_BG)}");
+          background-image:
+            linear-gradient(90deg,rgba(2,9,15,.72),rgba(2,9,15,.34) 54%,rgba(2,9,15,.58)),
+            linear-gradient(180deg,rgba(6,18,27,.04),rgba(4,12,19,.32)),
+            var(--yc-current-community-bg)!important;
+          background-size:100% 100%,100% 100%,cover!important;
+          background-position:center,center,center!important;
+          background-repeat:no-repeat!important;
+          filter:none!important;
+        }
+        .yc-v3-content-grid .side-head[data-yc-header-background="default"]{
+          background-position:center,center,center 48%!important;
+        }
+
+        /* Friends / members panel — full Yamachat skin */
+        .right,#rightContent,.yc-friends-home,.yc-friends-home-body{
+          background:
+            radial-gradient(circle at 100% 0,var(--yc-logo-secondary-soft),transparent 31%),
+            radial-gradient(circle at 0 0,rgba(var(--yc-theme-rgb),.075),transparent 34%),
+            linear-gradient(180deg,#071520,#050e16 72%,#040b12)!important;
+        }
+        .right{border-color:rgba(var(--yc-theme-rgb),.18)!important;box-shadow:0 16px 42px rgba(0,0,0,.24),inset 0 1px 0 rgba(255,255,255,.02)!important}
+        .right-tabs{
+          min-height:48px!important;padding:5px!important;gap:4px!important;
+          background:linear-gradient(180deg,rgba(11,31,44,.96),rgba(7,20,30,.96))!important;
+          border-bottom:1px solid rgba(var(--yc-theme-rgb),.15)!important;
+        }
+        .right-tabs button{
+          position:relative!important;border:1px solid transparent!important;border-radius:10px!important;background:transparent!important;
+          color:#7fa1b3!important;font-weight:900!important;letter-spacing:.06em!important;text-transform:uppercase!important;
+        }
+        .right-tabs button:hover{color:#dffaff!important;background:rgba(var(--yc-theme-rgb),.06)!important;border-color:rgba(var(--yc-theme-rgb),.12)!important}
+        .right-tabs button.active{
+          color:#fff!important;background:linear-gradient(135deg,rgba(var(--yc-theme-rgb),.14),color-mix(in srgb,var(--yc-logo-secondary) 10%,transparent))!important;
+          border-color:rgba(var(--yc-theme-rgb),.24)!important;box-shadow:inset 0 -2px 0 var(--yc-theme),0 0 18px rgba(var(--yc-theme-rgb),.06)!important;
+        }
+        #rightContent{padding:10px!important}
+        #rightContent .steam-social-head,#rightContent .friends-head,#rightContent [class*="friend-section"],#rightContent [class*="friends-section"]{
+          background:linear-gradient(90deg,rgba(var(--yc-theme-rgb),.08),transparent 68%)!important;
+          border-color:rgba(var(--yc-theme-rgb),.16)!important;color:#b9eff7!important;
+        }
+        #rightContent .steam-social-head .count,#rightContent [class*="count"]{color:var(--yc-theme)!important}
+        #rightContent button.ghost,#rightContent .ghost,#rightContent [class*="add-friend"],#rightContent [id*="Friend"]{
+          border:1px solid rgba(var(--yc-theme-rgb),.22)!important;border-radius:10px!important;
+          background:linear-gradient(135deg,rgba(var(--yc-theme-rgb),.085),color-mix(in srgb,var(--yc-logo-secondary) 7%,#091722))!important;
+          color:#dff9ff!important;box-shadow:inset 0 1px 0 rgba(255,255,255,.025)!important;
+        }
+        #rightContent button.ghost:hover,#rightContent .ghost:hover,#rightContent [class*="add-friend"]:hover{
+          border-color:rgba(var(--yc-theme-rgb),.42)!important;background:linear-gradient(135deg,rgba(var(--yc-theme-rgb),.15),color-mix(in srgb,var(--yc-logo-secondary) 10%,#0a1b28))!important;
+          box-shadow:0 0 18px rgba(var(--yc-theme-rgb),.08)!important;
+        }
+        #rightContent .person,#rightContent .steam-member-row,#rightContent .friend-row,#rightContent .friend-card,#rightContent [data-friend-id],#rightContent [data-user-id],#rightContent [class*="friend-row"],#rightContent [class*="friend-card"]{
+          margin:6px 0!important;border-radius:12px!important;border:1px solid rgba(var(--yc-theme-rgb),.14)!important;
+          background:
+            radial-gradient(circle at 100% 0,var(--yc-logo-secondary-soft),transparent 28%),
+            linear-gradient(135deg,rgba(10,29,41,.96),rgba(6,17,26,.98))!important;
+          box-shadow:0 9px 24px rgba(0,0,0,.19),inset 0 1px 0 rgba(255,255,255,.022)!important;
+        }
+        #rightContent .person:hover,#rightContent .steam-member-row:hover,#rightContent .friend-row:hover,#rightContent .friend-card:hover,#rightContent [data-friend-id]:hover,#rightContent [class*="friend-row"]:hover,#rightContent [class*="friend-card"]:hover{
+          border-color:rgba(var(--yc-theme-rgb),.32)!important;transform:translateY(-1px)!important;box-shadow:0 12px 30px rgba(0,0,0,.23),0 0 18px rgba(var(--yc-theme-rgb),.07)!important;
+        }
+        #rightContent strong,#rightContent b{color:#eefcff!important}
+        #rightContent small,#rightContent .muted{color:#7f9dad!important}
+        #rightContent h4,#rightContent .section-title,#rightContent [class*="section-title"]{
+          color:#9edce8!important;border-color:rgba(var(--yc-theme-rgb),.18)!important;text-shadow:0 0 10px rgba(var(--yc-theme-rgb),.12)!important;
+        }
+        #rightContent .status-online{box-shadow:0 0 12px rgba(101,255,148,.62)!important}
+        #rightContent [class*="offline"]{opacity:.72!important}
+        #rightContent [class*="dnd"],#rightContent [class*="busy"]{--yc-status:#ff6170}
+        #rightContent [class*="idle"],#rightContent [class*="away"]{--yc-status:#f1c95b}
+        #rightContent .yc-member-role-section{background:transparent!important}
+
+        .yc-server-card-bg-backdrop{position:fixed;inset:0;z-index:10050;background:rgba(2,7,12,.78);backdrop-filter:blur(7px);display:grid;place-items:center;padding:18px}
+        .yc-server-card-bg-modal{width:min(620px,calc(100vw - 36px));border:1px solid rgba(var(--yc-theme-rgb),.34);border-radius:18px;background:linear-gradient(155deg,#0b1e2c,#06121d);box-shadow:0 30px 90px rgba(0,0,0,.60),0 0 28px rgba(var(--yc-theme-rgb),.07);padding:15px}
+        .yc-server-card-bg-head{display:flex;align-items:center;gap:10px;margin-bottom:12px}.yc-server-card-bg-head strong{font-size:14px;color:#ecfbff;flex:1}.yc-server-card-bg-close{border:0;background:transparent;color:#8ca8b8;font-size:22px;cursor:pointer}
+        .yc-server-card-bg-preview{height:168px;border:1px solid rgba(var(--yc-theme-rgb),.20);border-radius:15px;overflow:hidden;position:relative;background:#06111a;margin-bottom:12px}
+        .yc-server-card-bg-preview::before{content:"";position:absolute;inset:-16px;background-image:linear-gradient(90deg,rgba(3,10,17,.52),rgba(3,10,17,.10),rgba(3,10,17,.55)),var(--yc-preview-bg);background-position:center;background-size:cover;filter:blur(8px) saturate(1.15);transform:scale(1.08);opacity:.55}
+        .yc-server-card-bg-preview span{position:absolute;left:18px;bottom:16px;z-index:2;color:white;font-weight:950;font-size:17px;text-shadow:0 2px 10px #000}
+        .yc-server-card-bg-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px}.yc-server-card-bg-actions button,.yc-server-card-bg-file{min-height:42px;border-radius:10px;border:1px solid rgba(var(--yc-theme-rgb),.20);background:#0b2130;color:#dff8ff;font-weight:850;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px}.yc-server-card-bg-actions button:hover,.yc-server-card-bg-file:hover{border-color:rgba(var(--yc-theme-rgb),.42);background:rgba(var(--yc-theme-rgb),.10)}
+        .yc-server-card-bg-file input{display:none}.yc-server-card-bg-save{grid-column:1/-1;background:linear-gradient(135deg,rgba(var(--yc-theme-rgb),.22),color-mix(in srgb,var(--yc-logo-secondary) 15%,#0b2130))!important;border-color:rgba(var(--yc-theme-rgb),.42)!important}.yc-server-card-bg-note{margin:10px 2px 0;color:#7696a7;font-size:10px;line-height:1.45}
+        .yc-server-card-bg-settings-row{display:flex;align-items:center;gap:12px;margin:10px 0;padding:11px 12px;border:1px solid rgba(var(--yc-theme-rgb),.18);border-radius:12px;background:linear-gradient(135deg,rgba(var(--yc-theme-rgb),.065),color-mix(in srgb,var(--yc-logo-secondary) 6%,#081721))}.yc-server-card-bg-settings-row>div{min-width:0;flex:1}.yc-server-card-bg-settings-row strong{display:block;color:#e7fbff;font-size:11px}.yc-server-card-bg-settings-row small{display:block;color:#7e9eaf;font-size:9px;margin-top:3px}.yc-server-card-bg-settings-row button{border:1px solid rgba(var(--yc-theme-rgb),.28);border-radius:9px;background:#0c2635;color:#e5fbff;padding:8px 10px;font-weight:850;cursor:pointer}.yc-server-card-bg-settings-row button:hover{background:rgba(var(--yc-theme-rgb),.12);border-color:rgba(var(--yc-theme-rgb),.48)}
+        .yc-card-bg-perm-note{display:block;margin-top:3px;color:#78a6b8;font-size:9px;font-weight:600;text-transform:none;letter-spacing:0}
+        .yc-card-bg-permission-banner{margin:8px 0;padding:9px 10px;border:1px solid rgba(var(--yc-theme-rgb),.16);border-radius:10px;background:rgba(var(--yc-theme-rgb),.045);color:#90b9c8;font-size:10px;line-height:1.4}
+      `;
+      doc.head?.appendChild(style);
+    }
+
+    function decorateDesktopServerCards() {
+      try {
+        const doc = iframe.contentWindow?.document;
+        if (!doc) return;
+        installDesktopServerCardBackgroundStyle(doc);
+        doc.querySelectorAll('#rail [data-community], .yc-v3-ribbon [data-community]').forEach(card => {
+          const id = String(card.dataset?.community || '').trim();
+          if (!id) return;
+          const custom = iframe.contentWindow?.ycGetServerHeaderBackground?.(id) || '';
+          const bg = custom || YC_SERVER_CARD_DEFAULT_BG;
+          card.style.setProperty('--yc-card-bg', `url("${ycSafeCssUrl(bg)}")`);
+          card.dataset.ycCardBackground = custom ? 'custom' : 'default';
+        });
+
+        // Keep the large CURRENT COMMUNITY header on the same image as the active server card.
+        // Unlike the compact ribbon cards, this header deliberately has no blur.
+        const current = ycDesktopCommunityInfo(doc);
+        const sideHead = doc.querySelector('.yc-v3-content-grid .side-head, .side-head');
+        if (sideHead && current?.id) {
+          const custom = iframe.contentWindow?.ycGetServerHeaderBackground?.(current.id) || '';
+          const bg = custom || YC_SERVER_CARD_DEFAULT_BG;
+          sideHead.style.setProperty('--yc-current-community-bg', `url("${ycSafeCssUrl(bg)}")`);
+          sideHead.dataset.ycHeaderBackground = custom ? 'custom' : 'default';
+        }
+      } catch (error) {
+        console.warn('Yamachat server card decorate failed', error);
+      }
+    }
+
+    function openDesktopServerCardBackgroundModal(host = null) {
+      try {
+        const win = iframe.contentWindow;
+        const doc = win?.document;
+        if (!win || !doc) return;
+        if (!ycCanManageServerAppearance(win)) {
+          try { win.toast?.('Na změnu vzhledu serveru nemáš oprávnění.', true); } catch {}
+          return;
+        }
+        const community = ycDesktopCommunityInfo(doc);
+        if (!community) return;
+        doc.querySelector('.yc-server-card-bg-backdrop')?.remove();
+        let selected = win.ycGetServerHeaderBackground?.(community.id) || '';
+        const back = doc.createElement('div');
+        back.className = host ? 'yc-server-card-bg-embedded' : 'yc-server-card-bg-backdrop';
+        back.innerHTML = `
+          <div class="yc-server-card-bg-modal" role="dialog" aria-modal="true">
+            <div class="yc-server-card-bg-head"><strong>🎨 Pozadí karty · ${String(community.name).replace(/[<>&"]/g,'')}</strong><button class="yc-server-card-bg-close" type="button">×</button></div>
+            <div class="yc-server-card-bg-preview"><span>${String(community.name).replace(/[<>&"]/g,'')}</span></div>
+            <div class="yc-server-card-bg-actions">
+              <label class="yc-server-card-bg-file">Vybrat vlastní obrázek<input type="file" accept="image/png,image/jpeg,image/webp,image/gif"></label>
+              <button type="button" data-yc-bg-default>↺ Yamachat logo</button>
+              <button type="button" class="yc-server-card-bg-save" data-yc-bg-save>Uložit pozadí karty</button>
+            </div>
+            <div class="yc-server-card-bg-note">Výchozí karta používá rozmazané Yamachat logo bez nápisu. Vlastní obrázek se zmenší a uloží na server. Uvidí ho všichni členové v nové desktopové aplikaci. Přístup řídí oprávnění „Správa serveru“.</div>
+          </div>`;
+        (host || doc.body).appendChild(back);
+        if(host){
+          const panel=back.querySelector('.yc-server-card-bg-modal');
+          panel.removeAttribute('role');panel.removeAttribute('aria-modal');
+          back.querySelector('.yc-server-card-bg-close').hidden=true;
+          back.querySelector('.yc-server-card-bg-head strong').textContent='Pozadí hlavičky';
+          back.querySelector('.yc-server-card-bg-note').textContent='Vyber vlastní obrázek nebo obnov výchozí pozadí Yamachatu. Změnu uvidí všichni členové v desktopové aplikaci.';
+        }
+        const preview = back.querySelector('.yc-server-card-bg-preview');
+        const paint = () => preview?.style.setProperty('--yc-preview-bg', `url("${ycSafeCssUrl(selected || YC_SERVER_CARD_DEFAULT_BG)}")`);
+        paint();
+        back.querySelector('.yc-server-card-bg-close').onclick = () => back.remove();
+        back.addEventListener('click', e => { if (e.target === back) back.remove(); });
+        const input = back.querySelector('input[type="file"]');
+        input.onchange = async () => {
+          const file = input.files?.[0];
+          if (!file) return;
+          try { selected = await ycCompressServerCardImage(file); paint(); }
+          catch (error) { try { win.toast?.(String(error?.message || error), true); } catch {} }
+        };
+        back.querySelector('[data-yc-bg-default]').onclick = () => { selected = ''; paint(); };
+        back.querySelector('[data-yc-bg-save]').onclick = async () => {
+          const btn = back.querySelector('[data-yc-bg-save]');
+          btn.disabled = true;
+          try {
+            await win.ycSaveServerHeaderBackground(community.id, selected);
+            if(!host)back.remove();
+            btn.disabled=false;
+            try { win.toast?.(selected ? 'Pozadí serverové karty uloženo.' : 'Obnoveno výchozí Yamachat pozadí.'); } catch {}
+          } catch (error) {
+            btn.disabled = false;
+            try { win.toast?.('Pozadí se nepodařilo uložit: ' + String(error?.message || error), true); } catch {}
+          }
+        };
+      } catch (error) {
+        console.warn('Yamachat server card background modal failed', error);
+      }
+    }
+
+    function installDesktopServerCardBackgroundFeature() {
+      try {
+        const win = iframe.contentWindow;
+        const doc = win?.document;
+        if (!win || !doc) return;
+        installDesktopServerCardBackgroundStyle(doc);
+        decorateDesktopServerCards();
+
+        win.ycOpenDesktopServerCardBackgroundModal = openDesktopServerCardBackgroundModal;
+        if (!doc.__ycServerCardPermissionObserver) {
+          let queued=false;
+          const relevant=node=>node?.nodeType===1&&(node.matches?.('#rail,.yc-v3-ribbon,.side-head,[data-community]')||node.closest?.('#rail,.yc-v3-ribbon,.side-head')||node.querySelector?.('#rail,.yc-v3-ribbon,.side-head'));
+          const observer = new MutationObserver(records => {
+            if(queued||!records.some(record=>relevant(record.target)||[...record.addedNodes,...record.removedNodes].some(relevant)))return;
+            queued=true;requestAnimationFrame(()=>{queued=false;decorateDesktopServerCards()});
+          });
+          observer.observe(doc.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['class','data-community'] });
+          doc.__ycServerCardPermissionObserver = observer;
+        }
+      } catch (error) {
+        console.warn('Yamachat server card feature install failed', error);
+      }
+    }
+
+    function appearanceSectionHtml() {
+      const selected = ycDesktopNormalizeColor(desktopThemeColor);
+      return `
+        <div class="yc-settings-note" style="margin-top:0">Tato barva je pouze pro desktop na tomto počítači. Web ani barva serveru se tím nemění.</div>
+        <div class="yc-desktop-theme-row">
+          <div class="yc-desktop-theme-swatches">
+            ${YC_DESKTOP_THEME_PRESETS.map(color => `<button type="button" class="yc-desktop-theme-swatch${color === selected ? ' active' : ''}" data-yc-desktop-color="${color}" style="background:${color}" title="${color}"></button>`).join('')}
+          </div>
+          <label class="yc-desktop-theme-picker"><input type="color" data-yc-desktop-picker value="${selected}"><span>Vlastní barva</span></label>
+        </div>
+        <div class="yc-desktop-theme-actions">
+          <button type="button" class="yc-desktop-theme-save" data-yc-desktop-save>Uložit vzhled</button>
+          <button type="button" class="yc-desktop-theme-reset" data-yc-desktop-reset>↺ Původní skin</button>
+        </div>`;
+    }
+
+    function bindAppearanceSection(root) {
+      if (!root) return;
+      let selected = ycDesktopNormalizeColor(desktopThemeColor);
+      const picker = root.querySelector('[data-yc-desktop-picker]');
+      const swatches = [...root.querySelectorAll('[data-yc-desktop-color]')];
+      const preview = color => {
+        selected = ycDesktopNormalizeColor(color);
+        if (picker) picker.value = selected;
+        swatches.forEach(btn => btn.classList.toggle('active', btn.dataset.ycDesktopColor === selected));
+        applyDesktopChromeTheme(selected);
+        applyDesktopThemeToIframe(selected);
+      };
+      swatches.forEach(btn => btn.addEventListener('click', () => preview(btn.dataset.ycDesktopColor)));
+      picker?.addEventListener('input', () => preview(picker.value));
+      root.querySelector('[data-yc-desktop-save]')?.addEventListener('click', () => void saveDesktopThemeColor(selected));
+      root.querySelector('[data-yc-desktop-reset]')?.addEventListener('click', () => void saveDesktopThemeColor(YC_DESKTOP_DEFAULT_THEME));
+    }
+
+    function installDesktopCardHarmonyStyle(doc) {
+      if (!doc || doc.getElementById('ycDesktopCardHarmonyStyle')) return;
+      const style = doc.createElement('style');
+      style.id = 'ycDesktopCardHarmonyStyle';
+      style.textContent = `
+        .person,.steam-member-row,.dm-item,.yc-user-hover-card,.yc-profile-card,.yc-friend-card,.yc-member-card{
+          position:relative!important;overflow:hidden!important;border-radius:14px!important;
+          border:1px solid rgba(var(--yc-theme-rgb),.15)!important;
+          background:
+            radial-gradient(circle at 0 0,rgba(var(--yc-theme-rgb),.09),transparent 34%),
+            radial-gradient(circle at 100% 0,var(--yc-logo-secondary-soft),transparent 28%),
+            linear-gradient(135deg,rgba(9,26,38,.98),rgba(6,17,25,.99) 56%,rgba(4,11,18,.99))!important;
+          box-shadow:0 12px 28px rgba(0,0,0,.24),inset 0 1px 0 rgba(255,255,255,.025),inset 0 0 0 1px rgba(var(--yc-theme-rgb),.03)!important;
+        }
+        .person::before,.steam-member-row::before,.dm-item::before,.yc-user-hover-card::before,.yc-profile-card::before,.yc-friend-card::before,.yc-member-card::before{
+          content:"";position:absolute;inset:0;pointer-events:none;opacity:.95;
+          background:
+            linear-gradient(112deg,rgba(var(--yc-theme-rgb),.07),transparent 34%,transparent 68%,color-mix(in srgb,var(--yc-logo-secondary) 11%,transparent)),
+            radial-gradient(circle at 76% -10%,rgba(var(--yc-theme-rgb),.08),transparent 28%);
+        }
+        .person::after,.steam-member-row::after,.dm-item::after,.yc-user-hover-card::after,.yc-profile-card::after,.yc-friend-card::after,.yc-member-card::after{
+          content:"";position:absolute;left:12px;right:12px;bottom:0;height:1px;pointer-events:none;opacity:.82;
+          background:linear-gradient(90deg,transparent,rgba(var(--yc-theme-rgb),.72),color-mix(in srgb,var(--yc-logo-secondary) 48%,transparent),transparent);
+        }
+        .person:hover,.steam-member-row:hover,.dm-item:hover,.person.active,.steam-member-row.active,.dm-item.active,.yc-user-hover-card:hover,.yc-profile-card:hover,.yc-friend-card:hover,.yc-member-card:hover{
+          transform:translateY(-1px)!important;
+          border-color:rgba(var(--yc-theme-rgb),.34)!important;
+          box-shadow:0 16px 38px rgba(0,0,0,.28),0 0 0 1px rgba(var(--yc-theme-rgb),.08),0 0 22px rgba(var(--yc-theme-rgb),.10)!important;
+        }
+        .person .avatar,.steam-member-row .avatar,.dm-item .avatar,
+        .person .rank-crest,.steam-member-row .rank-crest,.dm-item .rank-crest,
+        .person img.avatar,.steam-member-row img.avatar,.dm-item img.avatar,
+        .yc-user-hover-card .avatar,.yc-profile-card .avatar,.yc-friend-card .avatar,.yc-member-card .avatar{
+          box-shadow:0 0 0 1px rgba(var(--yc-theme-rgb),.18),0 0 18px rgba(var(--yc-theme-rgb),.06)!important;
+        }
+        .person strong,.steam-member-row strong,.dm-item strong,.person b,.steam-member-row b,.dm-item b,
+        .person .name,.steam-member-row .name,.dm-item .name,
+        .yc-user-hover-card strong,.yc-profile-card strong,.yc-friend-card strong,.yc-member-card strong{
+          color:#f2fdff!important;text-shadow:0 0 10px rgba(var(--yc-theme-rgb),.08)!important;
+        }
+        .person small,.steam-member-row small,.dm-item small,
+        .person .muted,.steam-member-row .muted,.dm-item .muted,
+        .yc-user-hover-card small,.yc-profile-card small,.yc-friend-card small,.yc-member-card small{
+          color:#89a7b8!important;
+        }
+        .person [class*="badge"],.steam-member-row [class*="badge"],.dm-item [class*="badge"],
+        .person .tag,.steam-member-row .tag,.dm-item .tag,
+        .person .pill,.steam-member-row .pill,.dm-item .pill,
+        .yc-user-hover-card [class*="badge"],.yc-profile-card [class*="badge"],.yc-friend-card [class*="badge"],.yc-member-card [class*="badge"]{
+          border:1px solid rgba(var(--yc-theme-rgb),.22)!important;
+          background:linear-gradient(135deg,rgba(var(--yc-theme-rgb),.12),color-mix(in srgb,var(--yc-logo-secondary) 12%,transparent))!important;
+          color:#eefcff!important;box-shadow:inset 0 1px 0 rgba(255,255,255,.04)!important;
+        }
+        .person .status-online,.steam-member-row .status-online,.dm-item .status-online,
+        .yc-user-hover-card .status-online,.yc-profile-card .status-online,.yc-friend-card .status-online,.yc-member-card .status-online{
+          box-shadow:0 0 12px rgba(101,255,148,.58)!important;
+        }
+        #rightContent .yc-member-role-section{
+          margin:14px 2px 8px!important;padding:0 8px!important;color:#bcf6ff!important;
+          text-shadow:0 0 10px rgba(var(--yc-theme-rgb),.18)!important;
+        }
+        #rightContent .yc-member-role-section::after{
+          background:linear-gradient(90deg,rgba(var(--yc-theme-rgb),.55),color-mix(in srgb,var(--yc-logo-secondary) 36%,transparent),rgba(255,255,255,.02))!important;
+          box-shadow:0 0 10px rgba(var(--yc-theme-rgb),.15)!important;
+        }
+        #rightContent .yc-member-role-dot{box-shadow:0 0 10px color-mix(in srgb,var(--yc-role-color) 72%,transparent),0 0 10px rgba(var(--yc-theme-rgb),.10)!important}
+        .yc-v3-ribbon .server{
+          position:relative!important;overflow:hidden!important;border-radius:17px!important;
+          background:
+            radial-gradient(circle at 0 0,rgba(var(--yc-theme-rgb),.12),transparent 34%),
+            radial-gradient(circle at 100% 0,color-mix(in srgb,var(--yc-logo-secondary) 10%,transparent),transparent 30%),
+            linear-gradient(145deg,rgba(8,26,37,.96),rgba(6,17,26,.98) 58%,rgba(4,11,18,.99))!important;
+          border-color:color-mix(in srgb,var(--yc-theme) 30%,#244150)!important;
+          box-shadow:0 14px 30px rgba(0,0,0,.22),inset 0 1px 0 rgba(255,255,255,.04)!important;
+        }
+        .yc-v3-ribbon .server::before{
+          content:"";position:absolute;inset:0;pointer-events:none;opacity:.9;
+          background:
+            radial-gradient(circle at 82% -12%,rgba(var(--yc-theme-rgb),.10),transparent 26%),
+            linear-gradient(116deg,transparent 42%,rgba(var(--yc-theme-rgb),.14) 58%,transparent 72%),
+            linear-gradient(145deg,transparent 58%,color-mix(in srgb,var(--yc-logo-secondary) 12%,transparent) 100%);
+        }
+        .yc-v3-ribbon .server::after{
+          content:"";position:absolute;left:12px;right:12px;bottom:0;height:1px;pointer-events:none;
+          background:linear-gradient(90deg,transparent,rgba(var(--yc-theme-rgb),.68),color-mix(in srgb,var(--yc-logo-secondary) 50%,transparent),transparent);
+        }
+        .yc-v3-ribbon .server:hover{
+          transform:translateY(-1px)!important;border-color:rgba(var(--yc-theme-rgb),.52)!important;
+          box-shadow:0 18px 34px rgba(0,0,0,.25),0 0 24px rgba(var(--yc-theme-rgb),.10)!important;
+        }
+        .yc-v3-ribbon .server.active{
+          border-color:rgba(var(--yc-theme-rgb),.70)!important;
+          background:
+            radial-gradient(circle at 0 0,rgba(var(--yc-theme-rgb),.17),transparent 34%),
+            radial-gradient(circle at 100% 0,color-mix(in srgb,var(--yc-logo-secondary) 15%,transparent),transparent 31%),
+            linear-gradient(145deg,rgba(12,32,46,.98),rgba(7,22,33,.98) 56%,rgba(6,14,24,.99))!important;
+          box-shadow:inset 0 0 0 1px rgba(var(--yc-theme-rgb),.19),0 0 28px rgba(var(--yc-theme-rgb),.12),0 16px 36px rgba(0,0,0,.30)!important;
+        }
+        .yc-v3-ribbon .yc-v3-community-mark{
+          box-shadow:0 0 0 1px rgba(255,255,255,.06),0 0 18px color-mix(in srgb,var(--yc-server-color,var(--yc-theme)) 24%,transparent)!important;
+        }
+        .yc-v3-ribbon .yc-v3-community-copy strong{
+          color:#f4fdff!important;text-shadow:0 0 9px rgba(var(--yc-theme-rgb),.08)!important;letter-spacing:.01em!important;
+        }
+        .yc-v3-ribbon .yc-v3-community-copy small{
+          color:#9ab6c4!important;opacity:1!important;
+        }
+        .yc-user-hover-card,.yc-profile-card,.yc-profile-summary{
+          border-color:rgba(var(--yc-theme-rgb),.24)!important;
+          background:
+            radial-gradient(circle at 82% -8%,var(--yc-logo-secondary-soft),transparent 30%),
+            linear-gradient(155deg,#0a1d2b,#07111c)!important;
+          box-shadow:0 24px 60px rgba(0,0,0,.48),0 0 24px rgba(var(--yc-theme-rgb),.06)!important;
+        }
+      `;
+      doc.head?.appendChild(style);
+    }
+
+    function installDesktopAppearanceIntegration() {
+      try {
+        const win = iframe.contentWindow;
+        const doc = win?.document;
+        if (!win || !doc) return;
+        installDesktopAppearanceStyle(doc);
+        installDesktopFullThemeStyle(doc);
+        installDesktopCardHarmonyStyle(doc);
+        installDesktopServerCardBackgroundFeature();
+        applyDesktopSidebarStateToIframe();
+        installDesktopHistoryCapture();
+
+
+        if (!win.__ycDesktopAppearanceRegistered && win.YamachatAppSettings?.register) {
+          win.__ycDesktopAppearanceRegistered = true;
+          win.YamachatAppSettings.register({
+            id: 'desktop-appearance',
+            title: 'Vzhled desktopu',
+            description: 'Osobní barva celého Yamachatu v desktopové aplikaci. Ukládá se lokálně a nezasahuje do webu.',
+            render: appearanceSectionHtml,
+            bind: bindAppearanceSection
+          });
+        }
+
+        syncDesktopServerAccentScope(doc);
+      } catch (error) {
+        console.warn('Yamachat desktop appearance integration failed', error);
+      }
+    }
+
+    function applyDesktopThemeToIframe(color = desktopThemeColor) {
+      try {
+        const safe = ycDesktopNormalizeColor(color);
+        const win = iframe.contentWindow;
+        const doc = win?.document;
+        if (!win || !doc) return;
+        try { win.localStorage?.setItem('yc_theme_color', safe); } catch {}
+        const [r, g, b] = ycDesktopColorRgb(safe);
+        doc.documentElement.style.setProperty('--yc-theme', safe);
+        doc.documentElement.style.setProperty('--yc-theme-rgb', `${r},${g},${b}`);
+        doc.documentElement.style.setProperty('--yc-logo-secondary', `color-mix(in srgb, ${safe} 48%, #b34dff)`);
+        if (typeof win.ycApplyThemeColor === 'function') {
+          win.ycApplyThemeColor(safe);
+        } else {
+          doc.documentElement.style.setProperty('--yc-theme', safe);
+        }
+        installDesktopAppearanceIntegration();
+      } catch (error) {
+        console.warn('Yamachat desktop iframe theme failed', error);
+      }
+    }
+
+    const desktopAppearanceLoaded = Promise.all([
+      loadDesktopThemeColor(), loadDesktopSidebarState(), loadDesktopServerCardBackgrounds()
+    ]);
+    updateDesktopHistoryButtons();
+
+    // Yamachat desktop branding v1.0.37.
+    // Replaces the visual Y + Yamachat label only. The original hidden Y remains
+    // in the DOM and receives the click, so the personal color/theme function is preserved.
+    const YAMACHAT_BRAND_LOGO =
+      'data:image/webp;base64,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';
+
+
+
+    function installYamachatBranding() {
+      try {
+        const doc = iframe.contentWindow?.document;
+        if (!doc) return;
+        installDesktopAppearanceIntegration();
+        applyDesktopThemeToIframe();
+        applyDesktopSidebarStateToIframe();
+        installDesktopHistoryCapture();
+        syncDesktopServerAccentScope(doc);
+        installDesktopServerCardBackgroundFeature();
+
+        if (!doc.getElementById('ycDesktopBrandingStyle')) {
+          const style = doc.createElement('style');
+          style.id = 'ycDesktopBrandingStyle';
+          style.textContent = `
+            #ycGlobalNav .brand.yc-desktop-brand {
+              display:block !important;
+              width:100% !important;
+              min-width:0 !important;
+              margin:1px 0 18px !important;
+              padding:0 2px !important;
+            }
+            #ycGlobalNav .brand.yc-desktop-brand > .logo,
+            #ycGlobalNav .brand.yc-desktop-brand > span {
+              display:none !important;
+            }
+            #ycGlobalNav .yc-desktop-brand-logo {
+              display:block;
+              width:118px;
+              max-width:100%;
+              height:auto;
+              object-fit:contain;
+              cursor:pointer;
+              outline:none;
+              filter:drop-shadow(0 4px 12px rgba(34,195,255,.13));
+              transition:transform .15s ease,filter .15s ease;
+            }
+            #ycGlobalNav .yc-desktop-brand-logo:hover {
+              transform:translateY(-1px) scale(1.015);
+              filter:drop-shadow(0 5px 15px rgba(47,211,255,.20))
+                     drop-shadow(0 0 12px rgba(168,74,255,.10));
+            }
+            #auth .brand.yc-desktop-auth-brand {
+              display:block !important;
+              margin-bottom:14px !important;
+            }
+            #auth .brand.yc-desktop-auth-brand > .logo,
+            #auth .brand.yc-desktop-auth-brand > span {
+              display:none !important;
+            }
+            #auth .yc-desktop-auth-logo {
+              display:block;
+              width:min(290px,82vw);
+              height:auto;
+              margin:0 auto;
+              object-fit:contain;
+              filter:drop-shadow(0 8px 24px rgba(61,194,255,.16));
+            }
+          `;
+          doc.head?.appendChild(style);
+        }
+
+        const navBrand = doc.querySelector('#ycGlobalNav .brand');
+        if (navBrand) {
+          navBrand.classList.add('yc-desktop-brand');
+          let img = navBrand.querySelector('.yc-desktop-brand-logo');
+          if (!img) {
+            img = doc.createElement('img');
+            img.className = 'yc-desktop-brand-logo';
+            img.alt = 'Yamachat';
+            img.draggable = false;
+            img.src = YAMACHAT_BRAND_LOGO;
+            navBrand.appendChild(img);
+
+            const oldLogo = navBrand.querySelector('.logo');
+            img.addEventListener('click', (event) => {
+              event.preventDefault();
+              event.stopPropagation();
+              try {
+                if (typeof iframe.contentWindow?.YamachatAppSettings?.open === 'function') {
+                  void iframe.contentWindow.YamachatAppSettings.open();
+                } else if (typeof iframe.contentWindow?.ycOpenThemeModal === 'function') {
+                  iframe.contentWindow.ycOpenThemeModal();
+                } else {
+                  oldLogo?.click();
+                }
+              } catch {
+                oldLogo?.click();
+              }
+            });
+            img.addEventListener('keydown', (event) => {
+              if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                img.click();
+              }
+            });
+            img.tabIndex = 0;
+            img.setAttribute('role', 'button');
+            img.title = 'Moje barva Yamachatu';
+          }
+        }
+
+        const authBrand = doc.querySelector('#auth .brand');
+        if (authBrand) {
+          authBrand.classList.add('yc-desktop-auth-brand');
+          let img = authBrand.querySelector('.yc-desktop-auth-logo');
+          if (!img) {
+            img = doc.createElement('img');
+            img.className = 'yc-desktop-auth-logo';
+            img.alt = 'Yamachat';
+            img.draggable = false;
+            img.src = YAMACHAT_BRAND_LOGO;
+            authBrand.appendChild(img);
+          }
+        }
+      } catch (error) {
+        console.warn('Yamachat desktop branding install failed', error);
+      }
+    }
+
+
+    async function sendAppSettingsState() {
+      try {
+        if (!window.yamachatDesktop?.getAppSettings || !iframe.contentWindow) return;
+        const settings = await window.yamachatDesktop.getAppSettings();
+        iframe.contentWindow.postMessage({
+          type: 'yamachat:app-settings-state',
+          settings
+        }, '*');
+      } catch (error) {
+        console.warn('Yamachat settings bridge state failed', error);
+      }
+    }
+
+    window.addEventListener('message', async (event) => {
+      if (event.source !== iframe.contentWindow) return;
+      if (event.data?.type === 'yamachat:client-ready' && iframe.contentWindow?.__ycClientReady === true) {
+        void window.yamachatDesktop?.reportRendererReady?.();
+        return;
+      }
+      const data = event.data || {};
+      if (data.type !== 'yamachat:desktop-request' || !data.requestId) return;
+
+      let ok = true;
+      let result = null;
+      let error = '';
+
+      try {
+        if (data.action === 'get-settings') {
+          result = await window.yamachatDesktop?.getAppSettings?.();
+        } else if (data.action === 'set-setting') {
+          result = await window.yamachatDesktop?.setAppSetting?.(
+            data.payload?.key,
+            data.payload?.value
+          );
+        } else if (data.action === 'get-update-state') {
+          result = await window.yamachatDesktop?.getUpdateState?.();
+        } else if (data.action === 'check-update') {
+          result = await window.yamachatDesktop?.checkForUpdates?.();
+        } else if (data.action === 'download-update') {
+          result = await window.yamachatDesktop?.downloadUpdate?.();
+        } else if (data.action === 'install-update') {
+          result = await window.yamachatDesktop?.installUpdate?.();
+        } else {
+          throw new Error('Unknown desktop request: ' + data.action);
+        }
+      } catch (err) {
+        ok = false;
+        error = String(err?.message || err);
+      }
+
+      try {
+        iframe.contentWindow.postMessage({
+          type: 'yamachat:desktop-response',
+          requestId: data.requestId,
+          ok,
+          result,
+          error
+        }, '*');
+      } catch (err) {
+        console.warn('Yamachat settings bridge response failed', err);
+      }
+    });
+
+    function patchDisplayMedia(targetWindow) {
+      try {
+        const media = targetWindow.navigator?.mediaDevices;
+
+        if (!media?.getDisplayMedia) {
+          return;
+        }
+
+        if (media.__yamachatPatched) {
+          return;
+        }
+
+        const originalGetDisplayMedia =
+          media.getDisplayMedia.bind(media);
+
+        media.getDisplayMedia = async function(constraints = {}) {
+          console.log(
+            "Yamachat original capture constraints:",
+            constraints
+          );
+
+          const safeConstraints = {
+            video: true
+          };
+
+          if (constraints.audio) {
+            safeConstraints.audio = true;
+          }
+
+          console.log(
+            "Yamachat Electron capture constraints:",
+            safeConstraints
+          );
+
+          return originalGetDisplayMedia(safeConstraints);
+        };
+
+        media.__yamachatPatched = true;
+
+        console.log("Yamachat display capture patched");
+      } catch (error) {
+        console.error("Display capture patch error:", error);
+      }
+    }
+
+    patchDisplayMedia(window);
+
+    iframe.addEventListener("load", () => {
+      try {
+        patchDisplayMedia(iframe.contentWindow);
+      } catch (error) {
+        console.error("Iframe patch error:", error);
+      }
+      void sendAppSettingsState();
+      if (desktopUpdateState) forwardUpdateState(desktopUpdateState);
+      if (iframe.contentWindow?.__ycClientReady === true) void window.yamachatDesktop?.reportRendererReady?.();
+      if (!desktopSidebarLoaded) void loadDesktopSidebarState();
+      if (!desktopServerCardBackgroundsLoaded) void loadDesktopServerCardBackgrounds();
+      installDesktopAppearanceIntegration();
+      installDesktopServerCardBackgroundFeature();
+      applyDesktopThemeToIframe();
+      applyDesktopSidebarStateToIframe();
+      installDesktopHistoryCapture();
+      installYamachatBranding();
+      setTimeout(rememberDesktopView, 450);
+
+    });
+
+    // Explicit bridge to the module client; assigning window properties does not
+    // replace module-scoped theme functions. Finish appearance before first reveal.
+    window.YamachatDesktopAppearance = Object.freeze({
+      async loadTheme(userId) {
+        await desktopAppearanceLoaded;
+        await loadDesktopThemeColor({ userId });
+        return desktopThemeColor;
+      },
+      saveTheme: color => saveDesktopThemeColor(color),
+      async prepare(userId) {
+        await desktopAppearanceLoaded;
+        if (desktopThemeAccountId !== userId) await loadDesktopThemeColor({ userId });
+        installYamachatBranding();
+        const doc = iframe.contentDocument;
+        await Promise.all([...doc.querySelectorAll('.yc-desktop-brand-logo,.yc-desktop-auth-logo')]
+          .map(img => img.decode?.().catch(() => {})));
+      }
+    });
+
+    fetch(
+      "./desktop-client.html",
+      {
+        cache: "no-store"
+      }
+    )
+    .then(response => {
+      if (!response.ok) {
+        throw new Error("HTTP " + response.status);
+      }
+
+      return response.text();
+    })
+    .then(html => {
+      iframe.srcdoc = html;
+    })
+    .catch(error => {
+      console.error(error);
+
+      const box = document.getElementById("error");
+
+      box.style.display = "block";
+
+      box.innerHTML =
+        "<h2>Yamachat se nepodařilo načíst</h2>" +
+        "<p>" + String(error.message || error) + "</p>";
+    });
+  </script>
+
+</body>
+</html>
