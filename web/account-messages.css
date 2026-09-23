@@ -12,10 +12,16 @@
 #modalRoot .yc-account-inbox-entry{width:100%;margin-top:12px}
 #modalRoot .yc-admin-user-list{display:grid;gap:8px;max-height:min(62dvh,650px);overflow:auto}
 #modalRoot .yc-admin-user-row{display:flex;align-items:center;gap:10px;border:1px solid #294557;background:#0b1923;border-radius:11px;padding:10px}
-#modalRoot .yc-admin-user-avatar{width:38px;height:38px;border-radius:10px;display:grid;place-items:center;background:#173140;font-weight:900;color:#bceef0;flex:0 0 38px}
+#modalRoot .yc-admin-user-row.banned{border-color:#70404a;background:linear-gradient(90deg,rgba(112,40,52,.15),#0b1923 38%)}
+#modalRoot .yc-admin-user-avatar{width:42px;height:42px;border-radius:10px;display:grid;place-items:center;background:#173140;font-weight:900;color:#bceef0;flex:0 0 42px}
 #modalRoot .yc-admin-user-main{min-width:0;flex:1}
 #modalRoot .yc-admin-user-main strong,#modalRoot .yc-admin-user-main small{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 #modalRoot .yc-admin-user-main small{color:#7896a8;margin-top:3px}
+#modalRoot .yc-admin-user-title{display:flex;align-items:center;gap:7px}
+#modalRoot .yc-admin-user-note{margin-top:5px;color:#b9a28d;font-size:10px;white-space:normal;overflow-wrap:anywhere}
+#modalRoot .yc-admin-user-actions{display:flex;align-items:center;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+#modalRoot .yc-admin-pill.danger{background:rgba(226,73,86,.15);border-color:rgba(226,73,86,.35);color:#ff9aa3}
 #modalRoot .yc-admin-compose textarea,#modalRoot .yc-admin-compose input,#modalRoot .yc-admin-compose select{width:100%;margin:7px 0 11px;border:1px solid #35546a;background:#0e1921;color:#e4f1f8;border-radius:8px;padding:10px}
 #modalRoot .yc-admin-compose textarea{min-height:150px;resize:vertical}
-@media(max-width:520px){#modalRoot .yc-admin-user-row{align-items:flex-start;flex-wrap:wrap}#modalRoot .yc-admin-user-row>button{width:100%}}
+#modalRoot .yc-admin-warning{margin:6px 0 12px;padding:10px;border:1px solid #6c4d31;border-radius:9px;background:rgba(134,83,34,.12);color:#e2c29f;font-size:11px;line-height:1.45}
+@media(max-width:620px){#modalRoot .yc-admin-user-row{align-items:flex-start;flex-wrap:wrap}#modalRoot .yc-admin-user-main{flex-basis:calc(100% - 56px)}#modalRoot .yc-admin-user-actions{width:100%;justify-content:stretch}#modalRoot .yc-admin-user-actions button{flex:1}}
