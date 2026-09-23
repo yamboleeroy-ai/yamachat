@@ -1,0 +1,40 @@
+// Shared by every generated Android build, including local debug builds.
+def releaseConfig = new groovy.json.JsonSlurper().parse(file('../../android-release.json'))
+def code = (System.getenv('ANDROID_VERSION_CODE') ?: releaseConfig.versionCode.toString()).toInteger()
+if (code < releaseConfig.versionCode || code > 2100000000) {
+    throw new GradleException('ANDROID_VERSION_CODE is outside the supported range')
+}
+def keyPath = System.getenv('ANDROID_KEYSTORE_PATH')
+def signingPassword = System.getenv('ANDROID_KEYSTORE_PASSWORD')
+android {
+    defaultConfig {
+        applicationId releaseConfig.applicationId
+        versionCode code
+        versionName releaseConfig.versionName + '.' + (code - releaseConfig.versionCode)
+    }
+    signingConfigs {
+        stable {
+            if (keyPath) storeFile file(keyPath)
+            storePassword signingPassword
+            keyAlias 'yamachat'
+            keyPassword signingPassword
+        }
+    }
+    buildTypes {
+        debug { signingConfig signingConfigs.stable }
+        release { signingConfig signingConfigs.stable }
+    }
+}
+tasks.register('verifyStableSigning') {
+    doLast {
+        if (!keyPath || !signingPassword || !file(keyPath).isFile()) {
+            throw new GradleException('Stable Android keystore required; random debug signing is forbidden')
+        }
+        def store = java.security.KeyStore.getInstance(file(keyPath), signingPassword.toCharArray())
+        def cert = store.getCertificate('yamachat')
+        if (cert == null || !store.isKeyEntry('yamachat')) throw new GradleException('Missing yamachat signing key')
+        def fingerprint = java.security.MessageDigest.getInstance('SHA-256').digest(cert.encoded).encodeHex().toString()
+        if (fingerprint != releaseConfig.certificateSha256) throw new GradleException('Android signing certificate changed')
+    }
+}
+tasks.named('preBuild').configure { dependsOn 'verifyStableSigning' }
