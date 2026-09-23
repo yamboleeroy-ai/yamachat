@@ -21,7 +21,7 @@ for(const target of ['index.html','desktop-client-dist/desktop-client.html']){
 const source=fs.readFileSync(path.join(root,'web/account-messages.js'),'utf8');
 for(const marker of [
   "sb.functions.invoke(YC_ADMIN_USERS_FUNCTION",
-  "duration:'permanent'",
+  'value="permanent">Trvale</option>',
   "setInterval(()=>void ycCheckOwnBanStatus(),60000)"
 ]) assert(source.includes(marker),'source missing '+marker);
 console.log('PASS: account inbox and Platform Admin user moderation are present in web and desktop clients.');
