@@ -12,14 +12,18 @@ jobs:
           node-version: '22'
       - run: node scripts/check.mjs
       - run: node scripts/build-desktop-client.mjs
-      - name: Profile action and layout tests
+      - name: Install browser test runtime
         run: |
           npm install --no-save --package-lock=false playwright@1.62.1
           npx playwright install --with-deps chromium
-          node tests/profile-actions.cjs
-          node tests/profile-layout.cjs
-          node tests/password-recovery.cjs
-          node tests/account-messages.cjs
+      - name: Profile action tests
+        run: node tests/profile-actions.cjs
+      - name: Profile layout tests
+        run: node tests/profile-layout.cjs
+      - name: Password recovery tests
+        run: node tests/password-recovery.cjs
+      - name: Platform user management tests
+        run: node tests/account-messages.cjs
       - name: Prepare web deployment
         run: |
           mkdir -p web-dist
