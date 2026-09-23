@@ -29,6 +29,9 @@ jobs:
         run: |
           $p = Get-Content desktop/package.json | ConvertFrom-Json
           if ($p.version -ne "1.0.80") { throw "Expected desktop 1.0.80" }
+          if (-not (Test-Path build/installer.nsh)) { throw "Missing NSIS rollback hook build/installer.nsh" }
+          $installerHook = Get-Content build/installer.nsh -Raw
+          if (-not $installerHook.Contains("installed-setup.exe")) { throw "NSIS rollback hook is incomplete" }
           $client = Get-Content desktop/desktop-client.html -Raw
           foreach ($marker in @(
             "Platform Admin · uživatelské účty",
