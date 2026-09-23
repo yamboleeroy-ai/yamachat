@@ -22,5 +22,16 @@ try{
    const re=new RegExp('const '+marker+'=([^\\n]+)');assert(ref.match(re),`Missing ${marker}`);assert.deepEqual(html.match(re)?.[1],ref.match(re)?.[1]);
   }
  }
+ const nativeBridgeSource=fs.readFileSync(path.join(root,'mobile/src/native-bridge.ts'),'utf8');
+ for(const marker of [
+   'ycNativeSettingsUpdateCheck',
+   'ZKONTROLOVAT AKTUALIZACE',
+   'window.ycNativeCheckForUpdates = checkNativeUpdate',
+   'https://yamachat.eu/update-manifest.json',
+   "id: 'updates'"
+ ]) assert(nativeBridgeSource.includes(marker),`Missing Android update-settings marker: ${marker}`);
+ const generatedWeb=fs.readFileSync(path.join(root,'index.html'),'utf8');
+ assert(generatedWeb.includes('window.YamachatAppSettings={register:ycRegisterAppSettingsSection,open:ycOpenAppSettings'), 'Generated client is missing YamachatAppSettings registry');
+ console.log('PASS: Android manual update-check section is registered and wired to the shared update manifest.');
  console.log(`PASS: ${count} scripts parse; desktop SHA-256 and backend constants preserved; runtime assets present.`);
 }finally{fs.rmSync(tmp,{recursive:true,force:true})}
