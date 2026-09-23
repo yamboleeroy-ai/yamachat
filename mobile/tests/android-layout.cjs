@@ -16,6 +16,9 @@ for(const width of [320,390,412,600])for(const inset of [0,24,48]){
  results.push({width,inset,active,composerBottom:r.composer.bottom,voiceTop:r.voice.top,voiceBottom:r.voice.bottom});
  }
  if(output&&width===390&&inset===48)await page.screenshot({path:path.join(output,'android-portrait.png')});
+ await page.evaluate(()=>{document.documentElement.dataset.nativeKeyboard='true';document.documentElement.classList.add('yc-keyboard-open')});
+ const keyboard=await page.evaluate(()=>({dock:getComputedStyle(document.querySelector('.yc-v3-voice-host')).display,composer:document.querySelector('.composer-wrap').getBoundingClientRect().toJSON()}));
+ assert.equal(keyboard.dock,'none');assert(keyboard.composer.bottom<=844);
  await page.close();
 }
 if(output)fs.writeFileSync(path.join(output,'layout-results.json'),JSON.stringify(results,null,2));await browser.close();console.log('PASS '+results.length+' portrait layout cases, navigation inset 0/24/48px, idle/active voice');process.exit(0)

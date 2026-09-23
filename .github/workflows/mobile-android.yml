@@ -45,6 +45,9 @@ jobs:
         working-directory: mobile
         run: npm run prepare:web
 
+      - name: Verify unchanged desktop reference and bundled scripts
+        run: node scripts/check.mjs
+
       - name: Create Android project when missing
         working-directory: mobile
         run: |
