@@ -22,6 +22,10 @@ try{
    const re=new RegExp('const '+marker+'=([^\\n]+)');assert(ref.match(re),`Missing ${marker}`);assert.deepEqual(html.match(re)?.[1],ref.match(re)?.[1]);
   }
  }
+ const nativePatchSource=fs.readFileSync(path.join(root,'mobile/scripts/patch-native.mjs'),'utf8');
+ const registerAt=nativePatchSource.indexOf('registerPlugin(YamachatUpdatePlugin.class);');
+ const superAt=nativePatchSource.indexOf('super.onCreate(savedInstanceState);', registerAt);
+ assert(registerAt>=0 && superAt>registerAt, 'Android YamachatUpdate plugin must be registered before BridgeActivity super.onCreate()');
  const nativeBridgeSource=fs.readFileSync(path.join(root,'mobile/src/native-bridge.ts'),'utf8');
  for(const marker of [
    'ycNativeSettingsUpdateCheck',
