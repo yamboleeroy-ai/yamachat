@@ -76,11 +76,22 @@ jobs:
           cmp desktop-client-dist/desktop-client.html desktop/desktop-client.html
           echo "PASS desktop client matches tested generator"
 
+      - name: Verify tray and app icon restoration recipe
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          ./scripts/restore-desktop-brand-assets.ps1 -Destination build
+          foreach ($name in @("icon.ico","tray-controller-idle.png","tray-controller-speaking.png","tray-status-online.png","tray-status-online-notify.png","app-icon-source.png","yamachat-logo-ui.webp")) {
+            if (-not (Test-Path (Join-Path build $name))) { throw "Missing restored Windows asset $name" }
+          }
+          Write-Host "PASS tray and Windows app icon assets restored from 1.0.79"
+
       - name: Verify desktop release version
         run: |
           node - <<'NODE'
           const p=require('./desktop/package.json');
-          if(p.version!=='1.0.80') throw new Error('Expected desktop source version 1.0.80');
+          if(p.version!=='1.0.81') throw new Error('Expected desktop source version 1.0.81');
           if(!p.dependencies?.['electron-updater']) throw new Error('electron-updater missing');
           console.log('PASS desktop',p.version);
           NODE
