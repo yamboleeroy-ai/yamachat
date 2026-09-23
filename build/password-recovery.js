@@ -17,14 +17,20 @@
   byId('requestForm').addEventListener('submit',async event=>{
     event.preventDefault();if(busy||!byId('requestForm').reportValidity())return;
     busy=true;byId('requestSubmit').disabled=true;status('Odesíláme žádost…');
+    let slowTimer=null,hardTimer=null;
     try{
-      const {error}=await client.auth.resetPasswordForEmail(byId('recoveryEmail').value.trim(),{redirectTo:'https://yamachat.eu/reset-password.html'});
-      if(error){if(error.status===0||error.name==='AuthRetryableFetchError')throw error;status(error.status===429?'Příliš mnoho žádostí. Počkej chvíli a zkus to znovu.':'E-mail teď nelze odeslat. Zkus to prosím později.',true);return}
+      slowTimer=setTimeout(()=>{if(busy)status('E-mailový server odpovídá pomalu. Ještě čekáme na potvrzení…')},8000);
+      const timeout=new Promise((_,reject)=>{hardTimer=setTimeout(()=>{const e=new Error('Recovery request timeout');e.code='yc_recovery_timeout';reject(e)},55000)});
+      const {error}=await Promise.race([client.auth.resetPasswordForEmail(byId('recoveryEmail').value.trim(),{redirectTo:'https://yamachat.eu/reset-password.html'}),timeout]);
+      if(error){
+        if(error.status===0||error.name==='AuthRetryableFetchError')throw error;
+        status(error.status===429?'Příliš mnoho žádostí. Počkej chvíli a zkus to znovu.':error.status===504||error.code==='request_timeout'?'E-mailový server neodpověděl včas. Zkus to za chvíli znovu.':'E-mail teď nelze odeslat. Zkus to prosím později.',true);return
+      }
       // The same result for existing and unknown addresses prevents account disclosure.
-      status('Pokud k této adrese existuje účet Yamachat, pošleme na ni odkaz pro obnovu hesla. Zkontroluj také složku Spam.');
+      status('Pokud k této adrese existuje účet Yamachat, požadavek byl přijat. Zkontroluj doručenou poštu i Spam.');
       byId('requestForm').classList.add('hidden');
-    }catch{status('Nepodařilo se připojit. Zkontroluj internet a zkus to znovu.',true)}
-    finally{busy=false;byId('requestSubmit').disabled=false}
+    }catch(error){status(error?.code==='yc_recovery_timeout'?'Odesílání trvá příliš dlouho. E-mailová služba může být dočasně nedostupná. Zkus to za chvíli znovu.':'Nepodařilo se připojit. Zkontroluj internet a zkus to znovu.',true)}
+    finally{clearTimeout(slowTimer);clearTimeout(hardTimer);busy=false;byId('requestSubmit').disabled=false}
   });
   byId('passwordForm').addEventListener('submit',async event=>{
     event.preventDefault();if(busy||!byId('passwordForm').reportValidity())return;
