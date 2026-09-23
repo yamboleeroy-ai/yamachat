@@ -2,10 +2,10 @@
   "schemaVersion": 1,
   "publishedAt": "2026-09-23T22:46:52Z",
   "windows": {
-    "latestVersion": "1.0.79",
+    "latestVersion": "1.0.80",
     "required": true,
-    "releaseUrl": "https://github.com/yamboleeroy-ai/yamachat/releases/tag/v1.0.79",
-    "notes": "- V profilu jsou nové možnosti \r\n- Napsat zprávu\r\n- Přidat do přátel\r\n- ztlumit\r\n- nahlásit\r\n- zablokovat"
+    "releaseUrl": "https://github.com/yamboleeroy-ai/yamachat/releases/tag/v1.0.80",
+    "notes": "Yamachat 1.0.80: Platform Admin správa uživatelů, ban/odbanování, vzkazy do účtu a obnova hesla."
   },
   "android": {
     "latestVersion": "1.1.0.157",

@@ -4,7 +4,20 @@ const read=name=>fs.readFileSync(new URL('../web/'+name,import.meta.url),'utf8')
 export function withPasswordRecovery(html){
   const boundary='<div id="authMsg" class="msgline"></div>\n    </form>';
   if(!html.includes(boundary))throw Error('Missing login form boundary');
-  return html.replace(boundary,boundary+'\n    <a id="ycForgotPassword" href="https://yamachat.eu/reset-password.html" target="_blank" rel="noopener noreferrer" style="display:block;text-align:center;margin-top:14px;font-size:13px;color:inherit">Zapomenuté heslo?</a>');
+  const moduleBoundary="const $=(id)=>document.getElementById(id)";
+  if(!html.includes(moduleBoundary))throw Error('Missing password request module boundary');
+  html=html.replace(
+    boundary,
+    boundary+'\n    <button id="ycForgotPassword" type="button" style="display:block;width:100%;border:0;background:transparent;text-align:center;margin-top:14px;font-size:13px;color:inherit;cursor:pointer">Zapomenuté heslo?</button>\n'+read('password-request.html')
+  );
+  html=html.replace(
+    moduleBoundary,
+    moduleBoundary+'\n'+read('password-request.js')
+  );
+  return html.replace(
+    '</head>',
+    '<style id="ycPasswordRequestStyle">'+read('password-request.css')+'</style>\n</head>'
+  );
 }
 export function buildPasswordRecovery(reference,root){
   const url=reference.match(/const SUPABASE_URL='([^']+)'/)?.[1];
