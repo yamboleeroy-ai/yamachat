@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "publishedAt": "2026-09-23T10:43:55Z",
+  "publishedAt": "2026-09-23T20:48:30.634Z",
   "windows": {
     "latestVersion": "1.0.78",
     "required": true,
@@ -8,15 +8,15 @@
     "notes": []
   },
   "android": {
-    "latestVersion": "1.1.0.98",
-    "latestVersionCode": 200098,
+    "latestVersion": "1.1.0.122",
+    "latestVersionCode": 200122,
     "required": true,
-    "apkUrl": "https://yamachat.eu/download/Yamachat-Android.apk?v=200098",
-    "sha256": "f0cf0b2743b9c4562e02a006d90d716e8ed29192c8f3ef2c9d37e7dff2c8e748",
+    "apkUrl": "https://yamachat.eu/download/Yamachat-Android.apk?v=200122",
+    "sha256": "02eb596dc3ec35d60d3958b1f7c6f9c4abaa81cce4c54f9feb1ad62917fe7032",
     "notes": [
-      "Opraven nativní Android updater YamachatUpdate.",
-      "Aktualizační plugin se registruje před vytvořením Capacitor bridge.",
-      "Tlačítko STÁHNOUT A NAINSTALOVAT už nehlásí, že plugin není implementovaný."
+      "Nový panel akcí pod profilem: přátelé a stav žádosti, soukromá zpráva, blokování a nahlášení.",
+      "Lokální ztlumení hlasu uživatele přímo z profilu.",
+      "Opravené zobrazení profilových akcí a rozložení pro mobilní zařízení."
     ]
   }
 }
