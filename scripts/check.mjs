@@ -53,5 +53,14 @@ try{
    'overflow-x:auto!important',
    'html.yc-ios-pwa .yc-ss-body'
  ]) assert(mobileCssPwa.includes(marker),`Missing iOS PWA layout marker: ${marker}`);
+ const webIntegration=fs.readFileSync(path.join(root,'web/integration.js'),'utf8');
+ for(const marker of [
+   "YC_IOS_VOICE_RESUME_KEY='yc_ios_voice_resume_v1'",
+   "ycWebIsIosPwa",
+   "ycIosVoiceReconnect('visibility')",
+   "ycOnLifecycle('community'",
+   "leaveVoiceChannel(true)",
+   "await joinVoiceChannel(channel)"
+ ]) assert(webIntegration.includes(marker),`Missing iOS PWA voice reconnect marker: ${marker}`);
  console.log(`PASS: ${count} scripts parse; desktop SHA-256 and backend constants preserved; runtime assets present.`);
 }finally{fs.rmSync(tmp,{recursive:true,force:true})}
