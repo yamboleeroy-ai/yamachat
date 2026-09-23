@@ -9,7 +9,19 @@ for(const target of ['index.html','desktop-client-dist/desktop-client.html']){
     'data-yc-account-read',
     'recipient_user_id:p.id',
     'created_by:user.id',
-    '👤 Uživatelé'
+    "YC_ADMIN_USERS_FUNCTION='yamachat-snapshot-v11'",
+    "action:'ban'",
+    "action:'unban'",
+    "action:'self-status'",
+    'Platform Admin · uživatelské účty',
+    'Poslední přihlášení:',
+    'Zabanovat účet'
   ]) assert(html.includes(marker),target+' missing '+marker);
 }
-console.log('PASS: admin account messages are present in generated web and desktop clients.');
+const source=fs.readFileSync(path.join(root,'web/account-messages.js'),'utf8');
+for(const marker of [
+  "sb.functions.invoke(YC_ADMIN_USERS_FUNCTION",
+  "duration:'permanent'",
+  "setInterval(()=>void ycCheckOwnBanStatus(),60000)"
+]) assert(source.includes(marker),'source missing '+marker);
+console.log('PASS: account inbox and Platform Admin user moderation are present in web and desktop clients.');
