@@ -46,6 +46,12 @@ declare global {
 
   try {
     await StatusBar.setStyle({ style: Style.Light });
+    if (platform === 'ios') {
+      // Let Yamachat paint underneath the iPhone status bar. The responsive
+      // layout already reserves env(safe-area-inset-top), so content stays
+      // below the clock while the ugly white strip disappears.
+      await StatusBar.setOverlaysWebView({ overlay: true });
+    }
     if (platform === 'android') {
       await StatusBar.setBackgroundColor({ color: '#071019' });
     }
