@@ -121,7 +121,11 @@ html=html.replace(
 
 html=html.replace(
   '</head>',
-  '<link rel="manifest" href="./manifest.webmanifest">\n<link rel="icon" href="./favicon.ico">\n</head>'
+  '<meta name="apple-mobile-web-app-capable" content="yes">\n'+
+  '<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">\n'+
+  '<meta name="mobile-web-app-capable" content="yes">\n'+
+  '<link rel="manifest" href="./manifest.webmanifest">\n'+
+  '<link rel="icon" href="./favicon.ico">\n</head>'
 );
 
 html=html.replace(
