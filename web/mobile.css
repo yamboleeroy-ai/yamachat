@@ -376,3 +376,27 @@ html.yc-ios-mobile .yc-v3-workspace{
    max-height:30px!important;
  }
 }
+
+
+/* Mobile header/server menu alignment — mobile adaptation only. */
+@media(max-width:1100px){
+ .yc-v3-workspace>.top{position:relative!important;display:flex!important;align-items:center!important}
+ #ycMobileNavBtn{order:1!important}
+ #mobileMenu{order:2!important}
+ #ycMobileMembersBtn{order:4!important;margin-left:auto!important}
+ .yc-mobile-header-brand{left:50vw!important;right:auto!important;transform:translate(-50%,-50%)!important}
+ .side-head{padding-right:58px!important}
+ .side-head #ycServerMenuBtn{
+   display:grid!important;visibility:visible!important;pointer-events:auto!important;
+   right:12px!important;top:50%!important;transform:translateY(-50%)!important;
+   width:40px!important;height:40px!important;min-width:40px!important;min-height:40px!important;
+   place-items:center!important;z-index:25!important
+ }
+ #ycMobileServerSettingsBtn{display:none!important}
+}
+@media(max-width:520px) and (orientation:portrait){
+ .yc-v3-workspace>.top{padding-left:max(8px,env(safe-area-inset-left))!important;padding-right:max(8px,env(safe-area-inset-right))!important;gap:8px!important}
+ #ycMobileMembersBtn{position:absolute!important;right:max(8px,env(safe-area-inset-right))!important;top:50%!important;transform:translateY(-50%)!important}
+ .yc-mobile-header-brand{left:50%!important}
+ .side-head #ycServerMenuBtn{right:10px!important;width:38px!important;height:38px!important;min-width:38px!important;min-height:38px!important}
+}
