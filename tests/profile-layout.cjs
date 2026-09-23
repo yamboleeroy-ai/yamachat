@@ -15,7 +15,12 @@ const mock=fs.readFileSync(path.join(__dirname,'supabase-fixture.js'),'utf8').re
    if(u.pathname==='/')return route.fulfill({contentType:'text/html',body:fs.readFileSync(file,'utf8').replace("await window.parent?.YamachatDesktopAppearance?.prepare('');","window.testProfile={open:openUserProfile};await window.parent?.YamachatDesktopAppearance?.prepare('');")});
    return route.fulfill({path:file});
   });
-  await page.goto('http://127.0.0.1/');await page.waitForFunction(()=>window.__ycClientReady);
+  await page.goto('http://127.0.0.1/');
+  try{await page.waitForFunction(()=>window.__ycClientReady,{},{timeout:10000})}catch(error){
+   console.error('PROFILE-LAYOUT BOOT ERRORS',JSON.stringify(errors));
+   console.error('PROFILE-LAYOUT BODY',(await page.locator('body').innerText()).slice(0,1600));
+   throw error
+  }
   await page.evaluate(async platform=>{if(platform==='ios')document.documentElement.classList.add('yc-ios-pwa');if(platform==='android')document.documentElement.classList.add('yc-native-android');await testProfile.open('peer')},platform);
   assert.equal(await page.locator('[data-yc-profile-mute]').count(),1);
   for(const button of await page.locator('.yc-profile-actions-v1028 button').all()){
