@@ -51,7 +51,7 @@ try{
    'html.yc-ios-pwa .yc-ss-nav',
    'html.yc-ios-pwa .yc-ss-tab',
    'overflow-x:auto!important',
-   'html.yc-ios-pwa:not(.yc-keyboard-open) .yc-v3-voice-host'
+   'html.yc-ios-pwa .yc-ss-body'
  ]) assert(mobileCssPwa.includes(marker),`Missing iOS PWA layout marker: ${marker}`);
  console.log(`PASS: ${count} scripts parse; desktop SHA-256 and backend constants preserved; runtime assets present.`);
 }finally{fs.rmSync(tmp,{recursive:true,force:true})}
