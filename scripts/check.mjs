@@ -37,5 +37,12 @@ try{
  const generatedWeb=fs.readFileSync(path.join(root,'index.html'),'utf8');
  assert(generatedWeb.includes('window.YamachatAppSettings={register:ycRegisterAppSettingsSection,open:ycOpenAppSettings'), 'Generated client is missing YamachatAppSettings registry');
  console.log('PASS: Android manual update-check section is registered and wired to the shared update manifest.');
+ const mobileCss=fs.readFileSync(path.join(root,'web/mobile.css'),'utf8');
+ for(const marker of [
+   'html.yc-native-ios .yc-ss-nav',
+   'touch-action:pan-x!important',
+   'html.yc-native-ios:not(.yc-keyboard-open) .yc-v3-voice-host',
+   'top:4px!important'
+ ]) assert(mobileCss.includes(marker),`Missing iOS mobile layout marker: ${marker}`);
  console.log(`PASS: ${count} scripts parse; desktop SHA-256 and backend constants preserved; runtime assets present.`);
 }finally{fs.rmSync(tmp,{recursive:true,force:true})}
