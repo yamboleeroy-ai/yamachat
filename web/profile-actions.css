@@ -1,0 +1,8 @@
+#modalRoot .yc-profile-actions-v1028{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:18px;padding-top:14px;border-top:1px solid #294557;min-width:0}
+#modalRoot .yc-profile-actions-title,#modalRoot .yc-profile-actions-note{grid-column:1/-1;margin:0;line-height:1.5}
+#modalRoot .yc-profile-actions-note{color:#91a9b8;font-size:12px}
+#modalRoot .yc-profile-actions-v1028 button{min-width:0;min-height:44px;width:100%;margin:0;white-space:normal;overflow-wrap:anywhere;text-align:center}
+#modalRoot .yc-profile-actions-v1028 button:focus-visible{outline:2px solid #7ddfff;outline-offset:2px}
+#modalRoot .yc-profile-actions-v1028 button:disabled{opacity:.55;cursor:default}
+#modalRoot .yc-profile-actions-v1028 button.primary{color:#07121b!important}
+@media(max-width:380px){#modalRoot .yc-profile-actions-v1028{grid-template-columns:minmax(0,1fr)}}

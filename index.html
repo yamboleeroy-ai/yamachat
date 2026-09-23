@@ -632,6 +632,15 @@ input[type="color"]::-webkit-color-swatch{border:0!important;border-radius:5px!i
 .yc-threshold-reading{font-size:12px;color:#d9e6ef;font-variant-numeric:tabular-nums;min-height:18px}
 .yc-threshold-help{font-size:11px;line-height:1.5;color:#91a7b9;margin:4px 0 10px}
 </style>
+<style id="ycProfileActions">#modalRoot .yc-profile-actions-v1028{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:18px;padding-top:14px;border-top:1px solid #294557;min-width:0}
+#modalRoot .yc-profile-actions-title,#modalRoot .yc-profile-actions-note{grid-column:1/-1;margin:0;line-height:1.5}
+#modalRoot .yc-profile-actions-note{color:#91a9b8;font-size:12px}
+#modalRoot .yc-profile-actions-v1028 button{min-width:0;min-height:44px;width:100%;margin:0;white-space:normal;overflow-wrap:anywhere;text-align:center}
+#modalRoot .yc-profile-actions-v1028 button:focus-visible{outline:2px solid #7ddfff;outline-offset:2px}
+#modalRoot .yc-profile-actions-v1028 button:disabled{opacity:.55;cursor:default}
+#modalRoot .yc-profile-actions-v1028 button.primary{color:#07121b!important}
+@media(max-width:380px){#modalRoot .yc-profile-actions-v1028{grid-template-columns:minmax(0,1fr)}}
+</style>
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="mobile-web-app-capable" content="yes">
@@ -2820,7 +2829,7 @@ async function openUserProfile(uid){
   const p=pr.data;if(!p){toast('Profil nebyl nalezen.',true);return}const st=sr.data||{xp:0,message_count:0},pres=ur.data,state=ycPresenceState(pres),rank=rankForXP(st.xp),av=avatarUrl(p),discord=p.discord_username||''
   $('modalRoot').innerHTML='<div class="modal-back"><div class="modal steam-profile"><div class="modal-head"><h3>Profil uživatele</h3><button class="x" id="closeModal">×</button></div><div class="steam-profile-hero">'+(av?'<img class="steam-profile-avatar" src="'+esc(av)+'" alt="">':'<div class="steam-profile-avatar">'+esc(initials(p.display_name||p.username))+'</div>')+'<div class="steam-profile-title"><h2>'+esc(p.display_name||p.username)+'</h2><div class="handle">@'+esc(p.username)+'</div><div class="steam-profile-status '+state+'">● '+esc(ycPresenceLabel(state))+'</div><div class="yc-activity">'+esc(ycActivityFor(pres,p))+'</div></div></div><div class="steam-profile-body"><div class="steam-profile-grid"><div class="steam-stat"><label>Rank</label><strong>'+esc(rank)+' · '+st.xp+' XP</strong></div><div class="steam-stat"><label>Registrace</label><strong>'+esc(ycProfileCreated(p.created_at))+'</strong></div><div class="steam-stat"><label>Zprávy</label><strong>'+st.message_count+'</strong></div><div class="steam-stat"><label>Poslední aktivita</label><strong>'+esc(state==='offline'?ycLastSeen(pres):ycPresenceLabel(state))+'</strong></div></div><div class="steam-profile-bio">'+esc(p.bio||'Uživatel zatím nemá bio.')+'</div><div class="discord-link"><div><strong>Discord</strong><div class="yc-auto-note">'+esc(discord?discord:'Nepřipojeno')+'</div></div></div></div></div></div>'
   $('closeModal').onclick=closeModal
-  try{await ycDecorateProfile1029(uid);await ycInjectProfileActions1029(uid)}catch(e){console.warn('profile social actions',e)}
+  try{await ycInjectProfileActions1029(uid)}catch(e){console.warn('profile social actions',e)}
 }
 async function ycSyncDiscordIdentity(){try{if(!user||!profile)return;const {data,error}=await sb.auth.getUser();if(error)return;const ident=(data?.user?.identities||[]).find(x=>x.provider==='discord');if(!ident)return;const d=ident.identity_data||{},name=String(d.username||d.user_name||d.preferred_username||d.full_name||d.name||'').trim(),did=String(d.provider_id||d.sub||ident.identity_id||'').trim();if((name&&profile.discord_username!==name)||(did&&profile.discord_user_id!==did)){const {data:p}=await sb.from('profiles').update({discord_username:name||profile.discord_username,discord_user_id:did||profile.discord_user_id}).eq('id',user.id).select().single();if(p)profile=p}}catch(e){console.warn('discord identity sync',e)}}
 async function ycLinkDiscord(){try{const {error}=await sb.auth.linkIdentity({provider:'discord',options:{redirectTo:'https://yamboleeroy-ai.github.io/yamachat/'}});if(error)throw error}catch(e){toast('Discord propojení zatím není aktivní v Supabase: '+(e?.message||e),true)}}
@@ -4768,25 +4777,6 @@ async function ycDecorateProfile1029(uid){
  const badge=document.createElement('div');badge.className='yc-profile-rank-badge';badge.innerHTML='<strong>'+x.cur.n.toUpperCase()+'</strong><small>'+new Intl.NumberFormat('cs-CZ').format(xp)+' XP'+(x.next?' · '+new Intl.NumberFormat('cs-CZ').format(x.next.min-xp)+' do '+x.next.n:' · MAX RANK')+'</small>';hero.appendChild(badge);
  const bar=document.createElement('div');bar.className='yc-profile-rank-progress';bar.innerHTML='<i style="width:'+x.pct.toFixed(1)+'%"></i>';hero.appendChild(bar)
 }
-function ycFriendQuery1029(uid){return sb.from('friendships').select('*').or('and(requester_id.eq.'+user.id+',addressee_id.eq.'+uid+'),and(requester_id.eq.'+uid+',addressee_id.eq.'+user.id+')').limit(1).maybeSingle()}
-async function ycProfileRow1029(uid){const {data}=await sb.from('profiles').select('*').eq('id',uid).maybeSingle();return data||null}
-async function ycOpenProfileReport1029(uid){
- if(!uid||uid===user?.id)return;const p=await ycProfileRow1029(uid),name=p?.display_name||p?.username||'Uživatel';
- $('modalRoot').innerHTML='<div class="modal-back"><div class="modal yc-report-modal"><div class="modal-head"><h3>🚩 Nahlásit uživatele</h3><button class="x" id="closeModal">×</button></div><div class="notice"><strong>'+esc(name)+'</strong>'+(p?.username?' · @'+esc(p.username):'')+'</div><div class="yc-profile-report-note">Nahlášení odejde Platform Adminovi. Uveď konkrétní důvod.</div><label>Důvod</label><select id="ycProfileReportReason"><option>Obtěžování</option><option>Spam</option><option>Nevhodný profil / obsah</option><option>Podvod / scam</option><option>Vydávání se za jinou osobu</option><option>Porušení pravidel serveru</option><option>Jiné</option></select><textarea id="ycProfileReportNote" rows="4" maxlength="400" placeholder="Doplňující informace (volitelné)"></textarea><button class="primary" id="ycProfileReportSubmit" style="width:100%;margin-top:6px">Odeslat nahlášení</button></div></div>';
- $('closeModal').onclick=closeModal;$('ycProfileReportSubmit').onclick=async()=>{const btn=$('ycProfileReportSubmit'),reason=[$('ycProfileReportReason').value,$('ycProfileReportNote').value.trim()].filter(Boolean).join(' · ');btn.disabled=true;const {error}=await sb.rpc('report_profile',{p_reported_user_id:uid,p_reason:reason,p_community_id:currentCommunity?.id||null});if(error){btn.disabled=false;toast('Nahlášení: '+error.message,true);return}closeModal();toast('🚩 Uživatel byl nahlášen Platform Adminovi.')}
-}
-async function ycInjectProfileActions1029(uid){
- if(!uid||uid===user?.id)return;const modal=document.querySelector('#modalRoot .steam-profile');if(!modal)return;modal.querySelector('.yc-profile-actions-v1028')?.remove();
- const [{data:f},{data:blockRow}]=await Promise.all([ycFriendQuery1029(uid),sb.from('user_blocks').select('blocked_id').eq('blocker_id',user.id).eq('blocked_id',uid).maybeSingle()]),blockedByMe=!!blockRow,host=modal.querySelector('.steam-profile-body')||modal,row=document.createElement('div');row.className='yc-profile-actions-v1028';
- let label='＋ Přidat do přátel',mode='add',cls='primary';if(blockedByMe){label='Zablokován';mode='blocked';cls=''}else if(f?.status==='accepted'){label='✓ Přítel · odebrat';mode='remove';cls=''}else if(f?.status==='pending'&&f.requester_id===user.id){label='✕ Zrušit žádost';mode='cancel';cls=''}else if(f?.status==='pending'&&f.addressee_id===user.id){label='✓ Přijmout žádost';mode='accept';cls='accept'}
- row.innerHTML='<button class="yc-profile-action-btn" data-yc-profile-message '+(blockedByMe?'disabled':'')+'>💬 Napsat zprávu</button><button class="yc-profile-action-btn '+cls+'" data-yc-profile-friend '+(mode==='blocked'?'disabled':'')+'>'+label+'</button>'+(mode==='accept'?'<button class="yc-profile-action-btn" data-yc-profile-reject>✕ Odmítnout</button>':'')+'<button class="yc-profile-action-btn yc-profile-block '+(blockedByMe?'':'danger')+'" data-yc-profile-block>'+(blockedByMe?'✓ Odblokovat':'⛔ Zablokovat')+'</button><button class="yc-profile-action-btn danger" data-yc-profile-report>🚩 Nahlásit</button>';
- const discord=host.querySelector('.discord-link');discord?host.insertBefore(row,discord):host.appendChild(row);
- row.querySelector('[data-yc-profile-message]').onclick=async()=>{const p=await ycProfileRow1029(uid);if(!p)return toast('Soukromou zprávu se nepodařilo otevřít.',true);closeModal();await startDm(p)};
- const fb=row.querySelector('[data-yc-profile-friend]');fb.onclick=async()=>{if(mode==='add'){const {error}=await sb.from('friendships').insert({requester_id:user.id,addressee_id:uid,status:'pending'});if(error)return toast(error.message,true);toast('Žádost o přátelství odeslána.')}else if(mode==='accept'){const {error}=await sb.from('friendships').update({status:'accepted',updated_at:new Date().toISOString()}).eq('requester_id',uid).eq('addressee_id',user.id);if(error)return toast(error.message,true);toast('Přítel přidán.')}else if(mode==='cancel'){await ycCancelFriendRequest(uid)}else if(mode==='remove'){if(!confirm('Odebrat uživatele z přátel?'))return;const {error}=await sb.from('friendships').delete().or('and(requester_id.eq.'+user.id+',addressee_id.eq.'+uid+'),and(requester_id.eq.'+uid+',addressee_id.eq.'+user.id+')');if(error)return toast(error.message,true);toast('Přítel odebrán.')}await ycInjectProfileActions1029(uid);if(rightMode==='friends')void renderFriends()};
- row.querySelector('[data-yc-profile-reject]')?.addEventListener('click',async()=>{await rejectFriend(uid);await ycInjectProfileActions1029(uid)});
- row.querySelector('[data-yc-profile-block]').onclick=async()=>{const p=await ycProfileRow1029(uid),name=p?.display_name||p?.username||'uživatele';if(blockedByMe)await ycUnblockUser(uid,name);else await ycBlockUser(uid,name);await ycInjectProfileActions1029(uid)};
- row.querySelector('[data-yc-profile-report]').onclick=()=>void ycOpenProfileReport1029(uid)
-}
 const ycOpenProfileBase1029=openProfile;
 openProfile=async function(...a){const out=await ycOpenProfileBase1029.apply(this,a);await ycDecorateProfile1029(user?.id);return out};
 
@@ -4849,6 +4839,50 @@ if(!window.__ycDesktopVoiceWake1032){
   });
 }
 
+
+}
+
+function ycFriendQuery1029(uid){return sb.from('friendships').select('*').or('and(requester_id.eq.'+user.id+',addressee_id.eq.'+uid+'),and(requester_id.eq.'+uid+',addressee_id.eq.'+user.id+')').limit(1).maybeSingle()}
+async function ycProfileRow1029(uid){const {data}=await sb.from('profiles').select('*').eq('id',uid).maybeSingle();return data||null}
+async function ycOpenProfileReport1029(uid){
+ if(!uid||uid===user?.id)return;const sourceModal=document.querySelector('#modalRoot .steam-profile'),reportActor=user.id;const p=await ycProfileRow1029(uid),name=p?.display_name||p?.username||'Uživatel';if(!sourceModal?.isConnected||user?.id!==reportActor)return;
+ $('modalRoot').innerHTML='<div class="modal-back"><div class="modal yc-report-modal"><div class="modal-head"><h3>🚩 Nahlásit uživatele</h3><button class="x" id="closeModal">×</button></div><div class="notice"><strong>'+esc(name)+'</strong>'+(p?.username?' · @'+esc(p.username):'')+'</div><div class="yc-profile-report-note">Nahlášení odejde Platform Adminovi. Uveď konkrétní důvod.</div><label>Důvod</label><select id="ycProfileReportReason"><option>Obtěžování</option><option>Spam</option><option>Nevhodný profil / obsah</option><option>Podvod / scam</option><option>Vydávání se za jinou osobu</option><option>Porušení pravidel serveru</option><option>Jiné</option></select><textarea id="ycProfileReportNote" rows="4" maxlength="400" placeholder="Doplňující informace (volitelné)"></textarea><button class="primary" id="ycProfileReportSubmit" style="width:100%;margin-top:6px">Odeslat nahlášení</button></div></div>';
+ $('closeModal').onclick=closeModal;$('ycProfileReportSubmit').onclick=async()=>{const btn=$('ycProfileReportSubmit'),reason=[$('ycProfileReportReason').value,$('ycProfileReportNote').value.trim()].filter(Boolean).join(' · ');btn.disabled=true;const {error}=await sb.rpc('report_profile',{p_reported_user_id:uid,p_reason:reason,p_community_id:currentCommunity?.id||null});if(error){btn.disabled=false;toast('Nahlášení: '+error.message,true);return}closeModal();toast('🚩 Uživatel byl nahlášen Platform Adminovi.')}
+}
+async function ycInjectProfileActions1029(uid){
+ if(!uid||uid===user?.id)return;const modal=document.querySelector('#modalRoot .steam-profile');if(!modal)return;modal.querySelector('.yc-profile-actions-v1028')?.remove();
+ const actor=user.id;const [friendResult,blockResult]=await Promise.all([Promise.resolve(ycFriendQuery1029(uid)).catch(error=>({error})),Promise.resolve(sb.from('user_blocks').select('blocked_id').eq('blocker_id',user.id).eq('blocked_id',uid).maybeSingle()).catch(error=>({error}))]);if(!modal.isConnected||user?.id!==actor)return;const {data:f,error:friendError}=friendResult,{data:blockRow,error:blockError}=blockResult;const blockedByMe=!!blockRow,host=modal.querySelector('.steam-profile-body')||modal,row=document.createElement('section');row.className='yc-profile-actions-v1028';row.setAttribute('aria-label','Akce uživatele');
+ let label='＋ Přidat do přátel',mode='add',cls='primary';if(blockedByMe){label='Zablokován';mode='blocked';cls=''}else if(f?.status==='accepted'){label='✓ Přítel · odebrat';mode='remove';cls=''}else if(f?.status==='pending'&&f.requester_id===user.id){label='Žádost odeslána · zrušit';mode='cancel';cls=''}else if(f?.status==='pending'&&f.addressee_id===user.id){label='✓ Přijmout žádost';mode='accept';cls='accept'}
+ row.innerHTML='<button class="yc-profile-action-btn" data-yc-profile-message '+(blockedByMe?'disabled':'')+'>💬 Napsat zprávu</button><button class="yc-profile-action-btn '+cls+'" data-yc-profile-friend '+(mode==='blocked'?'disabled':'')+'>'+label+'</button>'+(mode==='accept'?'<button class="yc-profile-action-btn" data-yc-profile-reject>✕ Odmítnout</button>':'')+'<button class="yc-profile-action-btn yc-profile-block '+(blockedByMe?'':'danger')+'" data-yc-profile-block>'+(blockedByMe?'✓ Odblokovat':'⛔ Zablokovat')+'</button><button class="yc-profile-action-btn danger" data-yc-profile-report>🚩 Nahlásit</button>';
+ host.appendChild(row);
+ row.querySelector('[data-yc-profile-message]').onclick=async()=>{const p=await ycProfileRow1029(uid);if(!row.isConnected||user?.id!==actor)return;if(!p)return toast('Soukromou zprávu se nepodařilo otevřít.',true);closeModal();await startDm(p)};
+ const fb=row.querySelector('[data-yc-profile-friend]');fb.onclick=async()=>{if(mode==='add'){const {error}=await sb.from('friendships').insert({requester_id:user.id,addressee_id:uid,status:'pending'});if(error)return toast(error.message,true);toast('Žádost o přátelství odeslána.')}else if(mode==='accept'){const {error}=await sb.from('friendships').update({status:'accepted',updated_at:new Date().toISOString()}).eq('requester_id',uid).eq('addressee_id',user.id);if(error)return toast(error.message,true);toast('Přítel přidán.')}else if(mode==='cancel'){await ycCancelFriendRequest(uid)}else if(mode==='remove'){if(!confirm('Odebrat uživatele z přátel?'))return;const {error}=await sb.from('friendships').delete().or('and(requester_id.eq.'+user.id+',addressee_id.eq.'+uid+'),and(requester_id.eq.'+uid+',addressee_id.eq.'+user.id+')');if(error)return toast(error.message,true);toast('Přítel odebrán.')}if(row.isConnected)await ycInjectProfileActions1029(uid);if(rightMode==='friends')void renderFriends()};
+ if(row.querySelector('[data-yc-profile-reject]'))row.querySelector('[data-yc-profile-reject]').onclick=async()=>{await rejectFriend(uid);if(row.isConnected)await ycInjectProfileActions1029(uid)};
+ row.querySelector('[data-yc-profile-block]').onclick=async()=>{const p=await ycProfileRow1029(uid),name=p?.display_name||p?.username||'uživatele';if(blockedByMe)await ycUnblockUser(uid,name);else await ycBlockUser(uid,name);if(row.isConnected)await ycInjectProfileActions1029(uid)};
+ row.querySelector('[data-yc-profile-report]').onclick=()=>ycOpenProfileReport1029(uid);
+ // This runs inside the existing profile renderer, sharing its user and handlers.
+ const title=document.createElement('strong');title.className='yc-profile-actions-title';title.textContent='Akce uživatele';row.prepend(title);
+ const mute=document.createElement('button');mute.type='button';mute.className='yc-profile-action-btn';mute.dataset.ycProfileMute='';
+ const syncMute=()=>{const muted=voiceMixFor(uid).muted;mute.textContent=muted?'Zrušit ztlumení hlasu':'Ztlumit hlas pro mě';mute.setAttribute('aria-pressed',String(muted))};
+ syncMute();mute.onclick=()=>{setVoiceUserMix(uid,{muted:!voiceMixFor(uid).muted});syncMute()};row.appendChild(mute);
+ const note=document.createElement('small');note.className='yc-profile-actions-note';note.textContent='Ztlumení platí jen pro tebe na tomto zařízení.';row.appendChild(note);
+ if(friendError||blockError){
+   const warning=document.createElement('p');warning.className='yc-profile-actions-note';warning.setAttribute('role','status');warning.textContent='Stav přátelství nebo blokování se nepodařilo načíst. Zavři profil a zkus to znovu.';row.appendChild(warning);
+   // An unknown block state must not be presented as an unblocked user.
+   for(const button of row.querySelectorAll('[data-yc-profile-friend],[data-yc-profile-reject],[data-yc-profile-block],[data-yc-profile-message]'))button.disabled=true;
+   row.querySelector('[data-yc-profile-friend]').textContent='Stav není dostupný';
+   if(blockError)row.querySelector('[data-yc-profile-block]').textContent='Blokování není dostupné';
+ }
+ let busy=false;
+ for(const button of row.querySelectorAll('button')){
+   button.type='button';const action=button.onclick;if(!action)continue;
+   button.onclick=async event=>{
+     if(busy||button.disabled||!row.isConnected||user?.id!==actor)return;
+     busy=true;const states=[...row.querySelectorAll('button')].map(b=>[b,b.disabled]);states.forEach(([b])=>b.disabled=true);row.setAttribute('aria-busy','true');
+     try{await action(event)}catch(error){toast('Akci se nepodařilo dokončit. Zkus to znovu.',true);console.warn('Profile action failed',error)}
+     finally{busy=false;if(row.isConnected){states.forEach(([b,disabled])=>b.disabled=disabled);row.removeAttribute('aria-busy')}}
+   };
+ }
 
 }
 

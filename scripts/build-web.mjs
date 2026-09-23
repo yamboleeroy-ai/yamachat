@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import {fileURLToPath} from 'node:url';
+import {withProfileActions} from './profile-actions.mjs';
 
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
 const read=p=>fs.readFileSync(path.join(root,p),'utf8');
@@ -62,7 +63,7 @@ window.YamachatDesktopAppearance=Object.freeze({
 });
 })();`;
 
-let html=read(ref+'desktop-client.html');
+let html=withProfileActions(read(ref+'desktop-client.html'));
 
 // Desktop remains the source of truth. Only generated web/mobile output receives
 // browser/native adapters; the files under reference/desktop-1.0.78 are never patched here.
