@@ -19,6 +19,7 @@ jobs:
           node tests/profile-actions.cjs
           node tests/profile-layout.cjs
           node tests/password-recovery.cjs
+          node tests/account-messages.cjs
       - name: Prepare web deployment
         run: |
           mkdir -p web-dist
