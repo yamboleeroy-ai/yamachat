@@ -100,19 +100,51 @@ jobs:
         run: |
           set -euo pipefail
           cp Yamachat-Android.apk /tmp/Yamachat-Android.apk
+          cp android-artifact.json /tmp/android-artifact.json
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          # Capacitor/Gradle intentionally modify generated tracked files. Preserve
+          # only the verified APK/report, then return to a clean main checkout.
+          git reset --hard HEAD
+          git clean -fd
 
           for attempt in 1 2 3; do
             git fetch origin main
             git checkout -B publish-apk origin/main
+            git reset --hard origin/main
+            git clean -fd
+
             mkdir -p download
             cp /tmp/Yamachat-Android.apk download/Yamachat-Android.apk
-            git add -f download/Yamachat-Android.apk
+
+            python - <<'PY'
+          import json
+          from pathlib import Path
+
+          report=json.loads(Path('/tmp/android-artifact.json').read_text())
+          artifact=report['artifact']
+          manifest_path=Path('update-manifest.json')
+          manifest=json.loads(manifest_path.read_text())
+          android=manifest.setdefault('android',{})
+          android['latestVersion']=artifact['versionName']
+          android['latestVersionCode']=int(artifact['versionCode'])
+          android['required']=True
+          android['apkUrl']=f"https://yamachat.eu/download/Yamachat-Android.apk?v={artifact['versionCode']}"
+          android['sha256']=artifact['sha256']
+          android['notes']=[
+            'Obnova hesla se nyní žádá přímo v Yamachatu bez přechodu na webový formulář.',
+            'Odkaz z e-mailu otevře pouze zabezpečenou stránku pro nastavení nového hesla.',
+            'Zachována je Platform Admin správa uživatelů, ban/odbanování a vzkazy do účtu.'
+          ]
+          manifest_path.write_text(json.dumps(manifest,ensure_ascii=False,indent=2)+'\n')
+          PY
+
+            git add -f download/Yamachat-Android.apk update-manifest.json
             if git diff --cached --quiet; then
               exit 0
             fi
-            git commit -m "Publish latest Yamachat Android APK [skip ci]"
+            git commit -m "Publish Yamachat Android recovery update [skip ci]"
             if git push origin HEAD:main; then
               exit 0
             fi
