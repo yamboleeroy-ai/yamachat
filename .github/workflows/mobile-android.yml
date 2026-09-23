@@ -73,7 +73,16 @@ jobs:
           export ANDROID_KEYSTORE_PATH="$RUNNER_TEMP/yamachat-release.p12"
           trap 'rm -f "$ANDROID_KEYSTORE_PATH"' EXIT
           umask 077
-          printf '%s' "$ANDROID_KEYSTORE_B64" | base64 --decode > "$ANDROID_KEYSTORE_PATH"
+          python - <<'PY'
+          import base64, os
+          from pathlib import Path
+          encoded = ''.join(os.environ['ANDROID_KEYSTORE_B64'].split())
+          try:
+              key = base64.b64decode(encoded, validate=True)
+          except ValueError:
+              raise SystemExit('ANDROID_KEYSTORE_B64 must contain only the base64 file contents, not a path or label')
+          Path(os.environ['ANDROID_KEYSTORE_PATH']).write_bytes(key)
+          PY
           export ANDROID_VERSION_CODE="$((200000 + GITHUB_RUN_NUMBER))"
           chmod +x gradlew
           ./gradlew assembleRelease
