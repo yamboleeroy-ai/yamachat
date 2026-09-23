@@ -711,3 +711,328 @@ html.yc-ios-mobile .yc-v3-workspace{
    bottom:auto!important;
  }
 }
+
+
+/* ==========================================================================
+   FINAL NATIVE ANDROID LAYOUT PASS
+   Android only. Desktop, web and iOS are intentionally untouched.
+   ========================================================================== */
+@media(max-width:1100px){
+ html.yc-native-android{
+   --yc-android-nav-bottom:56px;
+   --yc-android-voice-gap:8px;
+ }
+
+ /* Chat and voice dock are separate grid rows. Nothing may visually overlap. */
+ html.yc-native-android .yc-v3-content-grid,
+ html.yc-native-android .yc-v3-content-grid>.chat{
+   min-height:0!important;
+   overflow:hidden!important;
+ }
+ html.yc-native-android .yc-v3-content-grid>.chat>.messages{
+   min-height:0!important;
+   overflow-y:auto!important;
+   overscroll-behavior:contain!important;
+   -webkit-overflow-scrolling:touch!important;
+ }
+ html.yc-native-android .yc-v3-content-grid>.chat>.composer-wrap{
+   position:relative!important;
+   z-index:4!important;
+   flex:0 0 auto!important;
+   margin:0!important;
+   padding-top:5px!important;
+   padding-bottom:5px!important;
+ }
+
+ /* Center the complete voice card and leave a visible gap below the composer. */
+ html.yc-native-android .yc-v3-voice-host{
+   position:relative!important;
+   inset:auto!important;
+   transform:none!important;
+   box-sizing:border-box!important;
+   width:100%!important;
+   max-width:100%!important;
+   margin:0!important;
+   overflow:hidden!important;
+   align-items:flex-start!important;
+   z-index:3!important;
+ }
+ html.yc-native-android .yc-v3-voice-host .voice-controls{
+   position:relative!important;
+   inset:auto!important;
+   width:calc(100% - 16px)!important;
+   max-width:calc(100% - 16px)!important;
+   margin:var(--yc-android-voice-gap) auto 0!important;
+   border-radius:13px!important;
+   overflow:hidden!important;
+   box-sizing:border-box!important;
+   align-self:flex-start!important;
+ }
+}
+
+/* Portrait Android: bottom system navigation is really below the app controls.
+   Reserve it as layout height; never fake it by moving the dock upward. */
+@media(max-width:520px) and (orientation:portrait){
+ html.yc-native-android .yc-v3-workspace{
+   grid-template-rows:
+     54px
+     74px
+     minmax(0,1fr)
+     calc(68px + var(--yc-android-voice-gap) + var(--yc-android-nav-bottom))!important;
+ }
+ html.yc-native-android .yc-v3-voice-host{
+   height:calc(68px + var(--yc-android-voice-gap) + var(--yc-android-nav-bottom))!important;
+   min-height:calc(68px + var(--yc-android-voice-gap) + var(--yc-android-nav-bottom))!important;
+   max-height:calc(68px + var(--yc-android-voice-gap) + var(--yc-android-nav-bottom))!important;
+   padding:0 0 var(--yc-android-nav-bottom)!important;
+ }
+ html.yc-native-android .yc-v3-voice-host .voice-controls{
+   height:68px!important;
+   min-height:68px!important;
+   max-height:68px!important;
+ }
+}
+
+/* Landscape Android: navigation moves to the RIGHT on common Android devices.
+   Do not waste vertical room on a fake bottom clearance. Hide the server ribbon
+   in this short layout so the conversation remains visible. */
+@media(max-width:1100px) and (orientation:landscape){
+ html.yc-native-android{
+   --yc-android-side-nav:58px;
+ }
+ html.yc-native-android .yc-v3-workspace{
+   grid-template-rows:
+     50px
+     0
+     minmax(0,1fr)
+     64px!important;
+ }
+ html.yc-native-android .yc-v3-ribbon{
+   display:none!important;
+   height:0!important;
+   min-height:0!important;
+   overflow:hidden!important;
+ }
+ html.yc-native-android .yc-v3-content-grid{
+   grid-row:3!important;
+ }
+ html.yc-native-android .yc-v3-content-grid>.chat>.chat-head{
+   flex:0 0 44px!important;
+   height:44px!important;
+   min-height:44px!important;
+   padding-right:calc(58px + var(--yc-android-side-nav))!important;
+ }
+ html.yc-native-android .yc-v3-content-grid>.chat>.messages{
+   padding-top:6px!important;
+   padding-bottom:6px!important;
+   padding-right:calc(10px + var(--yc-android-side-nav))!important;
+ }
+ html.yc-native-android .yc-v3-content-grid>.chat>.composer-wrap{
+   padding:4px calc(8px + var(--yc-android-side-nav)) 4px 8px!important;
+ }
+ html.yc-native-android .yc-v3-content-grid>.chat>.composer-wrap .composer{
+   min-height:46px!important;
+   padding:5px!important;
+ }
+ html.yc-native-android .yc-v3-voice-host{
+   grid-row:4!important;
+   height:64px!important;
+   min-height:64px!important;
+   max-height:64px!important;
+   padding:0 var(--yc-android-side-nav) 0 0!important;
+ }
+ html.yc-native-android .yc-v3-voice-host .voice-controls{
+   width:calc(100% - 16px)!important;
+   max-width:calc(100% - 16px)!important;
+   height:56px!important;
+   min-height:56px!important;
+   max-height:56px!important;
+   margin:6px auto 0!important;
+   padding-top:5px!important;
+   padding-bottom:5px!important;
+ }
+ html.yc-native-android .yc-v3-voice-host .voice-btn{
+   height:42px!important;
+   min-height:42px!important;
+ }
+ html.yc-native-android #ycMobileServerMenuBtn{
+   right:calc(8px + var(--yc-android-side-nav))!important;
+ }
+ html.yc-native-android #ycMobileMembersBtn{
+   right:calc(10px + var(--yc-android-side-nav))!important;
+ }
+}
+
+/* Native Android server settings: both columns are genuine touch scrollers.
+   This fixes the desktop modal becoming a clipped, non-scrollable surface. */
+@media(max-width:1100px){
+ html.yc-native-android .yc-ss-back{
+   position:fixed!important;
+   inset:0!important;
+   display:flex!important;
+   align-items:stretch!important;
+   justify-content:stretch!important;
+   padding:8px!important;
+   overflow:hidden!important;
+   touch-action:none!important;
+ }
+ html.yc-native-android .yc-ss-shell{
+   width:100%!important;
+   max-width:100%!important;
+   height:100%!important;
+   max-height:100%!important;
+   min-height:0!important;
+   margin:0!important;
+   overflow:hidden!important;
+ }
+ html.yc-native-android .yc-ss-nav{
+   min-height:0!important;
+   max-height:100%!important;
+   overflow-x:hidden!important;
+   overflow-y:auto!important;
+   overscroll-behavior:contain!important;
+   -webkit-overflow-scrolling:touch!important;
+   touch-action:pan-y!important;
+ }
+ html.yc-native-android .yc-ss-main{
+   min-width:0!important;
+   min-height:0!important;
+   max-height:100%!important;
+   overflow:hidden!important;
+   display:flex!important;
+   flex-direction:column!important;
+ }
+ html.yc-native-android .yc-ss-head{
+   flex:0 0 62px!important;
+   height:62px!important;
+   min-height:62px!important;
+ }
+ html.yc-native-android .yc-ss-body{
+   flex:1 1 auto!important;
+   min-height:0!important;
+   max-height:none!important;
+   overflow-x:hidden!important;
+   overflow-y:auto!important;
+   overscroll-behavior:contain!important;
+   -webkit-overflow-scrolling:touch!important;
+   touch-action:pan-y!important;
+   padding-bottom:max(34px,env(safe-area-inset-bottom))!important;
+ }
+ html.yc-native-android .yc-ss-card,
+ html.yc-native-android .yc-role-editor{
+   min-width:0!important;
+ }
+ html.yc-native-android .yc-ss-field input,
+ html.yc-native-android .yc-ss-field textarea,
+ html.yc-native-android .yc-ss-field select{
+   font-size:16px!important;
+ }
+}
+
+/* Portrait server settings become mobile-first: tabs are a compact horizontal
+   strip, content gets the rest of the screen and can scroll independently. */
+@media(max-width:520px) and (orientation:portrait){
+ html.yc-native-android .yc-ss-back{padding:0!important}
+ html.yc-native-android .yc-ss-shell{
+   border-radius:0!important;
+   border-left:0!important;
+   border-right:0!important;
+   grid-template-columns:1fr!important;
+   grid-template-rows:auto minmax(0,1fr)!important;
+ }
+ html.yc-native-android .yc-ss-nav{
+   display:flex!important;
+   align-items:center!important;
+   gap:6px!important;
+   width:100%!important;
+   max-width:100%!important;
+   padding:8px!important;
+   border-right:0!important;
+   border-bottom:1px solid rgba(107,208,233,.16)!important;
+   overflow-x:auto!important;
+   overflow-y:hidden!important;
+   touch-action:pan-x!important;
+   scrollbar-width:none!important;
+ }
+ html.yc-native-android .yc-ss-nav::-webkit-scrollbar{display:none!important}
+ html.yc-native-android .yc-ss-server{
+   flex:0 0 118px!important;
+   width:118px!important;
+   margin:0 4px 0 0!important;
+   padding:4px 8px!important;
+   border:0!important;
+ }
+ html.yc-native-android .yc-ss-server strong{font-size:14px!important}
+ html.yc-native-android .yc-ss-section{display:none!important}
+ html.yc-native-android .yc-ss-tab{
+   flex:0 0 auto!important;
+   width:auto!important;
+   min-height:42px!important;
+   margin:0!important;
+   padding:9px 12px!important;
+   white-space:nowrap!important;
+   text-align:center!important;
+ }
+ html.yc-native-android .yc-ss-head{
+   padding:0 14px!important;
+ }
+ html.yc-native-android .yc-ss-head strong{font-size:16px!important}
+ html.yc-native-android .yc-ss-body{
+   padding:14px 12px 32px!important;
+ }
+ html.yc-native-android .yc-ss-card{padding:13px!important}
+ html.yc-native-android .yc-ss-grid,
+ html.yc-native-android .yc-perm-grid,
+ html.yc-native-android .yc-role-layout{
+   grid-template-columns:1fr!important;
+ }
+ html.yc-native-android .yc-member-manage{
+   align-items:flex-start!important;
+   flex-wrap:wrap!important;
+ }
+ html.yc-native-android .yc-member-rolechips{max-width:100%!important}
+}
+
+/* Landscape settings keep a narrow navigation rail and reserve the Android
+   side-navigation area on the right. Both panes remain independently scrollable. */
+@media(max-width:1100px) and (orientation:landscape){
+ html.yc-native-android .yc-ss-back{
+   padding:8px calc(8px + var(--yc-android-side-nav)) 8px 8px!important;
+ }
+ html.yc-native-android .yc-ss-shell{
+   grid-template-columns:minmax(168px,28vw) minmax(0,1fr)!important;
+   border-radius:14px!important;
+ }
+ html.yc-native-android .yc-ss-nav{
+   padding:12px 10px 28px!important;
+ }
+ html.yc-native-android .yc-ss-tab{
+   padding:8px 9px!important;
+   font-size:12px!important;
+ }
+ html.yc-native-android .yc-ss-section{
+   margin-top:10px!important;
+ }
+ html.yc-native-android .yc-ss-head{
+   padding:0 14px!important;
+ }
+ html.yc-native-android .yc-ss-body{
+   padding:14px 16px 32px!important;
+ }
+ html.yc-native-android .yc-role-layout{
+   grid-template-columns:minmax(150px,34%) minmax(0,1fr)!important;
+   min-height:0!important;
+ }
+}
+
+/* Android keyboard mode: no voice dock while typing, giving the conversation
+   and composer the full visible area. */
+@media(max-width:1100px){
+ html.yc-native-android.yc-keyboard-open .yc-v3-workspace{
+   grid-template-rows:54px 0 minmax(0,1fr) 0!important;
+ }
+ html.yc-native-android.yc-keyboard-open .yc-v3-ribbon,
+ html.yc-native-android.yc-keyboard-open .yc-v3-voice-host{
+   display:none!important;
+ }
+}
