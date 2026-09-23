@@ -7629,6 +7629,120 @@ html.yc-ios-mobile .yc-v3-workspace{
  }
  .yc-v3-content-grid>.chat>.chat-head{padding-right:54px!important}
 }
+
+
+/* Native Android must mirror the iOS mobile layout. Keep the system navigation
+   clearance as real layout space instead of shifting the voice dock into chat. */
+@media(max-width:1100px){
+ html.yc-native-android .yc-v3-workspace>.top{
+   position:relative!important;
+   display:block!important;
+   overflow:visible!important;
+ }
+ html.yc-native-android #mobileMenu,
+ html.yc-native-android #ycMobileNavBtn,
+ html.yc-native-android #ycMobileMembersBtn{
+   position:absolute!important;
+   top:50%!important;
+   transform:translateY(-50%)!important;
+   margin:0!important;
+   z-index:5!important;
+ }
+ html.yc-native-android #mobileMenu{
+   left:max(7px,env(safe-area-inset-left))!important;
+ }
+ html.yc-native-android #ycMobileNavBtn{
+   left:calc(max(7px,env(safe-area-inset-left)) + 45px)!important;
+ }
+ html.yc-native-android #ycMobileMembersBtn{
+   left:auto!important;
+   right:max(7px,env(safe-area-inset-right))!important;
+ }
+ html.yc-native-android .yc-mobile-header-brand{
+   position:absolute!important;
+   left:50%!important;
+   right:auto!important;
+   top:50%!important;
+   transform:translate(-50%,-50%)!important;
+   margin:0!important;
+   z-index:4!important;
+   max-width:calc(100% - 190px)!important;
+ }
+ html.yc-native-android #ycMobileServerMenuBtn{
+   display:grid!important;
+   visibility:visible!important;
+   opacity:1!important;
+   pointer-events:auto!important;
+ }
+ html.yc-native-android .yc-v3-voice-host{
+   position:relative!important;
+   bottom:auto!important;
+   top:auto!important;
+   transform:none!important;
+   z-index:3!important;
+ }
+}
+
+/* Portrait Android: reserve the navigation-button area BELOW the 68px voice bar. */
+@media(max-width:520px) and (orientation:portrait){
+ html.yc-native-android .yc-v3-workspace{
+   grid-template-rows:
+     54px
+     74px
+     minmax(0,1fr)
+     calc(68px + var(--yc-native-bottom-controls-clearance))!important;
+ }
+ html.yc-native-android .yc-v3-voice-host{
+   height:calc(68px + var(--yc-native-bottom-controls-clearance))!important;
+   min-height:calc(68px + var(--yc-native-bottom-controls-clearance))!important;
+   max-height:calc(68px + var(--yc-native-bottom-controls-clearance))!important;
+   padding:0 0 var(--yc-native-bottom-controls-clearance)!important;
+   overflow:visible!important;
+ }
+ html.yc-native-android .yc-v3-voice-host .voice-controls{
+   height:68px!important;
+   min-height:68px!important;
+   max-height:68px!important;
+ }
+}
+
+/* Landscape Android uses the same compact wide layout, with navigation
+   clearance below rather than on top of the chat. */
+@media(max-width:1100px) and (orientation:landscape){
+ html.yc-native-android .yc-v3-workspace{
+   grid-template-rows:
+     50px
+     64px
+     minmax(0,1fr)
+     calc(64px + var(--yc-native-bottom-controls-clearance))!important;
+ }
+ html.yc-native-android .yc-v3-voice-host{
+   height:calc(64px + var(--yc-native-bottom-controls-clearance))!important;
+   min-height:calc(64px + var(--yc-native-bottom-controls-clearance))!important;
+   max-height:calc(64px + var(--yc-native-bottom-controls-clearance))!important;
+   padding:0 0 var(--yc-native-bottom-controls-clearance)!important;
+ }
+ html.yc-native-android .yc-v3-voice-host .voice-controls{
+   height:64px!important;
+   min-height:64px!important;
+   max-height:64px!important;
+ }
+}
+
+/* When Android's software keyboard is visible it already reserves the bottom,
+   so do not add the navigation clearance a second time. */
+@media(max-width:1100px){
+ html.yc-native-android.yc-keyboard-open .yc-v3-workspace{
+   grid-template-rows:54px 0 minmax(0,1fr) 64px!important;
+ }
+ html.yc-native-android.yc-keyboard-open .yc-v3-voice-host{
+   height:64px!important;
+   min-height:64px!important;
+   max-height:64px!important;
+   padding-bottom:0!important;
+   bottom:auto!important;
+ }
+}
 </style>
 <script>(()=>{
  const mobile=matchMedia('(max-width:1100px)');
@@ -7638,10 +7752,43 @@ html.yc-ios-mobile .yc-v3-workspace{
  const panels=()=>[document.getElementById('ycGlobalNav'),document.getElementById('side'),document.querySelector('.yc-v3-content-grid>.right')].filter(Boolean);
  function close(){for(const p of panels()){p.classList.remove('yc-mobile-open','mobile-open');p.inert=mobile.matches}document.getElementById('app')?.classList.remove('yc-mobile-drawer-open');document.querySelectorAll('[aria-controls][aria-expanded]').forEach(b=>b.setAttribute('aria-expanded','false'));activeDrawer=null;returnFocus?.focus();returnFocus=null}
  function open(panel,button){const same=activeDrawer===panel;close();if(same)return;returnFocus=button;activeDrawer=panel;panel.inert=false;panel.classList.add(panel.id==='side'?'mobile-open':'yc-mobile-open');document.getElementById('app').classList.add('yc-mobile-drawer-open');button.setAttribute('aria-expanded','true');panel.querySelector('button,a,input,[tabindex="0"]')?.focus()}
+ function ensureMobileServerMenu(app){
+  const chatHead=app?.querySelector('.yc-v3-content-grid>.chat>.chat-head');
+  if(!chatHead)return false;
+  let serverBtn=document.getElementById('ycMobileServerMenuBtn');
+  if(serverBtn)return true;
+  serverBtn=document.createElement('button');
+  serverBtn.id='ycMobileServerMenuBtn';
+  serverBtn.type='button';
+  serverBtn.className='yc-mobile-server-menu-btn';
+  serverBtn.textContent='⋯';
+  serverBtn.title='Nabídka serveru';
+  serverBtn.setAttribute('aria-label','Nabídka serveru');
+  serverBtn.addEventListener('click',e=>{
+   if(!mobile.matches)return;
+   e.preventDefault();e.stopPropagation();
+   const source=document.getElementById('ycServerMenuBtn');
+   if(!source)return;
+   source.click();
+   requestAnimationFrame(()=>{
+    const menu=document.getElementById('ycUiMenuRoot');
+    if(!menu||menu.classList.contains('hidden'))return;
+    const a=serverBtn.getBoundingClientRect(),r=menu.getBoundingClientRect();
+    let left=Math.max(8,a.right-r.width),top=a.bottom+6;
+    if(left+r.width>innerWidth-8)left=Math.max(8,innerWidth-r.width-8);
+    if(top+r.height>innerHeight-8)top=Math.max(8,a.top-r.height-6);
+    menu.style.left=Math.round(left)+'px';
+    menu.style.top=Math.round(top)+'px';
+   });
+  },true);
+  chatHead.appendChild(serverBtn);
+  return true;
+ }
  function mount(){
   const app=document.getElementById('app'),top=app?.querySelector('.yc-v3-workspace>.top');
   if(!top||!document.getElementById('ycGlobalNav'))return false;
-  if(top.dataset.mobileReady)return true;top.dataset.mobileReady='1';
+  if(top.dataset.mobileReady){ensureMobileServerMenu(app);return true}
+  top.dataset.mobileReady='1';
   const ps=panels();if(ps.length!==3)return false;const [nav,side,right]=ps;right.id ||= 'ycMobileMembers';
   for(const [id,label,text,panel] of [['ycMobileNavBtn','Hlavní menu','☰',nav],['mobileMenu','Kanály','#',side],['ycMobileMembersBtn','Členové a přátelé','👥',right]]){
    let b=document.getElementById(id);if(!b){b=document.createElement('button');b.id=id;top.appendChild(b)}
@@ -7649,34 +7796,7 @@ html.yc-ios-mobile .yc-v3-workspace{
    b.addEventListener('click',e=>{if(!mobile.matches)return;e.preventDefault();e.stopImmediatePropagation();open(panel,b)},true);
   }
   const brand=document.createElement('div');brand.id='ycMobileBrand';brand.className='yc-mobile-header-brand';const img=document.createElement('img');img.src='./build/yamachat-logo-full.png';img.alt='Yamachat';img.className='yc-mobile-header-logo';img.onerror=()=>{img.onerror=null;img.src='./build/yamachat-logo-symbol.png'};brand.appendChild(img);top.appendChild(brand);
-  const chatHead=app.querySelector('.yc-v3-content-grid>.chat>.chat-head');
-  if(chatHead&&!document.getElementById('ycMobileServerMenuBtn')){
-   const serverBtn=document.createElement('button');
-   serverBtn.id='ycMobileServerMenuBtn';
-   serverBtn.type='button';
-   serverBtn.className='yc-mobile-server-menu-btn';
-   serverBtn.textContent='⋯';
-   serverBtn.title='Nabídka serveru';
-   serverBtn.setAttribute('aria-label','Nabídka serveru');
-   serverBtn.addEventListener('click',e=>{
-    if(!mobile.matches)return;
-    e.preventDefault();e.stopPropagation();
-    const source=document.getElementById('ycServerMenuBtn');
-    if(!source)return;
-    source.click();
-    requestAnimationFrame(()=>{
-     const menu=document.getElementById('ycUiMenuRoot');
-     if(!menu||menu.classList.contains('hidden'))return;
-     const a=serverBtn.getBoundingClientRect(),r=menu.getBoundingClientRect();
-     let left=Math.max(8,a.right-r.width),top=a.bottom+6;
-     if(left+r.width>innerWidth-8)left=Math.max(8,innerWidth-r.width-8);
-     if(top+r.height>innerHeight-8)top=Math.max(8,a.top-r.height-6);
-     menu.style.left=Math.round(left)+'px';
-     menu.style.top=Math.round(top)+'px';
-    });
-   },true);
-   chatHead.appendChild(serverBtn);
-  }
+  ensureMobileServerMenu(app);
   const scrim=document.createElement('div');scrim.id='ycMobileScrim';scrim.className='yc-mobile-scrim';scrim.addEventListener('click',close);app.appendChild(scrim);close();return true;
  }
  const observer=new MutationObserver(()=>{if(mount())observer.disconnect()});observer.observe(document.getElementById('app'),{childList:true,subtree:true});mount();
