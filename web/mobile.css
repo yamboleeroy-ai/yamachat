@@ -1390,8 +1390,4 @@ html.yc-ios-mobile .yc-v3-workspace{
   }
   html.yc-ios-pwa .yc-member-rolechips{max-width:100%!important}
 
-  html.yc-ios-pwa:not(.yc-keyboard-open) .yc-v3-voice-host{
-    position:relative!important;
-    top:4px!important;
-  }
 }
