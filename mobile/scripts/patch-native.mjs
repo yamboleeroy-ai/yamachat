@@ -314,8 +314,11 @@ import com.getcapacitor.BridgeActivity;
 public class MainActivity extends BridgeActivity {
     @Override
     public void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
+        // Capacitor must know custom plugins before BridgeActivity creates the bridge.
+        // Registering after super.onCreate() leaves JS with a proxy that reports
+        // "plugin is not implemented on android".
         registerPlugin(YamachatUpdatePlugin.class);
+        super.onCreate(savedInstanceState);
     }
 }
 `;
