@@ -6,10 +6,43 @@
  const panels=()=>[document.getElementById('ycGlobalNav'),document.getElementById('side'),document.querySelector('.yc-v3-content-grid>.right')].filter(Boolean);
  function close(){for(const p of panels()){p.classList.remove('yc-mobile-open','mobile-open');p.inert=mobile.matches}document.getElementById('app')?.classList.remove('yc-mobile-drawer-open');document.querySelectorAll('[aria-controls][aria-expanded]').forEach(b=>b.setAttribute('aria-expanded','false'));activeDrawer=null;returnFocus?.focus();returnFocus=null}
  function open(panel,button){const same=activeDrawer===panel;close();if(same)return;returnFocus=button;activeDrawer=panel;panel.inert=false;panel.classList.add(panel.id==='side'?'mobile-open':'yc-mobile-open');document.getElementById('app').classList.add('yc-mobile-drawer-open');button.setAttribute('aria-expanded','true');panel.querySelector('button,a,input,[tabindex="0"]')?.focus()}
+ function ensureMobileServerMenu(app){
+  const chatHead=app?.querySelector('.yc-v3-content-grid>.chat>.chat-head');
+  if(!chatHead)return false;
+  let serverBtn=document.getElementById('ycMobileServerMenuBtn');
+  if(serverBtn)return true;
+  serverBtn=document.createElement('button');
+  serverBtn.id='ycMobileServerMenuBtn';
+  serverBtn.type='button';
+  serverBtn.className='yc-mobile-server-menu-btn';
+  serverBtn.textContent='⋯';
+  serverBtn.title='Nabídka serveru';
+  serverBtn.setAttribute('aria-label','Nabídka serveru');
+  serverBtn.addEventListener('click',e=>{
+   if(!mobile.matches)return;
+   e.preventDefault();e.stopPropagation();
+   const source=document.getElementById('ycServerMenuBtn');
+   if(!source)return;
+   source.click();
+   requestAnimationFrame(()=>{
+    const menu=document.getElementById('ycUiMenuRoot');
+    if(!menu||menu.classList.contains('hidden'))return;
+    const a=serverBtn.getBoundingClientRect(),r=menu.getBoundingClientRect();
+    let left=Math.max(8,a.right-r.width),top=a.bottom+6;
+    if(left+r.width>innerWidth-8)left=Math.max(8,innerWidth-r.width-8);
+    if(top+r.height>innerHeight-8)top=Math.max(8,a.top-r.height-6);
+    menu.style.left=Math.round(left)+'px';
+    menu.style.top=Math.round(top)+'px';
+   });
+  },true);
+  chatHead.appendChild(serverBtn);
+  return true;
+ }
  function mount(){
   const app=document.getElementById('app'),top=app?.querySelector('.yc-v3-workspace>.top');
   if(!top||!document.getElementById('ycGlobalNav'))return false;
-  if(top.dataset.mobileReady)return true;top.dataset.mobileReady='1';
+  if(top.dataset.mobileReady){ensureMobileServerMenu(app);return true}
+  top.dataset.mobileReady='1';
   const ps=panels();if(ps.length!==3)return false;const [nav,side,right]=ps;right.id ||= 'ycMobileMembers';
   for(const [id,label,text,panel] of [['ycMobileNavBtn','Hlavní menu','☰',nav],['mobileMenu','Kanály','#',side],['ycMobileMembersBtn','Členové a přátelé','👥',right]]){
    let b=document.getElementById(id);if(!b){b=document.createElement('button');b.id=id;top.appendChild(b)}
@@ -17,34 +50,7 @@
    b.addEventListener('click',e=>{if(!mobile.matches)return;e.preventDefault();e.stopImmediatePropagation();open(panel,b)},true);
   }
   const brand=document.createElement('div');brand.id='ycMobileBrand';brand.className='yc-mobile-header-brand';const img=document.createElement('img');img.src='./build/yamachat-logo-full.png';img.alt='Yamachat';img.className='yc-mobile-header-logo';img.onerror=()=>{img.onerror=null;img.src='./build/yamachat-logo-symbol.png'};brand.appendChild(img);top.appendChild(brand);
-  const chatHead=app.querySelector('.yc-v3-content-grid>.chat>.chat-head');
-  if(chatHead&&!document.getElementById('ycMobileServerMenuBtn')){
-   const serverBtn=document.createElement('button');
-   serverBtn.id='ycMobileServerMenuBtn';
-   serverBtn.type='button';
-   serverBtn.className='yc-mobile-server-menu-btn';
-   serverBtn.textContent='⋯';
-   serverBtn.title='Nabídka serveru';
-   serverBtn.setAttribute('aria-label','Nabídka serveru');
-   serverBtn.addEventListener('click',e=>{
-    if(!mobile.matches)return;
-    e.preventDefault();e.stopPropagation();
-    const source=document.getElementById('ycServerMenuBtn');
-    if(!source)return;
-    source.click();
-    requestAnimationFrame(()=>{
-     const menu=document.getElementById('ycUiMenuRoot');
-     if(!menu||menu.classList.contains('hidden'))return;
-     const a=serverBtn.getBoundingClientRect(),r=menu.getBoundingClientRect();
-     let left=Math.max(8,a.right-r.width),top=a.bottom+6;
-     if(left+r.width>innerWidth-8)left=Math.max(8,innerWidth-r.width-8);
-     if(top+r.height>innerHeight-8)top=Math.max(8,a.top-r.height-6);
-     menu.style.left=Math.round(left)+'px';
-     menu.style.top=Math.round(top)+'px';
-    });
-   },true);
-   chatHead.appendChild(serverBtn);
-  }
+  ensureMobileServerMenu(app);
   const scrim=document.createElement('div');scrim.id='ycMobileScrim';scrim.className='yc-mobile-scrim';scrim.addEventListener('click',close);app.appendChild(scrim);close();return true;
  }
  const observer=new MutationObserver(()=>{if(mount())observer.disconnect()});observer.observe(document.getElementById('app'),{childList:true,subtree:true});mount();
