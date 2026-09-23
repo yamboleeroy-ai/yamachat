@@ -8,16 +8,15 @@
     "notes": "Yamachat 1.0.80: Platform Admin správa uživatelů, ban/odbanování, vzkazy do účtu a obnova hesla."
   },
   "android": {
-    "latestVersion": "1.1.0.157",
-    "latestVersionCode": 200157,
+    "latestVersion": "1.1.0.171",
+    "latestVersionCode": 200171,
     "required": true,
-    "apkUrl": "https://yamachat.eu/download/Yamachat-Android.apk?v=200157",
-    "sha256": "849b4a16ff3743cdc06452cfab57785d6dd527ea5ee07931d2787d9fab1466eb",
+    "apkUrl": "https://yamachat.eu/download/Yamachat-Android.apk?v=200171",
+    "sha256": "ba1624d499eb9bcbffa09da51bdb8b79d01d4721e10ec274a5a771fb3cc25d26",
     "notes": [
-      "Platform Admin má správu registrovaných uživatelských účtů včetně e-mailu, registrace a posledního přihlášení.",
-      "Přidaný ban na 24 hodin, 7 dní, 30 dní nebo dlouhodobě, odbanování a záznam důvodu zásahu.",
-      "Admin může uživateli poslat vzkaz přímo do účtu Yamachat.",
-      "Součástí společného klienta je také připravená obnova zapomenutého hesla."
+      "Obnova hesla se nyní žádá přímo v Yamachatu bez přechodu na webový formulář.",
+      "Odkaz z e-mailu otevře pouze zabezpečenou stránku pro nastavení nového hesla.",
+      "Zachována je Platform Admin správa uživatelů, ban/odbanování a vzkazy do účtu."
     ]
   }
 }
