@@ -10,9 +10,10 @@ def inspect(file):
     match=re.search(r"package: name='([^']+)' versionCode='(\d+)' versionName='([^']+)'",manifest)
     if not match: raise RuntimeError('Missing package metadata')
     signature=subprocess.check_output([a.apksigner,'verify','--verbose','--print-certs',str(file)],text=True)
-    cert=re.search(r'Signer #1 certificate SHA-256 digest: ([0-9a-f]+)',signature)
+    cert=re.search(r'(?mi)^(?:V\d+(?:\.\d+)?\s+)?Signer(?:\s+#\d+)?:?\s+certificate SHA-256 digest:\s*([0-9a-f:]+)\s*$',signature)
     if not cert: raise RuntimeError('Missing verified certificate')
-    return dict(package=match[1],versionCode=int(match[2]),versionName=match[3],certificateSha256=cert[1],sha256=hashlib.sha256(Path(file).read_bytes()).hexdigest())
+    cert_sha256=cert[1].replace(':','').lower()
+    return dict(package=match[1],versionCode=int(match[2]),versionName=match[3],certificateSha256=cert_sha256,sha256=hashlib.sha256(Path(file).read_bytes()).hexdigest())
 new=inspect(a.apk)
 assert new['package']==config['applicationId'],new
 assert new['versionCode']==a.expected_code,new
