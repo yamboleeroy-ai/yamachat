@@ -18,10 +18,11 @@ jobs:
           npx playwright install --with-deps chromium
           node tests/profile-actions.cjs
           node tests/profile-layout.cjs
+          node tests/password-recovery.cjs
       - name: Prepare web deployment
         run: |
           mkdir -p web-dist
-          cp index.html sw.js boot-guard.js favicon.ico manifest.webmanifest offline.html CNAME .nojekyll web-dist/
+          cp index.html reset-password.html sw.js boot-guard.js favicon.ico manifest.webmanifest offline.html CNAME .nojekyll web-dist/
           cp -r icons audio vendor build download web-dist/
       - uses: actions/upload-artifact@v4
         with:
