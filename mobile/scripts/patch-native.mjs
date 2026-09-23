@@ -98,6 +98,25 @@ function patchAndroid() {
   }
   fs.writeFileSync(p, xml, 'utf8');
 
+  // Patch the Android bundle only, after cap sync. Web/iOS assets stay identical.
+  const publicDir = path.join(root, 'android/app/src/main/assets/public');
+  const htmlPath = path.join(publicDir, 'index.html');
+  let html = fs.readFileSync(htmlPath, 'utf8');
+  const androidStyle = '<link rel="stylesheet" href="./android-portrait.css">';
+  if (!html.includes(androidStyle)) html = html.replace('</head>', androidStyle + '\n</head>');
+  fs.writeFileSync(htmlPath, html);
+  fs.copyFileSync(path.join(root, 'android-portrait.css'), path.join(publicDir, 'android-portrait.css'));
+
+  // Apply only to the generated Android project; iOS configuration is unchanged.
+  const gradlePath = path.join(root, 'android/app/build.gradle');
+  let gradle = fs.readFileSync(gradlePath, 'utf8');
+  const release = JSON.parse(fs.readFileSync(path.join(root, 'android-release.json'), 'utf8'));
+  const config = JSON.parse(fs.readFileSync(path.join(root, 'capacitor.config.json'), 'utf8'));
+  if (config.appId !== release.applicationId || !gradle.includes('applicationId "' + release.applicationId + '"')) {
+    throw new Error('Android package changed; refusing an incompatible build');
+  }
+  const apply = "apply from: '../../android-signing.gradle'";
+  if (!gradle.includes(apply)) fs.writeFileSync(gradlePath, gradle + '\n' + apply + '\n');
   patchAndroidBranding(path.join(root, 'android/app/src/main/res'));
   console.log('Android permissions and Yamachat native branding patched.');
 }

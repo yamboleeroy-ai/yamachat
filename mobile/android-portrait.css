@@ -1,0 +1,62 @@
+/* Android portrait: composer and voice controls form one tight bottom stack.
+   Capacitor's Android WebView is already inset above the system navigation area,
+   so adding the CSS safe-area again creates the large empty purple strip. */
+@media(max-width:1100px) and (orientation:portrait){
+ html.yc-native-android:not(.yc-keyboard-open){
+   --yc-android-nav-bottom:0px!important;
+ }
+ html.yc-native-android:not(.yc-keyboard-open) .yc-v3-workspace{
+   grid-template-rows:54px 74px minmax(0,1fr) auto!important;
+   row-gap:0!important;
+ }
+ html.yc-native-android:not(.yc-keyboard-open) .yc-v3-content-grid>.chat>.composer-wrap{
+   margin:0!important;
+   padding-bottom:4px!important;
+   border-bottom:0!important;
+   box-shadow:none!important;
+   z-index:auto!important;
+ }
+ html.yc-native-android:not(.yc-keyboard-open) .yc-v3-voice-host{
+   display:flex!important;
+   flex-direction:column!important;
+   align-items:stretch!important;
+   justify-content:flex-start!important;
+   position:relative!important;
+   inset:auto!important;
+   transform:none!important;
+   height:68px!important;
+   min-height:68px!important;
+   max-height:68px!important;
+   box-sizing:border-box!important;
+   padding:0!important;
+   margin:0!important;
+   overflow:visible!important;
+   border:0!important;
+   box-shadow:none!important;
+   background:linear-gradient(180deg,rgba(40,23,69,.86),rgba(7,22,32,.96))!important;
+ }
+ html.yc-native-android:not(.yc-keyboard-open) .yc-v3-voice-host .voice-controls{
+   position:relative!important;
+   inset:auto!important;
+   transform:none!important;
+   flex:0 0 68px!important;
+   width:100%!important;
+   max-width:100%!important;
+   height:68px!important;
+   min-height:68px!important;
+   max-height:68px!important;
+   margin:0!important;
+   padding:6px 8px!important;
+   box-sizing:border-box!important;
+   align-self:stretch!important;
+   align-items:center!important;
+   border-radius:0!important;
+   border:0!important;
+   border-top:1px solid rgba(215,65,255,.88)!important;
+   box-shadow:none!important;
+   background:transparent!important;
+ }
+ html.yc-native-android:not(.yc-keyboard-open) .yc-v3-voice-host #soundboardPanel{
+   bottom:74px!important;
+ }
+}
