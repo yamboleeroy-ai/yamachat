@@ -19,6 +19,7 @@ declare global {
     ycNativeNotificationPermission?: () => Promise<boolean>;
     ycNativeShowNotification?: (payload: {title?:string;body?:string;where?:string;target?:Record<string,string>}) => Promise<boolean>;
     ycOpenDesktopNotificationTarget?: (target: Record<string,string>) => Promise<void>;
+    ycNativeCheckForUpdates?: () => Promise<{available:boolean; currentCode:number; latestCode:number; item?:any; error?:string}>;
   }
 }
 
@@ -159,6 +160,25 @@ const YAMACHAT_UPDATE_MANIFEST_URL = 'https://yamachat.eu/update-manifest.json';
     return String(value || '').trim();
   };
 
+  const nativeUpdateSettingsState = {
+    registered: false,
+    checking: false,
+    message: '',
+    latestVersion: ''
+  };
+
+  const syncNativeUpdateSettingsDom = (scope: ParentNode = document) => {
+    const status = scope.querySelector?.('#ycNativeSettingsUpdateState') as HTMLElement | null;
+    const button = scope.querySelector?.('#ycNativeSettingsUpdateCheck') as HTMLButtonElement | null;
+    const latest = scope.querySelector?.('#ycNativeSettingsUpdateLatest') as HTMLElement | null;
+    if (status) status.textContent = nativeUpdateSettingsState.message || 'Kontrola probíhá automaticky po spuštění aplikace.';
+    if (latest) latest.textContent = nativeUpdateSettingsState.latestVersion ? 'Dostupná verze ' + nativeUpdateSettingsState.latestVersion : '';
+    if (button) {
+      button.disabled = nativeUpdateSettingsState.checking;
+      button.textContent = nativeUpdateSettingsState.checking ? 'KONTROLUJI…' : 'ZKONTROLOVAT AKTUALIZACE';
+    }
+  };
+
   const ensureUpdateUi = () => {
     if (updateUi.root || !document.body) return updateUi.root;
     const style = document.createElement('style');
@@ -249,6 +269,11 @@ const YAMACHAT_UPDATE_MANIFEST_URL = 'https://yamachat.eu/update-manifest.json';
   };
 
   const showNativeUpdate = (item: any) => {
+    nativeUpdateSettingsState.latestVersion = String(item?.latestVersion || '');
+    nativeUpdateSettingsState.message = nativeUpdateSettingsState.latestVersion
+      ? 'Je dostupná nová verze ' + nativeUpdateSettingsState.latestVersion + '.'
+      : 'Je dostupná nová aktualizace.';
+    syncNativeUpdateSettingsDom();
     const root = ensureUpdateUi();
     if (!root) return;
     updateUi.current = item;
@@ -289,21 +314,70 @@ const YAMACHAT_UPDATE_MANIFEST_URL = 'https://yamachat.eu/update-manifest.json';
     }).catch(() => {});
 
     const checkNativeUpdate = async () => {
+      nativeUpdateSettingsState.checking = true;
+      nativeUpdateSettingsState.message = 'Kontroluji dostupné aktualizace…';
+      syncNativeUpdateSettingsDom();
+      let currentCode = 0;
+      let latestCode = 0;
       try {
         const info = await App.getInfo();
-        const currentCode = Number.parseInt(String(info.build || '0'), 10) || 0;
+        currentCode = Number.parseInt(String(info.build || '0'), 10) || 0;
         const url = YAMACHAT_UPDATE_MANIFEST_URL + '?t=' + Date.now();
         const response = await CapacitorHttp.get({ url, headers: { 'Cache-Control': 'no-cache' } });
-        if (response.status < 200 || response.status >= 300) return;
+        if (response.status < 200 || response.status >= 300) throw new Error('Server aktualizací odpověděl stavem ' + response.status + '.');
         const manifest = typeof response.data === 'string' ? JSON.parse(response.data) : response.data;
         const item = manifest?.android;
-        const latestCode = Number(item?.latestVersionCode || 0);
-        if (!item || !item.apkUrl || latestCode <= currentCode) return;
+        latestCode = Number(item?.latestVersionCode || 0);
+        if (!item || !item.apkUrl || latestCode <= currentCode) {
+          nativeUpdateSettingsState.latestVersion = '';
+          nativeUpdateSettingsState.message = 'Používáš nejnovější verzi Yamachatu.';
+          return { available: false, currentCode, latestCode, item };
+        }
+        nativeUpdateSettingsState.latestVersion = String(item.latestVersion || '');
+        nativeUpdateSettingsState.message = 'Je dostupná nová verze ' + (nativeUpdateSettingsState.latestVersion || latestCode) + '.';
         showNativeUpdate(item);
+        return { available: true, currentCode, latestCode, item };
       } catch (error) {
+        const message = String((error as any)?.message || error || 'Kontrolu aktualizací se nepodařilo dokončit.');
+        nativeUpdateSettingsState.message = message;
         console.warn('Yamachat Android update check failed', error);
+        return { available: false, currentCode, latestCode, error: message };
+      } finally {
+        nativeUpdateSettingsState.checking = false;
+        syncNativeUpdateSettingsDom();
       }
     };
+
+    window.ycNativeCheckForUpdates = checkNativeUpdate;
+
+    const registerNativeUpdateSettings = () => {
+      if (nativeUpdateSettingsState.registered) return true;
+      const api = (window as any).YamachatAppSettings;
+      if (!api?.register) return false;
+      api.register({
+        id: 'updates',
+        title: 'Aktualizace Yamachatu',
+        description: 'Android kontroluje nové verze automaticky. Kontrolu můžeš kdykoliv spustit i ručně.',
+        render: () => {
+          const version = window.__YAMACHAT_MOBILE__?.version || appInfo?.version || '—';
+          const build = window.__YAMACHAT_MOBILE__?.build || appInfo?.build || '';
+          return '<div class="yc-update-card"><div class="yc-update-head"><div class="yc-update-logo">Y</div><div class="yc-update-copy"><strong>Yamachat Android</strong><small>Nativní aktualizace APK přímo v aplikaci</small></div></div><div class="yc-update-body"><div class="yc-update-version"><span>Nainstalováno <b>' + version + (build ? ' · build ' + build : '') + '</b></span><span id="ycNativeSettingsUpdateLatest"></span></div><div id="ycNativeSettingsUpdateState" class="yc-update-detail">Kontrola probíhá automaticky po spuštění aplikace.</div><div class="yc-update-actions"><button id="ycNativeSettingsUpdateCheck" class="primary" type="button">ZKONTROLOVAT AKTUALIZACE</button></div><div class="yc-update-safety">✓ APK se před instalací ověřuje kontrolním součtem a používá stálý podpis Yamachatu.</div></div></div>';
+        },
+        bind: (root: HTMLElement) => {
+          syncNativeUpdateSettingsDom(root);
+          root.querySelector<HTMLButtonElement>('#ycNativeSettingsUpdateCheck')?.addEventListener('click', () => {
+            void checkNativeUpdate();
+          });
+        }
+      });
+      nativeUpdateSettingsState.registered = true;
+      return true;
+    };
+
+    const settingsRegistrationTimer = window.setInterval(() => {
+      if (registerNativeUpdateSettings()) window.clearInterval(settingsRegistrationTimer);
+    }, 250);
+    window.setTimeout(() => window.clearInterval(settingsRegistrationTimer), 15000);
 
     const scheduleNativeUpdateCheck = () => setTimeout(() => { void checkNativeUpdate(); }, 2600);
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', scheduleNativeUpdateCheck, { once: true });
