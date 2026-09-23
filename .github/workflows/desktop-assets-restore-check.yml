@@ -1,0 +1,39 @@
+name: Yamachat Desktop Asset Restore Check
+
+on:
+  push:
+    branches:
+      - feature/desktop-tray-recovery-1.0.81
+    paths:
+      - "scripts/restore-desktop-brand-assets.ps1"
+      - ".github/workflows/desktop-assets-restore-check.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  restore-assets:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Restore proven tray and icon assets
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: ./scripts/restore-desktop-brand-assets.ps1 -Destination build
+      - name: Verify visible Windows assets
+        shell: pwsh
+        run: |
+          foreach ($name in @(
+            "icon.ico",
+            "tray-controller-idle.png",
+            "tray-controller-speaking.png",
+            "tray-status-online.png",
+            "tray-status-online-notify.png",
+            "app-icon-source.png",
+            "yamachat-logo-ui.webp"
+          )) {
+            $p = Join-Path build $name
+            if (-not (Test-Path $p)) { throw "Missing restored asset $name" }
+            Write-Host "$name $((Get-Item $p).Length) bytes"
+          }
