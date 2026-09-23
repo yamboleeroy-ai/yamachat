@@ -641,6 +641,25 @@ input[type="color"]::-webkit-color-swatch{border:0!important;border-radius:5px!i
 #modalRoot .yc-profile-actions-v1028 button.primary{color:#07121b!important}
 @media(max-width:380px){#modalRoot .yc-profile-actions-v1028{grid-template-columns:minmax(0,1fr)}}
 </style>
+<style id="ycPasswordRequestStyle">#ycPasswordRequestBack{position:fixed;inset:0;z-index:12000;display:none;align-items:center;justify-content:center;padding:18px;background:rgba(2,7,12,.82);backdrop-filter:blur(8px)}
+#ycPasswordRequestBack.show{display:flex}
+#ycPasswordRequestCard{width:min(460px,96vw);max-height:min(720px,94dvh);overflow:auto;border:1px solid rgba(91,215,236,.28);border-radius:16px;background:linear-gradient(145deg,#0b1822,#0a141d 62%,#071019);box-shadow:0 28px 80px rgba(0,0,0,.62),0 0 30px rgba(54,224,244,.07);padding:22px;color:#e8f6fb}
+#ycPasswordRequestHead{display:flex;align-items:flex-start;gap:12px}
+#ycPasswordRequestHead>div{min-width:0;flex:1}
+#ycPasswordRequestHead h3{margin:0;color:#f2fbff;font-size:20px}
+#ycPasswordRequestHead p{margin:6px 0 0;color:#7f9aa8;font-size:12px;line-height:1.45}
+#ycPasswordRequestClose{width:34px;height:34px;border-radius:9px;border:1px solid #34515f;background:#0e202b;color:#9db5c0;font-size:20px;cursor:pointer}
+#ycPasswordRequestForm{margin-top:18px}
+#ycPasswordRequestForm label{display:block;margin:0 0 7px;color:#91a8b2;font-size:11px;font-weight:800}
+#ycPasswordRequestEmail{width:100%;min-height:46px;border:1px solid #355365;background:#07151e;color:#eefbff;border-radius:9px;padding:11px 12px;font:inherit;outline:none}
+#ycPasswordRequestEmail:focus{border-color:#58d8ef;box-shadow:0 0 0 3px rgba(88,216,239,.10)}
+#ycPasswordRequestSubmit{width:100%;margin-top:14px;min-height:44px;border:0;border-radius:9px;background:linear-gradient(100deg,#38ddf4,#72efcc);color:#04131a;font-weight:900;cursor:pointer}
+#ycPasswordRequestSubmit:disabled{opacity:.58;cursor:wait}
+#ycPasswordRequestStatus{display:none;margin-top:13px;padding:11px 12px;border:1px solid #315260;border-radius:9px;background:#0c1d27;color:#a8c4cf;font-size:11px;line-height:1.5}
+#ycPasswordRequestStatus.show{display:block}
+#ycPasswordRequestStatus.error{border-color:#6d3c43;background:#251318;color:#ffb1b7}
+#ycPasswordRequestHint{margin:12px 0 0;color:#678491;font-size:10px;line-height:1.45}
+</style>
 <style id="ycAccountMessages">#modalRoot .yc-account-inbox{max-width:720px}
 #modalRoot .yc-account-inbox-list{display:grid;gap:10px;max-height:min(62dvh,620px);overflow:auto;padding-right:3px}
 #modalRoot .yc-account-message{border:1px solid #294557;background:#0b1923;border-radius:12px;padding:14px}
@@ -685,7 +704,22 @@ input[type="color"]::-webkit-color-swatch{border:0!important;border-radius:5px!i
       <button class="primary" style="width:100%;margin-top:8px" type="submit" id="authSubmit">Přihlásit</button>
       <div id="authMsg" class="msgline"></div>
     </form>
-    <a id="ycForgotPassword" href="https://yamachat.eu/reset-password.html" target="_blank" rel="noopener noreferrer" style="display:block;text-align:center;margin-top:14px;font-size:13px;color:inherit">Zapomenuté heslo?</a>
+    <button id="ycForgotPassword" type="button" style="display:block;width:100%;border:0;background:transparent;text-align:center;margin-top:14px;font-size:13px;color:inherit;cursor:pointer">Zapomenuté heslo?</button>
+<div id="ycPasswordRequestBack" aria-hidden="true">
+  <div id="ycPasswordRequestCard" role="dialog" aria-modal="true" aria-labelledby="ycPasswordRequestTitle">
+    <div id="ycPasswordRequestHead">
+      <div><h3 id="ycPasswordRequestTitle">Obnova hesla</h3><p>Zadej e-mail účtu Yamachat. Odkaz pro nastavení nového hesla odešleme přímo odsud.</p></div>
+      <button id="ycPasswordRequestClose" type="button" aria-label="Zavřít">×</button>
+    </div>
+    <form id="ycPasswordRequestForm">
+      <label for="ycPasswordRequestEmail">E-mail</label>
+      <input id="ycPasswordRequestEmail" type="email" required autocomplete="email" maxlength="254" placeholder="tvuj@email.cz">
+      <button id="ycPasswordRequestSubmit" type="submit">Odeslat odkaz</button>
+    </form>
+    <div id="ycPasswordRequestStatus" role="status" aria-live="polite"></div>
+    <p id="ycPasswordRequestHint">Po kliknutí na odkaz v e-mailu se otevře zabezpečená stránka Yamachatu, kde nastavíš nové heslo.</p>
+  </div>
+</div>
   </div>
 </section>
 
@@ -755,6 +789,63 @@ window.addEventListener('online',()=>setTimeout(ycEnsureRealtime,120))
 window.addEventListener('pageshow',()=>setTimeout(ycEnsureRealtime,160))
 document.addEventListener('visibilitychange',()=>{if(!document.hidden)setTimeout(ycEnsureRealtime,180)})
 const $=(id)=>document.getElementById(id)
+;(()=>{
+if(window.__ycPasswordRequestV2)return;window.__ycPasswordRequestV2=true;
+let ycPasswordRequestBusy=false,ycPasswordSlowTimer=null,ycPasswordHardTimer=null;
+const ycPasswordRequestStatus=(message,error=false)=>{
+  const el=$('ycPasswordRequestStatus');if(!el)return;
+  el.textContent=message;el.classList.add('show');el.classList.toggle('error',!!error);
+};
+const ycPasswordRequestOpen=()=>{
+  const back=$('ycPasswordRequestBack'),input=$('ycPasswordRequestEmail');if(!back||!input)return;
+  input.value=String($('email')?.value||'').trim();
+  ycPasswordRequestStatus('',false);$('ycPasswordRequestStatus')?.classList.remove('show');
+  back.classList.add('show');back.setAttribute('aria-hidden','false');
+  setTimeout(()=>input.focus(),0);
+};
+const ycPasswordRequestClose=()=>{
+  if(ycPasswordRequestBusy)return;
+  const back=$('ycPasswordRequestBack');if(!back)return;
+  back.classList.remove('show');back.setAttribute('aria-hidden','true');
+};
+async function ycPasswordRequestSend(event){
+  event?.preventDefault?.();if(ycPasswordRequestBusy)return;
+  const form=$('ycPasswordRequestForm'),input=$('ycPasswordRequestEmail'),button=$('ycPasswordRequestSubmit');
+  if(!form||!input||!button||!form.reportValidity())return;
+  const email=String(input.value||'').trim();ycPasswordRequestBusy=true;button.disabled=true;button.textContent='Odesílám…';
+  ycPasswordRequestStatus('Odesílám odkaz pro obnovu hesla…');
+  clearTimeout(ycPasswordSlowTimer);clearTimeout(ycPasswordHardTimer);
+  ycPasswordSlowTimer=setTimeout(()=>{if(ycPasswordRequestBusy)ycPasswordRequestStatus('E-mailový server odpovídá pomalu. Ještě čekám na potvrzení odeslání…')},8000);
+  const hardTimeout=new Promise((_,reject)=>{ycPasswordHardTimer=setTimeout(()=>{const e=new Error('Recovery request timeout');e.code='yc_recovery_timeout';reject(e)},55000)});
+  try{
+    const result=await Promise.race([
+      sb.auth.resetPasswordForEmail(email,{redirectTo:'https://yamachat.eu/reset-password.html'}),
+      hardTimeout
+    ]);
+    const error=result?.error;
+    if(error){
+      const msg=error.status===429
+        ?'Příliš mnoho žádostí. Počkej chvíli a zkus to znovu.'
+        :(error.status===504||error.code==='request_timeout'
+          ?'E-mailový server neodpověděl včas. Zkus to prosím znovu za chvíli.'
+          :'Odkaz se teď nepodařilo odeslat. Zkus to prosím později.');
+      ycPasswordRequestStatus(msg,true);return;
+    }
+    ycPasswordRequestStatus('Pokud k této adrese existuje účet Yamachat, požadavek byl přijat. Zkontroluj doručenou poštu i Spam.');
+  }catch(error){
+    ycPasswordRequestStatus(error?.code==='yc_recovery_timeout'
+      ?'Odesílání trvá příliš dlouho. E-mailový server může být dočasně nedostupný; zkus to za chvíli znovu.'
+      :'Nepodařilo se připojit k e-mailové službě. Zkontroluj internet a zkus to znovu.',true);
+  }finally{
+    clearTimeout(ycPasswordSlowTimer);clearTimeout(ycPasswordHardTimer);ycPasswordRequestBusy=false;button.disabled=false;button.textContent='Odeslat odkaz';
+  }
+}
+$('ycForgotPassword')?.addEventListener('click',e=>{e.preventDefault();ycPasswordRequestOpen()});
+$('ycPasswordRequestClose')?.addEventListener('click',ycPasswordRequestClose);
+$('ycPasswordRequestBack')?.addEventListener('click',e=>{if(e.target===e.currentTarget)ycPasswordRequestClose()});
+$('ycPasswordRequestForm')?.addEventListener('submit',ycPasswordRequestSend);
+window.ycOpenPasswordRecovery=ycPasswordRequestOpen;
+})();
 let mode='login',session=null,user=null,profile=null,myStats={xp:0,message_count:0},communityRealtimeSub=null,userRealtimeSub=null,visibleMessageIds=new Set(),communities=[],currentCommunity=null,currentRole=null,currentChannel=null,currentThread=null,messageSub=null,attachmentSub=null,pendingFile=null,rightMode='members',dmThreads=[],voiceRooms=new Map(),voicePresenceByChannel={},voiceChannelDefs=[],voiceChannel=null,voiceStream=null,voicePeers=new Map(),voiceIceQueues=new Map(),voiceMuted=localStorage.getItem('yc_voice_muted')==='1',voiceDeafened=localStorage.getItem('yc_voice_deafened')==='1',voiceDeviceId=localStorage.getItem('yc_voice_mic')||'',voiceOutputId=localStorage.getItem('yc_voice_output')||'',voiceEcho=localStorage.getItem('yc_voice_echo')!=='0',voiceNoise=localStorage.getItem('yc_voice_noise')!=='0',voiceAgc=localStorage.getItem('yc_voice_agc')==='1',voiceMeterStop=null,voiceAudioContext=null,voiceAudioNodes=new Map(),voicePeerStates=new Map(),voiceIceRestarted=new Set(),voiceIceServers=[{urls:['stun:stun.l.google.com:19302','stun:stun.cloudflare.com:3478']}],voiceTurnReady=false,voiceTurnProvider='none',voiceSpeaking=false,voiceVadStop=null,voiceJoinSoundArmed=false,voiceSignalSub=null,voiceSignalReady=false,voiceSignalSeen=new Set(),voiceSignalError='',voiceSessionId='',voicePeerSessions=new Map(),voiceRelayCandidates=new Set(),voiceIceGatherDone=new Set(),voiceActionSeq=0,chatFollowBottomUntil=0,voiceParticipantSub=null,voiceHeartbeatTimer=null,voiceMissingSince=new Map(),soundboardSub=null,soundboardSounds=[],soundboardEventSeen=new Set(),soundboardBuffers=new Map(),soundboardLastPlay=0,voiceUserMix={},voiceContextUser=null,screenShareStream=null,screenShareActive=false,voiceScreenSenders=new Map(),remoteScreenStreams=new Map(),voiceScreenActiveByUser=new Set(),screenShareViewers=new Set(),screenWatchingByUser=new Set(),screenWatchPendingByUser=new Set(),screenWatchTimers=new Map(),screenAudioContext=null,screenAudioDestination=null,screenAudioMixedTrack=null
 let ycMessageLoadSeq=0,ycAuthGeneration=0,ycChatInteractionSeq=0;
 let ycMessageSendBusy=false,ycMessageSubscriptionGeneration=0,ycMessageRefreshTimer=null,ycMessageRefreshRunning=false,ycMessageRefreshPending=null
