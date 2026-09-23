@@ -8,6 +8,8 @@ on:
       - "index.html"
       - "icons/**"
       - "audio/**"
+      - "web/**"
+      - "scripts/**"
       - ".github/workflows/mobile-ios.yml"
 
 permissions:
