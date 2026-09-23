@@ -641,6 +641,34 @@ input[type="color"]::-webkit-color-swatch{border:0!important;border-radius:5px!i
 #modalRoot .yc-profile-actions-v1028 button.primary{color:#07121b!important}
 @media(max-width:380px){#modalRoot .yc-profile-actions-v1028{grid-template-columns:minmax(0,1fr)}}
 </style>
+<style id="ycAccountMessages">#modalRoot .yc-account-inbox{max-width:720px}
+#modalRoot .yc-account-inbox-list{display:grid;gap:10px;max-height:min(62dvh,620px);overflow:auto;padding-right:3px}
+#modalRoot .yc-account-message{border:1px solid #294557;background:#0b1923;border-radius:12px;padding:14px}
+#modalRoot .yc-account-message.unread{border-color:#64dce2;box-shadow:inset 3px 0 0 #64dce2}
+#modalRoot .yc-account-message.warning{border-color:#d59855}
+#modalRoot .yc-account-message.important{border-color:#c76b76}
+#modalRoot .yc-account-message-head{display:flex;gap:10px;align-items:flex-start;justify-content:space-between}
+#modalRoot .yc-account-message-head strong{font-size:14px;line-height:1.35}
+#modalRoot .yc-account-message-meta{font-size:10px;color:#7896a8;margin-top:4px}
+#modalRoot .yc-account-message-body{white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.55;color:#d4e4ec;margin-top:10px}
+#modalRoot .yc-account-message-actions{display:flex;gap:7px;justify-content:flex-end;margin-top:12px;flex-wrap:wrap}
+#modalRoot .yc-account-inbox-entry{width:100%;margin-top:12px}
+#modalRoot .yc-admin-user-list{display:grid;gap:8px;max-height:min(62dvh,650px);overflow:auto}
+#modalRoot .yc-admin-user-row{display:flex;align-items:center;gap:10px;border:1px solid #294557;background:#0b1923;border-radius:11px;padding:10px}
+#modalRoot .yc-admin-user-row.banned{border-color:#70404a;background:linear-gradient(90deg,rgba(112,40,52,.15),#0b1923 38%)}
+#modalRoot .yc-admin-user-avatar{width:42px;height:42px;border-radius:10px;display:grid;place-items:center;background:#173140;font-weight:900;color:#bceef0;flex:0 0 42px}
+#modalRoot .yc-admin-user-main{min-width:0;flex:1}
+#modalRoot .yc-admin-user-main strong,#modalRoot .yc-admin-user-main small{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#modalRoot .yc-admin-user-main small{color:#7896a8;margin-top:3px}
+#modalRoot .yc-admin-user-title{display:flex;align-items:center;gap:7px}
+#modalRoot .yc-admin-user-note{margin-top:5px;color:#b9a28d;font-size:10px;white-space:normal;overflow-wrap:anywhere}
+#modalRoot .yc-admin-user-actions{display:flex;align-items:center;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+#modalRoot .yc-admin-pill.danger{background:rgba(226,73,86,.15);border-color:rgba(226,73,86,.35);color:#ff9aa3}
+#modalRoot .yc-admin-compose textarea,#modalRoot .yc-admin-compose input,#modalRoot .yc-admin-compose select{width:100%;margin:7px 0 11px;border:1px solid #35546a;background:#0e1921;color:#e4f1f8;border-radius:8px;padding:10px}
+#modalRoot .yc-admin-compose textarea{min-height:150px;resize:vertical}
+#modalRoot .yc-admin-warning{margin:6px 0 12px;padding:10px;border:1px solid #6c4d31;border-radius:9px;background:rgba(134,83,34,.12);color:#e2c29f;font-size:11px;line-height:1.45}
+@media(max-width:620px){#modalRoot .yc-admin-user-row{align-items:flex-start;flex-wrap:wrap}#modalRoot .yc-admin-user-main{flex-basis:calc(100% - 56px)}#modalRoot .yc-admin-user-actions{width:100%;justify-content:stretch}#modalRoot .yc-admin-user-actions button{flex:1}}
+</style>
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="mobile-web-app-capable" content="yes">
@@ -3053,6 +3081,120 @@ async function ycPlatformAdminOpenCommunity(c){if(!c)return;const preview={...c,
 async function ycPlatformAdminManageCommunity(c){if(!c)return;const [mr,br]=await Promise.all([sb.rpc('platform_admin_list_members',{p_community_id:c.id}),sb.rpc('platform_admin_list_bans',{p_community_id:c.id})]);if(mr.error||br.error){toast('Admin detail: '+(mr.error?.message||br.error?.message),true);return}const members=mr.data||[],bans=br.data||[];const memberRows=members.map(m=>{const owner=m.role==='owner';const roleLabel=owner?'Vlastník':m.role==='admin'?'Admin':'Člen';const acts=owner?'<span class="yc-admin-pill gold">Vlastník</span>':'<div class="yc-admin-actions"><button class="smallbtn" data-admin-role="'+esc(m.user_id)+'" data-role="'+esc(m.role)+'">'+(m.role==='admin'?'Nastavit člen':'Nastavit admin')+'</button><button class="smallbtn" data-admin-kick="'+esc(m.user_id)+'" data-name="'+esc(m.display_name||m.username||'uživatel')+'">Kick</button><button class="smallbtn yc-admin-danger" data-admin-ban="'+esc(m.user_id)+'" data-name="'+esc(m.display_name||m.username||'uživatel')+'">Ban</button></div>';return '<div class="yc-admin-member"><div class="yc-admin-member-main"><strong>'+esc(m.display_name||m.username||'Uživatel')+' <span class="yc-admin-pill">'+esc(roleLabel)+'</span></strong><small>@'+esc(m.username||'')+' · připojen '+esc(ycProfileCreated(m.joined_at))+'</small></div>'+acts+'</div>'}).join('')||'<div class="yc-admin-empty">Server nemá členy.</div>';const banRows=bans.map(b=>'<div class="yc-admin-ban"><div class="yc-admin-ban-main"><strong>'+esc(b.display_name||b.username||'Uživatel')+'</strong><small>'+esc(b.reason||'Bez důvodu')+' · '+esc(fmt(b.created_at))+' · '+esc(b.banned_by_name||'admin')+'</small></div><div class="yc-admin-actions"><button class="smallbtn" data-admin-unban="'+esc(b.user_id)+'">Odbanovat</button></div></div>').join('')||'<div class="yc-admin-empty">Žádné aktivní bany.</div>';$('modalRoot').innerHTML='<div class="modal-back"><div class="modal yc-admin-directory"><div class="modal-head"><h3>🛡 '+esc(c.name)+'</h3><button class="x" id="closeModal">×</button></div><div class="yc-admin-headline"><button class="smallbtn" id="ycAdminBack">← Registry</button><span class="yc-admin-pill gold">Platform Admin</span><span>Vlastník: '+esc(c.owner_name||'Neznámý')+'</span></div><div class="yc-admin-detail-stats"><div class="yc-admin-stat"><small>Členové</small><strong>'+Number(c.member_count||0)+'</strong></div><div class="yc-admin-stat"><small>Kanály</small><strong>'+Number(c.channel_count||0)+'</strong></div><div class="yc-admin-stat"><small>Bany</small><strong>'+Number(c.ban_count||0)+'</strong></div><div class="yc-admin-stat"><small>Viditelnost</small><strong>'+(c.is_public?'Veřejný':'Soukromý')+'</strong></div></div><div class="yc-admin-actions"><button class="smallbtn" id="ycAdminOpenServer">Otevřít jako admin</button><button class="smallbtn" id="ycAdminTogglePublic">'+(c.is_public?'Nastavit soukromý':'Nastavit veřejný')+'</button><button class="smallbtn yc-admin-danger" id="ycAdminDeleteServer">Smazat server</button></div><div class="yc-admin-section"><h4>Členové</h4>'+memberRows+'</div><div class="yc-admin-section"><h4>Bany</h4>'+banRows+'</div></div></div>';$('closeModal').onclick=closeModal;$('ycAdminBack').onclick=ycOpenPlatformAdmin;$('ycAdminOpenServer').onclick=()=>ycPlatformAdminOpenCommunity(c);$('ycAdminTogglePublic').onclick=async()=>{const {error}=await sb.from('communities').update({is_public:!c.is_public}).eq('id',c.id);if(error){toast(error.message,true);return}toast('Viditelnost serveru změněna.');await ycOpenPlatformAdmin()};$('ycAdminDeleteServer').onclick=async()=>{const typed=await ycDesktopPrompt('SMAZÁNÍ PLATFORM ADMIN: napiš přesně název serveru '+c.name);if(typed!==c.name){toast('Název nesouhlasí.',true);return}const {data,error}=await sb.rpc('platform_admin_delete_community',{p_community_id:c.id});if(error||!data){toast('Smazání selhalo: '+(error?.message||'neznámá chyba'),true);return}if(window.__ycAdminPreviewCommunity?.id===c.id)window.__ycAdminPreviewCommunity=null;toast('Server byl smazán Platform Adminem.');await loadCommunities();await ycOpenPlatformAdmin()};document.querySelectorAll('[data-admin-role]').forEach(b=>b.onclick=async()=>{const role=b.dataset.role==='admin'?'member':'admin';const {error}=await sb.rpc('set_community_member_role',{p_community_id:c.id,p_user_id:b.dataset.adminRole,p_role:role});if(error){toast(error.message,true);return}toast('Role změněna.');await ycPlatformAdminManageCommunity(c)});document.querySelectorAll('[data-admin-kick]').forEach(b=>b.onclick=async()=>{if(!confirm('Vyhodit '+b.dataset.name+' ze serveru?'))return;const {error}=await sb.rpc('kick_community_member',{p_community_id:c.id,p_user_id:b.dataset.adminKick});if(error){toast(error.message,true);return}toast('Člen byl vyhozen.');c.member_count=Math.max(0,Number(c.member_count||0)-1);await ycPlatformAdminManageCommunity(c)});document.querySelectorAll('[data-admin-ban]').forEach(b=>b.onclick=async()=>{if(!confirm('Zabanovat '+b.dataset.name+'?'))return;const reason=await ycDesktopPrompt('Důvod banu (volitelné):')||'';const {error}=await sb.rpc('ban_community_member',{p_community_id:c.id,p_user_id:b.dataset.adminBan,p_reason:reason});if(error){toast(error.message,true);return}toast('Uživatel zabanován.');c.member_count=Math.max(0,Number(c.member_count||0)-1);c.ban_count=Number(c.ban_count||0)+1;await ycPlatformAdminManageCommunity(c)});document.querySelectorAll('[data-admin-unban]').forEach(b=>b.onclick=async()=>{const {error}=await sb.rpc('unban_community_member',{p_community_id:c.id,p_user_id:b.dataset.adminUnban});if(error){toast(error.message,true);return}toast('Ban zrušen.');c.ban_count=Math.max(0,Number(c.ban_count||0)-1);await ycPlatformAdminManageCommunity(c)})}
 ycOnLifecycle('init',async()=>{const uid=user?.id;await ycLoadPlatformAdminStatus();if(!uid||user?.id!==uid)return;renderRail();if(window.__ycPlatformAdmin)await Promise.all([ycStartPlatformFeedbackWatch(),ycStartPlatformReportWatch()])})
 ycOnLifecycle('beforeAuth',()=>{window.__ycPlatformAdmin=false;window.__ycAdminPreviewCommunity=null})
+
+;(()=>{
+if(window.__ycAccountMessagesV1)return;window.__ycAccountMessagesV1=true;
+let ycAccountMessagesSub=null,ycAccountMessagesCache=[],ycBanStatusTimer=null;
+const YC_ADMIN_USERS_FUNCTION='yamachat-snapshot-v11';
+const ycAccountMessageDate=v=>{try{return v?new Date(v).toLocaleString('cs-CZ'):'—'}catch{return String(v||'—')}};
+const ycAccountMessageKindLabel=k=>k==='warning'?'Upozornění':k==='important'?'Důležité':'Informace';
+async function ycAdminInvoke(body){
+  const {data,error}=await sb.functions.invoke(YC_ADMIN_USERS_FUNCTION,{body});
+  if(error){
+    let message=error.message||'Požadavek se nepodařil.';
+    try{const detail=await error.context?.json?.();if(detail?.error)message=detail.error}catch{}
+    throw new Error(message)
+  }
+  if(data?.error)throw new Error(data.error);
+  return data||{}
+}
+async function ycLoadAccountMessages(){
+  if(!user?.id){ycAccountMessagesCache=[];return[]}
+  const {data,error}=await sb.from('account_messages').select('id,recipient_user_id,title,body,kind,created_at,read_at,created_by').eq('recipient_user_id',user.id).order('created_at',{ascending:false}).limit(50);
+  if(error)throw error;ycAccountMessagesCache=data||[];return ycAccountMessagesCache
+}
+function ycAccountMessageCard(m){
+  const unread=!m.read_at;
+  return '<article class="yc-account-message '+esc(m.kind||'info')+' '+(unread?'unread':'')+'" data-yc-account-message="'+esc(m.id)+'"><div class="yc-account-message-head"><div><strong>'+esc(m.title||'Zpráva od Yamachatu')+'</strong><div class="yc-account-message-meta">'+esc(ycAccountMessageKindLabel(m.kind))+' · '+esc(ycAccountMessageDate(m.created_at))+'</div></div>'+(unread?'<span class="yc-admin-pill gold">NOVÁ</span>':'<span class="yc-admin-pill">Přečteno</span>')+'</div><div class="yc-account-message-body">'+esc(m.body||'')+'</div>'+(unread?'<div class="yc-account-message-actions"><button type="button" class="smallbtn" data-yc-account-read="'+esc(m.id)+'">Označit jako přečtené</button></div>':'')+'</article>'
+}
+async function ycMarkAccountMessageRead(id){
+  if(!id||!user?.id)return false;
+  const {error}=await sb.from('account_messages').update({read_at:new Date().toISOString()}).eq('id',id).eq('recipient_user_id',user.id);
+  if(error){toast('Zprávu se nepodařilo označit jako přečtenou: '+error.message,true);return false}
+  await ycLoadAccountMessages();return true
+}
+async function ycOpenAccountInbox(auto=false){
+  let rows;try{rows=await ycLoadAccountMessages()}catch(e){if(!auto)toast('Zprávy Yamachatu: '+(e?.message||e),true);return}
+  const unread=rows.filter(x=>!x.read_at).length;
+  if(auto&&!unread)return;
+  if(auto&&$('modalRoot')?.innerHTML.trim())return;
+  $('modalRoot').innerHTML='<div class="modal-back"><div class="modal yc-account-inbox"><div class="modal-head"><h3>📨 Zprávy od Yamachatu</h3><button class="x" id="closeModal">×</button></div><div class="yc-admin-headline"><span>'+rows.length+' zpráv</span><span>'+unread+' nepřečtených</span>'+(unread>1?'<button type="button" class="smallbtn" id="ycAccountReadAll">Označit vše jako přečtené</button>':'')+'</div><div class="yc-account-inbox-list">'+(rows.length?rows.map(ycAccountMessageCard).join(''):'<div class="yc-admin-empty">Zatím tu nemáš žádnou systémovou zprávu.</div>')+'</div></div></div>';
+  $('closeModal').onclick=closeModal;
+  document.querySelectorAll('[data-yc-account-read]').forEach(b=>b.onclick=async()=>{b.disabled=true;if(await ycMarkAccountMessageRead(b.dataset.ycAccountRead))await ycOpenAccountInbox(false)});
+  $('ycAccountReadAll')?.addEventListener('click',async()=>{const ids=rows.filter(x=>!x.read_at).map(x=>x.id);for(const id of ids)await ycMarkAccountMessageRead(id);await ycOpenAccountInbox(false)})
+}
+window.ycOpenAccountInbox=ycOpenAccountInbox;
+async function ycAttachAccountInboxEntry(){
+  const modal=document.querySelector('#modalRoot .steam-profile');if(!modal||!user?.id)return;
+  const host=modal.querySelector('.steam-profile-body')||modal;host.querySelector('.yc-account-inbox-entry')?.remove();
+  let rows=[];try{rows=await ycLoadAccountMessages()}catch{}
+  if(!modal.isConnected)return;const unread=rows.filter(x=>!x.read_at).length,btn=document.createElement('button');
+  btn.type='button';btn.className='ghost yc-account-inbox-entry';btn.textContent='📨 Zprávy od Yamachatu'+(unread?' ('+unread+' nové)':'');btn.onclick=()=>void ycOpenAccountInbox(false);host.appendChild(btn)
+}
+const ycAccountOpenProfileBase=openProfile;
+openProfile=async function(...args){const out=await ycAccountOpenProfileBase.apply(this,args);try{await ycAttachAccountInboxEntry()}catch(e){console.warn('account inbox profile',e)}return out};
+
+const ycAdminBanLabel=p=>{
+  if(!p?.is_banned)return 'Aktivní';
+  if(!p.banned_until)return 'Zabanován';
+  const y=new Date(p.banned_until).getUTCFullYear();
+  return y>=2100?'Trvalý ban':'Ban do '+ycAccountMessageDate(p.banned_until)
+};
+function ycAdminUserRow(p){
+  const name=p.display_name||p.username||p.email||'Uživatel',self=String(p.id)===String(user?.id);
+  const last=p.moderation,moderation=last?.reason?'<div class="yc-admin-user-note">Poslední zásah: '+esc(last.action==='ban'?'ban':'odbanování')+' · '+esc(last.reason)+'</div>':'';
+  return '<div class="yc-admin-user-row '+(p.is_banned?'banned':'')+'" data-yc-admin-user="'+esc(p.id)+'"><div class="yc-admin-user-avatar">'+esc(initials(name))+'</div><div class="yc-admin-user-main"><div class="yc-admin-user-title"><strong>'+esc(name)+'</strong>'+(p.is_banned?'<span class="yc-admin-pill danger">BAN</span>':'<span class="yc-admin-pill">OK</span>')+'</div><small>'+esc(p.email||'Bez e-mailu')+(p.email&&!p.email_confirmed_at?' · e-mail nepotvrzen':'')+'</small><small>@'+esc(p.username||'—')+' · registrace '+esc(ycAccountMessageDate(p.created_at))+'</small><small>Poslední přihlášení: '+esc(ycAccountMessageDate(p.last_sign_in_at))+' · '+esc(ycAdminBanLabel(p))+'</small>'+moderation+'</div><div class="yc-admin-user-actions"><button type="button" class="smallbtn" data-yc-admin-send="'+esc(p.id)+'">📨 Vzkaz</button>'+(p.is_banned?'<button type="button" class="smallbtn" data-yc-admin-unban="'+esc(p.id)+'">Odbanovat</button>':'<button type="button" class="smallbtn yc-admin-danger" data-yc-admin-ban="'+esc(p.id)+'" '+(self?'disabled title="Vlastní účet nelze zabanovat"':'')+'>Ban</button>')+'</div></div>'
+}
+async function ycOpenPlatformUsers(){
+  if(!window.__ycPlatformAdmin){toast('Platform Admin není aktivní.',true);return}
+  $('modalRoot').innerHTML='<div class="modal-back"><div class="modal yc-admin-directory"><div class="modal-head"><h3>👤 Platform Admin · uživatelské účty</h3><button class="x" id="closeModal">×</button></div><div class="yc-admin-empty">Načítám registrované účty…</div></div></div>';$('closeModal').onclick=closeModal;
+  let rows;try{rows=(await ycAdminInvoke({action:'list',perPage:1000})).users||[]}catch(e){toast('Uživatelé: '+(e?.message||e),true);await ycOpenPlatformAdmin();return}
+  const banned=rows.filter(x=>x.is_banned).length;
+  $('modalRoot').innerHTML='<div class="modal-back"><div class="modal yc-admin-directory"><div class="modal-head"><h3>👤 Platform Admin · uživatelské účty</h3><button class="x" id="closeModal">×</button></div><div class="yc-admin-headline"><button type="button" class="smallbtn" id="ycAdminUsersBack">← Servery</button><span>'+rows.length+' účtů</span><span>'+banned+' zabanovaných</span></div><input id="ycAdminUserSearch" class="directory-search" placeholder="Hledat jméno, uživatelské jméno, e-mail nebo ID…"><div id="ycAdminUserList" class="yc-admin-user-list">'+(rows.length?rows.map(ycAdminUserRow).join(''):'<div class="yc-admin-empty">Žádné registrované účty.</div>')+'</div></div></div>';
+  $('closeModal').onclick=closeModal;$('ycAdminUsersBack').onclick=ycOpenPlatformAdmin;
+  const list=$('ycAdminUserList'),search=$('ycAdminUserSearch');
+  search.oninput=()=>{const q=search.value.trim().toLowerCase();for(const row of list.querySelectorAll('[data-yc-admin-user]')){const p=rows.find(x=>String(x.id)===String(row.dataset.ycAdminUser)),hay=[p?.display_name,p?.username,p?.email,p?.id].join(' ').toLowerCase();row.classList.toggle('hidden',!!q&&!hay.includes(q))}};
+  list.querySelectorAll('[data-yc-admin-send]').forEach(b=>b.onclick=()=>ycOpenAdminAccountComposer(rows.find(x=>String(x.id)===String(b.dataset.ycAdminSend))));
+  list.querySelectorAll('[data-yc-admin-ban]').forEach(b=>b.onclick=()=>ycOpenAdminBanUser(rows.find(x=>String(x.id)===String(b.dataset.ycAdminBan))));
+  list.querySelectorAll('[data-yc-admin-unban]').forEach(b=>b.onclick=()=>void ycAdminUnbanUser(rows.find(x=>String(x.id)===String(b.dataset.ycAdminUnban))))
+}
+async function ycOpenAdminBanUser(p){
+  if(!window.__ycPlatformAdmin||!p?.id)return;
+  const name=p.display_name||p.username||p.email||'Uživatel';
+  $('modalRoot').innerHTML='<div class="modal-back"><div class="modal yc-admin-compose"><div class="modal-head"><h3>⛔ Ban · '+esc(name)+'</h3><button class="x" id="closeModal">×</button></div><div class="yc-admin-headline"><button type="button" class="smallbtn" id="ycAdminBanBack">← Uživatelé</button><span>'+esc(p.email||'')+'</span></div><label for="ycAdminBanDuration">Délka banu</label><select id="ycAdminBanDuration"><option value="24h">24 hodin</option><option value="7d">7 dní</option><option value="30d">30 dní</option><option value="permanent">Trvale</option></select><label for="ycAdminBanReason">Důvod</label><textarea id="ycAdminBanReason" maxlength="500" placeholder="Např. opakované obtěžování uživatelů, spam…"></textarea><div class="yc-admin-warning">Ban se provede přímo v Supabase Auth. Uživatel se znovu nepřihlásí a další obnovení jeho session bude zamítnuto.</div><div class="yc-admin-actions"><button type="button" class="smallbtn yc-admin-danger" id="ycAdminBanSubmit">Zabanovat účet</button></div></div></div>';
+  $('closeModal').onclick=closeModal;$('ycAdminBanBack').onclick=ycOpenPlatformUsers;
+  $('ycAdminBanSubmit').onclick=async()=>{const btn=$('ycAdminBanSubmit'),reason=$('ycAdminBanReason').value.trim(),duration=$('ycAdminBanDuration').value;if(reason.length<2){toast('Napiš důvod banu.',true);return}if(!confirm('Opravdu zabanovat účet '+name+'?'))return;btn.disabled=true;btn.textContent='Banuji…';try{await ycAdminInvoke({action:'ban',user_id:p.id,duration,reason});toast('⛔ Účet '+name+' byl zabanován.');await ycOpenPlatformUsers()}catch(e){btn.disabled=false;btn.textContent='Zabanovat účet';toast('Ban se nepodařil: '+(e?.message||e),true)}}
+}
+async function ycAdminUnbanUser(p){
+  if(!window.__ycPlatformAdmin||!p?.id)return;const name=p.display_name||p.username||p.email||'Uživatel';
+  if(!confirm('Odbanovat účet '+name+'?'))return;
+  try{await ycAdminInvoke({action:'unban',user_id:p.id,reason:'Ruční odbanování Platform Adminem'});toast('✓ Účet '+name+' byl odbanován.');await ycOpenPlatformUsers()}catch(e){toast('Odbanování se nepodařilo: '+(e?.message||e),true)}
+}
+async function ycOpenAdminAccountComposer(p){
+  if(!window.__ycPlatformAdmin||!p?.id)return;
+  const name=p.display_name||p.username||p.email||'Uživatel';
+  $('modalRoot').innerHTML='<div class="modal-back"><div class="modal yc-admin-compose"><div class="modal-head"><h3>📨 Vzkaz pro '+esc(name)+'</h3><button class="x" id="closeModal">×</button></div><div class="yc-admin-headline"><button type="button" class="smallbtn" id="ycAdminComposeBack">← Uživatelé</button><span>'+esc(p.email||('@'+(p.username||'')))+'</span></div><label for="ycAdminMessageKind">Typ zprávy</label><select id="ycAdminMessageKind"><option value="info">Informace</option><option value="important">Důležité</option><option value="warning">Upozornění</option></select><label for="ycAdminMessageTitle">Nadpis</label><input id="ycAdminMessageTitle" maxlength="120" placeholder="Např. Upozornění k účtu"><label for="ycAdminMessageBody">Zpráva</label><textarea id="ycAdminMessageBody" maxlength="4000" placeholder="Napiš zprávu, která se uživateli zobrazí v jeho účtu."></textarea><div class="yc-admin-actions"><button type="button" class="primary" id="ycAdminMessageSend">Odeslat do účtu</button></div></div></div>';
+  $('closeModal').onclick=closeModal;$('ycAdminComposeBack').onclick=ycOpenPlatformUsers;
+  $('ycAdminMessageSend').onclick=async()=>{const btn=$('ycAdminMessageSend'),title=$('ycAdminMessageTitle').value.trim(),body=$('ycAdminMessageBody').value.trim(),kind=$('ycAdminMessageKind').value;if(!title||!body){toast('Vyplň nadpis i zprávu.',true);return}btn.disabled=true;btn.textContent='Odesílám…';const {error}=await sb.from('account_messages').insert({recipient_user_id:p.id,title,body,kind,created_by:user.id});if(error){btn.disabled=false;btn.textContent='Odeslat do účtu';toast('Vzkaz se nepodařilo odeslat: '+error.message,true);return}toast('📨 Vzkaz byl odeslán uživateli '+name+'.');await ycOpenPlatformUsers()}
+}
+window.ycOpenPlatformUsers=ycOpenPlatformUsers;
+const ycAccountOpenPlatformAdminBase=ycOpenPlatformAdmin;
+ycOpenPlatformAdmin=async function(...args){const out=await ycAccountOpenPlatformAdminBase.apply(this,args);const head=document.querySelector('#modalRoot .yc-admin-headline');if(head&&!$('ycAdminUsers')){const b=document.createElement('button');b.type='button';b.className='smallbtn';b.id='ycAdminUsers';b.textContent='👤 Uživatelé';b.onclick=ycOpenPlatformUsers;head.appendChild(b)}return out};
+
+async function ycCheckOwnBanStatus(){
+  if(!user?.id)return;
+  try{const state=await ycAdminInvoke({action:'self-status'});if(!state?.is_banned)return;const until=state.banned_until;try{await sb.auth.signOut({scope:'local'})}catch{};showAuth();const msg=$('authMsg');if(msg){msg.textContent='Tento účet je zablokovaný'+(until?' do '+ycAccountMessageDate(until):'')+'.';msg.classList.add('error')} }catch(e){console.warn('account ban status',e)}
+}
+async function ycStartAccountMessages(){
+  if(ycAccountMessagesSub){try{await sb.removeChannel(ycAccountMessagesSub)}catch{}ycAccountMessagesSub=null}
+  if(!user?.id)return;
+  let rows=[];try{rows=await ycLoadAccountMessages()}catch(e){console.warn('account messages load',e);return}
+  const unread=rows.filter(x=>!x.read_at).length;if(unread){toast('📨 Máš '+unread+' '+(unread===1?'novou zprávu':'nové zprávy')+' od Yamachatu.');setTimeout(()=>void ycOpenAccountInbox(true),800)}
+  ycAccountMessagesSub=sb.channel('yc-account-messages-'+user.id+'-'+Date.now()).on('postgres_changes',{event:'INSERT',schema:'public',table:'account_messages',filter:'recipient_user_id=eq.'+user.id},async()=>{try{await ycLoadAccountMessages()}catch{}toast('📨 Nový vzkaz od Yamachatu.');setTimeout(()=>void ycOpenAccountInbox(true),250)}).subscribe()
+}
+ycOnLifecycle('init',()=>{void ycStartAccountMessages();void ycCheckOwnBanStatus();clearInterval(ycBanStatusTimer);ycBanStatusTimer=setInterval(()=>void ycCheckOwnBanStatus(),60000)});
+ycOnLifecycle('beforeAuth',()=>{ycAccountMessagesCache=[];clearInterval(ycBanStatusTimer);ycBanStatusTimer=null;if(ycAccountMessagesSub){try{sb.removeChannel(ycAccountMessagesSub)}catch{}ycAccountMessagesSub=null}});
+})();
 
 // Message actions - reactions, replies, unread markers and global reports
 let ycReplyTarget=null,ycMessageMenu=null,ycMessageRows=new Map(),ycMessageReactions=new Map(),ycUnreadMessageId=null,ycMsgDecorateSeq=0,ycReactionSub=null,ycReportSub=null;

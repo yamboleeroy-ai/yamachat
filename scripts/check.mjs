@@ -67,4 +67,8 @@ try{
  assert.equal(spawnSync(process.execPath,['--check',recoveryScript],{encoding:'utf8'}).status,0,'Recovery script must parse');
  assert(fs.readFileSync(path.join(root,'reset-password.html'),'utf8').includes('name="referrer" content="no-referrer"'));
  assert(fs.readFileSync(path.join(root,'email/recovery.html'),'utf8').includes('{{ .TokenHash }}'));
+ const accountMessagesSource=fs.readFileSync(path.join(root,'web/account-messages.js'),'utf8');
+ assert.equal(spawnSync(process.execPath,['--check',path.join(root,'web/account-messages.js')],{encoding:'utf8'}).status,0,'Account messages script must parse');
+ for(const marker of ["from('account_messages')",'window.ycOpenAccountInbox=ycOpenAccountInbox','window.ycOpenPlatformUsers=ycOpenPlatformUsers','created_by:user.id',"YC_ADMIN_USERS_FUNCTION='yamachat-snapshot-v11'","action:'ban'","action:'unban'","action:'self-status'"]) assert(accountMessagesSource.includes(marker),'Missing account/admin marker: '+marker);
+ for(const marker of ['📨 Zprávy od Yamachatu','Platform Admin · uživatelské účty','Poslední přihlášení:',"from('account_messages')"]) assert(generatedWeb.includes(marker),'Generated web missing account/admin marker: '+marker);
 }finally{fs.rmSync(tmp,{recursive:true,force:true})}
