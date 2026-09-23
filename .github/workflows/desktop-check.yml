@@ -4,11 +4,17 @@ on:
   pull_request:
     paths:
       - "desktop/**"
+      - "scripts/**"
+      - "web/**"
+      - "reference/**"
       - ".github/workflows/desktop-check.yml"
       - ".github/workflows/publish-yamachat-release.yml"
   push:
     paths:
       - "desktop/**"
+      - "scripts/**"
+      - "web/**"
+      - "reference/**"
       - ".github/workflows/desktop-check.yml"
       - ".github/workflows/publish-yamachat-release.yml"
 
@@ -25,25 +31,32 @@ jobs:
           node --check desktop/preload.js
           node --check desktop/notification-preload.js
 
-      - name: Verify stable desktop core stayed byte-identical
+      - name: Verify stable desktop runtime core stayed byte-identical
         run: |
           python - <<'PY'
           import hashlib, json
           from pathlib import Path
 
           baseline=json.loads(Path('desktop/BASELINE-1.0.78.json').read_text())
-          for name, expected in baseline['sha256'].items():
+          for name in ['main.js','preload.js','notification-preload.js']:
+              expected=baseline['sha256'][name]
               actual=hashlib.sha256(Path('desktop',name).read_bytes()).hexdigest()
               if actual != expected:
                   raise SystemExit(f'{name} changed: {actual} != {expected}')
-              print('PASS',name,actual)
+              print('PASS stable core',name,actual)
           PY
 
-      - name: Verify updater-only version
+      - name: Verify generated desktop client
+        run: |
+          node scripts/build-desktop-client.mjs
+          cmp desktop-client-dist/desktop-client.html desktop/desktop-client.html
+          echo "PASS desktop client matches tested generator"
+
+      - name: Verify desktop release version
         run: |
           node - <<'NODE'
           const p=require('./desktop/package.json');
-          if(p.version!=='1.0.79') throw new Error('Expected desktop source version 1.0.79');
+          if(p.version!=='1.0.80') throw new Error('Expected desktop source version 1.0.80');
           if(!p.dependencies?.['electron-updater']) throw new Error('electron-updater missing');
           console.log('PASS desktop',p.version);
           NODE
