@@ -17,12 +17,6 @@
    b.addEventListener('click',e=>{if(!mobile.matches)return;e.preventDefault();e.stopImmediatePropagation();open(panel,b)},true);
   }
   const brand=document.createElement('div');brand.id='ycMobileBrand';brand.className='yc-mobile-header-brand';const img=document.createElement('img');img.src='./build/yamachat-logo-full.png';img.alt='Yamachat';img.className='yc-mobile-header-logo';img.onerror=()=>{img.onerror=null;img.src='./build/yamachat-logo-symbol.png'};brand.appendChild(img);top.appendChild(brand);
-  const sideHead=side.querySelector('.side-head');
-  if(sideHead&&!document.getElementById('ycMobileServerSettingsBtn')){
-   const settingsBtn=document.createElement('button');settingsBtn.id='ycMobileServerSettingsBtn';settingsBtn.type='button';settingsBtn.className='yc-mobile-server-settings-btn';settingsBtn.textContent='⚙';settingsBtn.title='Nastavení serveru';settingsBtn.setAttribute('aria-label','Nastavení serveru');
-   settingsBtn.addEventListener('click',e=>{if(!mobile.matches)return;e.preventDefault();e.stopImmediatePropagation();if(typeof window.ycOpenServerSettings==='function'){close();window.ycOpenServerSettings()}else document.getElementById('ycServerMenuBtn')?.click()},true);
-   sideHead.appendChild(settingsBtn);
-  }
   const scrim=document.createElement('div');scrim.id='ycMobileScrim';scrim.className='yc-mobile-scrim';scrim.addEventListener('click',close);app.appendChild(scrim);close();return true;
  }
  const observer=new MutationObserver(()=>{if(mount())observer.disconnect()});observer.observe(document.getElementById('app'),{childList:true,subtree:true});mount();
