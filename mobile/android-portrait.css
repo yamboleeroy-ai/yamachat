@@ -1,9 +1,10 @@
-/* Android portrait: composer and voice controls form one tight bottom stack.
-   Capacitor's Android WebView is already inset above the system navigation area,
-   so adding the CSS safe-area again creates the large empty purple strip. */
+/* Android portrait: keep the composer and 68px voice controls touching exactly
+   as designed, then reserve a separate Android navigation-bar lane underneath.
+   Samsung/3-button navigation can overlay the WebView, so the reservation must
+   not be part of the voice controls themselves. */
 @media(max-width:1100px) and (orientation:portrait){
  html.yc-native-android:not(.yc-keyboard-open){
-   --yc-android-nav-bottom:0px!important;
+   --yc-android-nav-bottom:52px!important;
  }
  html.yc-native-android:not(.yc-keyboard-open) .yc-v3-workspace{
    grid-template-rows:54px 74px minmax(0,1fr) auto!important;
@@ -24,16 +25,16 @@
    position:relative!important;
    inset:auto!important;
    transform:none!important;
-   height:68px!important;
-   min-height:68px!important;
-   max-height:68px!important;
+   height:calc(68px + var(--yc-android-nav-bottom))!important;
+   min-height:calc(68px + var(--yc-android-nav-bottom))!important;
+   max-height:calc(68px + var(--yc-android-nav-bottom))!important;
    box-sizing:border-box!important;
-   padding:0!important;
+   padding:0 0 var(--yc-android-nav-bottom)!important;
    margin:0!important;
    overflow:visible!important;
    border:0!important;
    box-shadow:none!important;
-   background:linear-gradient(180deg,rgba(40,23,69,.86),rgba(7,22,32,.96))!important;
+   background:#071019!important;
  }
  html.yc-native-android:not(.yc-keyboard-open) .yc-v3-voice-host .voice-controls{
    position:relative!important;
@@ -54,9 +55,9 @@
    border:0!important;
    border-top:1px solid rgba(215,65,255,.88)!important;
    box-shadow:none!important;
-   background:transparent!important;
+   background:linear-gradient(180deg,rgba(40,23,69,.86),rgba(7,22,32,.96))!important;
  }
  html.yc-native-android:not(.yc-keyboard-open) .yc-v3-voice-host #soundboardPanel{
-   bottom:74px!important;
+   bottom:calc(74px + var(--yc-android-nav-bottom))!important;
  }
 }
