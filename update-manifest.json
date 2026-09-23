@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
-  "publishedAt": "2026-09-23T20:48:30.634Z",
+  "publishedAt": "2026-09-23T21:06:14Z",
   "windows": {
-    "latestVersion": "1.0.78",
+    "latestVersion": "1.0.79",
     "required": true,
-    "releaseUrl": "https://github.com/yamboleeroy-ai/yamachat/releases/latest",
-    "notes": []
+    "releaseUrl": "https://github.com/yamboleeroy-ai/yamachat/releases/tag/v1.0.79",
+    "notes": "- V profilu jsou nové možnosti \r\n- Napsat zprávu\r\n- Přidat do přátel\r\n- ztlumit\r\n- nahlásit\r\n- zablokovat"
   },
   "android": {
     "latestVersion": "1.1.0.122",
