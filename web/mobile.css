@@ -1071,3 +1071,66 @@ html.yc-ios-mobile .yc-v3-workspace{
    align-self:center!important;
  }
 }
+
+
+/* Final portrait Android bottom stack:
+   composer -> voice dock -> Android system navigation.
+   No floating gap, no overlap, no centering inside the reserved nav area. */
+@media(max-width:520px) and (orientation:portrait){
+ html.yc-native-android:not(.yc-keyboard-open) .yc-v3-workspace{
+   grid-template-rows:
+     54px
+     74px
+     minmax(0,1fr)
+     calc(68px + var(--yc-android-nav-bottom))!important;
+ }
+
+ html.yc-native-android:not(.yc-keyboard-open) .yc-v3-content-grid>.chat>.composer-wrap{
+   margin-bottom:0!important;
+   padding-bottom:4px!important;
+   border-bottom:0!important;
+ }
+
+ html.yc-native-android:not(.yc-keyboard-open) .yc-v3-voice-host{
+   display:flex!important;
+   flex-direction:column!important;
+   align-items:stretch!important;
+   justify-content:flex-start!important;
+   height:calc(68px + var(--yc-android-nav-bottom))!important;
+   min-height:calc(68px + var(--yc-android-nav-bottom))!important;
+   max-height:calc(68px + var(--yc-android-nav-bottom))!important;
+   padding:0 0 var(--yc-android-nav-bottom)!important;
+   margin:0!important;
+   overflow:hidden!important;
+   background:
+     linear-gradient(180deg,rgba(40,23,69,.86),rgba(7,22,32,.96))!important;
+   border-top:1px solid rgba(215,65,255,.72)!important;
+ }
+
+ html.yc-native-android:not(.yc-keyboard-open) .yc-v3-voice-host .voice-controls{
+   flex:0 0 68px!important;
+   width:100%!important;
+   max-width:100%!important;
+   height:68px!important;
+   min-height:68px!important;
+   max-height:68px!important;
+   margin:0!important;
+   padding-left:8px!important;
+   padding-right:8px!important;
+   align-self:stretch!important;
+   border-radius:0!important;
+   border-left:0!important;
+   border-right:0!important;
+   border-bottom:0!important;
+   box-shadow:none!important;
+   background:transparent!important;
+ }
+
+ html.yc-native-android:not(.yc-keyboard-open) .yc-v3-voice-host .yc-voice-self-row{
+   border-radius:10px!important;
+ }
+
+ html.yc-native-android:not(.yc-keyboard-open) .yc-v3-voice-host .voice-btn{
+   border-radius:10px!important;
+ }
+}
