@@ -16,6 +16,14 @@ jobs:
         run: |
           npm install --no-save --package-lock=false playwright@1.62.1
           npx playwright install --with-deps chromium
+      - name: Connected server frame tests
+        run: node tests/active-server-context.cjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: connected-frame-previews
+          path: tests/connected-frame-*.png
+          if-no-files-found: ignore
       - name: Profile action tests
         run: node tests/profile-actions.cjs
       - name: Profile layout tests
