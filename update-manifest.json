@@ -8,11 +8,11 @@
     "notes": "Yamachat 1.0.86: oboustranné cyan/fialové fading traily z aktivní serverové karty a jemně napojený serverový panel; efekt neblokuje klikání, scroll ani swipe a voice, chat, tray, obnova hesla i Platform Admin zůstávají zachované."
   },
   "android": {
-    "latestVersion": "1.1.0.219",
-    "latestVersionCode": 200219,
+    "latestVersion": "1.1.0.220",
+    "latestVersionCode": 200220,
     "required": true,
-    "apkUrl": "https://yamachat.eu/download/Yamachat-Android.apk?v=200219",
-    "sha256": "d2636b9d2882376b3c1382bce6f93705db94f4ef459d69fd4fe4b50b0f5d2c2b",
+    "apkUrl": "https://yamachat.eu/download/Yamachat-Android.apk?v=200220",
+    "sha256": "018f70ca03d195a4a2f9cb44f6fa8eae8ec74923cec0ef6e178b6b72c541dee3",
     "notes": [
       "Obnova hesla se nyní žádá přímo v Yamachatu bez přechodu na webový formulář.",
       "Odkaz z e-mailu otevře pouze zabezpečenou stránku pro nastavení nového hesla.",
