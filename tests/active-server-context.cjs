@@ -44,24 +44,41 @@ const mock=baseMock
    let state=await page.evaluate(()=>({
     app:document.getElementById('app')?.classList.contains('yc-active-server-context'),
     id:document.getElementById('app')?.dataset.ycActiveServerContext||'',
-    highlighted:[...document.querySelectorAll('[data-community].yc-active-server-context-card')].map(x=>x.dataset.community)
+    highlighted:[...document.querySelectorAll('[data-community].yc-active-server-context-card')].map(x=>x.dataset.community),
+    frameVisible:document.getElementById('ycActiveServerConnectedFrame')?.classList.contains('show')||false,
+    frameCommunity:document.getElementById('ycActiveServerConnectedFrame')?.dataset.community||'',
+    frameMode:document.getElementById('ycActiveServerConnectedFrame')?.dataset.frameMode||'',
+    framePath:document.querySelector('#ycActiveServerConnectedFrame .yc-active-server-frame-core')?.getAttribute('d')||''
    }));
    assert.equal(state.app,true,target+' should start in server context');
    assert.equal(state.id,'community-a',target+' should highlight first active server');
    assert.deepEqual(state.highlighted,['community-a']);
+   assert.equal(state.frameVisible,true,target+' connected frame must be visible');
+   assert.equal(state.frameCommunity,'community-a');
+   assert.equal(state.frameMode,'connected-tab');
+   assert.match(state.framePath,/^M /,target+' connected frame path must be drawn');
+   const firstFramePath=state.framePath;
 
    await page.locator('#ycV3Friends').click();
    await page.waitForFunction(()=>!document.getElementById('app')?.classList.contains('yc-active-server-context'));
    assert.equal(await page.locator('[data-community].yc-active-server-context-card').count(),0,target+' friends context must have no server highlight');
+   assert.equal(await page.locator('#ycActiveServerConnectedFrame.show').count(),0,target+' friends context must hide connected frame');
 
    await page.locator('[data-community="community-b"]').click();
    await page.waitForFunction(()=>document.getElementById('app')?.dataset.ycActiveServerContext==='community-b',{},{timeout:5000});
    assert.equal(await page.locator('[data-community="community-b"].yc-active-server-context-card').count(),1,target+' must move highlight to clicked server');
    assert.equal(await page.locator('[data-community="community-a"].yc-active-server-context-card').count(),0,target+' old server highlight must clear');
+   const secondFrame=await page.evaluate(()=>({
+    community:document.getElementById('ycActiveServerConnectedFrame')?.dataset.community||'',
+    path:document.querySelector('#ycActiveServerConnectedFrame .yc-active-server-frame-core')?.getAttribute('d')||''
+   }));
+   assert.equal(secondFrame.community,'community-b',target+' connected frame must follow clicked server');
+   assert.notEqual(secondFrame.path,firstFramePath,target+' connected frame geometry must move with the active card');
 
    await page.locator('#ycV3Home').click();
    await page.waitForFunction(()=>!document.getElementById('app')?.classList.contains('yc-active-server-context'));
    assert.equal(await page.locator('[data-community].yc-active-server-context-card').count(),0,target+' global Home must not show server context outline');
+   assert.equal(await page.locator('#ycActiveServerConnectedFrame.show').count(),0,target+' Home must hide connected frame');
 
    await page.locator('[data-channel="chat-c"]').click();
    await page.waitForFunction(()=>document.getElementById('app')?.dataset.ycActiveServerContext==='community-b',{},{timeout:5000});
