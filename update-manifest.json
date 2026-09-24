@@ -8,15 +8,15 @@
     "notes": "Yamachat 1.0.82: jemné zvýraznění aktivního serveru v barvách Yamachatu; zachované tray, Windows ikony, voice, obnova hesla a Platform Admin funkce."
   },
   "android": {
-    "latestVersion": "1.1.0.190",
-    "latestVersionCode": 200190,
+    "latestVersion": "1.1.0.198",
+    "latestVersionCode": 200198,
     "required": true,
-    "apkUrl": "https://yamachat.eu/download/Yamachat-Android.apk?v=200190",
-    "sha256": "1366629e17192013617c2e55e3c3690ba5e6e22b3f5583f5945f26ef9ab2b35c",
+    "apkUrl": "https://yamachat.eu/download/Yamachat-Android.apk?v=200198",
+    "sha256": "200d335c3675afa6814d5bde6d8fe7c39e3c0090b689a31eb94c321f7b3f4ca0",
     "notes": [
-      "Aktivní server je nově zvýrazněný Yamachat ringem; na telefonu se navíc zobrazí jemná gradientová linka pod serverovým pruhem.",
-      "Při přepnutí serveru se zvýraznění přesune, mimo serverový kontext (Domů, Přátelé, DM) se vypne.",
-      "Zachována je obnova hesla přímo v Yamachatu, Platform Admin správa uživatelů, ban/odbanování a vzkazy do účtu."
+      "Obnova hesla se nyní žádá přímo v Yamachatu bez přechodu na webový formulář.",
+      "Odkaz z e-mailu otevře pouze zabezpečenou stránku pro nastavení nového hesla.",
+      "Zachována je Platform Admin správa uživatelů, ban/odbanování a vzkazy do účtu."
     ]
   }
 }
