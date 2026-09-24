@@ -59,6 +59,19 @@ const mock=baseMock
    assert.match(state.framePath,/^M /,target+' connected frame path must be drawn');
    const firstFramePath=state.framePath;
 
+   // On mobile, slide-out drawers must sit above the app without any frame/glow
+   // crossing their text or controls.
+   await page.setViewportSize({width:390,height:844});
+   await page.waitForTimeout(120);
+   await page.locator('#mobileMenu').click();
+   await page.waitForFunction(()=>document.getElementById('app')?.classList.contains('yc-mobile-drawer-open'));
+   assert.equal(await page.locator('#ycActiveServerConnectedFrame.show').count(),0,target+' connected frame must hide while a drawer is open');
+   await page.locator('#ycMobileScrim').click();
+   await page.waitForFunction(()=>!document.getElementById('app')?.classList.contains('yc-mobile-drawer-open'));
+   await page.waitForFunction(()=>document.getElementById('ycActiveServerConnectedFrame')?.classList.contains('show'));
+   await page.setViewportSize({width:1440,height:960});
+   await page.waitForTimeout(120);
+
    await page.locator('#ycV3Friends').click();
    await page.waitForFunction(()=>!document.getElementById('app')?.classList.contains('yc-active-server-context'));
    assert.equal(await page.locator('[data-community].yc-active-server-context-card').count(),0,target+' friends context must have no server highlight');
