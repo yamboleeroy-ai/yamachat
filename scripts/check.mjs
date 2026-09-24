@@ -35,8 +35,11 @@ try{
    "id: 'updates'"
  ]) assert(nativeBridgeSource.includes(marker),`Missing Android update-settings marker: ${marker}`);
  const generatedWeb=fs.readFileSync(path.join(root,'index.html'),'utf8');
- assert(generatedWeb.includes('ACTIVE SERVER CONTEXT 1.0.85'), 'Generated client is missing connected active-server context visual');
+ assert(generatedWeb.includes('ACTIVE SERVER DUAL FADE 1.0.86'), 'Generated client is missing dual fading active-server context visual');
  assert(generatedWeb.includes('ycServerContextVisualScript'), 'Generated client is missing the visual-only server context synchronizer');
+ assert(generatedWeb.includes('ycServerContextTrailLeft'), 'Generated client is missing the left fading server trail');
+ assert(generatedWeb.includes('ycServerContextTrailRight'), 'Generated client is missing the right fading server trail');
+ assert(!generatedWeb.includes('ycServerContextBridge'), 'Old single-line server bridge must be absent');
  assert(generatedWeb.includes('pointer-events:none!important'), 'Server context visual must never block pointer interaction');
  assert(generatedWeb.includes('.yc-v3-content-grid>.side.mobile-open'), 'Mobile server drawer context styling is missing');
  for(const forbidden of ['ycActiveServerConnectedFrame','__ycActiveServerContextV2','yc-active-server-context-card','ycActiveServerGlobalContext']){
