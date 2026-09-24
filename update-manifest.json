@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
-  "publishedAt": "2026-09-24T09:52:21Z",
+  "publishedAt": "2026-09-24T10:15:20Z",
   "windows": {
-    "latestVersion": "1.0.86",
+    "latestVersion": "1.0.87",
     "required": true,
-    "releaseUrl": "https://github.com/yamboleeroy-ai/yamachat/releases/tag/v1.0.86",
-    "notes": "Yamachat 1.0.86: oboustranné cyan/fialové fading traily z aktivní serverové karty a jemně napojený serverový panel; efekt neblokuje klikání, scroll ani swipe a voice, chat, tray, obnova hesla i Platform Admin zůstávají zachované."
+    "releaseUrl": "https://github.com/yamboleeroy-ai/yamachat/releases/tag/v1.0.87",
+    "notes": "Yamachat 1.0.87: rollback na stabilní stav Windows 1.0.85; odstraňuje změny z 1.0.86, které zasáhly rozložení. Voice, chat, tray, obnova hesla a Platform Admin zůstávají zachované."
   },
   "android": {
     "latestVersion": "1.1.0.220",
