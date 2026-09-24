@@ -5,7 +5,7 @@ on:
     branches:
       - release/windows-1.0.87-rollback-1.0.85
     paths:
-      - ".github/workflows/build-windows-1.0.85.yml"
+      - ".github/workflows/build-windows-1.0.87.yml"
 
 permissions:
   contents: write
