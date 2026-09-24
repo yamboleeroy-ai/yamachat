@@ -8,11 +8,11 @@
     "notes": "Yamachat 1.0.83: čistý build ze stabilní 1.0.81 s jemným cyan/fialovým zvýrazněním aktivního serveru; voice, tray, obnova hesla a Platform Admin zůstávají zachované."
   },
   "android": {
-    "latestVersion": "1.1.0.174",
-    "latestVersionCode": 200174,
+    "latestVersion": "1.1.0.217",
+    "latestVersionCode": 200217,
     "required": true,
-    "apkUrl": "https://yamachat.eu/download/Yamachat-Android.apk?v=200174",
-    "sha256": "9a0bddd851c9d4767b96cdfb95d86a902d644d44f5c7835640ed415f7e9b5dd2",
+    "apkUrl": "https://yamachat.eu/download/Yamachat-Android.apk?v=200217",
+    "sha256": "17c90b3ebea6784cc10c4af75db8fa90617f1a90daf500cccfa97aa23223d048",
     "notes": [
       "Obnova hesla se nyní žádá přímo v Yamachatu bez přechodu na webový formulář.",
       "Odkaz z e-mailu otevře pouze zabezpečenou stránku pro nastavení nového hesla.",
