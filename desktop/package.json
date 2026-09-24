@@ -1,7 +1,7 @@
 {
   "name": "yamachat-windows",
-  "version": "1.0.85",
-  "description": "Yamachat desktop 1.0.85 with connected active-server context visual",
+  "version": "1.0.86",
+  "description": "Yamachat desktop 1.0.86 with dual fading active-server context trails",
   "main": "main.js",
   "productName": "Yamachat",
   "author": "Yamachat",
