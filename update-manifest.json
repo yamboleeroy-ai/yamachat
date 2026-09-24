@@ -8,11 +8,11 @@
     "notes": "Yamachat 1.0.81: opravené Windows/tray ikony, obnovené tray chování a obnova hesla přímo uvnitř aplikace."
   },
   "android": {
-    "latestVersion": "1.1.0.174",
-    "latestVersionCode": 200174,
+    "latestVersion": "1.1.0.190",
+    "latestVersionCode": 200190,
     "required": true,
-    "apkUrl": "https://yamachat.eu/download/Yamachat-Android.apk?v=200174",
-    "sha256": "9a0bddd851c9d4767b96cdfb95d86a902d644d44f5c7835640ed415f7e9b5dd2",
+    "apkUrl": "https://yamachat.eu/download/Yamachat-Android.apk?v=200190",
+    "sha256": "1366629e17192013617c2e55e3c3690ba5e6e22b3f5583f5945f26ef9ab2b35c",
     "notes": [
       "Obnova hesla se nyní žádá přímo v Yamachatu bez přechodu na webový formulář.",
       "Odkaz z e-mailu otevře pouze zabezpečenou stránku pro nastavení nového hesla.",
