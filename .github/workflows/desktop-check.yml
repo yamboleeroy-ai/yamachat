@@ -95,7 +95,7 @@ jobs:
         run: |
           node - <<'NODE'
           const p=require('./desktop/package.json');
-          if(p.version!=='1.0.83') throw new Error('Expected desktop source version 1.0.83');
+          if(p.version!=='1.0.84') throw new Error('Expected desktop source version 1.0.84');
           if(!p.dependencies?.['electron-updater']) throw new Error('electron-updater missing');
           console.log('PASS desktop',p.version);
           NODE
