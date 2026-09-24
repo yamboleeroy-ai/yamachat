@@ -36,7 +36,7 @@ jobs:
             "Platform Admin · uživatelské účty",
             "Zabanovat účet",
             "Zprávy od Yamachatu",
-            "ACTIVE SERVER CONTEXT 1.0.86"
+            "ACTIVE SERVER DUAL FADE 1.0.86"
           )) {
             if (-not $client.Contains($marker)) { throw "Missing desktop client marker: $marker" }
           }
@@ -89,7 +89,10 @@ jobs:
           $appRoot = "desktop/dist/win-unpacked/resources/app"
           $client = Get-Content "$appRoot/desktop-client.html" -Raw
 
-          if (-not $client.Contains("ACTIVE SERVER CONTEXT 1.0.86")) { throw "Packaged client missing active-server glow" }
+          if (-not $client.Contains("ACTIVE SERVER DUAL FADE 1.0.86")) { throw "Packaged client missing active-server glow" }
+          if (-not $client.Contains("ycServerContextTrailLeft")) { throw "Packaged client missing left fading server trail" }
+          if (-not $client.Contains("ycServerContextTrailRight")) { throw "Packaged client missing right fading server trail" }
+          if ($client.Contains("ycServerContextBridge")) { throw "Packaged client still contains old single-line server bridge" }
           foreach ($forbidden in @(
             "ycActiveServerConnectedFrame",
             "__ycActiveServerContextV2",
@@ -102,7 +105,7 @@ jobs:
           $exe = Get-ChildItem desktop/dist/Yamachat-Setup-1.0.86.exe
           $block = Get-ChildItem desktop/dist/Yamachat-Setup-1.0.86.exe.blockmap
           $latest = Get-Content desktop/dist/latest.yml -Raw
-          if ($latest -notmatch "version:\s*1\.0\.85") { throw "latest.yml is not 1.0.86" }
+          if ($latest -notmatch "version:\s*1\.0\.86") { throw "latest.yml is not 1.0.86" }
 
           Write-Host "SETUP_SHA256=$((Get-FileHash $exe.FullName -Algorithm SHA256).Hash)"
           Write-Host "SETUP_SIZE=$($exe.Length)"
@@ -110,7 +113,7 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: yamachat-windows-1.0.86-connected-context
+          name: yamachat-windows-1.0.86-dual-fade
           path: |
             desktop/dist/Yamachat-Setup-1.0.86.exe
             desktop/dist/Yamachat-Setup-1.0.86.exe.blockmap
@@ -130,10 +133,10 @@ jobs:
 
       - uses: actions/download-artifact@v4
         with:
-          name: yamachat-windows-1.0.86-connected-context
+          name: yamachat-windows-1.0.86-dual-fade
           path: release-assets
 
-      - name: Create Windows 1.0.86 connected-context release
+      - name: Create Windows 1.0.86 dual-fade release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
