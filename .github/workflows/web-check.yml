@@ -24,6 +24,8 @@ jobs:
         run: node tests/password-recovery.cjs
       - name: Platform user management tests
         run: node tests/account-messages.cjs
+      - name: Active server context tests
+        run: node tests/active-server-context.cjs
       - name: Prepare web deployment
         run: |
           mkdir -p web-dist

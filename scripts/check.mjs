@@ -71,6 +71,11 @@ try{
  assert.equal(spawnSync(process.execPath,['--check',path.join(root,'web/password-request.js')],{encoding:'utf8'}).status,0,'In-app password request script must parse');
  for(const marker of ['ycPasswordRequestBack','ycPasswordRequestEmail','Odeslat odkaz',"sb.auth.resetPasswordForEmail(email","redirectTo:'https://yamachat.eu/reset-password.html'"]) assert(generatedWeb.includes(marker),'Generated web missing in-app password request: '+marker);
  assert(!generatedWeb.includes('id="ycForgotPassword" href="https://yamachat.eu/reset-password.html" target="_blank"'),'Forgot-password request must not leave the app');
+ const activeServerSource=fs.readFileSync(path.join(root,'web/active-server-context.js'),'utf8');
+ assert.equal(spawnSync(process.execPath,['--check',path.join(root,'web/active-server-context.js')],{encoding:'utf8'}).status,0,'Active server context script must parse');
+ for(const marker of ['yc-active-server-context','yc-active-server-context-card','dataset.ycActiveServerContext','ycActiveServerGlobalContext']) assert(generatedWeb.includes(marker),'Generated web missing active-server context marker: '+marker);
+ const activeServerCss=fs.readFileSync(path.join(root,'web/active-server-context.css'),'utf8');
+ for(const marker of ['linear-gradient(','@media(max-width:1100px)','yc-v3-ribbon::after','prefers-reduced-motion']) assert(activeServerCss.includes(marker),'Active server context CSS missing marker: '+marker);
  const accountMessagesSource=fs.readFileSync(path.join(root,'web/account-messages.js'),'utf8');
  assert.equal(spawnSync(process.execPath,['--check',path.join(root,'web/account-messages.js')],{encoding:'utf8'}).status,0,'Account messages script must parse');
  for(const marker of ["from('account_messages')",'window.ycOpenAccountInbox=ycOpenAccountInbox','window.ycOpenPlatformUsers=ycOpenPlatformUsers','created_by:user.id',"YC_ADMIN_USERS_FUNCTION='yamachat-snapshot-v11'","action:'ban'","action:'unban'","action:'self-status'"]) assert(accountMessagesSource.includes(marker),'Missing account/admin marker: '+marker);

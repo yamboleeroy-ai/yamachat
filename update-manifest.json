@@ -2,22 +2,21 @@
   "schemaVersion": 1,
   "publishedAt": "2026-09-23T22:46:52Z",
   "windows": {
-    "latestVersion": "1.0.80",
+    "latestVersion": "1.0.81",
     "required": true,
-    "releaseUrl": "https://github.com/yamboleeroy-ai/yamachat/releases/tag/v1.0.80",
-    "notes": "Yamachat 1.0.80: Platform Admin správa uživatelů, ban/odbanování, vzkazy do účtu a obnova hesla."
+    "releaseUrl": "https://github.com/yamboleeroy-ai/yamachat/releases/tag/v1.0.81",
+    "notes": "Yamachat 1.0.81: opravené Windows/tray ikony, obnovené tray chování a obnova hesla přímo uvnitř aplikace."
   },
   "android": {
-    "latestVersion": "1.1.0.157",
-    "latestVersionCode": 200157,
+    "latestVersion": "1.1.0.174",
+    "latestVersionCode": 200174,
     "required": true,
-    "apkUrl": "https://yamachat.eu/download/Yamachat-Android.apk?v=200157",
-    "sha256": "849b4a16ff3743cdc06452cfab57785d6dd527ea5ee07931d2787d9fab1466eb",
+    "apkUrl": "https://yamachat.eu/download/Yamachat-Android.apk?v=200174",
+    "sha256": "9a0bddd851c9d4767b96cdfb95d86a902d644d44f5c7835640ed415f7e9b5dd2",
     "notes": [
-      "Platform Admin má správu registrovaných uživatelských účtů včetně e-mailu, registrace a posledního přihlášení.",
-      "Přidaný ban na 24 hodin, 7 dní, 30 dní nebo dlouhodobě, odbanování a záznam důvodu zásahu.",
-      "Admin může uživateli poslat vzkaz přímo do účtu Yamachat.",
-      "Součástí společného klienta je také připravená obnova zapomenutého hesla."
+      "Obnova hesla se nyní žádá přímo v Yamachatu bez přechodu na webový formulář.",
+      "Odkaz z e-mailu otevře pouze zabezpečenou stránku pro nastavení nového hesla.",
+      "Zachována je Platform Admin správa uživatelů, ban/odbanování a vzkazy do účtu."
     ]
   }
 }
