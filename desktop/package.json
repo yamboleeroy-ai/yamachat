@@ -1,7 +1,7 @@
 {
   "name": "yamachat-windows",
-  "version": "1.0.84",
-  "description": "Yamachat desktop 1.0.84 based on stable 1.0.81 with visual-only active server glow",
+  "version": "1.0.85",
+  "description": "Yamachat desktop 1.0.85 with connected active-server context visual",
   "main": "main.js",
   "productName": "Yamachat",
   "author": "Yamachat",
