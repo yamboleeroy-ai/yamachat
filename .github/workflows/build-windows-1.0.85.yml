@@ -102,7 +102,7 @@ jobs:
           $exe = Get-ChildItem desktop/dist/Yamachat-Setup-1.0.85.exe
           $block = Get-ChildItem desktop/dist/Yamachat-Setup-1.0.85.exe.blockmap
           $latest = Get-Content desktop/dist/latest.yml -Raw
-          if ($latest -notmatch "version:\s*1\.0\.84") { throw "latest.yml is not 1.0.85" }
+          if ($latest -notmatch "version:\s*1\.0\.85") { throw "latest.yml is not 1.0.85" }
 
           Write-Host "SETUP_SHA256=$((Get-FileHash $exe.FullName -Algorithm SHA256).Hash)"
           Write-Host "SETUP_SIZE=$($exe.Length)"
@@ -110,7 +110,7 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: yamachat-windows-1.0.85-glow
+          name: yamachat-windows-1.0.85-connected-context
           path: |
             desktop/dist/Yamachat-Setup-1.0.85.exe
             desktop/dist/Yamachat-Setup-1.0.85.exe.blockmap
@@ -130,7 +130,7 @@ jobs:
 
       - uses: actions/download-artifact@v4
         with:
-          name: yamachat-windows-1.0.85-glow
+          name: yamachat-windows-1.0.85-connected-context
           path: release-assets
 
       - name: Create Windows 1.0.85 connected-context release
