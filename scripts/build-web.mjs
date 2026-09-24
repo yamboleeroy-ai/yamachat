@@ -5,6 +5,7 @@ import {fileURLToPath} from 'node:url';
 import {withProfileActions} from './profile-actions.mjs';
 import {withPasswordRecovery,buildPasswordRecovery} from './password-recovery.mjs';
 import {withAccountMessages} from './account-messages.mjs';
+import {withActiveServerGlow} from './active-server-glow.mjs';
 
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
 const read=p=>fs.readFileSync(path.join(root,p),'utf8');
@@ -66,7 +67,7 @@ window.YamachatDesktopAppearance=Object.freeze({
 })();`;
 
 buildPasswordRecovery(read(ref+'desktop-client.html'),root);
-let html=withAccountMessages(withPasswordRecovery(withProfileActions(read(ref+'desktop-client.html'))));
+let html=withActiveServerGlow(withAccountMessages(withPasswordRecovery(withProfileActions(read(ref+'desktop-client.html')))));
 
 // Desktop remains the source of truth. Only generated web/mobile output receives
 // browser/native adapters; the files under reference/desktop-1.0.78 are never patched here.
