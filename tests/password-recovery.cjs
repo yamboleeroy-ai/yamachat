@@ -95,7 +95,7 @@ for(const marker of ["fragment.get('token_hash')","fragment.get('access_token')"
   {
    const page=await browser.newPage({viewport:{width:390,height:844}}),calls=[],errors=[];
    page.on('pageerror',error=>errors.push(error.message));
-   await page.addInitScript(()=>localStorage.setItem('existing-login','do-not-touch'));
+   await page.addInitScript(()=>{localStorage.setItem('existing-login','do-not-touch');window.__ycInitialHash=location.hash});
    await page.route('**/*',async route=>{
     const u=new URL(route.request().url());
     if(u.hostname==='bxjvmjdppmqgbxfcowpf.supabase.co'){
