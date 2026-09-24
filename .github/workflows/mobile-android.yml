@@ -83,7 +83,7 @@ jobs:
               raise SystemExit('ANDROID_KEYSTORE_B64 must contain only the base64 file contents, not a path or label')
           Path(os.environ['ANDROID_KEYSTORE_PATH']).write_bytes(key)
           PY
-          export ANDROID_VERSION_CODE="$((200000 + GITHUB_RUN_NUMBER))"
+          export ANDROID_VERSION_CODE="200219"
           chmod +x gradlew
           ./gradlew assembleRelease
           cp app/build/outputs/apk/release/app-release.apk ../../Yamachat-Android.apk
@@ -154,6 +154,7 @@ jobs:
           exit 1
 
       - name: Restore APK artifact files after publish
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: |
           cp /tmp/Yamachat-Android.apk Yamachat-Android.apk
           cp /tmp/android-artifact.json android-artifact.json
