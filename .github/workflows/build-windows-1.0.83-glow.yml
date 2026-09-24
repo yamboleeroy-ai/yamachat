@@ -8,7 +8,7 @@ on:
       - ".github/workflows/build-windows-1.0.83-glow.yml"
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   build-windows:
@@ -117,3 +117,87 @@ jobs:
             desktop/dist/latest.yml
           if-no-files-found: error
           retention-days: 30
+
+
+  publish:
+    needs: build-windows
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: yamachat-windows-1.0.83-glow
+          path: release-assets
+
+      - name: Replace old 1.0.83 with clean release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          cat > release-notes.md <<'EOF'
+          Yamachat 1.0.83
+
+          - Postaveno přímo ze stabilního Windows základu 1.0.81.
+          - Aktivní server má jemné cyan/fialové zvýraznění ve stylu voice baru.
+          - Zvýraznění používá pouze existující stav aktivního serveru; nepřidává nový navigační ani voice runtime.
+          - Odstraněn předchozí vadný pokus s velkým propojeným rámem kolem obsahu.
+          - Zachované tray chování, Windows ikony, voice-safe minimize, obnova hesla a Platform Admin funkce.
+          EOF
+
+          if gh release view v1.0.83 --repo "${GITHUB_REPOSITORY}" >/dev/null 2>&1; then
+            gh release delete v1.0.83 --repo "${GITHUB_REPOSITORY}" --yes --cleanup-tag
+          fi
+
+          gh release create v1.0.83 release-assets/* \
+            --repo "${GITHUB_REPOSITORY}" \
+            --target feature/desktop-active-server-glow-1.0.83-clean \
+            --title "Yamachat 1.0.83" \
+            --notes-file release-notes.md \
+            --latest
+
+      - name: Point Windows updater to clean 1.0.83
+        run: |
+          set -euo pipefail
+          cp release-assets/latest.yml /tmp/yamachat-latest.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          for attempt in 1 2 3; do
+            git fetch origin main
+            git checkout -B publish-main origin/main
+
+            python - <<'PY'
+          import json, pathlib, re
+          from datetime import datetime, timezone
+
+          latest=pathlib.Path('/tmp/yamachat-latest.yml').read_text(encoding='utf-8')
+          match=re.search(r"^version:\s*['\"]?([^'\"\s]+)",latest,re.M)
+          if not match or match.group(1) != '1.0.83':
+              raise SystemExit('latest.yml version mismatch')
+
+          path=pathlib.Path('update-manifest.json')
+          manifest=json.loads(path.read_text(encoding='utf-8'))
+          manifest['publishedAt']=datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace('+00:00','Z')
+          windows=manifest.setdefault('windows',{})
+          windows['latestVersion']='1.0.83'
+          windows['required']=True
+          windows['releaseUrl']='https://github.com/yamboleeroy-ai/yamachat/releases/tag/v1.0.83'
+          windows['notes']='Yamachat 1.0.83: čistý build ze stabilní 1.0.81 s jemným cyan/fialovým zvýrazněním aktivního serveru; voice, tray, obnova hesla a Platform Admin zůstávají zachované.'
+          path.write_text(json.dumps(manifest,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
+          PY
+
+            git add update-manifest.json
+            if git diff --cached --quiet; then
+              exit 0
+            fi
+            git commit -m "Publish clean Windows updater 1.0.83 [skip ci]"
+            if git push origin HEAD:main; then
+              exit 0
+            fi
+            sleep 2
+          done
+          exit 1
