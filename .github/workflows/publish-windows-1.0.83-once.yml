@@ -3,7 +3,7 @@ name: Publish Yamachat Windows 1.0.83 Once
 on:
   push:
     branches:
-      - feature/desktop-active-server-context-1.0.83
+      - feature/desktop-connected-frame-1.0.83
     paths:
       - ".github/workflows/publish-windows-1.0.83-once.yml"
 
@@ -16,7 +16,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: feature/desktop-active-server-context-1.0.83
+          ref: feature/desktop-connected-frame-1.0.83
 
       - uses: actions/setup-node@v4
         with:
