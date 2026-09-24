@@ -6,6 +6,7 @@ on:
       - "desktop/**"
       - "scripts/**"
       - "web/**"
+      - "tests/active-server-context.cjs"
       - "reference/**"
       - ".github/workflows/desktop-check.yml"
       - ".github/workflows/publish-yamachat-release.yml"
