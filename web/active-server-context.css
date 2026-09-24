@@ -1,9 +1,9 @@
 /* Connected active-server frame.
    The active server card becomes one visual tab attached to the server content. */
 :root{
-  --yc-active-server-cyan:var(--yc-theme,#35e7ff);
-  --yc-active-server-violet:var(--yc-logo-secondary,#b34dff);
-  --yc-active-server-pink:#ee5bd7;
+  --yc-active-server-cyan:#39bed5;
+  --yc-active-server-violet:#b455de;
+  --yc-active-server-pink:#7d78c9;
 }
 #ycActiveServerConnectedFrame{
   position:fixed;
@@ -24,11 +24,11 @@
 #ycActiveServerConnectedFrame .yc-active-server-frame-glow{
   fill:none;
   stroke:url(#ycActiveServerFrameGradient);
-  stroke-width:12;
+  stroke-width:6;
   stroke-linecap:round;
   stroke-linejoin:round;
-  opacity:.24;
-  filter:blur(5px);
+  opacity:.14;
+  filter:blur(3px);
 }
 #ycActiveServerConnectedFrame .yc-active-server-frame-core{
   fill:none;
@@ -36,32 +36,32 @@
   stroke-width:2;
   stroke-linecap:round;
   stroke-linejoin:round;
-  opacity:.80;
-  filter:
-    drop-shadow(0 0 3px color-mix(in srgb,var(--yc-active-server-cyan) 70%,transparent))
-    drop-shadow(0 0 8px color-mix(in srgb,var(--yc-active-server-violet) 55%,transparent))
-    drop-shadow(0 0 12px color-mix(in srgb,var(--yc-active-server-pink) 28%,transparent));
+  opacity:.62;
+  filter:drop-shadow(0 0 3px rgba(75,177,218,.20));
 }
 .yc-v3-ribbon .server[data-community].yc-active-server-context-card{
   position:relative!important;
   z-index:5!important;
   border-color:transparent!important;
   background:
-    radial-gradient(circle at 18% 18%,color-mix(in srgb,var(--yc-active-server-cyan) 16%,transparent),transparent 42%),
-    linear-gradient(135deg,color-mix(in srgb,var(--yc-server-color,var(--yc-active-server-cyan)) 25%,#102536),#09131c)!important;
+    radial-gradient(ellipse at 0% 15%,rgba(207,57,248,.28),transparent 56%),
+    linear-gradient(105deg,rgba(123,42,157,.32),rgba(9,24,40,.94) 52%,rgba(26,111,139,.22)),
+    #091725!important;
   box-shadow:
-    inset 0 0 0 1px color-mix(in srgb,var(--yc-active-server-cyan) 24%,transparent),
-    inset 0 -12px 28px color-mix(in srgb,var(--yc-active-server-violet) 9%,transparent),
-    0 0 22px color-mix(in srgb,var(--yc-active-server-violet) 22%,transparent),
-    0 0 11px color-mix(in srgb,var(--yc-active-server-cyan) 18%,transparent)!important;
-  filter:saturate(1.18) brightness(1.09);
+    inset 1px 0 0 rgba(196,76,233,.65),
+    inset -1px 0 0 rgba(47,190,217,.65),
+    inset 0 1px 0 rgba(140,100,206,.34),
+    inset 0 -1px 0 rgba(64,166,201,.30),
+    -3px 0 10px rgba(183,46,230,.18),
+    3px 0 10px rgba(40,182,207,.15)!important;
+  filter:none!important;
 
   transition:box-shadow .18s ease,filter .18s ease,transform .18s ease!important;
 }
 .yc-v3-ribbon .server[data-community].yc-active-server-context-card .yc-v3-community-mark{
-  box-shadow:
-    0 0 0 1px color-mix(in srgb,var(--yc-active-server-cyan) 38%,transparent),
-    0 0 13px color-mix(in srgb,var(--yc-active-server-violet) 24%,transparent);
+  border-color:rgba(165,76,202,.48)!important;
+  background:linear-gradient(140deg,rgba(153,67,185,.35),rgba(22,21,44,.86))!important;
+  box-shadow:inset 0 1px rgba(225,162,244,.12),0 0 7px rgba(170,64,207,.18)!important;
 }
 /* The frame never raises app content or creates a competing stacking context.
    Drawers, chat surfaces, voice controls and scrims keep their original layering. */
@@ -70,15 +70,15 @@
   visibility:hidden!important;
 }
 @media(max-width:1100px){
-  #ycActiveServerConnectedFrame .yc-active-server-frame-glow{stroke-width:9;opacity:.20;filter:blur(4px)}
+  #ycActiveServerConnectedFrame .yc-active-server-frame-glow{stroke-width:6;opacity:.14;filter:blur(3px)}
   #ycActiveServerConnectedFrame .yc-active-server-frame-core{stroke-width:2}
   .yc-v3-ribbon .server[data-community].yc-active-server-context-card{
 
-    filter:saturate(1.16) brightness(1.08);
+    filter:none!important;
   }
 }
 @media(max-width:640px){
-  #ycActiveServerConnectedFrame .yc-active-server-frame-glow{stroke-width:7;opacity:.18}
+  #ycActiveServerConnectedFrame .yc-active-server-frame-glow{stroke-width:6;opacity:.14}
   #ycActiveServerConnectedFrame .yc-active-server-frame-core{stroke-width:2}
 }
 @media(prefers-reduced-motion:reduce){

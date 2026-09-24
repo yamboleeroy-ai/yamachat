@@ -33,9 +33,9 @@ function ycEnsureConnectedFrame(){
   svg.innerHTML=
     '<defs>'+
       '<linearGradient id="ycActiveServerFrameGradient" gradientUnits="userSpaceOnUse">'+
-        '<stop offset="0%" stop-color="var(--yc-active-server-cyan,#35e7ff)"/>'+
-        '<stop offset="42%" stop-color="var(--yc-active-server-violet,#b34dff)"/>'+
-        '<stop offset="72%" stop-color="var(--yc-active-server-pink,#ee5bd7)"/>'+
+        '<stop offset="0%" stop-color="var(--yc-active-server-violet,#b455de)"/>'+
+        '<stop offset="38%" stop-color="var(--yc-active-server-pink,#7d78c9)"/>'+
+        '<stop offset="68%" stop-color="var(--yc-active-server-cyan,#39bed5)"/>'+
         '<stop offset="100%" stop-color="var(--yc-active-server-cyan,#35e7ff)"/>'+
       '</linearGradient>'+
     '</defs>'+
@@ -118,7 +118,7 @@ function ycDrawConnectedFrame(active,content){
   gradient?.setAttribute('x1',String(contentRect.left));
   gradient?.setAttribute('x2',String(contentRect.right));
   gradient?.setAttribute('y1',String(cardRect.top));
-  gradient?.setAttribute('y2',String(contentRect.bottom));
+  gradient?.setAttribute('y2',String(cardRect.top));
 
   const rail=active.closest('.yc-v3-ribbon')?.getBoundingClientRect();
   const clippedCard=cardRect.toJSON();

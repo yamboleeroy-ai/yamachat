@@ -20,8 +20,11 @@ const mock=baseMock
 (async()=>{
  const browser=await chromium.launch({headless:true,...(process.env.BROWSER_EXECUTABLE?{executablePath:process.env.BROWSER_EXECUTABLE}:{})});
  try{
-  for(const target of ['index.html','desktop-client-dist/desktop-client.html']){
-   const page=await browser.newPage({viewport:{width:1440,height:960},serviceWorkers:'block'});
+  for(const [target,platform] of [['index.html','web'],['index.html','android'],['index.html','ios-pwa'],['desktop-client-dist/desktop-client.html','desktop']]){
+   const adapt=html=>platform==='android'?html.replace('<head>','<head><script>document.documentElement.classList.add("yc-native-android");<\/script>'):html;
+   const options=platform==='ios-pwa'?{userAgent:'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 Version/18.0 Mobile/15E148 Safari/604.1'}:{};
+   const page=await browser.newPage({viewport:{width:1440,height:960},serviceWorkers:'block',...options});
+   if(platform==='ios-pwa')await page.addInitScript(()=>Object.defineProperty(navigator,'standalone',{get:()=>true}));
    const errors=[];page.on('pageerror',e=>errors.push(e.message));
    await page.route('**/*',route=>{
     const u=new URL(route.request().url());
@@ -30,7 +33,7 @@ const mock=baseMock
       return route.fulfill({contentType:'application/javascript',body:mock});
     }
     if(u.pathname==='/'){
-      return route.fulfill({contentType:'text/html',body:fs.readFileSync(path.join(root,target),'utf8')});
+      return route.fulfill({contentType:'text/html',body:adapt(fs.readFileSync(path.join(root,target),'utf8'))});
     }
     const file=path.join(root,decodeURIComponent(u.pathname));
     if(!file.startsWith(root+path.sep)||!fs.existsSync(file))return route.fulfill({status:404,body:''});
@@ -100,17 +103,18 @@ const mock=baseMock
      assert.equal(geometry.pointer,'none');assert.equal(geometry.stroke,'2px');assert.equal(geometry.visible,true);
      assert.equal(geometry.overflow,false,'frame must not create horizontal overflow');
      if(geometry.voiceBottom>0)assert(geometry.bottom>=Math.min(height-3,geometry.voiceBottom)-4,'frame must contain existing voice dock');
-     await page.screenshot({path:path.join(__dirname,`connected-frame-${target==='index.html'?'web':'desktop'}-${width}x${height}.png`)});
+     await page.screenshot({path:path.join(__dirname,`connected-frame-${platform}-${width}x${height}.png`)});
      // Rendering the frame must not continually reschedule itself while idle.
      await page.evaluate(()=>{window.__frameChanges=0;window.__frameAudit=new MutationObserver(rs=>window.__frameChanges+=rs.filter(r=>r.attributeName==='d').length);window.__frameAudit.observe(document.getElementById('ycActiveServerConnectedFrame'),{subtree:true,attributes:true})});
      await page.waitForTimeout(350);
      assert((await page.evaluate(()=>window.__frameChanges))<8,'frame must settle when app is idle');
      await page.evaluate(()=>window.__frameAudit.disconnect());
      const html=fs.readFileSync(path.join(root,target),'utf8').replace(visual,'').replace(css,'');
-     const base=await browser.newPage({viewport:{width,height},serviceWorkers:'block'});
+     const base=await browser.newPage({viewport:{width,height},serviceWorkers:'block',...options});
+     if(platform==='ios-pwa')await base.addInitScript(()=>Object.defineProperty(navigator,'standalone',{get:()=>true}));
      await base.route('**/*',route=>{
        const u=new URL(route.request().url());if(u.hostname!=='127.0.0.1')return route.abort();
-       if(u.pathname==='/')return route.fulfill({contentType:'text/html',body:html});
+       if(u.pathname==='/')return route.fulfill({contentType:'text/html',body:adapt(html)});
        if(u.pathname==='/vendor/supabase.js'||u.pathname.endsWith('/node_modules/@supabase/supabase-js/dist/umd/supabase.js'))return route.fulfill({contentType:'application/javascript',body:mock});
        const file=path.join(root,decodeURIComponent(u.pathname));return file.startsWith(root+path.sep)&&fs.existsSync(file)?route.fulfill({path:file}):route.fulfill({status:404,body:''});
      });
@@ -147,7 +151,7 @@ const mock=baseMock
 
    assert.deepEqual(errors,[],target+' page errors: '+JSON.stringify(errors));
    await page.close();
-   console.log('PASS active server context:',target);
+   console.log('PASS active server context:',target,platform);
   }
  }finally{await browser.close()}
 })().catch(error=>{console.error(error);process.exitCode=1});
