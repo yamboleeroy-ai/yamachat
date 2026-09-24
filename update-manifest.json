@@ -8,14 +8,14 @@
     "notes": "Yamachat 1.0.88: tenký fialovo-cyan obrys celé aktivní serverové části včetně voice baru; přesun mezi servery a zhasnutí v soukromých zprávách. Stabilní základ 1.0.81, beze změn voice, chatu a obnovy hesla."
   },
   "android": {
-    "latestVersion": "1.1.0.221",
-    "latestVersionCode": 200221,
+    "latestVersion": "1.1.0.247",
+    "latestVersionCode": 200247,
     "required": true,
-    "apkUrl": "https://yamachat.eu/download/Yamachat-Android.apk?v=200221",
-    "sha256": "aef017246bfbe31ad700509e872cb7688a38e3e4906ea331f599543fec40d8f1",
+    "apkUrl": "https://yamachat.eu/download/Yamachat-Android.apk?v=200247",
+    "sha256": "37806b3c9ecd09af45dc87a5eaa25b2254a734ab14e4c0d53a3efaeaf59544ee",
     "notes": [
-      "Obnova hesla se nyní žádá přímo v Yamachatu bez přechodu na webový formulář.",
-      "Odkaz z e-mailu otevře pouze zabezpečenou stránku pro nastavení nového hesla.",
+      "Tenký fialovo-cyan obrys propojuje aktivní server s chatem, členy a voice barem.",
+      "Efekt mizí v soukromých zprávách a zachovává mobilní výsuvné panely.",
       "Zachována je Platform Admin správa uživatelů, ban/odbanování a vzkazy do účtu."
     ]
   }
