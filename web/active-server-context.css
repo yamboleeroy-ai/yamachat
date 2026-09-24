@@ -63,6 +63,13 @@
   background:linear-gradient(140deg,rgba(153,67,185,.35),rgba(22,21,44,.86))!important;
   box-shadow:inset 0 1px rgba(225,162,244,.12),0 0 7px rgba(170,64,207,.18)!important;
 }
+.yc-v3-ribbon .server[data-community].yc-active-server-context-card::before{
+  opacity:.12!important;
+}
+.yc-v3-ribbon .server[data-community].yc-active-server-context-card::after{
+  background:linear-gradient(100deg,rgba(185,50,222,.24),transparent 52%,rgba(36,166,192,.10))!important;
+  box-shadow:inset 1px 0 rgba(200,76,230,.55),inset -1px 0 rgba(54,187,212,.55)!important;
+}
 /* The frame never raises app content or creates a competing stacking context.
    Drawers, chat surfaces, voice controls and scrims keep their original layering. */
 #app.yc-mobile-drawer-open ~ #ycActiveServerConnectedFrame{

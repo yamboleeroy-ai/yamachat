@@ -69,6 +69,8 @@ const mock=baseMock
     await page.waitForTimeout(120);
     await page.locator('#mobileMenu').click();
     await page.waitForFunction(()=>document.getElementById('app')?.classList.contains('yc-mobile-drawer-open'));
+    await page.locator('#ycActiveServerConnectedFrame').waitFor({state:'hidden'});
+    await page.waitForFunction(()=>!document.getElementById('ycActiveServerConnectedFrame')?.classList.contains('show'));
     assert.equal(await page.locator('#ycActiveServerConnectedFrame.show').count(),0,target+' connected frame must hide while a drawer is open');
     assert(await page.locator('#side.mobile-open').isVisible(),target+' channel drawer must remain visible');
     await page.locator('[data-channel="chat-b"]').click();
