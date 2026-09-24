@@ -153,6 +153,11 @@ jobs:
           done
           exit 1
 
+      - name: Restore APK artifact files after publish
+        run: |
+          cp /tmp/Yamachat-Android.apk Yamachat-Android.apk
+          cp /tmp/android-artifact.json android-artifact.json
+
       - name: Upload Yamachat APK artifact
         uses: actions/upload-artifact@v4
         with:
