@@ -36,7 +36,7 @@ jobs:
             "Platform Admin · uživatelské účty",
             "Zabanovat účet",
             "Zprávy od Yamachatu",
-            "ACTIVE SERVER GLOW 1.0.84"
+            "ACTIVE SERVER GLOW 1.0.83"
           )) {
             if (-not $client.Contains($marker)) { throw "Missing desktop client marker: $marker" }
           }
@@ -89,7 +89,7 @@ jobs:
           $appRoot = "desktop/dist/win-unpacked/resources/app"
           $client = Get-Content "$appRoot/desktop-client.html" -Raw
 
-          if (-not $client.Contains("ACTIVE SERVER GLOW 1.0.84")) { throw "Packaged client missing active-server glow" }
+          if (-not $client.Contains("ACTIVE SERVER GLOW 1.0.83")) { throw "Packaged client missing active-server glow" }
           foreach ($forbidden in @(
             "ycActiveServerConnectedFrame",
             "__ycActiveServerContextV2",
