@@ -1,0 +1,47 @@
+name: Rollback Yamachat To Pre-Glow Stable State
+
+on:
+  push:
+    branches:
+      - rollback/pre-glow-stable-20260924
+    paths:
+      - ".github/workflows/rollback-pre-glow-once.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  rollback:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Restore exact pre-glow tree
+        run: |
+          set -euo pipefail
+          BASE=1a86ccb8b20d52d495363ea2f695cd0735e29c2c
+          git cat-file -e "$BASE^{commit}"
+
+          git checkout "$BASE" --             .github/workflows/web-check.yml             download/Yamachat-Android.apk             index.html             scripts/build-desktop-client.mjs             scripts/build-web.mjs             scripts/check.mjs             update-manifest.json
+
+          git rm -f             scripts/active-server-context.mjs             tests/active-server-context.cjs             web/active-server-context.css             web/active-server-context.js
+
+          # We are intentionally restoring the whole repository tree to the exact
+          # pre-glow stable commit. Any unexpected remaining difference is a stop.
+          if ! git diff --quiet "$BASE" -- .; then
+            echo "Tree still differs from the pre-glow stable commit:"
+            git diff --name-status "$BASE" -- .
+            exit 1
+          fi
+
+      - name: Commit rollback to main
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "Rollback Yamachat to pre-glow stable state"
+          git push origin HEAD:main
