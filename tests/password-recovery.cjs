@@ -1,7 +1,7 @@
 const fs=require('fs'),path=require('path'),assert=require('node:assert/strict');
 const {chromium}=require('playwright');
 const root=path.resolve(__dirname,'..');
-const jwt=()=>[Buffer.from(JSON.stringify({alg:'HS256',typ:'JWT'})).toString('base64url'),Buffer.from(JSON.stringify({sub:'11111111-1111-4111-8111-111111111111',exp:Math.floor(Date.now()/1000)+3600,iat:Math.floor(Date.now()/1000),role:'authenticated',aud:'authenticated'})).toString('base64url'),'testsignature'].join('.');
+const jwt=()=>[Buffer.from(JSON.stringify({alg:'HS256',typ:'JWT'})).toString('base64url'),Buffer.from(JSON.stringify({sub:'11111111-1111-4111-8111-111111111111',exp:Math.floor(Date.now()/1000)+3600,iat:Math.floor(Date.now()/1000),role:'authenticated',aud:'authenticated'})).toString('base64url'),Buffer.from('test-signature').toString('base64url')].join('.');
 
 for(const target of ['index.html','desktop-client-dist/desktop-client.html']){
  const html=fs.readFileSync(path.join(root,target),'utf8');
