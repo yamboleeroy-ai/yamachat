@@ -1,3 +1,4 @@
+import {withServerContextGlow} from './server-context-glow.mjs';
 import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
@@ -66,7 +67,7 @@ window.YamachatDesktopAppearance=Object.freeze({
 })();`;
 
 buildPasswordRecovery(read(ref+'desktop-client.html'),root);
-let html=withAccountMessages(withPasswordRecovery(withProfileActions(read(ref+'desktop-client.html'))));
+let html=withServerContextGlow(withAccountMessages(withPasswordRecovery(withProfileActions(read(ref+'desktop-client.html')))));
 
 // Desktop remains the source of truth. Only generated web/mobile output receives
 // browser/native adapters; the files under reference/desktop-1.0.78 are never patched here.
