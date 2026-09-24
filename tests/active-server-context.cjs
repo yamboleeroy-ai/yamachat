@@ -59,26 +59,28 @@ const mock=baseMock
    assert.match(state.framePath,/^M /,target+' connected frame path must be drawn');
    const firstFramePath=state.framePath;
 
-   // On mobile, slide-out drawers must sit above the app without any frame/glow
-   // crossing their text or controls.
-   await page.setViewportSize({width:390,height:844});
-   await page.waitForTimeout(120);
-   await page.locator('#mobileMenu').click();
-   await page.waitForFunction(()=>document.getElementById('app')?.classList.contains('yc-mobile-drawer-open'));
-   assert.equal(await page.locator('#ycActiveServerConnectedFrame.show').count(),0,target+' connected frame must hide while a drawer is open');
-   assert(await page.locator('#side.mobile-open').isVisible(),target+' channel drawer must remain visible');
-   await page.locator('[data-channel="chat-b"]').click();
-   await page.waitForFunction(()=>!document.getElementById('app')?.classList.contains('yc-mobile-drawer-open'));
-   await page.waitForFunction(()=>document.getElementById('ycActiveServerConnectedFrame')?.classList.contains('show'));
-   await page.locator('#mobileMenu').click();
-   await page.waitForFunction(()=>document.getElementById('app')?.classList.contains('yc-mobile-drawer-open'));
-   const scrimBox=await page.locator('#ycMobileScrim').boundingBox();
-   assert(scrimBox,target+' mobile scrim must have geometry');
-   await page.mouse.click(scrimBox.x+scrimBox.width-6,scrimBox.y+Math.min(300,scrimBox.height/2));
-   await page.waitForFunction(()=>!document.getElementById('app')?.classList.contains('yc-mobile-drawer-open'));
-   await page.waitForFunction(()=>document.getElementById('ycActiveServerConnectedFrame')?.classList.contains('show'));
-   await page.setViewportSize({width:1440,height:960});
-   await page.waitForTimeout(120);
+   // Mobile drawers exist only in the web/PWA/mobile build. They must stay
+   // above the decorative frame and remain fully interactive.
+   if(target==='index.html'){
+    await page.setViewportSize({width:390,height:844});
+    await page.waitForTimeout(120);
+    await page.locator('#mobileMenu').click();
+    await page.waitForFunction(()=>document.getElementById('app')?.classList.contains('yc-mobile-drawer-open'));
+    assert.equal(await page.locator('#ycActiveServerConnectedFrame.show').count(),0,target+' connected frame must hide while a drawer is open');
+    assert(await page.locator('#side.mobile-open').isVisible(),target+' channel drawer must remain visible');
+    await page.locator('[data-channel="chat-b"]').click();
+    await page.waitForFunction(()=>!document.getElementById('app')?.classList.contains('yc-mobile-drawer-open'));
+    await page.waitForFunction(()=>document.getElementById('ycActiveServerConnectedFrame')?.classList.contains('show'));
+    await page.locator('#mobileMenu').click();
+    await page.waitForFunction(()=>document.getElementById('app')?.classList.contains('yc-mobile-drawer-open'));
+    const scrimBox=await page.locator('#ycMobileScrim').boundingBox();
+    assert(scrimBox,target+' mobile scrim must have geometry');
+    await page.mouse.click(scrimBox.x+scrimBox.width-6,scrimBox.y+Math.min(300,scrimBox.height/2));
+    await page.waitForFunction(()=>!document.getElementById('app')?.classList.contains('yc-mobile-drawer-open'));
+    await page.waitForFunction(()=>document.getElementById('ycActiveServerConnectedFrame')?.classList.contains('show'));
+    await page.setViewportSize({width:1440,height:960});
+    await page.waitForTimeout(120);
+   }
 
    await page.locator('#ycV3Friends').click();
    await page.waitForFunction(()=>!document.getElementById('app')?.classList.contains('yc-active-server-context'));
