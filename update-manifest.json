@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
-  "publishedAt": "2026-09-24T09:07:29Z",
+  "publishedAt": "2026-09-24T09:26:56Z",
   "windows": {
-    "latestVersion": "1.0.84",
+    "latestVersion": "1.0.85",
     "required": true,
-    "releaseUrl": "https://github.com/yamboleeroy-ai/yamachat/releases/tag/v1.0.84",
-    "notes": "Yamachat 1.0.84: nový release ověřeného aktivního server glow buildu; voice, tray, obnova hesla a Platform Admin zůstávají zachované."
+    "releaseUrl": "https://github.com/yamboleeroy-ai/yamachat/releases/tag/v1.0.85",
+    "notes": "Yamachat 1.0.85: výraznější cyan/fialový aktivní server a vizuální propojení se serverovým panelem; propojení neblokuje ovládání a voice, chat, tray, obnova hesla i Platform Admin zůstávají zachované."
   },
   "android": {
     "latestVersion": "1.1.0.218",
