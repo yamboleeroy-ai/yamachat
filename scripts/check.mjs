@@ -35,6 +35,11 @@ try{
    "id: 'updates'"
  ]) assert(nativeBridgeSource.includes(marker),`Missing Android update-settings marker: ${marker}`);
  const generatedWeb=fs.readFileSync(path.join(root,'index.html'),'utf8');
+ assert(generatedWeb.includes('ACTIVE SERVER GLOW 1.0.83'), 'Generated client is missing visual-only active server glow');
+ for(const forbidden of ['ycActiveServerConnectedFrame','__ycActiveServerContextV2','yc-active-server-context-card','ycActiveServerGlobalContext']){
+   assert(!generatedWeb.includes(forbidden),'Generated client contains old active-server runtime: '+forbidden);
+ }
+ assert(generatedWeb.includes("document.querySelectorAll('#rail [data-community]').forEach(b=>b.classList.remove('active'))"), 'Friends/DM mode must clear active server selection');
  assert(generatedWeb.includes('window.YamachatAppSettings={register:ycRegisterAppSettingsSection,open:ycOpenAppSettings'), 'Generated client is missing YamachatAppSettings registry');
  console.log('PASS: Android manual update-check section is registered and wired to the shared update manifest.');
  const mobileCss=fs.readFileSync(path.join(root,'web/mobile.css'),'utf8');
