@@ -8,11 +8,11 @@
     "notes": "Yamachat 1.0.87: rollback na stabilní stav Windows 1.0.85; odstraňuje změny z 1.0.86, které zasáhly rozložení. Voice, chat, tray, obnova hesla a Platform Admin zůstávají zachované."
   },
   "android": {
-    "latestVersion": "1.1.0.220",
-    "latestVersionCode": 200220,
+    "latestVersion": "1.1.0.221",
+    "latestVersionCode": 200221,
     "required": true,
-    "apkUrl": "https://yamachat.eu/download/Yamachat-Android.apk?v=200220",
-    "sha256": "018f70ca03d195a4a2f9cb44f6fa8eae8ec74923cec0ef6e178b6b72c541dee3",
+    "apkUrl": "https://yamachat.eu/download/Yamachat-Android.apk?v=200221",
+    "sha256": "aef017246bfbe31ad700509e872cb7688a38e3e4906ea331f599543fec40d8f1",
     "notes": [
       "Obnova hesla se nyní žádá přímo v Yamachatu bez přechodu na webový formulář.",
       "Odkaz z e-mailu otevře pouze zabezpečenou stránku pro nastavení nového hesla.",
