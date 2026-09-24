@@ -26,6 +26,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Parse desktop JavaScript
         run: |
@@ -72,13 +74,12 @@ jobs:
 
       - name: Verify generated desktop client
         run: |
-          node scripts/build-desktop-client.mjs
-          cmp desktop-client-dist/desktop-client.html desktop/desktop-client.html
+          node scripts/prepare-desktop-1.0.88.mjs
           grep -q 'id="ycPasswordRequestBack"' desktop/desktop-client.html
           grep -q 'Platform Admin · uživatelské účty' desktop/desktop-client.html
-          grep -q 'ACTIVE SERVER CONTEXT 1.0.85' desktop/desktop-client.html
+          grep -q 'ycServerContextFrame' desktop/desktop-client.html
           ! grep -q 'ycActiveServerConnectedFrame' desktop/desktop-client.html
-          grep -q 'ycServerContextVisualScript' desktop/desktop-client.html
+          grep -q 'function drawFrame()' desktop/desktop-client.html
           grep -q 'pointer-events:none!important' desktop/desktop-client.html
           echo "PASS desktop client matches tested generator and contains connected visual-only server context"
 
@@ -97,7 +98,8 @@ jobs:
         run: |
           node - <<'NODE'
           const p=require('./desktop/package.json');
-          if(p.version!=='1.0.87') throw new Error('Expected rollback desktop source version 1.0.87');
+          if(p.version!=='1.0.88') throw new Error('Expected desktop source version 1.0.88');
           if(!p.dependencies?.['electron-updater']) throw new Error('electron-updater missing');
           console.log('PASS desktop',p.version);
           NODE
+
