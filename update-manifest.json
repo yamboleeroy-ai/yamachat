@@ -8,11 +8,11 @@
     "notes": "Yamachat 1.0.85: výraznější cyan/fialový aktivní server a vizuální propojení se serverovým panelem; propojení neblokuje ovládání a voice, chat, tray, obnova hesla i Platform Admin zůstávají zachované."
   },
   "android": {
-    "latestVersion": "1.1.0.218",
-    "latestVersionCode": 200218,
+    "latestVersion": "1.1.0.219",
+    "latestVersionCode": 200219,
     "required": true,
-    "apkUrl": "https://yamachat.eu/download/Yamachat-Android.apk?v=200218",
-    "sha256": "28a5ca12586952f7cb1a52753454c1885e36073bf83147f411d30ed9adaccd92",
+    "apkUrl": "https://yamachat.eu/download/Yamachat-Android.apk?v=200219",
+    "sha256": "d2636b9d2882376b3c1382bce6f93705db94f4ef459d69fd4fe4b50b0f5d2c2b",
     "notes": [
       "Obnova hesla se nyní žádá přímo v Yamachatu bez přechodu na webový formulář.",
       "Odkaz z e-mailu otevře pouze zabezpečenou stránku pro nastavení nového hesla.",
