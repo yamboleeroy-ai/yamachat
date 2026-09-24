@@ -18,7 +18,7 @@ for(const marker of ["fragment.get('token_hash')","fragment.get('access_token')"
   for(const scenario of ['request','unknown','rate-limit','offline','reset','expired','weak','mismatch','invalid-type']){
    const page=await browser.newPage({viewport:{width:390,height:844}}),calls=[],errors=[];let updates=0;
    page.on('pageerror',error=>errors.push(error.message));
-   await page.addInitScript(()=>localStorage.setItem('existing-login','do-not-touch'));
+   await page.addInitScript(()=>{localStorage.setItem('existing-login','do-not-touch');window.__ycInitialHash=location.hash});
    await page.route('**/*',async route=>{
     const u=new URL(route.request().url());
     if(u.hostname==='bxjvmjdppmqgbxfcowpf.supabase.co'){
@@ -117,6 +117,7 @@ for(const marker of ["fragment.get('token_hash')","fragment.get('access_token')"
     await page.waitForFunction(()=>document.getElementById('recoveryStatus')?.textContent.includes('Odkaz je platný'),{},{timeout:5000});
    }catch(error){
     console.error('IMPLICIT STATUS',await page.locator('#recoveryStatus').innerText());
+    console.error('IMPLICIT INITIAL HASH',await page.evaluate(()=>window.__ycInitialHash));
     console.error('IMPLICIT CALLS',JSON.stringify(calls));
     console.error('IMPLICIT PAGE ERRORS',JSON.stringify(errors));
     throw error;
