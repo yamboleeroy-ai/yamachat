@@ -700,7 +700,7 @@ input[type="color"]::-webkit-color-swatch{border:0!important;border-radius:5px!i
   inset:0;
   width:100vw;
   height:100dvh;
-  z-index:6;
+  z-index:4;
   pointer-events:none;
   overflow:visible;
   opacity:0;
@@ -734,7 +734,7 @@ input[type="color"]::-webkit-color-swatch{border:0!important;border-radius:5px!i
 }
 .yc-v3-ribbon .server[data-community].yc-active-server-context-card{
   position:relative!important;
-  z-index:11!important;
+  z-index:5!important;
   border-color:transparent!important;
   background:
     radial-gradient(circle at 18% 18%,color-mix(in srgb,var(--yc-active-server-cyan) 16%,transparent),transparent 42%),
@@ -753,12 +753,8 @@ input[type="color"]::-webkit-color-swatch{border:0!important;border-radius:5px!i
     0 0 0 1px color-mix(in srgb,var(--yc-active-server-cyan) 38%,transparent),
     0 0 13px color-mix(in srgb,var(--yc-active-server-violet) 24%,transparent);
 }
-#app.yc-active-server-context .yc-v3-content-grid{
-  position:relative!important;
-  z-index:10!important;
-}
-/* Any slide-out/mobile surface must stay clean and fully readable. */
-#app.yc-mobile-drawer-open + #ycActiveServerConnectedFrame,
+/* The frame never raises app content or creates a competing stacking context.
+   Drawers, chat surfaces, voice controls and scrims keep their original layering. */
 #app.yc-mobile-drawer-open ~ #ycActiveServerConnectedFrame{
   opacity:0!important;
   visibility:hidden!important;
