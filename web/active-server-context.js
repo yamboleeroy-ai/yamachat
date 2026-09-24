@@ -88,7 +88,7 @@ document.addEventListener('keydown',event=>{
 
 if(typeof ycOnLifecycle==='function'){
   ycOnLifecycle('init',()=>{ycActiveServerGlobalContext=false;ycBindActiveServerContext()});
-  ycOnLifecycle('community',()=>{ycActiveServerGlobalContext=false;ycScheduleActiveServerContext()});
+  ycOnLifecycle('community',ycScheduleActiveServerContext);
   ycOnLifecycle('communities',ycScheduleActiveServerContext);
   ycOnLifecycle('beforeAuth',()=>{ycActiveServerGlobalContext=false;ycScheduleActiveServerContext()});
 }
