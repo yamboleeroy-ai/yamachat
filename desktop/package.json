@@ -1,7 +1,7 @@
 {
   "name": "yamachat-windows",
-  "version": "1.0.81",
-  "description": "Yamachat desktop 1.0.81 with restored Windows tray/app icons, in-app password recovery request, Platform Admin user management and rollback-safe updater",
+  "version": "1.0.83",
+  "description": "Yamachat desktop 1.0.83 based on stable 1.0.81 with visual-only active server glow",
   "main": "main.js",
   "productName": "Yamachat",
   "author": "Yamachat",
