@@ -59,23 +59,20 @@ function ycConnectedFramePath(cardRect,contentRect){
   const cardTop=ycRound(cardRect.top-2);
   const cardBottom=ycRound(Math.min(cardRect.bottom+2,top-5));
 
-  const neck=ycClamp(Math.min(18,(cardRight-cardLeft)*.12),10,18);
-  const joinLeft=ycRound(ycClamp(cardLeft+neck,left+radius+6,cardRight-42));
-  const joinRight=ycRound(ycClamp(cardRight-neck,joinLeft+42,right-radius-6));
   const cardRadius=13;
 
-  // One continuous contour: content top -> up around the active server tab ->
-  // back to content top -> around the whole server content.
+  // Clean tab connection: go straight up from the content frame to the exact
+  // lower corners of the active server card. No horizontal hooks/tails.
   return [
     'M',ycRound(left+radius),top,
-    'L',joinLeft,top,
-    'Q',cardLeft,top,cardLeft,cardBottom,
+    'L',cardLeft,top,
+    'L',cardLeft,cardBottom,
     'L',cardLeft,ycRound(cardTop+cardRadius),
     'Q',cardLeft,cardTop,ycRound(cardLeft+cardRadius),cardTop,
     'L',ycRound(cardRight-cardRadius),cardTop,
     'Q',cardRight,cardTop,cardRight,ycRound(cardTop+cardRadius),
     'L',cardRight,cardBottom,
-    'Q',cardRight,top,joinRight,top,
+    'L',cardRight,top,
     'L',ycRound(right-radius),top,
     'Q',right,top,right,ycRound(top+radius),
     'L',right,ycRound(bottom-radius),
@@ -124,7 +121,9 @@ function ycSyncActiveServerContext(){
   const cards=[...document.querySelectorAll('#rail [data-community],.yc-v3-ribbon [data-community]')];
   const active=ycActiveServerCard();
   const friendsHome=ycActiveServerVisible(document.getElementById('ycFriendsHome'));
-  const enabled=!!app&&!!content&&!!active&&!friendsHome&&!ycActiveServerGlobalContext&&!ycActiveServerModalOpen();
+  const drawerOpen=!!app?.classList.contains('yc-mobile-drawer-open')||
+    [...document.querySelectorAll('.yc-mobile-open,.mobile-open')].some(ycActiveServerVisible);
+  const enabled=!!app&&!!content&&!!active&&!friendsHome&&!drawerOpen&&!ycActiveServerGlobalContext&&!ycActiveServerModalOpen();
 
   for(const card of cards){
     const on=enabled&&card===active;

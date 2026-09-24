@@ -700,7 +700,7 @@ input[type="color"]::-webkit-color-swatch{border:0!important;border-radius:5px!i
   inset:0;
   width:100vw;
   height:100dvh;
-  z-index:78;
+  z-index:4;
   pointer-events:none;
   overflow:visible;
   opacity:0;
@@ -734,7 +734,7 @@ input[type="color"]::-webkit-color-swatch{border:0!important;border-radius:5px!i
 }
 .yc-v3-ribbon .server[data-community].yc-active-server-context-card{
   position:relative!important;
-  z-index:79!important;
+  z-index:5!important;
   border-color:transparent!important;
   background:
     radial-gradient(circle at 18% 18%,color-mix(in srgb,var(--yc-active-server-cyan) 16%,transparent),transparent 42%),
@@ -753,8 +753,11 @@ input[type="color"]::-webkit-color-swatch{border:0!important;border-radius:5px!i
     0 0 0 1px color-mix(in srgb,var(--yc-active-server-cyan) 38%,transparent),
     0 0 13px color-mix(in srgb,var(--yc-active-server-violet) 24%,transparent);
 }
-#app.yc-active-server-context .yc-v3-content-grid{
-  filter:drop-shadow(0 0 11px color-mix(in srgb,var(--yc-active-server-violet) 7%,transparent));
+/* The frame never raises app content or creates a competing stacking context.
+   Drawers, chat surfaces, voice controls and scrims keep their original layering. */
+#app.yc-mobile-drawer-open ~ #ycActiveServerConnectedFrame{
+  opacity:0!important;
+  visibility:hidden!important;
 }
 @media(max-width:1100px){
   #ycActiveServerConnectedFrame .yc-active-server-frame-glow{stroke-width:9;opacity:.20;filter:blur(4px)}
@@ -3435,23 +3438,20 @@ function ycConnectedFramePath(cardRect,contentRect){
   const cardTop=ycRound(cardRect.top-2);
   const cardBottom=ycRound(Math.min(cardRect.bottom+2,top-5));
 
-  const neck=ycClamp(Math.min(18,(cardRight-cardLeft)*.12),10,18);
-  const joinLeft=ycRound(ycClamp(cardLeft+neck,left+radius+6,cardRight-42));
-  const joinRight=ycRound(ycClamp(cardRight-neck,joinLeft+42,right-radius-6));
   const cardRadius=13;
 
-  // One continuous contour: content top -> up around the active server tab ->
-  // back to content top -> around the whole server content.
+  // Clean tab connection: go straight up from the content frame to the exact
+  // lower corners of the active server card. No horizontal hooks/tails.
   return [
     'M',ycRound(left+radius),top,
-    'L',joinLeft,top,
-    'Q',cardLeft,top,cardLeft,cardBottom,
+    'L',cardLeft,top,
+    'L',cardLeft,cardBottom,
     'L',cardLeft,ycRound(cardTop+cardRadius),
     'Q',cardLeft,cardTop,ycRound(cardLeft+cardRadius),cardTop,
     'L',ycRound(cardRight-cardRadius),cardTop,
     'Q',cardRight,cardTop,cardRight,ycRound(cardTop+cardRadius),
     'L',cardRight,cardBottom,
-    'Q',cardRight,top,joinRight,top,
+    'L',cardRight,top,
     'L',ycRound(right-radius),top,
     'Q',right,top,right,ycRound(top+radius),
     'L',right,ycRound(bottom-radius),
@@ -3500,7 +3500,9 @@ function ycSyncActiveServerContext(){
   const cards=[...document.querySelectorAll('#rail [data-community],.yc-v3-ribbon [data-community]')];
   const active=ycActiveServerCard();
   const friendsHome=ycActiveServerVisible(document.getElementById('ycFriendsHome'));
-  const enabled=!!app&&!!content&&!!active&&!friendsHome&&!ycActiveServerGlobalContext&&!ycActiveServerModalOpen();
+  const drawerOpen=!!app?.classList.contains('yc-mobile-drawer-open')||
+    [...document.querySelectorAll('.yc-mobile-open,.mobile-open')].some(ycActiveServerVisible);
+  const enabled=!!app&&!!content&&!!active&&!friendsHome&&!drawerOpen&&!ycActiveServerGlobalContext&&!ycActiveServerModalOpen();
 
   for(const card of cards){
     const on=enabled&&card===active;

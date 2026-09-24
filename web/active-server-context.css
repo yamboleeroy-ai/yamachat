@@ -10,7 +10,7 @@
   inset:0;
   width:100vw;
   height:100dvh;
-  z-index:78;
+  z-index:4;
   pointer-events:none;
   overflow:visible;
   opacity:0;
@@ -44,7 +44,7 @@
 }
 .yc-v3-ribbon .server[data-community].yc-active-server-context-card{
   position:relative!important;
-  z-index:79!important;
+  z-index:5!important;
   border-color:transparent!important;
   background:
     radial-gradient(circle at 18% 18%,color-mix(in srgb,var(--yc-active-server-cyan) 16%,transparent),transparent 42%),
@@ -63,8 +63,11 @@
     0 0 0 1px color-mix(in srgb,var(--yc-active-server-cyan) 38%,transparent),
     0 0 13px color-mix(in srgb,var(--yc-active-server-violet) 24%,transparent);
 }
-#app.yc-active-server-context .yc-v3-content-grid{
-  filter:drop-shadow(0 0 11px color-mix(in srgb,var(--yc-active-server-violet) 7%,transparent));
+/* The frame never raises app content or creates a competing stacking context.
+   Drawers, chat surfaces, voice controls and scrims keep their original layering. */
+#app.yc-mobile-drawer-open ~ #ycActiveServerConnectedFrame{
+  opacity:0!important;
+  visibility:hidden!important;
 }
 @media(max-width:1100px){
   #ycActiveServerConnectedFrame .yc-active-server-frame-glow{stroke-width:9;opacity:.20;filter:blur(4px)}
