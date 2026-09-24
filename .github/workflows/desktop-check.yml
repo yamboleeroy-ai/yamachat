@@ -76,7 +76,9 @@ jobs:
           cmp desktop-client-dist/desktop-client.html desktop/desktop-client.html
           grep -q 'id="ycPasswordRequestBack"' desktop/desktop-client.html
           grep -q 'Platform Admin · uživatelské účty' desktop/desktop-client.html
-          echo "PASS desktop client matches tested generator and contains 1.0.81 features"
+          grep -q 'ACTIVE SERVER GLOW 1.0.83' desktop/desktop-client.html
+          ! grep -q 'ycActiveServerConnectedFrame' desktop/desktop-client.html
+          echo "PASS desktop client matches tested generator and contains stable features plus visual-only glow"
 
       - name: Verify tray and app icon restoration recipe
         shell: pwsh
@@ -93,7 +95,7 @@ jobs:
         run: |
           node - <<'NODE'
           const p=require('./desktop/package.json');
-          if(p.version!=='1.0.81') throw new Error('Expected desktop source version 1.0.81');
+          if(p.version!=='1.0.83') throw new Error('Expected desktop source version 1.0.83');
           if(!p.dependencies?.['electron-updater']) throw new Error('electron-updater missing');
           console.log('PASS desktop',p.version);
           NODE
