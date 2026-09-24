@@ -1,0 +1,24 @@
+name: Restore Stable Windows Release Marker
+
+on:
+  push:
+    branches:
+      - rollback/pre-glow-stable-20260924
+    paths:
+      - ".github/workflows/restore-stable-release-once.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  restore-release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Mark 1.0.81 stable and later glow builds prerelease
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh release edit v1.0.82 --repo yamboleeroy-ai/yamachat --prerelease
+          gh release edit v1.0.83 --repo yamboleeroy-ai/yamachat --prerelease
+          gh release edit v1.0.81 --repo yamboleeroy-ai/yamachat --latest
