@@ -113,7 +113,14 @@ for(const marker of ["fragment.get('token_hash')","fragment.get('access_token')"
    });
    const url='https://yamachat.test/reset-password.html#access_token='+encodeURIComponent(jwt())+'&refresh_token=implicit-refresh&type=recovery&token_type=bearer&expires_in=3600';
    await page.goto(url);
-   await page.waitForFunction(()=>document.getElementById('recoveryStatus')?.textContent.includes('Odkaz je platný'));
+   try{
+    await page.waitForFunction(()=>document.getElementById('recoveryStatus')?.textContent.includes('Odkaz je platný'),{},{timeout:5000});
+   }catch(error){
+    console.error('IMPLICIT STATUS',await page.locator('#recoveryStatus').innerText());
+    console.error('IMPLICIT CALLS',JSON.stringify(calls));
+    console.error('IMPLICIT PAGE ERRORS',JSON.stringify(errors));
+    throw error;
+   }
    assert.equal(new URL(page.url()).hash,'');
    assert(await page.locator('#passwordSection').isVisible());
    assert(await page.locator('#passwordForm').isVisible());
