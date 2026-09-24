@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
-  "publishedAt": "2026-09-24T01:32:27Z",
+  "publishedAt": "2026-09-24T07:12:06Z",
   "windows": {
-    "latestVersion": "1.0.82",
+    "latestVersion": "1.0.83",
     "required": true,
-    "releaseUrl": "https://github.com/yamboleeroy-ai/yamachat/releases/tag/v1.0.82",
-    "notes": "Yamachat 1.0.82: jemné zvýraznění aktivního serveru v barvách Yamachatu; zachované tray, Windows ikony, voice, obnova hesla a Platform Admin funkce."
+    "releaseUrl": "https://github.com/yamboleeroy-ai/yamachat/releases/tag/v1.0.83",
+    "notes": "Yamachat 1.0.83: aktivní server je výrazná karta-záložka napojená jednou souvislou cyan/fialovo-růžovou konturou na serverový obsah; zachované tray, Windows ikony, voice, obnova hesla a Platform Admin funkce."
   },
   "android": {
     "latestVersion": "1.1.0.198",
@@ -14,9 +14,9 @@
     "apkUrl": "https://yamachat.eu/download/Yamachat-Android.apk?v=200198",
     "sha256": "200d335c3675afa6814d5bde6d8fe7c39e3c0090b689a31eb94c321f7b3f4ca0",
     "notes": [
-      "Obnova hesla se nyní žádá přímo v Yamachatu bez přechodu na webový formulář.",
-      "Odkaz z e-mailu otevře pouze zabezpečenou stránku pro nastavení nového hesla.",
-      "Zachována je Platform Admin správa uživatelů, ban/odbanování a vzkazy do účtu."
+      "Aktivní server je nově výrazná karta-záložka napojená jednou souvislou cyan/fialovo-růžovou konturou na serverový obsah.",
+      "Při přepnutí serveru se celý spojený rám přesune; Domů, Přátelé a DM rám nezobrazují.",
+      "Zachována je obnova hesla přímo v Yamachatu, Platform Admin správa uživatelů, ban/odbanování a vzkazy do účtu."
     ]
   }
 }
