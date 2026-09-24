@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
-  "publishedAt": "2026-09-24T10:15:20Z",
+  "publishedAt": "2026-09-24T23:26:10Z",
   "windows": {
-    "latestVersion": "1.0.87",
+    "latestVersion": "1.0.88",
     "required": true,
-    "releaseUrl": "https://github.com/yamboleeroy-ai/yamachat/releases/tag/v1.0.87",
-    "notes": "Yamachat 1.0.87: rollback na stabilní stav Windows 1.0.85; odstraňuje změny z 1.0.86, které zasáhly rozložení. Voice, chat, tray, obnova hesla a Platform Admin zůstávají zachované."
+    "releaseUrl": "https://github.com/yamboleeroy-ai/yamachat/releases/tag/v1.0.88",
+    "notes": "Yamachat 1.0.88: tenký fialovo-cyan obrys celé aktivní serverové části včetně voice baru; přesun mezi servery a zhasnutí v soukromých zprávách. Stabilní základ 1.0.81, beze změn voice, chatu a obnovy hesla."
   },
   "android": {
     "latestVersion": "1.1.0.221",
