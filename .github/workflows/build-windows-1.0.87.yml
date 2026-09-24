@@ -16,7 +16,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: release/windows-1.0.85-connected-context
+          ref: release/windows-1.0.87-rollback-1.0.85
 
       - uses: actions/setup-node@v4
         with:
@@ -152,7 +152,7 @@ jobs:
 
           gh release create v1.0.87 release-assets/* \
             --repo "${GITHUB_REPOSITORY}" \
-            --target release/windows-1.0.85-connected-context \
+            --target release/windows-1.0.87-rollback-1.0.85 \
             --title "Yamachat 1.0.87" \
             --notes-file release-notes.md \
             --latest
