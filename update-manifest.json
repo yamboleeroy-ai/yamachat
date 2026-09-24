@@ -2,10 +2,10 @@
   "schemaVersion": 1,
   "publishedAt": "2026-09-23T22:46:52Z",
   "windows": {
-    "latestVersion": "1.0.80",
+    "latestVersion": "1.0.81",
     "required": true,
-    "releaseUrl": "https://github.com/yamboleeroy-ai/yamachat/releases/tag/v1.0.80",
-    "notes": "Yamachat 1.0.80: Platform Admin správa uživatelů, ban/odbanování, vzkazy do účtu a obnova hesla."
+    "releaseUrl": "https://github.com/yamboleeroy-ai/yamachat/releases/tag/v1.0.81",
+    "notes": "Yamachat 1.0.81: opravené Windows/tray ikony, obnovené tray chování a obnova hesla přímo uvnitř aplikace."
   },
   "android": {
     "latestVersion": "1.1.0.171",
