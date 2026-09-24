@@ -79,7 +79,9 @@ jobs:
           grep -q 'Platform Admin · uživatelské účty' desktop/desktop-client.html
           grep -q 'yc-active-server-context-card' desktop/desktop-client.html
           grep -q 'ycActiveServerGlobalContext' desktop/desktop-client.html
-          echo "PASS desktop client matches tested generator and contains 1.0.82 active-server context"
+          grep -q 'ycActiveServerConnectedFrame' desktop/desktop-client.html
+          grep -q 'connected-tab' desktop/desktop-client.html
+          echo "PASS desktop client matches tested generator and contains 1.0.83 connected active-server frame"
 
       - name: Verify tray and app icon restoration recipe
         shell: pwsh
@@ -96,7 +98,7 @@ jobs:
         run: |
           node - <<'NODE'
           const p=require('./desktop/package.json');
-          if(p.version!=='1.0.82') throw new Error('Expected desktop source version 1.0.82');
+          if(p.version!=='1.0.83') throw new Error('Expected desktop source version 1.0.83');
           if(!p.dependencies?.['electron-updater']) throw new Error('electron-updater missing');
           console.log('PASS desktop',p.version);
           NODE
