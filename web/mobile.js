@@ -57,7 +57,7 @@
  }
  const observer=new MutationObserver(()=>{if(mount())observer.disconnect()});observer.observe(document.getElementById('app'),{childList:true,subtree:true});mount();
  document.addEventListener('keydown',e=>{if(e.key==='Escape'&&activeDrawer){close();e.preventDefault()}if(e.key==='Tab'&&activeDrawer){const items=[...activeDrawer.querySelectorAll('button,a,input,[tabindex="0"]')].filter(x=>!x.disabled&&x.getClientRects().length);const first=items[0],last=items.at(-1);if(e.shiftKey&&document.activeElement===first){e.preventDefault();last?.focus()}else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first?.focus()}}});
- document.addEventListener('click',e=>{if(mobile.matches&&e.target.closest('[data-channel],[data-thread],#profileBtn,#appSettingsBtn,#logoutBtn'))close()});
+ document.addEventListener('click',e=>{if(mobile.matches&&e.target.closest('[data-channel],[data-thread],#profileBtn,#appSettingsBtn,#ycServerSettingsNavBtn,#logoutBtn'))close()});
  mobile.addEventListener('change',close);
  // Desktop double-click joins a voice channel. A deliberate touch tap invokes the same handler.
  document.addEventListener('click',e=>{const room=e.target.closest?.('.voice-channel[data-voice]');if(room&&e.pointerType==='touch'&&mobile.matches){room.dispatchEvent(new MouseEvent('dblclick',{bubbles:true}));close()}});
