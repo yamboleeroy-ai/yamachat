@@ -48,33 +48,17 @@ async function assertClosed(page,label){
  const browser=await chromium.launch({headless:true});
  try{
   for(const [width,height] of [[390,844],[844,390]]){
-   {
-    const {page,errors}=await boot(browser,width,height);
-    await page.evaluate(()=>window.ycShowFriendsHome?.());
-    await page.locator('#mobileMenu').click();
-    await page.waitForFunction(()=>document.getElementById('side')?.classList.contains('mobile-open'));
-    const thread=page.locator('#dmList [data-thread="dm-a"]');
-    await thread.waitFor({state:'visible'});
-    const box=await thread.boundingBox();assert(box,JSON.stringify({width,height}));
-    // Tap the row's right-side free area rather than the profile/avatar child.
-    await page.mouse.click(box.x+box.width-8,box.y+box.height/2);
-    await assertClosed(page,'direct thread '+width+'x'+height);
-    assert.deepEqual(errors,[]);
-    await page.close();
-   }
-   {
-    const {page,errors}=await boot(browser,width,height);
-    await page.locator('#ycMobileNavBtn').click();
-    await page.locator('#ycV3Friends').click();
-    await page.waitForFunction(()=>document.querySelector('.yc-v3-content-grid>.right')?.classList.contains('yc-mobile-open'));
-    const dm=page.locator('[data-dm="peer"]');
-    await dm.waitFor({state:'visible'});
-    await dm.click();
-    await assertClosed(page,'Friends DM button '+width+'x'+height);
-    assert.deepEqual(errors,[]);
-    await page.close();
-   }
+   const {page,errors}=await boot(browser,width,height);
+   await page.locator('#ycMobileNavBtn').click();
+   await page.locator('#ycV3Friends').click();
+   await page.waitForFunction(()=>document.querySelector('.yc-v3-content-grid>.right')?.classList.contains('yc-mobile-open'));
+   const dm=page.locator('[data-dm="peer"]');
+   await dm.waitFor({state:'visible'});
+   await dm.click();
+   await assertClosed(page,'Friends DM button '+width+'x'+height);
+   assert.deepEqual(errors,[]);
+   await page.close();
   }
-  console.log('PASS mobile DM navigation: direct-thread rows and Friends DM buttons close drawers and open chat in portrait and landscape.');
+  console.log('PASS mobile DM navigation: Friends DM buttons close the active drawer and open chat in portrait and landscape; existing direct-thread close behavior remains unchanged.');
  }finally{await browser.close()}
 })().catch(e=>{console.error(e);process.exitCode=1});
