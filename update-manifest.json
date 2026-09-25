@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
-  "publishedAt": "2026-09-25T11:35:55Z",
+  "publishedAt": "2026-09-25T22:41:57Z",
   "windows": {
-    "latestVersion": "1.0.91",
+    "latestVersion": "1.0.92",
     "required": true,
-    "releaseUrl": "https://github.com/yamboleeroy-ai/yamachat/releases/tag/v1.0.91",
-    "notes": "Yamachat 1.0.91: více prostoru pro kanály a oprávněná správa serveru v levé navigaci. Stabilní základ 1.0.81, beze změn voice, chatu a obnovy hesla."
+    "releaseUrl": "https://github.com/yamboleeroy-ai/yamachat/releases/tag/v1.0.92",
+    "notes": "Yamachat 1.0.92: modernizovaný panel Přátelé, stabilnější Členové/Přátelé/DM, opravená klikatelnost levé navigace a kontextové menu serveru. Stabilní základ 1.0.81."
   },
   "android": {
     "latestVersion": "1.1.0.284",
