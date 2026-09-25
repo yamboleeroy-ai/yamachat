@@ -134,8 +134,8 @@ jobs:
           android['sha256']=artifact['sha256']
           android['notes']=[
             'Obrys při otevření kanálů nebo členů sleduje vysunutý panel.',
-            'Po zavření panelu se obrys vrací k vybranému serveru a chatu.',
-            'Zachována je Platform Admin správa uživatelů, ban/odbanování a vzkazy do účtu.'
+            'Obrys se automaticky vrací po zavření panelu, Nastavení, Profilu a dalších oken.',
+            'Obrys a aktivní karta respektují osobní barvu Yamachatu.'
           ]
           manifest_path.write_text(json.dumps(manifest,ensure_ascii=False,indent=2)+'\n')
           PY
@@ -168,3 +168,4 @@ jobs:
             android-artifact.json
           if-no-files-found: error
           retention-days: 30
+
