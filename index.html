@@ -6009,6 +6009,11 @@ ycOnLifecycle('beforeAuth',()=>{clearTimeout(ycVoiceGestureTimer);ycVoiceGesture
   const svgNS='http://www.w3.org/2000/svg';
   function drawFrame(){
     frameRequest=0;
+    const mobile=matchMedia('(max-width:1100px)').matches;
+    const drawerOpen=mobile&&$('app').classList.contains('yc-mobile-drawer-open');
+    const drawer=drawerOpen&&document.querySelector('.yc-v3-content-grid>.side.mobile-open,.yc-v3-content-grid>.right.yc-mobile-open');
+    // Global navigation is outside the server; do not outline the obscured chat.
+    if(drawerOpen&&!drawer){if(frame)frame.style.display='none';return}
     const card=document.querySelector('#rail .yc-server-glow');
     const grid=document.querySelector('.yc-v3-content-grid');
     const dock=document.querySelector('.yc-v3-voice-host');
@@ -6019,11 +6024,15 @@ ycOnLifecycle('beforeAuth',()=>{clearTimeout(ycVoiceGestureTimer);ycVoiceGesture
       frame.innerHTML='<defs><linearGradient id="ycContextGradient"><stop stop-color="#ce72ed"/><stop offset=".48" stop-color="#a777dc"/><stop offset="1" stop-color="#51bfd9"/></linearGradient></defs><path class="yc-context-halo"/><path class="yc-context-line"/>';
       document.body.appendChild(frame);
     }
-    const g=grid.getBoundingClientRect(),v=dock.getBoundingClientRect(),c=card.getBoundingClientRect(),rail=$('rail').getBoundingClientRect();
-    const left=Math.max(1,g.left+1),right=Math.min(innerWidth-1,g.right-1),top=Math.max(1,g.top+1),bottom=Math.min(innerHeight-1,Math.max(g.bottom,v.bottom)-1);
+    const g=(drawer||grid).getBoundingClientRect(),v=dock.getBoundingClientRect(),c=card.getBoundingClientRect(),rail=$('rail').getBoundingClientRect();
+    // Anchor inside the panel so the compositor moves the outline with it.
+    const host=drawer||document.body;if(frame.parentNode!==host)host.appendChild(frame);
+    frame.toggleAttribute('data-drawer',!!drawer);
+    const left=drawer?1:Math.max(1,g.left+1),right=drawer?drawer.clientWidth-1:Math.min(innerWidth-1,g.right-1),top=drawer?1:Math.max(1,g.top+1),bottom=drawer?drawer.clientHeight-1:Math.min(innerHeight-1,Math.max(g.bottom,v.bottom)-1);
+    if(right<=left||bottom<=top){frame.style.display='none';return}
     const points=[[left,top]];
     // A scrolled-out card must not draw across another card or the global navigation.
-    if(c.left>=Math.max(left,rail.left)&&c.right<=Math.min(right,rail.right)&&c.top<top){
+    if(!drawer&&c.left>=Math.max(left,rail.left)&&c.right<=Math.min(right,rail.right)&&c.top<top){
       points.push([c.left+1,top],[c.left+1,Math.max(1,c.top+1)],[c.right-1,Math.max(1,c.top+1)],[c.right-1,top]);
     }
     points.push([right,top],[right,bottom],[left,bottom]);
@@ -6033,9 +6042,9 @@ ycOnLifecycle('beforeAuth',()=>{clearTimeout(ycVoiceGestureTimer);ycVoiceGesture
       return {p,start:[p[0]+(prev[0]-p[0])*r/a,p[1]+(prev[1]-p[1])*r/a],end:[p[0]+(next[0]-p[0])*r/b,p[1]+(next[1]-p[1])*r/b]};
     });
     const d=corners.map((x,i)=>(i?'L':'M')+x.start.join(' ')+' Q'+x.p.join(' ')+' '+x.end.join(' ')).join(' ')+' Z';
-    frame.setAttribute('viewBox','0 0 '+innerWidth+' '+innerHeight);
+    frame.setAttribute('viewBox','0 0 '+(drawer?drawer.clientWidth:innerWidth)+' '+(drawer?drawer.clientHeight:innerHeight));
     frame.querySelectorAll('path').forEach(p=>p.setAttribute('d',d));
-    frame.dataset.community=card.dataset.community;frame.style.display='block';
+    frame.dataset.community=card.dataset.community;frame.dataset.surface=drawer?(drawer.id||'members'):'chat';frame.style.display='block';
   }
   function queueFrame(){if(!frameRequest)frameRequest=requestAnimationFrame(drawFrame)}
   const syncGlow=()=>{
@@ -6062,10 +6071,14 @@ ycOnLifecycle('beforeAuth',()=>{clearTimeout(ycVoiceGestureTimer);ycVoiceGesture
   observer.observe($('side'),{attributes:true,attributeFilter:['class']});
   observer.observe($('app'),{attributes:true,attributeFilter:['class']});
   observer.observe(document.body,{childList:true});
+  // Panel classes can change without any navigation or resize event.
+  ycOnLifecycle('init',()=>{document.querySelectorAll('#ycGlobalNav,.yc-v3-content-grid>.right').forEach(el=>observer.observe(el,{attributes:true,attributeFilter:['class']}))});
+  window.visualViewport?.addEventListener('resize',queueFrame,{passive:true});
+  window.visualViewport?.addEventListener('scroll',queueFrame,{passive:true});
   window.addEventListener('resize',queueFrame,{passive:true});
   document.addEventListener('scroll',queueFrame,{capture:true,passive:true});
   const frameResize=new ResizeObserver(queueFrame);
-  ycOnLifecycle('init',()=>{document.querySelectorAll('.yc-v3-workspace,.yc-v3-content-grid,.yc-v3-voice-host,#rail').forEach(el=>frameResize.observe(el))});
+  ycOnLifecycle('init',()=>{document.querySelectorAll('.yc-v3-workspace,.yc-v3-content-grid,.yc-v3-voice-host,#rail,.yc-v3-content-grid>.side,.yc-v3-content-grid>.right').forEach(el=>frameResize.observe(el))});
   ycOnLifecycle('init',()=>{navigationHidden=false;syncGlow()});
   ycOnLifecycle('community',syncGlow);
   ycOnLifecycle('beforeAuth',()=>{navigationHidden=true;syncGlow()});
@@ -6606,6 +6619,7 @@ body.yc-wotlk-theme .logo.yc-theme-logo{border-color:color-mix(in srgb,var(--yc-
 <!-- ycV3NavRegistryFunctionFixScript: initialized by the application module -->
 <style id="ycV3ServerCardsPremiumStyle">
 #ycServerContextFrame{position:fixed;inset:0;width:100%;height:100%;z-index:6;pointer-events:none!important;overflow:hidden}
+#ycServerContextFrame[data-drawer]{position:absolute;z-index:6;border-radius:inherit}
 #ycServerContextFrame *{pointer-events:none!important}
 #ycServerContextFrame path{fill:none;stroke:url(#ycContextGradient);stroke-linejoin:round}
 #ycServerContextFrame .yc-context-line{stroke-width:1;opacity:.8}
