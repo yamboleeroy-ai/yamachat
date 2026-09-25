@@ -37,7 +37,9 @@ async function themeSnapshot(page,theme){
    topBorderRight:ts.borderRightWidth,
    scrollbar:ss.scrollbarColor,
    hostBorder:hs.borderTopColor,
-   hostShadow:hs.boxShadow
+   hostShadow:hs.boxShadow,
+   voiceRect:voice.getBoundingClientRect().toJSON(),
+   hostRect:host.getBoundingClientRect().toJSON()
   };
  },theme);
 }
@@ -56,13 +58,15 @@ async function themeSnapshot(page,theme){
    assert.deepEqual(errors,[]);
    await page.close();
   }
-  for(const platform of ['android','ios-pwa']){
-   const {page,errors}=await boot(browser,390,844,platform);
+  for(const platform of ['android','ios-pwa'])for(const [width,height] of [[390,844],[844,390]]){
+   const {page,errors}=await boot(browser,width,height,platform);
    const a=await themeSnapshot(page,'#ff3300'),b=await themeSnapshot(page,'#00cc66');
-   assert.notEqual(a.scrollbar,b.scrollbar,JSON.stringify({platform,a,b}));
-   if(platform==='android'){
-    assert.notEqual(a.hostBorder,b.hostBorder,JSON.stringify({platform,a,b}));
-    assert.notEqual(a.hostShadow,b.hostShadow,JSON.stringify({platform,a,b}));
+   assert.notEqual(a.scrollbar,b.scrollbar,JSON.stringify({platform,width,height,a,b}));
+   assert.deepEqual(a.voiceRect,b.voiceRect,JSON.stringify({platform,width,height,a,b}));
+   assert.deepEqual(a.hostRect,b.hostRect,JSON.stringify({platform,width,height,a,b}));
+   if(platform==='android'&&width<height){
+    assert.notEqual(a.hostBorder,b.hostBorder,JSON.stringify({platform,width,height,a,b}));
+    assert.notEqual(a.hostShadow,b.hostShadow,JSON.stringify({platform,width,height,a,b}));
    }
    assert.deepEqual(errors,[]);
    await page.close();
