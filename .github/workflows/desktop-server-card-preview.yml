@@ -140,3 +140,9 @@ jobs:
             desktop/dist/latest.yml
           if-no-files-found: error
           retention-days: 7
+      - uses: actions/upload-artifact@v4
+        with:
+          name: yamachat-windows-server-card-portable
+          path: desktop/dist/win-unpacked/**
+          if-no-files-found: error
+          retention-days: 7
