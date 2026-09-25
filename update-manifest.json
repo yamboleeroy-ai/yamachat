@@ -8,14 +8,14 @@
     "notes": "Yamachat 1.0.91: více prostoru pro kanály a oprávněná správa serveru v levé navigaci. Stabilní základ 1.0.81, beze změn voice, chatu a obnovy hesla."
   },
   "android": {
-    "latestVersion": "1.1.0.258",
-    "latestVersionCode": 200258,
+    "latestVersion": "1.1.0.263",
+    "latestVersionCode": 200263,
     "required": true,
-    "apkUrl": "https://yamachat.eu/download/Yamachat-Android.apk?v=200258",
-    "sha256": "7b5eea09f833c74d182a33e24df8e1811b1bd82ef0575a0d2fca07d669529dd5",
+    "apkUrl": "https://yamachat.eu/download/Yamachat-Android.apk?v=200263",
+    "sha256": "144cf7fcd6721829ecc418ac66cae62f5bc3214068c9b714f674bd1fcf0baa60",
     "notes": [
-      "Vlastní miniatura serveru místo písmen v horní kartě.",
-      "Jemné neonové karty s tmavým sklem a fialovo-cyan okrajem.",
+      "Více místa pro kanály bez velké serverové hlavičky.",
+      "Správa serveru pod osobním Nastavením, pouze pro oprávněné členy.",
       "Obrys a aktivní karta respektují osobní barvu Yamachatu."
     ]
   }
