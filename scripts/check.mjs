@@ -61,6 +61,11 @@ try{
    'top:4px!important'
  ]) assert(mobileCss.includes(marker),`Missing iOS mobile layout marker: ${marker}`);
  const mobileJs=fs.readFileSync(path.join(root,'web/mobile.js'),'utf8');
+ for(const marker of [
+   'function openFriendsDrawer()',
+   "#ycV3Friends,#ycOpenFriendsList",
+   'return replace(right,button)'
+ ]) assert(mobileJs.includes(marker),`Missing mobile Friends drawer marker: ${marker}`);
  assert(mobileJs.includes("document.documentElement.classList.toggle('yc-ios-pwa',iosPwa)"), 'iOS PWA class detection missing');
  const mobileCssPwa=fs.readFileSync(path.join(root,'web/mobile.css'),'utf8');
  for(const marker of [
