@@ -20,6 +20,8 @@ jobs:
         run: node tests/profile-actions.cjs
       - name: Profile layout tests
         run: node tests/profile-layout.cjs
+      - name: Server card context tests
+        run: node tests/server-card-context.cjs
       - name: Password recovery tests
         run: node tests/password-recovery.cjs
       - name: Platform user management tests
