@@ -708,6 +708,14 @@ body .app .yc-v3-ribbon .server[data-community] .yc-v3-community-mark{background
 .yc-thumbnail-file{display:grid;gap:9px;font-weight:700;font-size:13px}.yc-thumbnail-file input{width:100%;max-width:100%}
 .yc-thumbnail-actions{display:flex;gap:8px;flex-wrap:wrap}.yc-thumbnail-actions button{min-height:44px;flex:1}
 </style>
+<style id="ycServerNavigationStyle">
+body .app #side>.side-head{display:none!important}
+body .app #ycServerSettingsNavBtn{order:6!important;height:auto!important;min-height:40px;white-space:normal!important}
+body .app #ycGlobalNav #ycServerSettingsNavBtn.hidden,body .app #ycGlobalNav #ycServerSettingsNavBtn[hidden]{display:none!important}
+body .app #ycServerSettingsNavBtn .yc-v3-nav-action-label{white-space:normal!important;line-height:1.25}
+body .app #logoutBtn{order:7!important}
+body .app .chat-head>#ycServerMenuBtn{position:relative!important;inset:auto!important;margin-left:auto!important;flex:0 0 32px}
+</style>
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="mobile-web-app-capable" content="yes">
@@ -2781,6 +2789,7 @@ async function loadCurrentModeratorPermissions(){
   currentModeratorPerms=data||{}
 }
 function applyCommunityPermissionUI(){
+  ycServerNavigationReady=currentCommunity?.id||'';ycSyncServerNavigation();
   if(!currentCommunity)return
   $('addChannelBtn')?.classList.toggle('hidden',!canCommunityPermission('manage_channels'))
   $('addVoiceChannelBtn')?.classList.toggle('hidden',!canCommunityPermission('manage_channels'))
@@ -4947,7 +4956,7 @@ async function renderInvites(){title('Pozvánky','Odkaz pro připojení k server
 async function renderDanger(){title('Nebezpečná zóna','Neobnovitelné odstranění serveru');const b=document.getElementById('ycSSBody');b.innerHTML='<div class="yc-ss-card"><h3>Zrušit server</h3><p>Odstraní server a jeho obsah. Tuto akci může provést pouze vlastník.</p><button id="ycSSDeleteServer" class="yc-ss-btn danger" '+(currentRole==='owner'?'':'disabled')+'>Zrušit server</button></div>';bindAction('ycSSDeleteServer',async()=>{if(currentRole!=='owner')throw Error('Pouze vlastník může zrušit server.');closeSS();await deleteCurrentCommunity()})}
 async function renderTab(tab){try{if(tab==='appearance')return renderAppearance();if(tab==='invites')return await renderInvites();if(tab==='danger')return await renderDanger();if(tab==='overview')return await renderOverview();if(tab==='access')return await renderAccess();if(tab==='roles')return await renderRoles();if(tab==='members')return await renderMembers();if(tab==='moderation')return await renderModeration();if(tab==='channels')return await renderChannels();if(tab==='expressions')return await renderExpressions()}catch(e){console.error(e);const b=document.getElementById('ycSSBody');if(b)b.innerHTML='<div class="yc-ss-empty">'+ssEsc(e.message||e)+'</div>'}}
 createCommunity=async function(){if(ycCreateCommunityBusy)return;const back=document.createElement('div');back.className='yc-ss-back';back.id='ycCreateServer';back.setAttribute('role','dialog');back.setAttribute('aria-label','Nový server');back.innerHTML='<form style="background:#142230;border:1px solid #35536a;border-radius:16px;padding:28px;width:min(480px,90vw)" id="ycCreateServerForm"><h2>Nový server</h2><div class="yc-ss-field"><label for="ycCreateName">Název serveru</label><input id="ycCreateName" maxlength="60" required></div><div class="yc-ss-field"><label for="ycCreateDescription">Popis</label><textarea id="ycCreateDescription" maxlength="240"></textarea></div><div class="yc-ss-field"><label for="ycCreatePrivacy">Soukromí</label><select id="ycCreatePrivacy"><option value="private">Soukromý — pouze přes pozvánku</option><option value="public">Veřejný — zobrazit v katalogu</option></select></div><div class="yc-ss-actions"><button type="button" id="ycCreateCancel" class="yc-ss-btn">Zrušit</button><button type="submit" class="yc-ss-btn primary">Vytvořit server</button></div></form>';document.body.appendChild(back);$('ycCreateName').focus();$('ycCreateCancel').onclick=()=>back.remove();$('ycCreateServerForm').onsubmit=async e=>{e.preventDefault();if(ycCreateCommunityBusy)return;ycCreateCommunityBusy=true;const btn=e.submitter;btn.disabled=true;try{const {data:id,error}=await sb.rpc('create_community_with_privacy',{p_name:$('ycCreateName').value.trim(),p_description:$('ycCreateDescription').value.trim(),p_is_public:$('ycCreatePrivacy').value==='public'});if(error)throw error;back.remove();await loadCommunities();await selectCommunity(id);toast('Server vytvořen.')}catch(err){toast(err.message,true)}finally{ycCreateCommunityBusy=false;btn.disabled=false}}};
-window.ycOpenServerSettings=()=>{if(!currentCommunity)return toast('Nejdřív vyber server.',true);shell();void renderTab('overview')};
+window.ycOpenServerSettings=()=>{if(!currentCommunity)return toast('Nejdřív vyber server.',true);if(!ycCanOpenServerNavigation())return toast('Nemáš oprávnění spravovat tento server.',true);shell();void renderTab('overview')};
 try{
   const ycOwnerVisualBaseSelectCommunity=selectCommunity;
   selectCommunity=async function(...args){
@@ -4959,7 +4968,7 @@ try{
   };
 }catch(e){console.warn('owner visual role selectCommunity hook',e)}
 
-try{const old=ycServerMenuItems;ycServerMenuItems=function(){const items=old().filter(x=>['invite','leave','server-thumbnail'].includes(x?.id));const insertAt=items.findIndex(x=>x?.id==='leave');items.splice(insertAt>=0?insertAt:items.length,0,{id:'settings',icon:'⚙️',label:'Nastavení serveru',visible:()=>!!currentCommunity,action:()=>window.ycOpenServerSettings()});return items}}catch(e){console.warn('desktop server menu settings hook',e)}
+try{const old=ycServerMenuItems;ycServerMenuItems=function(){const items=old().filter(x=>['invite','leave','server-thumbnail'].includes(x?.id));const insertAt=items.findIndex(x=>x?.id==='leave');items.splice(insertAt>=0?insertAt:items.length,0,{id:'settings',visible:()=>false});return items}}catch(e){console.warn('desktop server menu settings hook',e)}
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&document.getElementById('ycServerSettingsBack'))closeSS()},true);
 })();
 
@@ -6166,6 +6175,35 @@ function ycOpenServerThumbnail(){
  }
  save.onclick=()=>persist(false);remove.onclick=()=>persist(true);
 }
+
+
+let ycServerNavigationReady='';
+function ycCanOpenServerNavigation(){
+ return !!currentCommunity&&ycServerNavigationReady===currentCommunity.id&&
+  ['manage_server','manage_channels','manage_members','manage_permissions','manage_invites','manage_emojis','manage_soundboard'].some(p=>canCommunityPermission(p));
+}
+function ycSyncServerNavigation(){
+ const settings=$('appSettingsBtn');
+ if(!settings)return;
+ let btn=$('ycServerSettingsNavBtn');
+ if(!btn){
+  btn=document.createElement('button');btn.id='ycServerSettingsNavBtn';btn.type='button';
+  btn.className='ghost yc-v3-nav-action';
+  btn.innerHTML='<span class="yc-v3-nav-action-ico" aria-hidden="true">⚙</span><span class="yc-v3-nav-action-label">Nastavení serveru</span>';
+  btn.onclick=()=>{if(ycCanOpenServerNavigation())window.ycOpenServerSettings()};
+ }
+ if(settings.nextElementSibling!==btn)settings.after(btn);
+ const allowed=ycCanOpenServerNavigation();
+ btn.classList.toggle('hidden',!allowed);btn.hidden=!allowed;btn.disabled=!allowed;
+ btn.title=allowed?'Nastavení serveru · '+currentCommunity.name:'Nastavení serveru';
+ const menu=$('ycServerMenuBtn'),head=document.querySelector('.yc-v3-content-grid>.chat>.chat-head');
+ if(menu&&head&&menu.parentElement!==head)head.appendChild(menu);
+}
+ycOnLifecycle('init',ycSyncServerNavigation);
+ycOnLifecycle('communities',ycSyncServerNavigation);
+ycOnLifecycle('community',ycSyncServerNavigation);
+ycOnLifecycle('beforeCommunity',()=>{ycServerNavigationReady='';ycSyncServerNavigation()});
+ycOnLifecycle('beforeAuth',()=>{ycServerNavigationReady='';ycSyncServerNavigation()});
 
 // Register every feature before restoring a cached session. Keep the splash until
 // lifecycle hooks and desktop appearance have finished, including on fresh login.
@@ -8968,6 +9006,9 @@ html.yc-ios-mobile .yc-v3-workspace{
   html.yc-ios-pwa .yc-member-rolechips{max-width:100%!important}
 
 }
+
+/* The mobile chat already has its own server-menu proxy. */
+@media(max-width:1100px){body .app .chat-head>#ycServerMenuBtn{display:none!important}}
 </style>
 <script>(()=>{
  const mobile=matchMedia('(max-width:1100px)');
@@ -9028,7 +9069,7 @@ html.yc-ios-mobile .yc-v3-workspace{
  }
  const observer=new MutationObserver(()=>{if(mount())observer.disconnect()});observer.observe(document.getElementById('app'),{childList:true,subtree:true});mount();
  document.addEventListener('keydown',e=>{if(e.key==='Escape'&&activeDrawer){close();e.preventDefault()}if(e.key==='Tab'&&activeDrawer){const items=[...activeDrawer.querySelectorAll('button,a,input,[tabindex="0"]')].filter(x=>!x.disabled&&x.getClientRects().length);const first=items[0],last=items.at(-1);if(e.shiftKey&&document.activeElement===first){e.preventDefault();last?.focus()}else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first?.focus()}}});
- document.addEventListener('click',e=>{if(mobile.matches&&e.target.closest('[data-channel],[data-thread],#profileBtn,#appSettingsBtn,#logoutBtn'))close()});
+ document.addEventListener('click',e=>{if(mobile.matches&&e.target.closest('[data-channel],[data-thread],#profileBtn,#appSettingsBtn,#ycServerSettingsNavBtn,#logoutBtn'))close()});
  mobile.addEventListener('change',close);
  // Desktop double-click joins a voice channel. A deliberate touch tap invokes the same handler.
  document.addEventListener('click',e=>{const room=e.target.closest?.('.voice-channel[data-voice]');if(room&&e.pointerType==='touch'&&mobile.matches){room.dispatchEvent(new MouseEvent('dblclick',{bubbles:true}));close()}});
