@@ -1,7 +1,7 @@
 {
   "name": "yamachat-windows",
-  "version": "1.0.91",
-  "description": "Yamachat desktop 1.0.91 with a thin active-server context outline on the verified stable 1.0.81 runtime",
+  "version": "1.0.92",
+  "description": "Yamachat desktop 1.0.92 with Work server-navigation parity on the verified stable 1.0.81 runtime",
   "main": "main.js",
   "productName": "Yamachat",
   "author": "Yamachat",
@@ -76,5 +76,3 @@
     ]
   }
 }
-
-
