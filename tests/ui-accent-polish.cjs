@@ -28,13 +28,15 @@ async function themeSnapshot(page,theme){
   document.documentElement.style.setProperty('--yc-theme',theme);
   const voice=document.querySelector('.yc-v3-voice-host .voice-controls');
   const top=document.querySelector('.yc-v3-voice-host .voice-card-top');
+  const connection=document.querySelector('.yc-v3-voice-host #voiceConnectionPanel');
   const scroll=document.querySelector('.messages')||document.documentElement;
   const host=document.querySelector('.yc-v3-voice-host');
-  const vs=getComputedStyle(voice),ts=getComputedStyle(top),ss=getComputedStyle(scroll),hs=getComputedStyle(host);
+  const vs=getComputedStyle(voice),ts=getComputedStyle(top),cs=getComputedStyle(connection),ss=getComputedStyle(scroll),hs=getComputedStyle(host);
   return {
    voiceBorder:vs.borderTopColor,
    voiceShadow:vs.boxShadow,
    topBorderRight:ts.borderRightWidth,
+   connectionBorderBottom:cs.borderBottomWidth,
    scrollbar:ss.scrollbarColor,
    hostBorder:hs.borderTopColor,
    hostShadow:hs.boxShadow,
@@ -55,6 +57,8 @@ async function themeSnapshot(page,theme){
    assert.notEqual(a.scrollbar,b.scrollbar,JSON.stringify({a,b}));
    assert.equal(a.topBorderRight,'0px',JSON.stringify(a));
    assert.equal(b.topBorderRight,'0px',JSON.stringify(b));
+   assert.equal(a.connectionBorderBottom,'0px',JSON.stringify(a));
+   assert.equal(b.connectionBorderBottom,'0px',JSON.stringify(b));
    assert.deepEqual(errors,[]);
    await page.close();
   }
