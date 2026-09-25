@@ -64,9 +64,21 @@ try{
  for(const marker of [
    'function openFriendsDrawer()',
    "#ycV3Friends,#ycOpenFriendsList",
-   'return replace(right,button)'
- ]) assert(mobileJs.includes(marker),`Missing mobile Friends drawer marker: ${marker}`);
+   'return replace(right,button)',
+   "e.target.closest?.('[data-dm]')",
+   "[data-channel],[data-thread]",
+   'queueMicrotask(close)'
+ ]) assert(mobileJs.includes(marker),`Missing mobile Friends/DM drawer marker: ${marker}`);
  assert(mobileJs.includes("document.documentElement.classList.toggle('yc-ios-pwa',iosPwa)"), 'iOS PWA class detection missing');
+ for(const marker of [
+   'ycUiAccentPolishStyle',
+   '.yc-v3-voice-host .voice-card-top',
+   'border-right:0!important',
+   '.yc-v3-voice-host #voiceConnectionPanel',
+   'border-bottom:0!important',
+   'scrollbar-color:color-mix(in srgb,var(--yc-theme',
+   '*::-webkit-scrollbar-thumb'
+ ]) assert(generatedWeb.includes(marker),`Generated client missing theme accent marker: ${marker}`);
  const mobileCssPwa=fs.readFileSync(path.join(root,'web/mobile.css'),'utf8');
  for(const marker of [
    'html.yc-ios-pwa .yc-ss-nav',

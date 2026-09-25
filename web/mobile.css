@@ -1108,7 +1108,7 @@ html.yc-ios-mobile .yc-v3-workspace{
    overflow:hidden!important;
    background:
      linear-gradient(180deg,rgba(40,23,69,.86),rgba(7,22,32,.96))!important;
-   border-top:1px solid rgba(215,65,255,.72)!important;
+   border-top:1px solid color-mix(in srgb,var(--yc-theme,#70e4e8) 72%,#294b5d)!important;
  }
 
  html.yc-native-android:not(.yc-keyboard-open) .yc-v3-voice-host .voice-controls{
@@ -1151,8 +1151,8 @@ html.yc-ios-mobile .yc-v3-workspace{
  html.yc-native-android:not(.yc-keyboard-open) .yc-v3-voice-host{
    z-index:6!important;
    margin-top:0!important;
-   border-top:1px solid rgba(215,65,255,.88)!important;
-   box-shadow:0 -1px 0 rgba(53,231,255,.10)!important;
+   border-top:1px solid color-mix(in srgb,var(--yc-theme,#70e4e8) 82%,#294b5d)!important;
+   box-shadow:0 -1px 0 color-mix(in srgb,var(--yc-theme,#70e4e8) 20%,transparent)!important;
  }
  html.yc-native-android:not(.yc-keyboard-open) .yc-v3-voice-host .voice-controls{
    position:relative!important;

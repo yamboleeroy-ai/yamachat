@@ -74,6 +74,13 @@
  }
  const observer=new MutationObserver(()=>{if(mount())observer.disconnect()});observer.observe(document.getElementById('app'),{childList:true,subtree:true});mount();
  document.addEventListener('keydown',e=>{if(e.key==='Escape'&&activeDrawer){close();e.preventDefault()}if(e.key==='Tab'&&activeDrawer){const items=[...activeDrawer.querySelectorAll('button,a,input,[tabindex="0"]')].filter(x=>!x.disabled&&x.getClientRects().length);const first=items[0],last=items.at(-1);if(e.shiftKey&&document.activeElement===first){e.preventDefault();last?.focus()}else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first?.focus()}}});
+ // Dedicated DM buttons stop propagation in the social list, so catch only
+ // those buttons in capture phase. Existing thread-row navigation keeps its
+ // proven bubble-phase behavior unchanged.
+ document.addEventListener('click',e=>{
+  if(!mobile.matches||e.target.closest?.('[data-profile-open]'))return;
+  if(e.target.closest?.('[data-dm]'))queueMicrotask(close);
+ },true);
  document.addEventListener('click',e=>{if(mobile.matches&&e.target.closest('[data-channel],[data-thread],#profileBtn,#appSettingsBtn,#ycServerSettingsNavBtn,#logoutBtn'))close()});
  // Friends is housed in the right social drawer on mobile. Selecting it from
  // another drawer must replace the current drawer in one tap, not leave the
