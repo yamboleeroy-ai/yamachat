@@ -91,5 +91,9 @@ jobs:
           node scripts/check.mjs
           after="$(sha256sum reference/desktop-1.0.78/* | sort)"
           test "$before" = "$after"
-          git diff --exit-code -- index.html
-          echo "PASS: desktop reference is unchanged and committed index.html matches the desktop-derived generator."
+          # Publishing index.html is a separate workflow; verify the generator itself here.
+          cp index.html /tmp/yamachat-generated-index.html
+          node scripts/build-web.mjs
+          cmp /tmp/yamachat-generated-index.html index.html
+          echo "PASS: desktop reference is unchanged and desktop-derived generation is deterministic."
+
