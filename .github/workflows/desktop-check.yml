@@ -74,13 +74,16 @@ jobs:
 
       - name: Verify generated desktop client
         run: |
-          node scripts/prepare-desktop-1.0.92.mjs
+          node scripts/prepare-desktop-1.0.93.mjs
           grep -q 'id="ycPasswordRequestBack"' desktop/desktop-client.html
           grep -q 'Platform Admin · uživatelské účty' desktop/desktop-client.html
           grep -q 'ycServerContextFrame' desktop/desktop-client.html
           grep -q 'ycServerCardContextStyle' desktop/desktop-client.html
           grep -q 'ycFriendsPanelRefreshStyle' desktop/desktop-client.html
           grep -q 'ycFriendsStableSet' desktop/desktop-client.html
+          grep -q 'ycUiAccentPolishStyle' desktop/desktop-client.html
+          grep -q 'border-right:0!important' desktop/desktop-client.html
+          grep -q 'border-bottom:0!important' desktop/desktop-client.html
           ! grep -q 'ycActiveServerConnectedFrame' desktop/desktop-client.html
           grep -q 'function drawFrame()' desktop/desktop-client.html
           grep -q 'pointer-events:none!important' desktop/desktop-client.html
@@ -101,7 +104,7 @@ jobs:
         run: |
           node - <<'NODE'
           const p=require('./desktop/package.json');
-          if(p.version!=='1.0.92') throw new Error('Expected desktop source version 1.0.92');
+          if(p.version!=='1.0.93') throw new Error('Expected desktop source version 1.0.93');
           if(!p.dependencies?.['electron-updater']) throw new Error('electron-updater missing');
           console.log('PASS desktop',p.version);
           NODE
