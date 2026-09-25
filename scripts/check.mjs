@@ -44,6 +44,14 @@ try{
  }
  assert(generatedWeb.includes("document.querySelectorAll('#rail [data-community]').forEach(b=>b.classList.remove('active'))"), 'Friends/DM mode must clear active server selection');
  assert(generatedWeb.includes('window.YamachatAppSettings={register:ycRegisterAppSettingsSection,open:ycOpenAppSettings'), 'Generated client is missing YamachatAppSettings registry');
+ for(const marker of [
+   'ycServerCardContextStyle',
+   'window.ycOpenServerInfo=ycOpenServerCardInfo',
+   'ycFriendsPanelRefreshStyle',
+   'ycFriendsStableSet',
+   'data-yc-modern-friends',
+   '#ycGlobalNav .yc-v3-nav-fill:after{content:none!important'
+ ]) assert(generatedWeb.includes(marker),'Generated web missing approved social/server marker: '+marker);
  console.log('PASS: Android manual update-check section is registered and wired to the shared update manifest.');
  const mobileCss=fs.readFileSync(path.join(root,'web/mobile.css'),'utf8');
  for(const marker of [
