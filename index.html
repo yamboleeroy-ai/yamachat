@@ -6048,23 +6048,28 @@ ycOnLifecycle('beforeAuth',()=>{clearTimeout(ycVoiceGestureTimer);ycVoiceGesture
   }
   function queueFrame(){if(!frameRequest)frameRequest=requestAnimationFrame(drawFrame)}
   const syncGlow=()=>{
+    // Dialogs temporarily cover a server; closing them must restore its outline.
+    const overlays=[...document.querySelectorAll('.modal-back,.yc-theme-backdrop,#ycServerSettingsBack,.yc-rankxp-overlay,[role="dialog"],#ycUiMenuRoot')];
+    for(const el of overlays)if(!observedOverlays.has(el)){observedOverlays.add(el);overlayObserver.observe(el,{attributes:true,attributeFilter:['class','style','hidden']})}
+    const covered=overlays.some(el=>el.getClientRects().length&&getComputedStyle(el).visibility!=='hidden');
     const visible=!navigationHidden&&!ycFriendsHomeMode&&!currentThread&&
-      !$('app').classList.contains('hidden')&&
-      !$('modalRoot')?.querySelector('.modal-back')&&
-      !document.getElementById('ycServerSettingsBack');
+      !$('app').classList.contains('hidden')&&!covered;
     document.querySelectorAll('#rail [data-community]').forEach(card=>{
       card.classList.toggle('yc-server-glow',!!visible&&card.classList.contains('active')&&
         String(card.dataset.community)===String(currentCommunity?.id));
     });
+    if(!visible&&frame)frame.style.display='none';
     queueFrame();
   };
   document.addEventListener('click',event=>{
-    if(event.target.closest?.('#rail [data-community]')) navigationHidden=false;
-    else if(event.target.closest?.('#ycGlobalNav button, #friendsTab, #ycFriendsRailBtn, #profileBtn, #appSettingsBtn, [data-thread]')) navigationHidden=true;
+    if(event.target.closest?.('#rail [data-community], [data-channel]')) navigationHidden=false;
+    else if(event.target.closest?.('#ycV3Home, #ycV3Friends, #friendsTab, #ycFriendsRailBtn, [data-thread]')) navigationHidden=true;
     else return;
     syncGlow();
     queueMicrotask(syncGlow);
   },true);
+  const observedOverlays=new WeakSet();
+  const overlayObserver=new MutationObserver(syncGlow);
   const observer=new MutationObserver(syncGlow);
   observer.observe($('rail'),{childList:true,subtree:true,attributes:true,attributeFilter:['class']});
   observer.observe($('modalRoot'),{childList:true,subtree:true});
@@ -6618,6 +6623,10 @@ body.yc-wotlk-theme .logo.yc-theme-logo{border-color:color-mix(in srgb,var(--yc-
 
 <!-- ycV3NavRegistryFunctionFixScript: initialized by the application module -->
 <style id="ycV3ServerCardsPremiumStyle">
+:root{--yc-context-a:var(--yc-theme,#e056fd);--yc-context-b:color-mix(in srgb,var(--yc-theme,#e056fd) 72%,#51bfd9);--yc-context-c:color-mix(in srgb,var(--yc-theme,#e056fd) 40%,#51bfd9)}
+#ycContextGradient stop:nth-child(1){stop-color:var(--yc-context-a)}
+#ycContextGradient stop:nth-child(2){stop-color:var(--yc-context-b)}
+#ycContextGradient stop:nth-child(3){stop-color:var(--yc-context-c)}
 #ycServerContextFrame{position:fixed;inset:0;width:100%;height:100%;z-index:6;pointer-events:none!important;overflow:hidden}
 #ycServerContextFrame[data-drawer]{position:absolute;z-index:6;border-radius:inherit}
 #ycServerContextFrame *{pointer-events:none!important}
@@ -6648,16 +6657,16 @@ body .yc-v3-ribbon .server[data-community]{
 }
 .yc-v3-ribbon .server[data-community].yc-server-glow{
  border-color:transparent!important;
- background:linear-gradient(110deg,rgba(69,28,89,.97),rgba(12,27,42,.98) 58%,rgba(13,51,65,.96)) padding-box,linear-gradient(105deg,#b656d2,#674986 48%,#32a9ca) border-box!important;
- box-shadow:0 0 7px rgba(194,91,229,.2),inset 4px 0 12px rgba(201,69,238,.17),inset -3px 0 10px rgba(44,194,224,.13)!important;
+ background:linear-gradient(110deg,color-mix(in srgb,var(--yc-context-a) 22%,#07131d),#0c1b2a 58%,color-mix(in srgb,var(--yc-context-c) 15%,#07131d)) padding-box,linear-gradient(105deg,var(--yc-context-a),var(--yc-context-b) 48%,var(--yc-context-c)) border-box!important;
+ box-shadow:0 0 7px color-mix(in srgb,var(--yc-context-a) 20%,transparent),inset 4px 0 12px color-mix(in srgb,var(--yc-context-a) 17%,transparent),inset -3px 0 10px color-mix(in srgb,var(--yc-context-c) 13%,transparent)!important;
 }
 .yc-v3-ribbon .server[data-community].yc-server-glow::before{
- background:linear-gradient(120deg,rgba(211,123,239,.10),transparent 46%,rgba(85,213,230,.08));
+ background:linear-gradient(120deg,color-mix(in srgb,var(--yc-context-a) 10%,transparent),transparent 46%,color-mix(in srgb,var(--yc-context-c) 8%,transparent));
  pointer-events:none;
 }
 .yc-v3-ribbon .server[data-community].yc-server-glow::after{
  inset:0;width:auto;height:auto;border-radius:inherit;
- border:0;box-shadow:inset -1px 0 rgba(98,208,225,.38);pointer-events:none;
+ border:0;box-shadow:inset -1px 0 color-mix(in srgb,var(--yc-context-c) 38%,transparent);pointer-events:none;
 }
 .yc-v3-ribbon .server[data-community] .yc-v3-community-mark{
  color:color-mix(in srgb,var(--yc-server-color,#70e4e8) 32%,white);
