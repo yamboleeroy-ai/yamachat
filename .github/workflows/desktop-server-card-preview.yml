@@ -60,6 +60,8 @@ jobs:
         run: node scripts/prepare-desktop-1.0.91.mjs
       - name: Verify stable source plus server card feature
         shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           $p = Get-Content desktop/package.json | ConvertFrom-Json
           if ($p.version -ne "1.0.91") { throw "Preview must remain version 1.0.91 and must not become a release" }
