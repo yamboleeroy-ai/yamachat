@@ -73,6 +73,8 @@ try{
    'ycUiAccentPolishStyle',
    '.yc-v3-voice-host .voice-card-top',
    'border-right:0!important',
+   '.yc-v3-voice-host #voiceConnectionPanel',
+   'border-bottom:0!important',
    'scrollbar-color:color-mix(in srgb,var(--yc-theme',
    '*::-webkit-scrollbar-thumb'
  ]) assert(generatedWeb.includes(marker),`Generated client missing theme accent marker: ${marker}`);
