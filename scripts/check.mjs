@@ -65,7 +65,8 @@ try{
    'function openFriendsDrawer()',
    "#ycV3Friends,#ycOpenFriendsList",
    'return replace(right,button)',
-   "[data-thread],[data-dm]",
+   "e.target.closest?.('[data-dm]')",
+   "[data-channel],[data-thread]",
    'queueMicrotask(close)'
  ]) assert(mobileJs.includes(marker),`Missing mobile Friends/DM drawer marker: ${marker}`);
  assert(mobileJs.includes("document.documentElement.classList.toggle('yc-ios-pwa',iosPwa)"), 'iOS PWA class detection missing');
