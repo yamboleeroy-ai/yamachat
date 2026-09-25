@@ -35,7 +35,7 @@ async function boot(browser,{width,height,role,delegated=false,mobile=false}){
  });
  await page.goto('http://127.0.0.1/');
  await page.waitForFunction(()=>window.__ycClientReady,{},{timeout:10000});
- await page.waitForSelector('#rail [data-community="community-a"]');
+ await page.waitForSelector('#rail [data-community="community-a"]',{state:'attached'});
  return {page,errors};
 }
 
@@ -46,11 +46,16 @@ async function openDesktopMenu(page){
 }
 async function openTouchMenu(page){
  const card=page.locator('#rail [data-community="community-a"]');
- const box=await card.boundingBox();assert(box);
+ let target=card;
+ if(!await card.isVisible()){
+  target=page.locator('#ycMobileServerMenuBtn');
+  await target.waitFor({state:'visible'});
+ }
+ const box=await target.boundingBox();assert(box);
  const x=box.x+box.width/2,y=box.y+box.height/2;
- await card.dispatchEvent('pointerdown',{pointerType:'touch',pointerId:41,isPrimary:true,button:0,clientX:x,clientY:y});
+ await target.dispatchEvent('pointerdown',{pointerType:'touch',pointerId:41,isPrimary:true,button:0,clientX:x,clientY:y});
  await page.waitForTimeout(610);
- await card.dispatchEvent('pointerup',{pointerType:'touch',pointerId:41,isPrimary:true,button:0,clientX:x,clientY:y});
+ await target.dispatchEvent('pointerup',{pointerType:'touch',pointerId:41,isPrimary:true,button:0,clientX:x,clientY:y});
  await page.waitForSelector('#ycUiMenuRoot:not(.hidden)');
 }
 function inside(box,width,height){
