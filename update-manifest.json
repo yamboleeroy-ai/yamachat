@@ -8,15 +8,15 @@
     "notes": "Yamachat 1.0.89: obrys v osobní barvě uživatele a jeho automatický návrat po zavření Nastavení, Profilu a dalších oken. Stabilní základ 1.0.81, beze změn voice, chatu a obnovy hesla."
   },
   "android": {
-    "latestVersion": "1.1.0.250",
-    "latestVersionCode": 200250,
+    "latestVersion": "1.1.0.254",
+    "latestVersionCode": 200254,
     "required": true,
-    "apkUrl": "https://yamachat.eu/download/Yamachat-Android.apk?v=200250",
-    "sha256": "4bf003dbe2429a9a2e6ad7d822fd5214eec89e6b2085bd5916652c21f6bf49e6",
+    "apkUrl": "https://yamachat.eu/download/Yamachat-Android.apk?v=200254",
+    "sha256": "474341584faab69013d333b189281cc48dcb06c2921de4506513ae81452ec46f",
     "notes": [
       "Obrys při otevření kanálů nebo členů sleduje vysunutý panel.",
-      "Po zavření panelu se obrys vrací k vybranému serveru a chatu.",
-      "Zachována je Platform Admin správa uživatelů, ban/odbanování a vzkazy do účtu."
+      "Obrys se automaticky vrací po zavření panelu, Nastavení, Profilu a dalších oken.",
+      "Obrys a aktivní karta respektují osobní barvu Yamachatu."
     ]
   }
 }
