@@ -11,6 +11,9 @@ const style=String.raw`
   border-right:0!important;
   border-inline-end:0!important;
 }
+.yc-v3-voice-host #voiceConnectionPanel{
+  border-bottom:0!important;
+}
 *{
   scrollbar-color:color-mix(in srgb,var(--yc-theme,#70e4e8) 54%,#304f65) #101820;
 }
@@ -33,7 +36,7 @@ const style=String.raw`
 
 export function withUiAccentPolish(html){
   const marker='// Register every feature before restoring a cached session.';
-  for(const part of [marker,'.yc-v3-voice-host .voice-controls','.yc-v3-voice-host .voice-card-top','::-webkit-scrollbar-thumb']){
+  for(const part of [marker,'.yc-v3-voice-host .voice-controls','.yc-v3-voice-host .voice-card-top','#voiceConnectionPanel','::-webkit-scrollbar-thumb']){
     if(!html.includes(part))throw Error('UI accent polish insertion boundary missing: '+part);
   }
   if(html.includes('ycUiAccentPolishStyle'))return html;
