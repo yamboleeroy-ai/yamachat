@@ -1,7 +1,7 @@
 {
   "name": "yamachat-windows",
-  "version": "1.0.92",
-  "description": "Yamachat desktop 1.0.92 with approved Friends refresh and server context on the verified stable 1.0.81 runtime",
+  "version": "1.0.93",
+  "description": "Yamachat desktop 1.0.93 with theme-aware voice dock, scrollbars, approved Friends refresh and server context on the verified stable 1.0.81 runtime",
   "main": "main.js",
   "productName": "Yamachat",
   "author": "Yamachat",
