@@ -133,9 +133,10 @@ jobs:
           android['apkUrl']=f"https://yamachat.eu/download/Yamachat-Android.apk?v={artifact['versionCode']}"
           android['sha256']=artifact['sha256']
           android['notes']=[
-            'Více místa pro kanály bez velké serverové hlavičky.',
-            'Správa serveru pod osobním Nastavením, pouze pro oprávněné členy.',
-            'Obrys a aktivní karta respektují osobní barvu Yamachatu.'
+            'Modernizovaný panel Přátelé a soukromých zpráv ve vzhledu Yamachatu.',
+            'Členové, Přátelé a DM se už zbytečně nepřekreslují při nezměněném obsahu.',
+            'Opravená klikatelnost levé navigace v malých oknech a odstraněný dekorativní překryv.',
+            'Kontextové menu serveru nabízí informace, nastavení podle oprávnění a opuštění serveru.'
           ]
           manifest_path.write_text(json.dumps(manifest,ensure_ascii=False,indent=2)+'\n')
           PY
@@ -144,7 +145,7 @@ jobs:
             if git diff --cached --quiet; then
               exit 0
             fi
-            git commit -m "Publish Yamachat Android server navigation [skip ci]"
+            git commit -m "Publish Yamachat Android social refresh [skip ci]"
             if git push origin HEAD:main; then
               exit 0
             fi
