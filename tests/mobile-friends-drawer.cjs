@@ -92,6 +92,28 @@ async function expectDrawer(page,kind){
    await page.waitForFunction(()=>document.querySelector('.yc-v3-content-grid>.right')?.classList.contains('yc-mobile-open'));
    await expectDrawer(page,'right');
 
+   // The DM button in the Friends drawer stops bubbling. Mobile navigation must
+   // still close the drawer and open the existing direct thread in one tap.
+   await page.locator('[data-dm="peer"]').click();
+   await page.waitForFunction(()=>!document.getElementById('app')?.classList.contains('yc-mobile-drawer-open'));
+   await page.waitForFunction(()=>document.getElementById('chatTitle')?.textContent?.includes('Pyronosh'));
+
+   // Opening a direct-thread row from the Friends-home side drawer must also
+   // close the drawer completely, including the shared app/scrim state.
+   await page.evaluate(()=>window.ycShowFriendsHome?.());
+   await page.locator('#mobileMenu').click();
+   await expectDrawer(page,'side');
+   await page.waitForSelector('#dmList [data-thread="dm-a"] .yc-dm-open');
+   await page.locator('#dmList [data-thread="dm-a"] .yc-dm-open').click();
+   await page.waitForFunction(()=>!document.getElementById('app')?.classList.contains('yc-mobile-drawer-open'));
+   const dmClosed=await page.evaluate(()=>({
+    side:document.getElementById('side')?.classList.contains('mobile-open')||false,
+    right:document.querySelector('.yc-v3-content-grid>.right')?.classList.contains('yc-mobile-open')||false,
+    scrim:getComputedStyle(document.getElementById('ycMobileScrim')).pointerEvents
+   }));
+   assert.equal(dmClosed.side,false,JSON.stringify(dmClosed));
+   assert.equal(dmClosed.right,false,JSON.stringify(dmClosed));
+
    assert.deepEqual(errors,[]);
    await page.close();
   }
