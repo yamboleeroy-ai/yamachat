@@ -53,9 +53,11 @@ async function assertClosed(page,label){
     await page.evaluate(()=>window.ycShowFriendsHome?.());
     await page.locator('#mobileMenu').click();
     await page.waitForFunction(()=>document.getElementById('side')?.classList.contains('mobile-open'));
-    const thread=page.locator('#dmList [data-thread="dm-a"] .yc-dm-open');
+    const thread=page.locator('#dmList [data-thread="dm-a"]');
     await thread.waitFor({state:'visible'});
-    await thread.click();
+    const box=await thread.boundingBox();assert(box,JSON.stringify({width,height}));
+    // Tap the row's right-side free area rather than the profile/avatar child.
+    await page.mouse.click(box.x+box.width-8,box.y+box.height/2);
     await assertClosed(page,'direct thread '+width+'x'+height);
     assert.deepEqual(errors,[]);
     await page.close();
