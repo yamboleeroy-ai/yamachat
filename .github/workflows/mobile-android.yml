@@ -133,8 +133,8 @@ jobs:
           android['apkUrl']=f"https://yamachat.eu/download/Yamachat-Android.apk?v={artifact['versionCode']}"
           android['sha256']=artifact['sha256']
           android['notes']=[
-            'Obrys při otevření kanálů nebo členů sleduje vysunutý panel.',
-            'Obrys se automaticky vrací po zavření panelu, Nastavení, Profilu a dalších oken.',
+            'Vlastní miniatura serveru místo písmen v horní kartě.',
+            'Jemné neonové karty s tmavým sklem a fialovo-cyan okrajem.',
             'Obrys a aktivní karta respektují osobní barvu Yamachatu.'
           ]
           manifest_path.write_text(json.dumps(manifest,ensure_ascii=False,indent=2)+'\n')
@@ -144,7 +144,7 @@ jobs:
             if git diff --cached --quiet; then
               exit 0
             fi
-            git commit -m "Publish Yamachat Android drawer outline fix [skip ci]"
+            git commit -m "Publish Yamachat Android server thumbnails [skip ci]"
             if git push origin HEAD:main; then
               exit 0
             fi
@@ -168,4 +168,5 @@ jobs:
             android-artifact.json
           if-no-files-found: error
           retention-days: 30
+
 
