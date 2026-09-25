@@ -114,7 +114,7 @@ function inside(box,width,height){
    await page.waitForFunction(()=>!document.querySelector('.yc-server-info-loading'));
    const box=await page.locator('.yc-server-info-modal').boundingBox();
    assert(inside(box,width,height),JSON.stringify({width,height,box}));
-   const buttons=await page.locator('.yc-server-info-modal button').all();
+   const buttons=await page.locator('.yc-server-info-modal .yc-server-info-action').all();
    for(const button of buttons){const b=await button.boundingBox();if(b)assert(b.height>=40,JSON.stringify({width,height,b}))}
    assert.deepEqual(errors,[]);
    await page.close();
