@@ -1,4 +1,4 @@
-const CACHE='yamachat-web-drawer-context-20260925-2';
+const CACHE='yamachat-web-context-restore-20260925-3';
 const SHELL=['./','./index.html','./boot-guard.js','./vendor/supabase.js','./build/yamachat-logo-symbol.png','./manifest.webmanifest','./offline.html','./icons/icon-192.png','./icons/icon-512.png','./audio/mic-gate.worklet.js','./audio/rnnoise.worklet.js','./audio/rnnoise.mjs','./audio/rnnoise.wasm'];
 self.addEventListener('install',event=>event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(SHELL))));
 self.addEventListener('activate',event=>event.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k.startsWith('yamachat-web-')&&k!==CACHE).map(k=>caches.delete(k)))).then(()=>self.clients.claim())));
@@ -13,3 +13,4 @@ self.addEventListener('notificationclick',event=>{
  event.notification.close();const target=event.notification.data?.target||{};const safe={messageId:String(target.messageId||''),channelId:String(target.channelId||''),threadId:String(target.threadId||''),communityId:String(target.communityId||'')};const url=new URL('./',self.registration.scope);if(safe.messageId)url.searchParams.set('message',safe.messageId);if(safe.channelId)url.searchParams.set('channel',safe.channelId);if(safe.threadId)url.searchParams.set('dm',safe.threadId);if(safe.communityId)url.searchParams.set('community',safe.communityId);
  event.waitUntil(self.clients.matchAll({type:'window',includeUncontrolled:true}).then(async clients=>{const client=clients.find(c=>c.url.startsWith(self.registration.scope));if(client){await client.focus();client.postMessage({type:'yamachat:web-notification',target:safe})}else await self.clients.openWindow(url.href)}));
 });
+
