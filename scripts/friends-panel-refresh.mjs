@@ -1,6 +1,16 @@
 const runtime=String.raw`
 document.documentElement.dataset.ycFriendsRefresh='1';
 let ycFriendsRefreshTabsObserver=null;
+function ycFriendsStableSet(root,html,key='social'){
+ if(!root)return false;
+ const markup=String(html??''),stateKey=String(key||'social');
+ if(root.dataset.ycStableRenderKey===stateKey&&root.__ycStableRenderMarkup===markup)return false;
+ const top=root.scrollTop,left=root.scrollLeft;
+ root.innerHTML=markup;root.dataset.ycStableRenderKey=stateKey;root.__ycStableRenderMarkup=markup;
+ if(top)root.scrollTop=Math.min(top,Math.max(0,root.scrollHeight-root.clientHeight));
+ if(left)root.scrollLeft=left;
+ return true;
+}
 function ycFriendsRefreshSyncTabs(){
  const members=$('membersTab'),friends=$('friendsTab');if(!members||!friends)return false;
  const isFriends=rightMode==='friends';
@@ -108,5 +118,14 @@ export function withFriendsPanelRefresh(html){
  for(const part of [marker,'function ycSetupFriendsHome()','function renderFriends()','function ycV3MountLayout()','.yc-v3-nav-fill:after'])
   if(!html.includes(part))throw Error('Friends panel refresh insertion boundary missing: '+part);
  if(html.includes('ycFriendsPanelRefreshStyle'))return html;
+ const rightNeedle="$('rightContent').innerHTML=out;";
+ const rightCount=html.split(rightNeedle).length-1;
+ if(rightCount!==2)throw Error('Friends stable-render expected 2 rightContent assignments, found '+rightCount);
+ html=html.split(rightNeedle).join("ycFriendsStableSet($('rightContent'),out,rightMode);");
+ const dmStart="function renderDmList(){const root=$('dmList');if(!root)return;root.innerHTML=dmThreads.map";
+ const dmEnd="}).join('');root.querySelectorAll('[data-thread]').forEach";
+ if(!html.includes(dmStart)||!html.includes(dmEnd))throw Error('Friends stable-render DM boundary missing');
+ html=html.replace(dmStart,"function renderDmList(){const root=$('dmList');if(!root)return;const ycDmMarkup=dmThreads.map");
+ html=html.replace(dmEnd,"}).join('');ycFriendsStableSet(root,ycDmMarkup,'dm');root.querySelectorAll('[data-thread]').forEach");
  return html.replace(marker,runtime+'\n'+marker).replace('</head>',style+'\n</head>');
 }
