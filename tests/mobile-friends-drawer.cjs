@@ -72,7 +72,10 @@ async function expectDrawer(page,kind){
    assert.equal(await page.locator('#friendsTab').evaluate(el=>el.classList.contains('active')),true);
    assert.equal(await page.locator('#membersTab').evaluate(el=>el.classList.contains('active')),false);
 
-   // Repeat after switching drawers to catch stale activeDrawer state.
+   // Close through the real mobile scrim, then repeat to catch stale
+   // activeDrawer state across a full close/open cycle.
+   await page.locator('#ycMobileScrim').click();
+   await page.waitForFunction(()=>!document.getElementById('app')?.classList.contains('yc-mobile-drawer-open'));
    await page.locator('#ycMobileNavBtn').click();
    await expectDrawer(page,'nav');
    await page.locator('#ycV3Friends').click();
@@ -80,6 +83,8 @@ async function expectDrawer(page,kind){
    await expectDrawer(page,'right');
 
    // Friends home -> "show all friends" must replace the side drawer directly.
+   await page.locator('#ycMobileScrim').click();
+   await page.waitForFunction(()=>!document.getElementById('app')?.classList.contains('yc-mobile-drawer-open'));
    await page.evaluate(()=>window.ycShowFriendsHome?.());
    await page.locator('#mobileMenu').click();
    await expectDrawer(page,'side');
