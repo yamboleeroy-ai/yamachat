@@ -1,14 +1,16 @@
-name: Windows server card context preview
+name: Windows friends panel preview
 
 on:
   workflow_dispatch:
   push:
     branches:
-      - feature/server-card-context-desktop
+      - feature/friends-panel-refresh-desktop
     paths:
       - "scripts/server-card-context.mjs"
+      - "scripts/friends-panel-refresh.mjs"
       - "scripts/prepare-desktop-1.0.91.mjs"
       - "tests/server-card-context-desktop.cjs"
+      - "tests/friends-panel-refresh-desktop.cjs"
       - ".github/workflows/desktop-server-card-preview.yml"
 
 permissions:
@@ -20,7 +22,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: feature/server-card-context-desktop
+          ref: feature/friends-panel-refresh-desktop
           fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
@@ -37,19 +39,24 @@ jobs:
           grep -q 'ycServerContextFrame' desktop/desktop-client.html
           grep -q 'id="ycPasswordRequestBack"' desktop/desktop-client.html
           grep -q 'Platform Admin · uživatelské účty' desktop/desktop-client.html
+          grep -q 'ycFriendsPanelRefreshStyle' desktop/desktop-client.html
+          grep -q 'ycFriendsRefreshSyncTabs' desktop/desktop-client.html
+          grep -q 'content:none!important' desktop/desktop-client.html
       - name: Install browser test runtime
         run: |
           npm install --no-save --package-lock=false playwright@1.62.1
           npx playwright install --with-deps chromium
       - name: Test desktop right-click, roles and responsive info card
         run: node tests/server-card-context-desktop.cjs
+      - name: Test friends panel, stable social tabs and short-window navigation
+        run: node tests/friends-panel-refresh-desktop.cjs
 
   package-preview:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: feature/server-card-context-desktop
+          ref: feature/friends-panel-refresh-desktop
           fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
@@ -75,7 +82,9 @@ jobs:
             "ycServerCardContextStyle",
             "ycOpenServerCardInfo",
             "ycServerCardCanManage",
-            "data-yc-server-card-menu"
+            "data-yc-server-card-menu",
+            "ycFriendsPanelRefreshStyle",
+            "ycFriendsRefreshSyncTabs"
           )) {
             if (-not $client.Contains($marker)) { throw "Missing desktop preview marker: $marker" }
           }
@@ -124,13 +133,15 @@ jobs:
             "ycOpenServerCardInfo",
             "ycServerCardCanManage",
             "data-yc-server-card-menu",
+            "ycFriendsPanelRefreshStyle",
+            "ycFriendsRefreshSyncTabs",
             'id="ycPasswordRequestBack"',
             "Platform Admin · uživatelské účty"
           )) {
             if (-not $client.Contains($marker)) { throw "Packaged preview missing marker: $marker" }
           }
           if (-not (Test-Path "desktop/dist/Yamachat-Setup-1.0.91.exe")) { throw "Preview installer missing" }
-          Write-Host "PASS: packaged Windows preview contains server-card context and stable features."
+          Write-Host "PASS: packaged Windows preview contains server-card context, friends refresh and stable features."
       - uses: actions/upload-artifact@v4
         with:
           name: yamachat-windows-server-card-preview
