@@ -98,7 +98,7 @@ function ycServerCardSyncMenuSkin(){
  else delete root.dataset.ycServerCardMenu;
 }
 async function ycOpenServerCardMenu(card,x,y){
- const c=ycServerCardCommunity(card?.dataset?.community);if(!c)return;
+ const c=card?.id==='ycMobileServerMenuBtn'?currentCommunity:ycServerCardCommunity(card?.dataset?.community);if(!c)return;
  const seq=++ycServerCardMenuSeq,canManage=await ycServerCardCanManage(c);if(seq!==ycServerCardMenuSeq)return;
  const rect=card.getBoundingClientRect(),px=Number.isFinite(x)&&x>0?x:rect.left+Math.min(rect.width-8,32),py=Number.isFinite(y)&&y>0?y:rect.top+Math.min(rect.height-8,32);
  const items=[
@@ -119,7 +119,7 @@ document.addEventListener('contextmenu',event=>{
 },true);
 document.addEventListener('pointerdown',event=>{
  if(event.pointerType==='mouse'||event.button!==0||event.isPrimary===false)return;
- const card=event.target.closest?.('#rail [data-community]');if(!card)return;
+ const card=event.target.closest?.('#rail [data-community],#ycMobileServerMenuBtn');if(!card)return;
  ycServerCardCancelPress();
  const state={card,pointerId:event.pointerId,x:event.clientX,y:event.clientY,opened:false,timer:null};
  state.timer=setTimeout(()=>{if(ycServerCardPress!==state||!card.isConnected)return;state.opened=true;ycServerCardSuppressClickUntil=Date.now()+850;try{navigator.vibrate?.(10)}catch{};void ycOpenServerCardMenu(card,state.x,state.y)},520);
@@ -131,7 +131,7 @@ document.addEventListener('pointermove',event=>{
 },true);
 for(const type of ['pointerup','pointercancel'])document.addEventListener(type,event=>{if(ycServerCardPress&&event.pointerId===ycServerCardPress.pointerId)ycServerCardCancelPress()},true);
 document.addEventListener('click',event=>{
- if(Date.now()>ycServerCardSuppressClickUntil||!event.target.closest?.('#rail [data-community]'))return;
+ if(Date.now()>ycServerCardSuppressClickUntil||!event.target.closest?.('#rail [data-community],#ycMobileServerMenuBtn'))return;
  event.preventDefault();event.stopImmediatePropagation();ycServerCardSuppressClickUntil=0;
 },true);
 document.addEventListener('keydown',event=>{if(event.key==='Escape'&&$('modalRoot')?.querySelector('.yc-server-info-modal')){event.preventDefault();closeModal()}});
