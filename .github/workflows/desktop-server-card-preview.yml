@@ -1,0 +1,140 @@
+name: Windows server card context preview
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/server-card-context-desktop
+    paths:
+      - "scripts/server-card-context.mjs"
+      - "scripts/prepare-desktop-1.0.91.mjs"
+      - "tests/server-card-context-desktop.cjs"
+      - ".github/workflows/desktop-server-card-preview.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  ui-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/server-card-context-desktop
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Generate desktop client from verified Windows base
+        run: node scripts/prepare-desktop-1.0.91.mjs
+      - name: Verify generated feature markers
+        run: |
+          grep -q 'ycServerCardContextStyle' desktop/desktop-client.html
+          grep -q 'ycOpenServerCardInfo' desktop/desktop-client.html
+          grep -q "addEventListener('contextmenu'" desktop/desktop-client.html
+          grep -q "addEventListener('pointerdown'" desktop/desktop-client.html
+          grep -q 'ycServerCardCanManage' desktop/desktop-client.html
+          grep -q 'ycServerContextFrame' desktop/desktop-client.html
+          grep -q 'id="ycPasswordRequestBack"' desktop/desktop-client.html
+          grep -q 'Platform Admin · uživatelské účty' desktop/desktop-client.html
+      - name: Install browser test runtime
+        run: |
+          npm install --no-save --package-lock=false playwright@1.62.1
+          npx playwright install --with-deps chromium
+      - name: Test desktop right-click, roles and responsive info card
+        run: node tests/server-card-context-desktop.cjs
+
+  package-preview:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/server-card-context-desktop
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: desktop/package-lock.json
+      - name: Generate desktop client from verified Windows base
+        run: node scripts/prepare-desktop-1.0.91.mjs
+      - name: Verify stable source plus server card feature
+        shell: pwsh
+        run: |
+          $p = Get-Content desktop/package.json | ConvertFrom-Json
+          if ($p.version -ne "1.0.91") { throw "Preview must remain version 1.0.91 and must not become a release" }
+          $client = Get-Content desktop/desktop-client.html -Raw
+          foreach ($marker in @(
+            'id="ycPasswordRequestBack"',
+            "Platform Admin · uživatelské účty",
+            "Zabanovat účet",
+            "Zprávy od Yamachatu",
+            "ycServerContextFrame",
+            "ycServerCardContextStyle",
+            "ycOpenServerCardInfo",
+            "ycServerCardCanManage",
+            "data-yc-server-card-menu"
+          )) {
+            if (-not $client.Contains($marker)) { throw "Missing desktop preview marker: $marker" }
+          }
+          foreach ($forbidden in @(
+            "ycActiveServerConnectedFrame",
+            "__ycActiveServerContextV2",
+            "yc-active-server-context-card",
+            "ycActiveServerGlobalContext"
+          )) {
+            if ($client.Contains($forbidden)) { throw "Forbidden old active-server runtime found: $forbidden" }
+          }
+          $runtime = Get-Content desktop/main.js -Raw
+          foreach ($marker in @(
+            "function createTray()",
+            "new Tray(trayIconForCurrentState())",
+            "createTray();",
+            "if (behavior === 'tray')",
+            "'build',",
+            "'icon.ico'"
+          )) {
+            if (-not $runtime.Contains($marker)) { throw "Missing tray/runtime marker: $marker" }
+          }
+          ./scripts/restore-desktop-brand-assets.ps1 -Destination build
+      - name: Prepare desktop runtime assets
+        shell: pwsh
+        run: |
+          Copy-Item -Recurse -Force build desktop\build
+          Copy-Item -Recurse -Force audio desktop\audio
+          Copy-Item -Force boot-guard.js desktop\boot-guard.js
+      - name: Install desktop dependencies
+        working-directory: desktop
+        run: npm ci
+      - name: Build unsigned preview installer
+        working-directory: desktop
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: npm run dist:win
+      - name: Verify packaged application
+        shell: pwsh
+        run: |
+          $appRoot = "desktop/dist/win-unpacked/resources/app"
+          $client = Get-Content "$appRoot/desktop-client.html" -Raw
+          foreach ($marker in @(
+            "ycServerContextFrame",
+            "ycServerCardContextStyle",
+            "ycOpenServerCardInfo",
+            "ycServerCardCanManage",
+            "data-yc-server-card-menu",
+            'id="ycPasswordRequestBack"',
+            "Platform Admin · uživatelské účty"
+          )) {
+            if (-not $client.Contains($marker)) { throw "Packaged preview missing marker: $marker" }
+          }
+          if (-not (Test-Path "desktop/dist/Yamachat-Setup-1.0.91.exe")) { throw "Preview installer missing" }
+          Write-Host "PASS: packaged Windows preview contains server-card context and stable features."
+      - uses: actions/upload-artifact@v4
+        with:
+          name: yamachat-windows-server-card-preview
+          path: |
+            desktop/dist/Yamachat-Setup-1.0.91.exe
+            desktop/dist/Yamachat-Setup-1.0.91.exe.blockmap
+            desktop/dist/latest.yml
+          if-no-files-found: error
+          retention-days: 7
