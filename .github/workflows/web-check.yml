@@ -26,8 +26,10 @@ jobs:
         run: node tests/account-messages.cjs
       - name: Social release generated web/mobile smoke test
         run: node tests/social-release-web.cjs
-      - name: Mobile Friends drawer one-tap switch
+      - name: Mobile Friends and DM drawer one-tap navigation
         run: node tests/mobile-friends-drawer.cjs
+      - name: Theme accent voice and scrollbar regression
+        run: node tests/ui-accent-polish.cjs
       - name: Prepare web deployment
         run: |
           mkdir -p web-dist
