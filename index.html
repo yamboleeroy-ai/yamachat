@@ -9311,6 +9311,23 @@ html.yc-ios-mobile .yc-v3-workspace{
  const panels=()=>[document.getElementById('ycGlobalNav'),document.getElementById('side'),document.querySelector('.yc-v3-content-grid>.right')].filter(Boolean);
  function close(){for(const p of panels()){p.classList.remove('yc-mobile-open','mobile-open');p.inert=mobile.matches}document.getElementById('app')?.classList.remove('yc-mobile-drawer-open');document.querySelectorAll('[aria-controls][aria-expanded]').forEach(b=>b.setAttribute('aria-expanded','false'));activeDrawer=null;returnFocus?.focus();returnFocus=null}
  function open(panel,button){const same=activeDrawer===panel;close();if(same)return;returnFocus=button;activeDrawer=panel;panel.inert=false;panel.classList.add(panel.id==='side'?'mobile-open':'yc-mobile-open');document.getElementById('app').classList.add('yc-mobile-drawer-open');button.setAttribute('aria-expanded','true');panel.querySelector('button,a,input,[tabindex="0"]')?.focus()}
+ function replace(panel,button){
+  if(!mobile.matches||!panel||!button)return false;
+  // Navigation actions may change panel CSS outside this controller. Always
+  // normalize the old drawer state before opening the requested destination.
+  close();
+  returnFocus=button;activeDrawer=panel;panel.inert=false;
+  panel.classList.add(panel.id==='side'?'mobile-open':'yc-mobile-open');
+  document.getElementById('app')?.classList.add('yc-mobile-drawer-open');
+  button.setAttribute('aria-expanded','true');
+  panel.querySelector('button,a,input,[tabindex="0"]')?.focus();
+  return true;
+ }
+ function openFriendsDrawer(){
+  const right=document.querySelector('.yc-v3-content-grid>.right');
+  const button=document.getElementById('ycMobileMembersBtn');
+  return replace(right,button);
+ }
  function ensureMobileServerMenu(app){
   const chatHead=app?.querySelector('.yc-v3-content-grid>.chat>.chat-head');
   if(!chatHead)return false;
@@ -9361,6 +9378,14 @@ html.yc-ios-mobile .yc-v3-workspace{
  const observer=new MutationObserver(()=>{if(mount())observer.disconnect()});observer.observe(document.getElementById('app'),{childList:true,subtree:true});mount();
  document.addEventListener('keydown',e=>{if(e.key==='Escape'&&activeDrawer){close();e.preventDefault()}if(e.key==='Tab'&&activeDrawer){const items=[...activeDrawer.querySelectorAll('button,a,input,[tabindex="0"]')].filter(x=>!x.disabled&&x.getClientRects().length);const first=items[0],last=items.at(-1);if(e.shiftKey&&document.activeElement===first){e.preventDefault();last?.focus()}else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first?.focus()}}});
  document.addEventListener('click',e=>{if(mobile.matches&&e.target.closest('[data-channel],[data-thread],#profileBtn,#appSettingsBtn,#ycServerSettingsNavBtn,#logoutBtn'))close()});
+ // Friends is housed in the right social drawer on mobile. Selecting it from
+ // another drawer must replace the current drawer in one tap, not leave the
+ // old surface open with only the underlying mode changed.
+ document.addEventListener('click',e=>{
+  if(!mobile.matches)return;
+  if(!e.target.closest?.('#ycV3Friends,#ycOpenFriendsList'))return;
+  queueMicrotask(()=>openFriendsDrawer());
+ });
  mobile.addEventListener('change',close);
  // Desktop double-click joins a voice channel. A deliberate touch tap invokes the same handler.
  document.addEventListener('click',e=>{const room=e.target.closest?.('.voice-channel[data-voice]');if(room&&e.pointerType==='touch'&&mobile.matches){room.dispatchEvent(new MouseEvent('dblclick',{bubbles:true}));close()}});
