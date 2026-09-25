@@ -24,6 +24,8 @@ jobs:
         run: node tests/password-recovery.cjs
       - name: Platform user management tests
         run: node tests/account-messages.cjs
+      - name: Social release generated web/mobile smoke test
+        run: node tests/social-release-web.cjs
       - name: Prepare web deployment
         run: |
           mkdir -p web-dist
