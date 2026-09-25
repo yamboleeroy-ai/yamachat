@@ -1,0 +1,49 @@
+name: Yamachat Desktop Safety Check
+
+on:
+  pull_request:
+    paths:
+      - "desktop/**"
+      - ".github/workflows/desktop-check.yml"
+      - ".github/workflows/publish-yamachat-release.yml"
+  push:
+    paths:
+      - "desktop/**"
+      - ".github/workflows/desktop-check.yml"
+      - ".github/workflows/publish-yamachat-release.yml"
+
+jobs:
+  desktop-safety:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Parse desktop JavaScript
+        run: |
+          node --check desktop/main.js
+          node --check desktop/updater.js
+          node --check desktop/preload.js
+          node --check desktop/notification-preload.js
+
+      - name: Verify stable desktop core stayed byte-identical
+        run: |
+          python - <<'PY'
+          import hashlib, json
+          from pathlib import Path
+
+          baseline=json.loads(Path('desktop/BASELINE-1.0.78.json').read_text())
+          for name, expected in baseline['sha256'].items():
+              actual=hashlib.sha256(Path('desktop',name).read_bytes()).hexdigest()
+              if actual != expected:
+                  raise SystemExit(f'{name} changed: {actual} != {expected}')
+              print('PASS',name,actual)
+          PY
+
+      - name: Verify updater-only version
+        run: |
+          node - <<'NODE'
+          const p=require('./desktop/package.json');
+          if(p.version!=='1.0.79') throw new Error('Expected desktop source version 1.0.79');
+          if(!p.dependencies?.['electron-updater']) throw new Error('electron-updater missing');
+          console.log('PASS desktop',p.version);
+          NODE

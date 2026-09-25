@@ -1,0 +1,78 @@
+{
+  "name": "yamachat-windows",
+  "version": "1.0.79",
+  "description": "Yamachat desktop 1.0.79 with required-update gate, stable voice/chat and rollback-safe GitHub Releases updater",
+  "main": "main.js",
+  "productName": "Yamachat",
+  "author": "Yamachat",
+  "license": "ISC",
+  "type": "commonjs",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yamboleeroy-ai/yamachat.git"
+  },
+  "scripts": {
+    "start": "electron .",
+    "dist:win": "electron-builder --win nsis --x64 --publish never",
+    "release:win": "electron-builder --win nsis --x64 --publish never"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "2.95.0",
+    "electron-updater": "6.8.9"
+  },
+  "devDependencies": {
+    "electron": "44.3.0",
+    "electron-builder": "26.16.1"
+  },
+  "build": {
+    "appId": "cz.yamachat.desktop",
+    "productName": "Yamachat",
+    "asar": false,
+    "directories": {
+      "buildResources": "build",
+      "output": "dist"
+    },
+    "files": [
+      "main.js",
+      "updater.js",
+      "updater-helper.ps1",
+      "preload.js",
+      "notification-preload.js",
+      "desktop.html",
+      "desktop-client.html",
+      "audio/**/*",
+      "build/**/*"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "build/icon.ico",
+      "artifactName": "Yamachat-Setup-${version}.${ext}"
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "allowElevation": false,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "deleteAppDataOnUninstall": false,
+      "runAfterFinish": true,
+      "differentialPackage": true,
+      "include": "build/installer.nsh"
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "yamboleeroy-ai",
+        "repo": "yamachat",
+        "releaseType": "release"
+      }
+    ]
+  }
+}
