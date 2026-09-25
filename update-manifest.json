@@ -8,16 +8,16 @@
     "notes": "Yamachat 1.0.92: modernizovaný panel Přátelé, stabilnější Členové/Přátelé/DM, opravená klikatelnost levé navigace a kontextové menu serveru. Stabilní základ 1.0.81."
   },
   "android": {
-    "latestVersion": "1.1.0.284",
-    "latestVersionCode": 200284,
+    "latestVersion": "1.1.0.289",
+    "latestVersionCode": 200289,
     "required": true,
-    "apkUrl": "https://yamachat.eu/download/Yamachat-Android.apk?v=200284",
-    "sha256": "267512e659884dea9282f4ebba307402226869a425362e41381ed978b2183f59",
+    "apkUrl": "https://yamachat.eu/download/Yamachat-Android.apk?v=200289",
+    "sha256": "0427dd8246d2e089471f08ed3e4eb4a066ffb273bcffde7324199fb8e9bc1fc3",
     "notes": [
-      "Modernizovaný panel Přátelé a soukromých zpráv ve vzhledu Yamachatu.",
-      "Členové, Přátelé a DM se už zbytečně nepřekreslují při nezměněném obsahu.",
-      "Opravená klikatelnost levé navigace v malých oknech a odstraněný dekorativní překryv.",
-      "Kontextové menu serveru nabízí informace, nastavení podle oprávnění a opuštění serveru."
+      "Opravené přepínání mobilních vysouvacích panelů jedním klepnutím.",
+      "Přátelé teď automaticky zavřou aktuální panel a otevřou panel Členové/Přátelé.",
+      "Stejné chování funguje v portrétu i landscape na Androidu a iOS/PWA.",
+      "Ostatní funkce a desktop zůstávají beze změny."
     ]
   }
 }
