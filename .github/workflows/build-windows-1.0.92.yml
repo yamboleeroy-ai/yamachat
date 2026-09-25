@@ -121,7 +121,7 @@ jobs:
           $exe = Get-ChildItem desktop/dist/Yamachat-Setup-1.0.92.exe
           $block = Get-ChildItem desktop/dist/Yamachat-Setup-1.0.92.exe.blockmap
           $latest = Get-Content desktop/dist/latest.yml -Raw
-          if ($latest -notmatch "version:\s*1\.0\.91") { throw "latest.yml is not 1.0.92" }
+          if ($latest -notmatch "version:\s*1\.0\.92") { throw "latest.yml is not 1.0.92" }
 
           Write-Host "SETUP_SHA256=$((Get-FileHash $exe.FullName -Algorithm SHA256).Hash)"
           Write-Host "SETUP_SIZE=$($exe.Length)"
