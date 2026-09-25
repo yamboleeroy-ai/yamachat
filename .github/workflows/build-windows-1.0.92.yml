@@ -3,7 +3,7 @@ name: Build and publish Yamachat Windows 1.0.92
 on:
   push:
     branches:
-      - release/windows-1.0.92-navigation
+      - release/windows-1.0.92-navigation-parity
     paths:
       - ".github/workflows/build-windows-1.0.92.yml"
 
@@ -16,7 +16,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: release/windows-1.0.92-navigation
+          ref: release/windows-1.0.92-navigation-parity
           fetch-depth: 0
 
       - uses: actions/setup-node@v4
@@ -169,7 +169,7 @@ jobs:
 
           gh release create v1.0.92 release-assets/* \
             --repo "${GITHUB_REPOSITORY}" \
-            --target release/windows-1.0.92-navigation \
+            --target release/windows-1.0.92-navigation-parity \
             --title "Yamachat 1.0.92" \
             --notes-file release-notes.md \
             --latest
