@@ -22,7 +22,7 @@ function ycServerCardLocalManage(c){
  if(!c)return false;
  if(['owner','admin'].includes(c.role))return true;
  if(String(currentCommunity?.id)!==String(c.id))return null;
- return YC_SERVER_CARD_MANAGE_PERMS.some(key=>canCommunityPermission(key));
+ return YC_SERVER_CARD_MANAGE_PERMS.some(key=>canCommunityPermission(key))?true:null;
 }
 async function ycServerCardCanManage(c){
  const local=ycServerCardLocalManage(c);if(local!==null)return !!local;
