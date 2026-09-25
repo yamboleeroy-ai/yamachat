@@ -44,6 +44,10 @@ try{
  }
  assert(generatedWeb.includes("document.querySelectorAll('#rail [data-community]').forEach(b=>b.classList.remove('active'))"), 'Friends/DM mode must clear active server selection');
  assert(generatedWeb.includes('window.YamachatAppSettings={register:ycRegisterAppSettingsSection,open:ycOpenAppSettings'), 'Generated client is missing YamachatAppSettings registry');
+ for(const marker of ['ycServerCardContextStyle','ycOpenServerCardInfo','ycServerCardCanManage',"addEventListener('contextmenu'","addEventListener('pointerdown'",'data-yc-server-card-menu'])
+   assert(generatedWeb.includes(marker),'Server card context menu missing: '+marker);
+ assert(generatedWeb.includes("await ycLeaveCommunity(c.id,false)"),'Server-card leave must reuse existing leave logic');
+ assert(generatedWeb.includes("window.ycOpenServerSettings()"),'Server-card settings must reuse existing server settings');
  console.log('PASS: Android manual update-check section is registered and wired to the shared update manifest.');
  const mobileCss=fs.readFileSync(path.join(root,'web/mobile.css'),'utf8');
  for(const marker of [
