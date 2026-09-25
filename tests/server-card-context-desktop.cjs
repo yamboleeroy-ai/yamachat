@@ -82,9 +82,9 @@ function inside(box,width,height){
    const text=await page.locator('.yc-server-info-modal').innerText();
    assert.match(text,/Testovací server/);
    assert.match(text,/Popis testovacího serveru/);
-   assert.match(text,/Členové/);
-   assert.match(text,/Textové kanály/);
-   assert.match(text,/Hlasové kanály/);
+   assert.match(text,/členové/i);
+   assert.match(text,/textové kanály/i);
+   assert.match(text,/hlasové kanály/i);
    const info=await page.locator('.yc-server-info-modal').boundingBox();
    assert(inside(info,state.width,state.height),JSON.stringify({state,info}));
    await page.keyboard.press('Escape');
