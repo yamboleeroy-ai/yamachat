@@ -133,8 +133,8 @@ jobs:
           android['apkUrl']=f"https://yamachat.eu/download/Yamachat-Android.apk?v={artifact['versionCode']}"
           android['sha256']=artifact['sha256']
           android['notes']=[
-            'Tenký fialovo-cyan obrys propojuje aktivní server s chatem, členy a voice barem.',
-            'Efekt mizí v soukromých zprávách a zachovává mobilní výsuvné panely.',
+            'Obrys při otevření kanálů nebo členů sleduje vysunutý panel.',
+            'Po zavření panelu se obrys vrací k vybranému serveru a chatu.',
             'Zachována je Platform Admin správa uživatelů, ban/odbanování a vzkazy do účtu.'
           ]
           manifest_path.write_text(json.dumps(manifest,ensure_ascii=False,indent=2)+'\n')
@@ -144,7 +144,7 @@ jobs:
             if git diff --cached --quiet; then
               exit 0
             fi
-            git commit -m "Publish Yamachat Android server context update [skip ci]"
+            git commit -m "Publish Yamachat Android drawer outline fix [skip ci]"
             if git push origin HEAD:main; then
               exit 0
             fi
