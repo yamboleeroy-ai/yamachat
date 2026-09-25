@@ -1395,3 +1395,6 @@ html.yc-ios-mobile .yc-v3-workspace{
   html.yc-ios-pwa .yc-member-rolechips{max-width:100%!important}
 
 }
+
+/* The mobile chat already has its own server-menu proxy. */
+@media(max-width:1100px){body .app .chat-head>#ycServerMenuBtn{display:none!important}}
