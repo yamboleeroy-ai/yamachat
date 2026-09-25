@@ -716,6 +716,91 @@ body .app #ycServerSettingsNavBtn .yc-v3-nav-action-label{white-space:normal!imp
 body .app #logoutBtn{order:7!important}
 body .app .chat-head>#ycServerMenuBtn{position:relative!important;inset:auto!important;margin-left:auto!important;flex:0 0 32px}
 </style>
+
+<style id="ycServerCardContextStyle">
+#rail [data-community][data-yc-server-context="1"]{-webkit-touch-callout:none}
+#ycUiMenuRoot[data-yc-server-card-menu="desktop"]{min-width:250px}
+#ycUiMenuRoot[data-yc-server-card-menu] .yc-ui-menu-title{color:#a8ddea}
+#ycUiMenuRoot[data-yc-server-card-menu] .yc-ui-menu-item{min-height:42px}
+.modal-back.yc-server-info-back{z-index:100760!important;padding:18px!important}
+.yc-server-info-modal{width:min(590px,calc(100vw - 28px))!important;max-height:min(760px,calc(100dvh - 28px));overflow:auto!important;padding:0!important;border:1px solid color-mix(in srgb,var(--yc-theme,#e056fd) 42%,#35596c)!important;background:linear-gradient(160deg,#0d2230,#09151f 60%,#120f22)!important}
+.yc-server-info-head{display:flex;align-items:center;gap:14px;padding:18px;border-bottom:1px solid rgba(102,192,244,.14);background:radial-gradient(circle at 12% 0,color-mix(in srgb,var(--yc-theme,#e056fd) 20%,transparent),transparent 48%),linear-gradient(110deg,#122a39,#0a1722)}
+.yc-server-info-icon{flex:0 0 auto}.yc-server-info-icon .yc-v3-community-mark{position:relative!important;width:72px!important;height:72px!important;display:grid!important;place-items:center!important;border-radius:16px!important;overflow:hidden!important;background:linear-gradient(145deg,#632774,#231330)!important;border:1px solid #b95bd4!important;color:#f5d8ff!important;font-size:20px;font-weight:950}.yc-server-info-icon .yc-server-thumbnail{position:absolute!important;inset:0!important;width:100%!important;height:100%!important;object-fit:cover!important}
+.yc-server-info-title{min-width:0;flex:1}.yc-server-info-title>span{display:block;color:#74a5b9;font-size:9px;font-weight:900;letter-spacing:.12em;text-transform:uppercase}.yc-server-info-title h2{margin:3px 0 4px;color:#f0fbff;font-size:22px;line-height:1.18;overflow-wrap:anywhere}.yc-server-info-title small{color:#9eb7c3;font-size:11px}.yc-server-info-close{align-self:flex-start!important;flex:0 0 auto}
+.yc-server-info-body{padding:18px}.yc-server-info-description{margin:0 0 16px;color:#a9bec9;line-height:1.55;white-space:pre-wrap;overflow-wrap:anywhere}.yc-server-info-loading{padding:24px 12px;text-align:center;color:#7897a8;border:1px dashed #315166;border-radius:12px;background:#091722}
+.yc-server-info-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px}.yc-server-info-stat{min-width:0;padding:11px;border:1px solid #29495d;border-radius:11px;background:linear-gradient(180deg,#0e202b,#0a1720)}.yc-server-info-stat small{display:block;color:#6f91a4;font-size:9px;font-weight:900;letter-spacing:.06em;text-transform:uppercase}.yc-server-info-stat strong{display:block;margin-top:5px;color:#e2f3fa;font-size:12px;line-height:1.35;overflow-wrap:anywhere}
+.yc-server-info-actions{display:flex;gap:9px;flex-wrap:wrap;margin-top:17px;padding-top:14px;border-top:1px solid #223f50}.yc-server-info-action{min-height:44px;flex:1 1 190px;border:1px solid #345d73;border-radius:10px;background:#112735;color:#d9f3ff;font-weight:850;cursor:pointer}.yc-server-info-action.primary{border-color:color-mix(in srgb,var(--yc-theme,#e056fd) 46%,#3e6b7b);background:linear-gradient(110deg,color-mix(in srgb,var(--yc-theme,#e056fd) 20%,#153246),#123448);color:#fff}.yc-server-info-action.danger{border-color:#70424a;background:#29171c;color:#ffb6bd}
+@media(max-width:900px),(pointer:coarse){
+ #ycUiMenuRoot[data-yc-server-card-menu="mobile"]{left:10px!important;right:10px!important;top:auto!important;bottom:calc(10px + env(safe-area-inset-bottom))!important;width:auto!important;max-width:none!important;min-width:0!important;padding:10px!important;border-radius:18px!important;box-shadow:0 -18px 55px rgba(0,0,0,.68),0 0 24px color-mix(in srgb,var(--yc-theme,#e056fd) 12%,transparent)!important}
+ #ycUiMenuRoot[data-yc-server-card-menu="mobile"] .yc-ui-menu-title{padding:8px 10px 7px;font-size:11px}
+ #ycUiMenuRoot[data-yc-server-card-menu="mobile"] .yc-ui-menu-item{min-height:50px;border-radius:11px;font-size:14px;padding:11px 12px}
+ #ycUiMenuRoot[data-yc-server-card-menu="mobile"] .yc-ui-menu-icon{width:26px;flex-basis:26px}
+ .modal-back.yc-server-info-back{align-items:flex-end!important;padding:0!important}
+ .yc-server-info-modal{width:100%!important;max-width:none!important;max-height:calc(var(--yc-viewport-height,100dvh) - 10px)!important;border-radius:20px 20px 0 0!important;border-bottom:0!important;padding-bottom:max(0px,env(safe-area-inset-bottom))!important}
+ .yc-server-info-head{padding:16px}.yc-server-info-icon .yc-v3-community-mark{width:62px!important;height:62px!important}.yc-server-info-title h2{font-size:19px}
+ .yc-server-info-body{padding:15px}.yc-server-info-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.yc-server-info-actions{position:sticky;bottom:0;background:linear-gradient(180deg,rgba(9,21,31,.7),#09151f 32%);padding-bottom:4px}
+}
+@media(max-width:360px){.yc-server-info-grid{grid-template-columns:1fr}.yc-server-info-modal{max-height:var(--yc-viewport-height,100dvh)!important}}
+</style>
+
+
+<style id="ycFriendsPanelRefreshStyle">
+/* Friends panel refresh + stable social tabs + short-window nav safety. */
+
+/* Remove the decorative vertical copy completely. It must never overlap controls. */
+#ycGlobalNav .yc-v3-nav-fill:after{content:none!important;display:none!important}
+#ycGlobalNav .yc-v3-nav-fill{pointer-events:none!important;min-height:0!important;flex:1 1 8px!important;margin:7px 0!important;background:linear-gradient(180deg,transparent,rgba(112,228,232,.018))!important}
+#ycGlobalNav.yc-v3-global-nav{overflow-y:auto!important;overflow-x:hidden!important;overscroll-behavior:contain!important;min-height:0!important;scrollbar-width:thin}
+#ycGlobalNav>.brand,#ycGlobalNav>.yc-v3-nav,#ycGlobalNav .yc-v3-nav-actions,#ycGlobalNav>.yc-v3-user-zone{flex-shrink:0!important}
+#ycGlobalNav .yc-v3-nav-action,#ycGlobalNav .yc-v3-nav-btn,#ycGlobalNav .yc-v3-admin-dock,#ycGlobalNav #ycDeveloperDock{position:relative!important;z-index:4!important;pointer-events:auto!important}
+#ycGlobalNav .yc-v3-user-zone{position:relative!important;z-index:4!important;background:linear-gradient(180deg,rgba(7,16,24,.10),rgba(7,16,24,.92) 26%)!important}
+
+/* Dedicated Friends / DM surface: modern Yamachat card language. */
+.side.yc-home-mode{background:radial-gradient(circle at 20% 0,color-mix(in srgb,var(--yc-theme,#70e4e8) 10%,transparent),transparent 34%),linear-gradient(180deg,#091924,#07131d 72%,#061019)!important}
+.yc-friends-home[data-yc-modern-friends="1"]{background:transparent!important;padding:10px!important;gap:8px!important}
+.yc-friends-home[data-yc-modern-friends="1"] .yc-friends-home-head{
+ flex:0 0 auto!important;margin:0!important;padding:13px 14px!important;border:1px solid rgba(112,228,232,.18)!important;border-radius:14px!important;
+ background:radial-gradient(circle at 0 0,color-mix(in srgb,var(--yc-theme,#70e4e8) 15%,transparent),transparent 62%),linear-gradient(145deg,#102635,#091822)!important;
+ box-shadow:inset 0 1px 0 rgba(255,255,255,.035),0 10px 24px rgba(0,0,0,.16)!important
+}
+.yc-friends-modern-title{display:flex;align-items:center;gap:11px;min-width:0}.yc-friends-modern-mark{width:38px;height:38px;flex:0 0 38px;border-radius:11px;display:grid;place-items:center;border:1px solid color-mix(in srgb,var(--yc-theme,#70e4e8) 48%,#325063);background:linear-gradient(145deg,color-mix(in srgb,var(--yc-theme,#70e4e8) 24%,#102534),#0a1a25);color:#dffcff;font-size:18px;font-weight:950;box-shadow:0 0 16px var(--yc-theme-soft,rgba(112,228,232,.12))}
+.yc-friends-modern-title>span:last-child{min-width:0}.yc-friends-modern-title strong{display:block!important;color:#f1fbff!important;font-size:16px!important;line-height:1.1!important;letter-spacing:.01em}.yc-friends-modern-title small{display:block!important;margin-top:4px!important;color:#7895a3!important;font-size:9px!important;letter-spacing:.035em}
+.yc-friends-home[data-yc-modern-friends="1"] .yc-friends-home-body{padding:0!important;overflow:auto!important;min-height:0!important;overscroll-behavior:contain}
+#ycFriendsStatusBtn[data-yc-modern-status="1"]{width:100%!important;min-height:68px!important;margin:0 0 8px!important;padding:11px 12px!important;border:1px solid rgba(112,228,232,.18)!important;border-radius:13px!important;background:linear-gradient(110deg,color-mix(in srgb,var(--yc-theme,#70e4e8) 8%,#102432),#0a1a24 68%)!important;color:#dff4fa!important;display:grid!important;grid-template-columns:13px minmax(0,1fr) 24px!important;align-items:center!important;gap:10px!important;text-align:left!important;box-shadow:inset 0 1px 0 rgba(255,255,255,.025)!important;transition:border-color .12s ease,background .12s ease!important}
+#ycFriendsStatusBtn[data-yc-modern-status="1"]:hover{border-color:color-mix(in srgb,var(--yc-theme,#70e4e8) 55%,#36596b)!important;background:linear-gradient(110deg,color-mix(in srgb,var(--yc-theme,#70e4e8) 13%,#143044),#0b1e2a 70%)!important}
+#ycFriendsStatusBtn[data-yc-modern-status="1"]>span:nth-child(2){min-width:0}#ycFriendsStatusBtn[data-yc-modern-status="1"] strong{display:block;color:#eafaff;font-size:12px!important}#ycFriendsStatusBtn[data-yc-modern-status="1"] small{display:block;margin-top:3px;color:#7893a1;font-size:9px!important;line-height:1.3;white-space:normal}.yc-status-chevron{color:var(--yc-theme,#70e4e8)!important;font-size:18px!important;text-align:right}
+#ycOpenFriendsList[data-yc-modern-open="1"]{width:100%!important;min-height:46px!important;margin:0 0 10px!important;padding:0 12px!important;border:1px solid rgba(189,92,255,.23)!important;border-radius:12px!important;background:linear-gradient(100deg,rgba(189,92,255,.075),rgba(112,228,232,.055))!important;color:#dceef4!important;display:grid!important;grid-template-columns:24px minmax(0,1fr) 20px!important;align-items:center!important;gap:7px!important;text-align:left!important;font-weight:800!important}
+#ycOpenFriendsList[data-yc-modern-open="1"]:hover{border-color:color-mix(in srgb,var(--yc-theme,#70e4e8) 45%,#9b5dd4)!important;background:linear-gradient(100deg,rgba(189,92,255,.12),rgba(112,228,232,.09))!important}.yc-friends-open-icon{color:#d998ff;font-size:16px}.yc-friends-open-arrow{justify-self:end;color:#76dbe7;font-size:18px}
+.yc-friends-home [data-yc-modern-dm-title="1"]{margin:8px 2px 6px!important;padding:7px 3px!important;color:#7eaab8!important;font-size:9px!important;letter-spacing:.13em!important;border-top:1px solid rgba(112,228,232,.08)!important}.yc-friends-home [data-yc-modern-dm-title="1"] .mini{width:30px!important;height:30px!important;min-height:30px!important;border-radius:9px!important;background:#0d2431!important;border-color:rgba(112,228,232,.18)!important;color:#9df5f6!important}
+.yc-friends-home #dmList{display:grid!important;gap:6px!important;padding-bottom:8px!important}
+.yc-friends-home .yc-dm-social-row{min-height:61px!important;margin:0!important;padding:8px 9px!important;border:1px solid rgba(112,228,232,.095)!important;border-radius:12px!important;background:linear-gradient(105deg,rgba(18,38,50,.94),rgba(8,24,34,.96))!important;box-shadow:inset 0 1px 0 rgba(255,255,255,.018)!important;transition:background .12s ease,border-color .12s ease,transform .12s ease!important}
+.yc-friends-home .yc-dm-social-row:hover{transform:translateX(1px);border-color:rgba(112,228,232,.27)!important;background:linear-gradient(105deg,rgba(27,57,72,.96),rgba(11,32,44,.98))!important}.yc-friends-home .yc-dm-social-row.active{border-color:color-mix(in srgb,var(--yc-theme,#70e4e8) 54%,#34586b)!important;background:linear-gradient(105deg,color-mix(in srgb,var(--yc-theme,#70e4e8) 10%,#173546),#0b2130)!important;box-shadow:inset 3px 0 0 var(--yc-theme,#70e4e8),0 0 16px var(--yc-theme-soft,rgba(112,228,232,.10))!important}
+.yc-friends-home .yc-dm-social-copy{min-width:0!important}.yc-friends-home .yc-dm-social-copy strong{font-size:11px!important}.yc-friends-home .yc-dm-social-copy small,.yc-friends-home .yc-lastseen{font-size:8px!important}.yc-friends-home .yc-dm-open{color:#537786!important;font-size:17px!important}
+
+/* Right Members/Friends tabs: stable geometry and no repaint animation. */
+.yc-v3-member-shell>.right-tabs[data-yc-stable-social-tabs="1"]{flex:0 0 52px!important;min-height:52px!important;height:52px!important;contain:layout paint!important;isolation:isolate!important;transform:translateZ(0)!important;backface-visibility:hidden!important;padding:6px!important;gap:6px!important;background:#071722!important}
+.yc-v3-member-shell>.right-tabs[data-yc-stable-social-tabs="1"] button{height:40px!important;min-height:40px!important;border:1px solid transparent!important;border-radius:11px!important;transition:none!important;transform:none!important;box-shadow:none!important;background:transparent!important}
+.yc-v3-member-shell>.right-tabs[data-yc-stable-social-tabs="1"] button:hover{background:rgba(112,228,232,.045)!important}
+.yc-v3-member-shell>.right-tabs[data-yc-stable-social-tabs="1"] button.active{border-color:rgba(112,228,232,.28)!important;background:linear-gradient(110deg,rgba(112,228,232,.09),rgba(189,92,255,.08))!important;box-shadow:inset 0 0 18px rgba(112,228,232,.025)!important}
+.yc-v3-member-shell>.right-tabs[data-yc-stable-social-tabs="1"] button.active:after{left:8px!important;right:8px!important;bottom:-1px!important;border-radius:999px!important}
+.yc-v3-member-shell>.right-content{overflow-anchor:none!important;contain:layout style!important}
+.right[data-yc-social-refresh="1"] .steam-section{margin:10px 0 6px!important;padding:6px 8px!important;border:1px solid rgba(112,228,232,.08)!important;border-radius:9px!important;background:rgba(6,19,27,.58)!important}
+.right[data-yc-social-refresh="1"] .steam-friend-row{min-height:62px!important;margin:5px 0!important;padding:8px 9px!important;border:1px solid rgba(112,228,232,.09)!important;border-left:1px solid rgba(112,228,232,.09)!important;border-radius:12px!important;background:linear-gradient(100deg,rgba(18,38,50,.94),rgba(8,23,33,.96))!important;transition:background .12s ease,border-color .12s ease!important;transform:none!important}
+.right[data-yc-social-refresh="1"] .steam-friend-row:hover{border-color:rgba(112,228,232,.25)!important;border-left-color:var(--yc-theme,#70e4e8)!important;background:linear-gradient(100deg,rgba(28,57,72,.96),rgba(11,31,43,.98))!important;transform:none!important}
+.right[data-yc-social-refresh="1"] .steam-friend-row.is-offline{opacity:.68!important;filter:saturate(.62)!important}.right[data-yc-social-refresh="1"] .steam-actions{gap:5px!important}.right[data-yc-social-refresh="1"] .steam-actions .smallbtn{min-width:34px!important;min-height:32px!important;padding:0 7px!important;border-radius:9px!important;background:#0d2230!important;border-color:rgba(112,228,232,.14)!important}
+.right[data-yc-social-refresh="1"] .yc-friend-request-row{border-color:rgba(189,92,255,.16)!important;background:linear-gradient(100deg,rgba(50,28,62,.42),rgba(11,28,39,.96))!important}
+
+/* Short desktop windows: nav becomes a real scroll surface; no invisible layer can steal clicks. */
+@media(max-height:680px){
+ #ycGlobalNav.yc-v3-global-nav{padding-top:10px!important;padding-bottom:10px!important}
+ #ycGlobalNav .brand{margin-bottom:10px!important}
+ #ycGlobalNav .yc-v3-nav-fill{flex:0 0 4px!important;height:4px!important;margin:2px 0!important}
+ #ycGlobalNav .yc-v3-nav,#ycGlobalNav .yc-v3-nav-actions{gap:4px!important}
+ #ycGlobalNav .yc-v3-nav-btn,#ycGlobalNav .yc-v3-nav-action{height:38px!important;min-height:38px!important}
+ #ycGlobalNav .yc-v3-user-zone{padding-top:5px!important}
+}
+</style>
+
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="mobile-web-app-capable" content="yes">
@@ -2441,7 +2526,7 @@ let ycCreateCommunityBusy=false;async function createCommunity(){if(ycCreateComm
 $('addChannelBtn').onclick=async()=>{if(typeof window.ycOpenHiddenChannelCreate==='function')return window.ycOpenHiddenChannelCreate('text');if(!currentCommunity)return;const name=await ycDesktopPrompt('Název kanálu:');if(!name?.trim())return;const clean=name.trim().toLowerCase().replace(/\s+/g,'-').replace(/[^a-z0-9á-ž_-]/gi,'').slice(0,40);if(!clean)return;const {error}=await sb.from('channels').insert({community_id:currentCommunity.id,name:clean,created_by:user.id,position:99});if(error)toast(error.message,true);else{const ch=await getChannels();renderChannels(ch)}}
 async function ycAddMemberToCurrentCommunity(){if(!currentCommunity)return;const name=await ycDesktopPrompt('Uživatelské jméno člena:');if(!name?.trim())return;const {data:p,error:e}=await sb.from('profiles').select('id,username').ilike('username',name.trim()).limit(1).maybeSingle();if(e||!p){toast('Uživatel nebyl nalezen.',true);return}const {error}=await sb.from('community_members').insert({community_id:currentCommunity.id,user_id:p.id,role:'member'});if(error)toast(error.message,true);else{toast('Uživatel přidán.');renderRight()}}
 async function loadDmThreads(){const {data:mine,error}=await sb.from('direct_thread_members').select('thread_id').eq('user_id',user.id);if(error){dmThreads=[];renderDmList();return}const ids=[...new Set((mine||[]).map(x=>x.thread_id))];if(!ids.length){dmThreads=[];renderDmList();return}const {data:members}=await sb.from('direct_thread_members').select('thread_id,user_id').in('thread_id',ids);const others=[...new Set((members||[]).filter(x=>x.user_id!==user.id).map(x=>x.user_id))];let ps=[],stats=[],presence=[];if(others.length){const [pr,sr,ur]=await Promise.all([sb.from('profiles').select('*').in('id',others),sb.from('profile_stats').select('user_id,xp,message_count').in('user_id',others),sb.from('user_presence').select('*').in('user_id',others)]);ps=pr.data||[];stats=sr.data||[];presence=ur.data||[]}const pm=Object.fromEntries(ps.map(p=>[p.id,p])),sm=Object.fromEntries(stats.map(s=>[s.user_id,s])),um=Object.fromEntries(presence.map(x=>[x.user_id,x]));dmThreads=ids.map(id=>{const peer=(members||[]).find(x=>x.thread_id===id&&x.user_id!==user.id),pid=peer?.user_id;return{id,peer:pm[pid]||{id:pid,username:'Soukromý chat'},stats:sm[pid]||{xp:0,message_count:0},presence:um[pid]||null}});renderDmList()}
-function renderDmList(){const root=$('dmList');if(!root)return;root.innerHTML=dmThreads.map(t=>{const p=t.peer||{username:'Soukromý chat'},st=t.stats||{xp:0},pres=t.presence,state=ycPresenceState(pres),rank=rankForXP(st.xp),cls=state==='dnd'?'is-dnd':state==='afk'?'is-afk':state==='offline'?'is-offline':'';return '<div class="yc-dm-social-row '+cls+' '+(currentThread?.id===t.id?'active':'')+'" data-thread="'+esc(t.id)+'" data-profile-user="'+esc(p.id||'')+'" data-user-name="'+esc(p.display_name||p.username||'Uživatel')+'"><span class="yc-dm-avatar-open" data-profile-open="'+esc(p.id||'')+'">'+rankAvatarHtml(p,st,'avatar')+'<span class="yc-presence-dot '+state+'"></span></span><div class="yc-dm-social-copy"><strong class="steam-name" data-profile-open="'+esc(p.id||'')+'">'+esc(p.display_name||p.username)+' <span class="rank-badge">'+esc(rank)+'</span></strong><small class="yc-activity">'+esc(ycActivityFor(pres,p))+'</small><div class="yc-lastseen">'+(state==='offline'?esc(ycLastSeen(pres)):esc(ycPresenceLabel(state)))+'</div></div><span class="yc-dm-open">›</span></div>'}).join('');root.querySelectorAll('[data-thread]').forEach(row=>row.onclick=e=>{if(e.target.closest('[data-profile-open]'))return;void selectThread(row.dataset.thread)});if(typeof ycDecorateDmRows==='function')ycDecorateDmRows()}
+function renderDmList(){const root=$('dmList');if(!root)return;const ycDmMarkup=dmThreads.map(t=>{const p=t.peer||{username:'Soukromý chat'},st=t.stats||{xp:0},pres=t.presence,state=ycPresenceState(pres),rank=rankForXP(st.xp),cls=state==='dnd'?'is-dnd':state==='afk'?'is-afk':state==='offline'?'is-offline':'';return '<div class="yc-dm-social-row '+cls+' '+(currentThread?.id===t.id?'active':'')+'" data-thread="'+esc(t.id)+'" data-profile-user="'+esc(p.id||'')+'" data-user-name="'+esc(p.display_name||p.username||'Uživatel')+'"><span class="yc-dm-avatar-open" data-profile-open="'+esc(p.id||'')+'">'+rankAvatarHtml(p,st,'avatar')+'<span class="yc-presence-dot '+state+'"></span></span><div class="yc-dm-social-copy"><strong class="steam-name" data-profile-open="'+esc(p.id||'')+'">'+esc(p.display_name||p.username)+' <span class="rank-badge">'+esc(rank)+'</span></strong><small class="yc-activity">'+esc(ycActivityFor(pres,p))+'</small><div class="yc-lastseen">'+(state==='offline'?esc(ycLastSeen(pres)):esc(ycPresenceLabel(state)))+'</div></div><span class="yc-dm-open">›</span></div>'}).join('');ycFriendsStableSet(root,ycDmMarkup,'dm');root.querySelectorAll('[data-thread]').forEach(row=>row.onclick=e=>{if(e.target.closest('[data-profile-open]'))return;void selectThread(row.dataset.thread)});if(typeof ycDecorateDmRows==='function')ycDecorateDmRows()}
 async function selectThread(id){
   ycBeforeChatContextChange();const seq=++ycChannelSelectSeq;++ycMessageLoadSeq;
   ycHoldChatSwitch();ycClearReplyTarget();currentChannel=null;
@@ -2907,7 +2992,7 @@ async function renderRight(){
     out+=offlinePeople.map(x=>memberRowHtml(x.p)).join('');
   }
   if(rightMode!=='members'||String(currentCommunity?.id)!==String(ycRightCommunityId))return;
-  $('rightContent').innerHTML=out;
+  ycFriendsStableSet($('rightContent'),out,rightMode);
   try{window.__ycRefreshSocialTabCounts?.()}catch{}
 }
 async function ycMemberProfile(uid){const {data,error}=await sb.from('profiles').select('*').eq('id',uid).maybeSingle();if(error)throw error;return data}
@@ -2953,7 +3038,7 @@ async function renderFriends(){
   if(groups.offline.length)out+='<div class="steam-section offline">Offline ('+groups.offline.length+')</div>'+groups.offline.map(rowHtml).join('')
   if(!rows.length)out+='<div class="notice">Zatím tu nemáš žádné žádosti ani přátele.</div>'
   if(rightMode!=='friends'||ycFriendsMode!=='friends')return;
-  $('rightContent').innerHTML=out;$('addFriend').onclick=addFriend
+  ycFriendsStableSet($('rightContent'),out,rightMode);$('addFriend').onclick=addFriend
   $('rightContent').querySelectorAll('[data-accept]').forEach(b=>b.onclick=e=>{e.stopPropagation();acceptFriend(b.dataset.accept)})
   $('rightContent').querySelectorAll('[data-reject]').forEach(b=>b.onclick=e=>{e.stopPropagation();rejectFriend(b.dataset.reject)})
   $('rightContent').querySelectorAll('[data-cancel-request]').forEach(b=>b.onclick=e=>{e.stopPropagation();ycCancelFriendRequest(b.dataset.cancelRequest)})
@@ -6204,6 +6289,212 @@ ycOnLifecycle('communities',ycSyncServerNavigation);
 ycOnLifecycle('community',ycSyncServerNavigation);
 ycOnLifecycle('beforeCommunity',()=>{ycServerNavigationReady='';ycSyncServerNavigation()});
 ycOnLifecycle('beforeAuth',()=>{ycServerNavigationReady='';ycSyncServerNavigation()});
+
+
+const YC_SERVER_CARD_MANAGE_PERMS=['manage_server','manage_channels','manage_members','manage_permissions','manage_invites','manage_emojis','manage_soundboard'];
+const YC_SERVER_CARD_MANAGE_COLUMNS=['can_manage_server','can_manage_channels','can_manage_members','can_manage_permissions','can_manage_invites','can_manage_emojis','can_manage_soundboard'];
+const ycServerCardPermissionCache=new Map();
+let ycServerCardMenuSeq=0,ycServerCardPress=null,ycServerCardSuppressClickUntil=0;
+
+function ycServerCardCommunity(id){
+ return communities.find(c=>String(c.id)===String(id))||null;
+}
+function ycServerCardRoleLabel(role){
+ return role==='owner'?'Vlastník':role==='admin'?'Administrátor':'Člen';
+}
+function ycServerCardDate(value){
+ if(!value)return 'Neznámé';
+ const d=new Date(value);if(Number.isNaN(d.getTime()))return 'Neznámé';
+ try{return new Intl.DateTimeFormat('cs-CZ',{day:'numeric',month:'long',year:'numeric'}).format(d)}catch{return d.toLocaleDateString('cs-CZ')}
+}
+function ycServerCardMobileSurface(){
+ return matchMedia('(max-width:900px), (pointer:coarse)').matches;
+}
+function ycServerCardLocalManage(c){
+ if(!c)return false;
+ if(['owner','admin'].includes(c.role))return true;
+ if(String(currentCommunity?.id)!==String(c.id))return null;
+ return YC_SERVER_CARD_MANAGE_PERMS.some(key=>canCommunityPermission(key))?true:null;
+}
+async function ycServerCardCanManage(c){
+ const local=ycServerCardLocalManage(c);if(local!==null)return !!local;
+ if(!c||!user?.id)return false;
+ const cacheKey=String(c.id)+'|'+String(user.id),cached=ycServerCardPermissionCache.get(cacheKey),now=Date.now();
+ if(cached&&now-cached.at<5000)return cached.allowed;
+ const {data,error}=await sb.from('community_member_permissions').select('*').eq('community_id',c.id).eq('user_id',user.id).maybeSingle();
+ if(error){console.warn('Server card permissions',error);return false}
+ const allowed=YC_SERVER_CARD_MANAGE_COLUMNS.some(key=>!!data?.[key]);
+ ycServerCardPermissionCache.set(cacheKey,{allowed,at:now});return allowed;
+}
+async function ycServerCardOpenSettings(id){
+ const c=ycServerCardCommunity(id);if(!c)return;
+ if(!await ycServerCardCanManage(c)){toast('Nemáš oprávnění spravovat tento server.',true);return}
+ if(String(currentCommunity?.id)!==String(c.id))await selectCommunity(c.id);
+ if(String(currentCommunity?.id)!==String(c.id))return;
+ if(typeof window.ycOpenServerSettings==='function')window.ycOpenServerSettings();
+}
+async function ycServerCardLeave(id){
+ const c=ycServerCardCommunity(id);if(!c)return;
+ if(c.role==='owner'){toast('Vlastník nemůže komunitu opustit. Může ji zrušit nebo převést vlastnictví.',true);return}
+ if(!confirm('Opustit komunitu '+c.name+'?'))return;
+ await ycLeaveCommunity(c.id,false);
+}
+function ycServerCardInfoIcon(c){
+ if(typeof ycServerThumbnailMarkup==='function')return ycServerThumbnailMarkup(c);
+ return '<span class="yc-v3-community-mark"><span class="yc-server-icon-initials">'+esc(initials(c.name))+'</span></span>';
+}
+function ycServerCardInfoStat(label,value){
+ return '<div class="yc-server-info-stat"><small>'+esc(label)+'</small><strong>'+esc(String(value))+'</strong></div>';
+}
+function ycRenderServerCardInfo(c,details){
+ const root=$('modalRoot');if(!root)return;
+ const loading=!!details.loading,memberCount=details.memberCount,channels=details.channels||[],textCount=channels.filter(x=>x.kind!=='voice').length,voiceCount=channels.filter(x=>x.kind==='voice').length;
+ const privacy=typeof c.is_public==='boolean'?(c.is_public?'Veřejný server':'Soukromý server'):'Server';
+ const owner=details.ownerName||'Nezjištěno';
+ const actions=(details.canManage?'<button type="button" class="yc-server-info-action primary" data-yc-server-info-settings>⚙ Nastavení serveru</button>':'')+(c.role!=='owner'?'<button type="button" class="yc-server-info-action danger" data-yc-server-info-leave>↩ Opustit server</button>':'');
+ root.innerHTML='<div class="modal-back yc-server-info-back" data-yc-server-info-back><section class="modal yc-server-info-modal" role="dialog" aria-modal="true" aria-labelledby="ycServerInfoTitle" data-community-id="'+esc(c.id)+'"><div class="yc-server-info-head"><div class="yc-server-info-icon">'+ycServerCardInfoIcon(c)+'</div><div class="yc-server-info-title"><span>'+esc(privacy)+'</span><h2 id="ycServerInfoTitle">'+esc(c.name)+'</h2><small>'+esc(ycServerCardRoleLabel(c.role))+'</small></div><button class="x yc-server-info-close" type="button" aria-label="Zavřít">×</button></div><div class="yc-server-info-body"><p class="yc-server-info-description">'+esc(c.description||'Server zatím nemá popis.')+'</p>'+(loading?'<div class="yc-server-info-loading">Načítám informace o serveru…</div>':'<div class="yc-server-info-grid">'+ycServerCardInfoStat('Založen',ycServerCardDate(c.created_at))+ycServerCardInfoStat('Členové',memberCount==null?'—':Number(memberCount).toLocaleString('cs-CZ'))+ycServerCardInfoStat('Textové kanály',textCount)+ycServerCardInfoStat('Hlasové kanály',voiceCount)+ycServerCardInfoStat('Vlastník',owner)+ycServerCardInfoStat('Moje role',ycServerCardRoleLabel(c.role))+'</div>')+(actions?'<div class="yc-server-info-actions">'+actions+'</div>':'')+'</div></section></div>';
+ const back=root.querySelector('[data-yc-server-info-back]');
+ back?.addEventListener('click',e=>{if(e.target===back)closeModal()});
+ root.querySelector('.yc-server-info-close')?.addEventListener('click',closeModal);
+ root.querySelector('[data-yc-server-info-settings]')?.addEventListener('click',async()=>{const id=c.id;closeModal();await ycServerCardOpenSettings(id)});
+ root.querySelector('[data-yc-server-info-leave]')?.addEventListener('click',async()=>{const id=c.id;closeModal();await ycServerCardLeave(id)});
+}
+async function ycOpenServerCardInfo(id){
+ const c0=ycServerCardCommunity(id);if(!c0)return;
+ ycCloseUiMenu();const token=String(c0.id)+'|'+Date.now();$('modalRoot').dataset.ycServerInfoToken=token;
+ ycRenderServerCardInfo(c0,{loading:true,canManage:false,memberCount:null,channels:[]});
+ const managePromise=ycServerCardCanManage(c0);
+ let fresh=c0,memberCount=Number.isFinite(Number(c0.member_count))?Number(c0.member_count):null,channels=[],ownerName='';
+ try{
+  const [communityRes,countRes,channelRes,ownerRes]=await Promise.all([
+   sb.from('communities').select('*').eq('id',c0.id).maybeSingle(),
+   sb.from('community_members').select('user_id',{count:'exact',head:true}).eq('community_id',c0.id),
+   sb.from('channels').select('id,kind').eq('community_id',c0.id),
+   sb.from('community_members').select('user_id').eq('community_id',c0.id).eq('role','owner').limit(1).maybeSingle()
+  ]);
+  if(communityRes?.data)fresh={...c0,...communityRes.data,role:c0.role};
+  if(Number.isFinite(Number(countRes?.count)))memberCount=Number(countRes.count);
+  channels=channelRes?.data||[];
+  const ownerId=ownerRes?.data?.user_id;
+  if(ownerId){const ownerRes2=await sb.from('profiles').select('username,display_name').eq('id',ownerId).maybeSingle();ownerName=ownerRes2?.data?.display_name||ownerRes2?.data?.username||''}
+ }catch(error){console.warn('Server info',error)}
+ const canManage=await managePromise;
+ if($('modalRoot').dataset.ycServerInfoToken!==token||!$('modalRoot').querySelector('.yc-server-info-modal'))return;
+ ycRenderServerCardInfo(fresh,{loading:false,canManage,memberCount,channels,ownerName});
+}
+window.ycOpenServerInfo=ycOpenServerCardInfo;
+
+function ycServerCardSyncMenuSkin(){
+ const root=$('ycUiMenuRoot');if(!root)return;
+ if(ycUiMenuState?.kind==='server-card'&&!root.classList.contains('hidden'))root.dataset.ycServerCardMenu=ycServerCardMobileSurface()?'mobile':'desktop';
+ else delete root.dataset.ycServerCardMenu;
+}
+async function ycOpenServerCardMenu(card,x,y){
+ const c=card?.id==='ycMobileServerMenuBtn'?currentCommunity:ycServerCardCommunity(card?.dataset?.community);if(!c)return;
+ const seq=++ycServerCardMenuSeq,canManage=await ycServerCardCanManage(c);if(seq!==ycServerCardMenuSeq)return;
+ const rect=card.getBoundingClientRect(),px=Number.isFinite(x)&&x>0?x:rect.left+Math.min(rect.width-8,32),py=Number.isFinite(y)&&y>0?y:rect.top+Math.min(rect.height-8,32);
+ const items=[
+  {id:'server-info',icon:'ⓘ',label:'Info o serveru',action:()=>ycOpenServerCardInfo(c.id)},
+  {id:'server-settings',icon:'⚙',label:'Nastavení serveru',visible:canManage,action:()=>ycServerCardOpenSettings(c.id)},
+  {separator:true},
+  {id:'server-leave',icon:'↩',label:'Opustit server',danger:true,visible:c.role!=='owner',action:()=>ycServerCardLeave(c.id)}
+ ];
+ ycOpenUiMenu({kind:'server-card',title:c.name,x:px,y:py,items,context:{communityId:c.id}});
+ ycServerCardSyncMenuSkin();
+}
+function ycServerCardCancelPress(){
+ if(ycServerCardPress?.timer)clearTimeout(ycServerCardPress.timer);ycServerCardPress=null;
+}
+document.addEventListener('contextmenu',event=>{
+ const card=event.target.closest?.('#rail [data-community]');if(!card)return;
+ event.preventDefault();event.stopPropagation();ycServerCardCancelPress();ycServerCardSuppressClickUntil=Date.now()+700;void ycOpenServerCardMenu(card,event.clientX,event.clientY);
+},true);
+document.addEventListener('pointerdown',event=>{
+ if(event.pointerType==='mouse'||event.button!==0||event.isPrimary===false)return;
+ const card=event.target.closest?.('#rail [data-community],#ycMobileServerMenuBtn');if(!card)return;
+ ycServerCardCancelPress();
+ const state={card,pointerId:event.pointerId,x:event.clientX,y:event.clientY,opened:false,timer:null};
+ state.timer=setTimeout(()=>{if(ycServerCardPress!==state||!card.isConnected)return;state.opened=true;ycServerCardSuppressClickUntil=Date.now()+850;try{navigator.vibrate?.(10)}catch{};void ycOpenServerCardMenu(card,state.x,state.y)},520);
+ ycServerCardPress=state;
+},true);
+document.addEventListener('pointermove',event=>{
+ const p=ycServerCardPress;if(!p||event.pointerId!==p.pointerId||p.opened)return;
+ if(Math.hypot(event.clientX-p.x,event.clientY-p.y)>12)ycServerCardCancelPress();
+},true);
+for(const type of ['pointerup','pointercancel'])document.addEventListener(type,event=>{if(ycServerCardPress&&event.pointerId===ycServerCardPress.pointerId)ycServerCardCancelPress()},true);
+document.addEventListener('click',event=>{
+ if(Date.now()>ycServerCardSuppressClickUntil||!event.target.closest?.('#rail [data-community],#ycMobileServerMenuBtn'))return;
+ event.preventDefault();event.stopImmediatePropagation();ycServerCardSuppressClickUntil=0;
+},true);
+document.addEventListener('keydown',event=>{if(event.key==='Escape'&&$('modalRoot')?.querySelector('.yc-server-info-modal')){event.preventDefault();closeModal()}});
+function ycServerCardDecorate(){
+ for(const card of document.querySelectorAll('#rail [data-community]')){card.setAttribute('aria-haspopup','menu');card.dataset.ycServerContext='1'}
+}
+ycOnLifecycle('init',()=>{
+ ycServerCardDecorate();const rail=$('rail');if(rail)new MutationObserver(ycServerCardDecorate).observe(rail,{childList:true,subtree:true});
+ const menu=ycEnsureUiMenu();new MutationObserver(ycServerCardSyncMenuSkin).observe(menu,{childList:true,subtree:true,attributes:true,attributeFilter:['class']});
+});
+ycOnLifecycle('communities',()=>{ycServerCardPermissionCache.clear();ycServerCardDecorate()});
+ycOnLifecycle('community',ycServerCardDecorate);
+ycOnLifecycle('beforeCommunity',()=>{ycServerCardCancelPress();ycCloseUiMenu()});
+ycOnLifecycle('beforeAuth',()=>{ycServerCardCancelPress();ycServerCardPermissionCache.clear();ycCloseUiMenu()});
+
+
+document.documentElement.dataset.ycFriendsRefresh='1';
+let ycFriendsRefreshTabsObserver=null;
+function ycFriendsStableSet(root,html,key='social'){
+ if(!root)return false;
+ const markup=String(html??''),stateKey=String(key||'social');
+ if(root.dataset.ycStableRenderKey===stateKey&&root.__ycStableRenderMarkup===markup)return false;
+ const top=root.scrollTop,left=root.scrollLeft;
+ root.innerHTML=markup;root.dataset.ycStableRenderKey=stateKey;root.__ycStableRenderMarkup=markup;
+ if(top)root.scrollTop=Math.min(top,Math.max(0,root.scrollHeight-root.clientHeight));
+ if(left)root.scrollLeft=left;
+ return true;
+}
+function ycFriendsRefreshSyncTabs(){
+ const members=$('membersTab'),friends=$('friendsTab');if(!members||!friends)return false;
+ const isFriends=rightMode==='friends';
+ members.classList.toggle('active',!isFriends);friends.classList.toggle('active',isFriends);
+ members.setAttribute('aria-selected',String(!isFriends));friends.setAttribute('aria-selected',String(isFriends));
+ members.setAttribute('role','tab');friends.setAttribute('role','tab');
+ const tabs=members.parentElement;if(tabs){tabs.setAttribute('role','tablist');tabs.dataset.ycStableSocialTabs='1'}
+ return true;
+}
+function ycFriendsRefreshDecorate(){
+ const home=$('ycFriendsHome');
+ if(home){
+  home.dataset.ycModernFriends='1';
+  const head=home.querySelector('.yc-friends-home-head');
+  if(head&&head.dataset.ycModernHead!=='1'){
+   head.dataset.ycModernHead='1';
+   head.innerHTML='<div class="yc-friends-modern-title"><span class="yc-friends-modern-mark">◇</span><span><strong>Přátelé</strong><small>Kontakty a soukromé zprávy</small></span></div>';
+  }
+  const status=$('ycFriendsStatusBtn');if(status){status.dataset.ycModernStatus='1';status.setAttribute('aria-label','Změnit můj stav')}
+  const open=$('ycOpenFriendsList');if(open){open.dataset.ycModernOpen='1';open.innerHTML='<span class="yc-friends-open-icon">♧</span><span>Zobrazit všechny přátele</span><span class="yc-friends-open-arrow">›</span>'}
+  const dmTitle=$('newDmBtn')?.closest('.section-title');if(dmTitle)dmTitle.dataset.ycModernDmTitle='1';
+ }
+ const right=document.querySelector('.yc-v3-content-grid>.right')||document.querySelector('.right');
+ if(right)right.dataset.ycSocialRefresh='1';
+ ycFriendsRefreshSyncTabs();
+ if(!ycFriendsRefreshTabsObserver){
+  const tabs=document.querySelector('.right-tabs');
+  if(tabs){
+   let queued=false;
+   ycFriendsRefreshTabsObserver=new MutationObserver(()=>{
+    if(queued)return;queued=true;queueMicrotask(()=>{queued=false;ycFriendsRefreshSyncTabs()});
+   });
+   ycFriendsRefreshTabsObserver.observe(tabs,{subtree:true,attributes:true,attributeFilter:['class']});
+   tabs.addEventListener('click',()=>queueMicrotask(ycFriendsRefreshSyncTabs),true);
+  }
+ }
+ return true;
+}
+ycOnLifecycle('init',ycFriendsRefreshDecorate);
+ycOnLifecycle('communities',ycFriendsRefreshDecorate);
+ycOnLifecycle('community',ycFriendsRefreshDecorate);
+setTimeout(ycFriendsRefreshDecorate,0);
+setTimeout(ycFriendsRefreshDecorate,350);
 
 // Register every feature before restoring a cached session. Keep the splash until
 // lifecycle hooks and desktop appearance have finished, including on fresh login.
