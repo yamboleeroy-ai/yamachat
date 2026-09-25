@@ -70,8 +70,19 @@ async function assertNavButtonReachable(page,id){
    await page.waitForFunction(()=>document.querySelectorAll('#dmList .yc-dm-social-row').length>=1);
    const dm=page.locator('#dmList .yc-dm-social-row').first(),dmBox=await dm.boundingBox(),sideBox=await page.locator('#side').boundingBox();
    assert(dmBox&&sideBox&&dmBox.x>=sideBox.x-1&&dmBox.x+dmBox.width<=sideBox.x+sideBox.width+1);
+   await dm.evaluate(el=>el.dataset.ycStableIdentity='dm-keep');
+   await page.locator('#ycV3Friends').click();await page.waitForTimeout(80);
+   assert.equal(await page.locator('#dmList .yc-dm-social-row').first().getAttribute('data-yc-stable-identity'),'dm-keep','Unchanged DM list was unnecessarily repainted');
 
    const before=await stableTabGeometry(page);
+   await page.locator('#friendsTab').click();await page.waitForFunction(()=>document.querySelector('#rightContent .steam-friend-row'));
+   await page.locator('#rightContent .steam-friend-row').first().evaluate(el=>el.dataset.ycStableIdentity='friend-keep');
+   await page.locator('#friendsTab').click();await page.waitForTimeout(80);
+   assert.equal(await page.locator('#rightContent .steam-friend-row').first().getAttribute('data-yc-stable-identity'),'friend-keep','Unchanged friends list was unnecessarily repainted');
+   await page.locator('#membersTab').click();await page.waitForFunction(()=>document.querySelector('#rightContent .steam-member-row'));
+   await page.locator('#rightContent .steam-member-row').first().evaluate(el=>el.dataset.ycStableIdentity='member-keep');
+   await page.locator('#membersTab').click();await page.waitForTimeout(80);
+   assert.equal(await page.locator('#rightContent .steam-member-row').first().getAttribute('data-yc-stable-identity'),'member-keep','Unchanged members list was unnecessarily repainted');
    for(let i=0;i<4;i++){
     await page.locator('#membersTab').click();await page.waitForFunction(()=>document.querySelector('#membersTab')?.classList.contains('active')&&!document.querySelector('#friendsTab')?.classList.contains('active'));
     await page.locator('#friendsTab').click();await page.waitForFunction(()=>document.querySelector('#friendsTab')?.classList.contains('active')&&!document.querySelector('#membersTab')?.classList.contains('active'));
