@@ -60,6 +60,12 @@ function openSafeExternal(url) {
   } catch {}
 }
 
+// Windows-only compositor compatibility: keep hardware acceleration available, but avoid the
+// DirectComposition path that can flash the whole frameless window when Chromium restarts its GPU process.
+if (process.platform === 'win32') {
+  app.commandLine.appendSwitch('disable-direct-composition');
+}
+
 const hasInstanceLock = app.requestSingleInstanceLock();
 if (!hasInstanceLock) app.quit();
 app.on('second-instance', () => showMainWindow());
@@ -1212,6 +1218,11 @@ function createWindow() {
     }
   });
   win.webContents.on('render-process-gone', () => yamachatUpdater?.markRendererUnavailable());
+  app.on('child-process-gone', (_event, details) => {
+    if (details?.type === 'GPU') {
+      console.warn('Yamachat GPU process ended:', details.reason || 'unknown', details.exitCode ?? '');
+    }
+  });
   win.webContents.on('unresponsive', () => yamachatUpdater?.markRendererUnavailable());
   win.webContents.on('did-start-loading', () => yamachatUpdater?.markRendererUnavailable());
 
