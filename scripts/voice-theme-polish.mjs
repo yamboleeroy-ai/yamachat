@@ -52,7 +52,8 @@ html body .composer{
 html body .composer:focus-within{
   border-color:color-mix(in srgb,var(--yc-theme,#e056fd) 88%,#6b95a8)!important;
   box-shadow:
-    0 0 18px var(--yc-theme-glow,rgba(224,86,253,.16)),
+    0 0 0 2px color-mix(in srgb,var(--yc-theme,#e056fd) 18%,transparent),
+    0 0 18px color-mix(in srgb,var(--yc-theme,#e056fd) 28%,transparent),
     inset 0 0 0 1px color-mix(in srgb,var(--yc-theme,#e056fd) 24%,transparent)!important;
 }
 
