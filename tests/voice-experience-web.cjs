@@ -50,6 +50,8 @@ async function boot(browser,width=1440,height=900,mobile=false){
   const file=path.join(root,u.pathname==='/'?'index.html':decodeURIComponent(u.pathname));
   if(!file.startsWith(root+path.sep)||!fs.existsSync(file))return route.fulfill({status:404,body:''});
   if(u.pathname==='/')return route.fulfill({contentType:'text/html',body:fs.readFileSync(file,'utf8')});
+  if(/\.(?:js|mjs)$/.test(u.pathname))return route.fulfill({path:file,contentType:'application/javascript'});
+  if(/\.wasm$/.test(u.pathname))return route.fulfill({path:file,contentType:'application/wasm'});
   return route.fulfill({path:file});
  });
  await page.goto('http://127.0.0.1/');
