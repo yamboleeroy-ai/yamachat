@@ -21,7 +21,7 @@ function Require-Value([string]$Name, [string]$Value) {
 }
 
 $packageName = if ($env:YAMACHAT_WNS_PACKAGE_NAME) { $env:YAMACHAT_WNS_PACKAGE_NAME } elseif ($TestMode) { "Yamachat.Desktop.Push.Dev" } else { "yamachat.eu-7E03B8AF" }
-$publisher = if ($env:YAMACHAT_WNS_PUBLISHER) { $env:YAMACHAT_WNS_PUBLISHER } elseif ($TestMode) { "CN=Yamachat Development" } else { "" }
+$publisher = if ($env:YAMACHAT_WNS_PUBLISHER) { $env:YAMACHAT_WNS_PUBLISHER } elseif ($TestMode) { "CN=Yamachat Development" } else { "CN=yamachat.eu, OID.2.25.311729368913984317654407730594956997722=1" }
 $appId = if ($env:YAMACHAT_WNS_APP_ID) { $env:YAMACHAT_WNS_APP_ID } elseif ($TestMode) { "cf14f6d1-3ce9-4eab-9678-aa0141550074" } else { "9addf482-cc9c-4e61-8075-ebcb7adce1cf" }
 $objectId = if ($env:YAMACHAT_WNS_OBJECT_ID) { $env:YAMACHAT_WNS_OBJECT_ID } elseif ($TestMode) { "78b663b0-2adf-4f2f-82bd-a8e140b305d3" } else { "ac8013be-a388-485b-b68f-6f70fa7ec6f6" }
 $packageVersion = if ($env:YAMACHAT_WNS_PACKAGE_VERSION) { $env:YAMACHAT_WNS_PACKAGE_VERSION } elseif ($TestMode) { "1.0.0.0" } else { "" }
