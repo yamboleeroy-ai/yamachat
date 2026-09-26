@@ -1,0 +1,129 @@
+name: Windows voice theme portable preview
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/voice-theme-polish-desktop
+    paths:
+      - "scripts/voice-theme-polish.mjs"
+      - "scripts/prepare-desktop-1.0.92.mjs"
+      - "tests/voice-theme-polish-desktop.cjs"
+      - ".github/workflows/desktop-voice-theme-preview.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  ui-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/voice-theme-polish-desktop
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Generate approved Windows 1.0.92 client
+        run: node scripts/prepare-desktop-1.0.92.mjs
+      - name: Verify generated markers
+        run: |
+          grep -q 'ycVoiceThemePolishStyle' desktop/desktop-client.html
+          grep -q -- '--yc-themed-scroll-track' desktop/desktop-client.html
+          grep -q 'ycServerCardContextStyle' desktop/desktop-client.html
+          grep -q 'ycFriendsPanelRefreshStyle' desktop/desktop-client.html
+          grep -q 'id="ycPasswordRequestBack"' desktop/desktop-client.html
+          grep -q 'Platform Admin · uživatelské účty' desktop/desktop-client.html
+      - name: Install browser test runtime
+        run: |
+          npm install --no-save --package-lock=false playwright@1.62.1
+          npx playwright install --with-deps chromium
+      - name: Test voice theme, scrollbars and connected layout
+        run: node tests/voice-theme-polish-desktop.cjs
+      - name: Recheck approved server context
+        run: node tests/server-card-context-desktop.cjs
+      - name: Recheck approved Friends panel
+        run: node tests/friends-panel-refresh-desktop.cjs
+
+  package-portable:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/voice-theme-polish-desktop
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: desktop/package-lock.json
+      - name: Generate approved Windows 1.0.92 client
+        run: node scripts/prepare-desktop-1.0.92.mjs
+      - name: Verify preview remains 1.0.92 and keeps stable features
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $p = Get-Content desktop/package.json | ConvertFrom-Json
+          if ($p.version -ne "1.0.92") { throw "Portable preview must remain Windows 1.0.92" }
+          $client = Get-Content desktop/desktop-client.html -Raw
+          foreach ($marker in @(
+            "ycVoiceThemePolishStyle",
+            "--yc-themed-scroll-track",
+            "ycServerCardContextStyle",
+            "ycFriendsPanelRefreshStyle",
+            "ycServerContextFrame",
+            'id="ycPasswordRequestBack"',
+            "Platform Admin · uživatelské účty",
+            "Zprávy od Yamachatu"
+          )) {
+            if (-not $client.Contains($marker)) { throw "Missing preview marker: $marker" }
+          }
+          foreach ($forbidden in @(
+            "ycActiveServerConnectedFrame",
+            "__ycActiveServerContextV2",
+            "yc-active-server-context-card",
+            "ycActiveServerGlobalContext"
+          )) {
+            if ($client.Contains($forbidden)) { throw "Forbidden old active-server runtime found: $forbidden" }
+          }
+          ./scripts/restore-desktop-brand-assets.ps1 -Destination build
+      - name: Prepare desktop runtime assets
+        shell: pwsh
+        run: |
+          Copy-Item -Recurse -Force build desktop\build
+          Copy-Item -Recurse -Force audio desktop\audio
+          Copy-Item -Force boot-guard.js desktop\boot-guard.js
+      - name: Install desktop dependencies
+        working-directory: desktop
+        run: npm ci
+      - name: Build unpacked Windows preview
+        working-directory: desktop
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: npm run dist:win
+      - name: Verify packaged portable
+        shell: pwsh
+        run: |
+          $appRoot = "desktop/dist/win-unpacked/resources/app"
+          $client = Get-Content "$appRoot/desktop-client.html" -Raw
+          foreach ($marker in @(
+            "ycVoiceThemePolishStyle",
+            "--yc-themed-scroll-track",
+            "ycServerCardContextStyle",
+            "ycFriendsPanelRefreshStyle",
+            "ycServerContextFrame",
+            'id="ycPasswordRequestBack"',
+            "Platform Admin · uživatelské účty"
+          )) {
+            if (-not $client.Contains($marker)) { throw "Packaged portable missing marker: $marker" }
+          }
+          if (-not (Test-Path "desktop/dist/win-unpacked/Yamachat.exe")) { throw "Portable Yamachat.exe missing" }
+          Write-Host "PASS: Windows portable contains voice/theme polish and approved stable features."
+      - uses: actions/upload-artifact@v4
+        with:
+          name: yamachat-windows-voice-theme-portable
+          path: desktop/dist/win-unpacked/**
+          if-no-files-found: error
+          retention-days: 7
