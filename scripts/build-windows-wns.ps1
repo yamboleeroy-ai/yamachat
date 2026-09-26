@@ -29,8 +29,10 @@ Require-Value "YAMACHAT_WNS_PUBLISHER" $publisher | Out-Null
 Require-Value "YAMACHAT_WNS_APP_ID" $appId | Out-Null
 Require-Value "YAMACHAT_WNS_OBJECT_ID" $objectId | Out-Null
 
-if (-not [guid]::TryParse($appId, [ref]([guid]::Empty))) { throw "YAMACHAT_WNS_APP_ID must be a GUID." }
-if (-not [guid]::TryParse($objectId, [ref]([guid]::Empty))) { throw "YAMACHAT_WNS_OBJECT_ID must be a GUID." }
+$parsedGuid = [guid]::Empty
+if (-not [guid]::TryParse($appId, [ref]$parsedGuid)) { throw "YAMACHAT_WNS_APP_ID must be a GUID." }
+$parsedGuid = [guid]::Empty
+if (-not [guid]::TryParse($objectId, [ref]$parsedGuid)) { throw "YAMACHAT_WNS_OBJECT_ID must be a GUID." }
 
 Remove-Item $outDir -Recurse -Force -ErrorAction SilentlyContinue
 New-Item -ItemType Directory -Force -Path $outDir,$sparseDir,$assetsDir | Out-Null
