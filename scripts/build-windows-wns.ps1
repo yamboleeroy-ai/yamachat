@@ -100,8 +100,19 @@ if ($TestMode) {
   Move-Item -Force $generatedCer $publicCertPath
 }
 
+if (-not $TestMode) {
+  Write-Host "Production WNS signing certificate:"
+  npx --no-install winapp cert info $cert --password $certPassword --json
+}
 npx --no-install winapp pack $manifestPath --output $identityMsix --cert $cert --cert-password $certPassword
-if ($LASTEXITCODE -ne 0 -or -not (Test-Path $identityMsix)) { throw "WNS identity package build failed." }
+if ($LASTEXITCODE -ne 0 -or -not (Test-Path $identityMsix)) {
+  try {
+    Get-WinEvent -LogName 'Microsoft-Windows-AppxPackaging/Operational' -MaxEvents 12 -ErrorAction SilentlyContinue |
+      Select-Object TimeCreated,Id,LevelDisplayName,Message |
+      Format-List | Out-String | Write-Host
+  } catch {}
+  throw "WNS identity package build failed."
+}
 
 npx --no-install winapp embed-identity $bridgeExe --manifest $manifestPath
 if ($LASTEXITCODE -ne 0) { throw "Embedding sparse package identity into the WNS bridge failed." }
