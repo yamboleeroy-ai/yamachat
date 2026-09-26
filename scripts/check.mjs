@@ -52,6 +52,12 @@ try{
    'data-yc-modern-friends',
    '#ycGlobalNav .yc-v3-nav-fill:after{content:none!important'
  ]) assert(generatedWeb.includes(marker),'Generated web missing approved social/server marker: '+marker);
+ for(const marker of [
+   'ycVoiceThemePolishStyle',
+   '--yc-themed-scroll-track',
+   'border-bottom:0!important',
+   'border-right:0!important'
+ ]) assert(generatedWeb.includes(marker),'Generated web missing voice/theme polish marker: '+marker);
  console.log('PASS: Android manual update-check section is registered and wired to the shared update manifest.');
  const mobileCss=fs.readFileSync(path.join(root,'web/mobile.css'),'utf8');
  for(const marker of [
@@ -66,6 +72,10 @@ try{
    "#ycV3Friends,#ycOpenFriendsList",
    'return replace(right,button)'
  ]) assert(mobileJs.includes(marker),`Missing mobile Friends drawer marker: ${marker}`);
+ for(const marker of [
+   'DM rows rerender immediately when selectThread starts.',
+   "const thread=e.target.closest?.('[data-thread]')"
+ ]) assert(mobileJs.includes(marker),`Missing immediate DM drawer-close marker: ${marker}`);
  assert(mobileJs.includes("document.documentElement.classList.toggle('yc-ios-pwa',iosPwa)"), 'iOS PWA class detection missing');
  const mobileCssPwa=fs.readFileSync(path.join(root,'web/mobile.css'),'utf8');
  for(const marker of [
