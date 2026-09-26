@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - feature/windows-wns
+      - feature/windows-wns-runtime-20260926
   workflow_dispatch:
 
 permissions:
