@@ -36,7 +36,8 @@ function ycVoiceParticipantAnnouncement(row,action){
   if(String(row.channel_id||'')!==String(voiceChannel?.id||''))return;
   const mode=ycVoiceAnnounceMode();if(mode==='off')return;
   if(mode==='cue'){playVoiceCue(action==='join'?'other-join':'other-leave');return}
-  const name=String(row.username||'Uživatel').trim()||'Uživatel';
+  const cached=(voicePresenceByChannel?.[row.channel_id]||[]).find(p=>String(p.user_id||'')===String(row.user_id||''));
+  const name=String(row.username||cached?.username||cached?.display_name||'Uživatel').trim()||'Uživatel';
   ycVoiceSpeakEnhanced(action==='join'?name+' se připojil do místnosti':name+' opustil místnost');
  }catch(e){console.warn('voice participant announcement',e)}
 }
