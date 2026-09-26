@@ -163,8 +163,8 @@ export function withVoiceExperience(html){
  html=html.replace("function ycVoiceHandleAnnouncement(payload){\n  try{","function ycVoiceHandleAnnouncement(payload){\n  if(window.__ycVoiceParticipantAnnouncements)return;\n  try{");
 
  // Never mutate soundboard administration on a different server merely because voice stays connected there.
- const oldCanManageSoundboard="function soundboardCanManage(){return canCommunityPermission('manage_soundboard')||canCommunityPermission('manage_server')}";
- const newCanManageSoundboard="function soundboardCanManage(){return !!currentCommunity&&String(currentCommunity.id)===ycVoiceCommunityId()&&(canCommunityPermission('manage_soundboard')||canCommunityPermission('manage_server'))}";
+ const oldCanManageSoundboard="function soundboardCanManage(){return canCommunityPermission('manage_soundboard')}";
+ const newCanManageSoundboard="function soundboardCanManage(){return !!currentCommunity&&String(currentCommunity.id)===ycVoiceCommunityId()&&canCommunityPermission('manage_soundboard')}";
  if(!html.includes(oldCanManageSoundboard))throw Error('Soundboard management context boundary missing');
  html=html.replace(oldCanManageSoundboard,newCanManageSoundboard);
 
