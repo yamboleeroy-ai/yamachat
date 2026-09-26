@@ -1,0 +1,208 @@
+name: Publish Yamachat Windows 1.0.96 Notification Hotfix
+
+on:
+  push:
+    branches:
+      - release/windows-1.0.96-wns
+    paths:
+      - ".github/workflows/build-windows-1.0.96-wns.yml"
+      - "desktop/**"
+      - "windows/wns/**"
+      - "scripts/build-windows-wns.ps1"
+      - "scripts/windows-wns-client.mjs"
+      - "scripts/prepare-desktop-1.0.92.mjs"
+      - "tests/windows-wns-desktop.cjs"
+      - "build/installer.nsh"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-test-publish:
+    runs-on: windows-latest
+    timeout-minutes: 55
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: release/windows-1.0.96-wns
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: desktop/package-lock.json
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Install WinApp CLI
+        shell: pwsh
+        run: |
+          npm install --no-save @microsoft/winappcli
+          npx --no-install winapp --version
+
+      - name: Verify release version
+        shell: pwsh
+        run: |
+          node -e "const p=require('./desktop/package.json'); const l=require('./desktop/package-lock.json'); if(p.version!=='1.0.96'||l.version!=='1.0.96'||l.packages[''].version!=='1.0.96') process.exit(1); console.log('PASS release version 1.0.96')"
+
+      - name: Restore verified Yamachat desktop assets
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: ./scripts/restore-desktop-brand-assets.ps1 -Destination build
+
+      - name: Regenerate approved desktop client with WNS
+        run: node scripts/prepare-desktop-1.0.92.mjs
+
+      - name: Run Windows WNS regression guards
+        run: node tests/windows-wns-desktop.cjs
+
+      - name: Build production WNS bridge and identity
+        shell: pwsh
+        env:
+          YAMACHAT_WNS_PACKAGE_VERSION: "1.0.96.0"
+        run: ./scripts/build-windows-wns.ps1
+
+      - name: Verify production WNS identity
+        shell: pwsh
+        run: |
+          & desktop/wns/WindowsAppRuntimeInstall-x64.exe --quiet
+          if($LASTEXITCODE -ne 0){throw "Windows App Runtime install failed: $LASTEXITCODE"}
+
+          Add-AppxPackage -Path (Resolve-Path desktop/wns/Yamachat.PushIdentity.msix) -ExternalLocation (Resolve-Path desktop) -AllowUnsigned -ForceApplicationShutdown
+
+          $pkg=Get-AppxPackage -Name "yamachat.eu-7E03B8AF"
+          if(-not $pkg){throw "Production WNS package identity was not registered"}
+          if($pkg.PackageFamilyName -ne "yamachat.eu-7E03B8AF_m02xq2dqtpa7p"){throw "Unexpected PFN: $($pkg.PackageFamilyName)"}
+          if($pkg.SignatureKind -ne "None"){throw "Expected existing unsigned production sparse identity"}
+
+          $ipc=Join-Path $env:LOCALAPPDATA "Yamachat\wns-ipc"
+          New-Item -ItemType Directory -Force -Path $ipc | Out-Null
+          $requestId=[guid]::NewGuid().ToString("N")
+          $requestFile=Join-Path $ipc ("request-"+$requestId+".json")
+          $responseFile=Join-Path $ipc ("response-"+$requestId+".json")
+          @{requestId=$requestId;action="status"} | ConvertTo-Json -Compress | Set-Content -Path $requestFile -Encoding UTF8
+
+          Start-Process explorer.exe -ArgumentList "shell:AppsFolder\yamachat.eu-7E03B8AF_m02xq2dqtpa7p!YamachatPushHost"
+          $deadline=(Get-Date).AddSeconds(25)
+          while((Get-Date) -lt $deadline -and -not(Test-Path $responseFile)){Start-Sleep -Milliseconds 250}
+          if(-not(Test-Path $responseFile)){throw "Package activation did not produce WNS bridge status response"}
+
+          $json=Get-Content $responseFile -Raw | ConvertFrom-Json
+          Write-Host ("Bridge package status: ok={0}, identity={1}, pfn={2}" -f $json.ok,$json.hasPackageIdentity,$json.packageFamilyName)
+          if(-not $json.ok -or -not $json.hasPackageIdentity){throw "WNS bridge did not acquire production package identity"}
+          if($json.packageFamilyName -ne "yamachat.eu-7E03B8AF_m02xq2dqtpa7p"){throw "Bridge PFN mismatch"}
+
+          Remove-Item $requestFile,$responseFile -Force -ErrorAction SilentlyContinue
+          Get-AppxPackage -Name "yamachat.eu-7E03B8AF" -ErrorAction SilentlyContinue | Remove-AppxPackage -ErrorAction SilentlyContinue
+          Write-Host "PASS production WNS PFN and package-activated bridge identity"
+
+      - name: Verify WNS output
+        shell: pwsh
+        run: |
+          $required=@(
+            "desktop/wns/Yamachat.WnsBridge.exe",
+            "desktop/wns/Yamachat.PushIdentity.msix",
+            "desktop/wns/WindowsAppRuntimeInstall-x64.exe",
+            "desktop/wns/wns-config.json",
+            "desktop/wns/Assets/StoreLogo.png",
+            "desktop/wns/Assets/Square44x44Logo.png",
+            "desktop/wns/Assets/Square150x150Logo.png"
+          )
+          foreach($file in $required){if(-not(Test-Path $file)){throw "Missing WNS output: $file"}}
+          $cfg=Get-Content desktop/wns/wns-config.json -Raw | ConvertFrom-Json
+          if($cfg.objectId -ne "ac8013be-a388-485b-b68f-6f70fa7ec6f6"){throw "Unexpected WNS Object ID"}
+
+          $manifest=Get-Content desktop/wns/sparse/appxmanifest.xml -Raw
+          foreach($marker in @(
+            'Name="yamachat.eu-7E03B8AF"',
+            'CN=yamachat.eu, OID.2.25.311729368913984317654407730594956997722=1',
+            'Version="1.0.96.0"',
+            'AllowExternalContent',
+            'windows.comServer',
+            'windows.toastNotificationActivation',
+            'Yamachat.WnsBridge.exe'
+          )){
+            if(-not $manifest.Contains($marker)){throw "Sparse manifest missing: $marker"}
+          }
+
+      - name: Prepare runtime assets
+        shell: pwsh
+        run: |
+          Copy-Item -Recurse -Force build desktop\build
+          Copy-Item -Recurse -Force audio desktop\audio
+          Copy-Item -Force boot-guard.js desktop\boot-guard.js
+
+      - name: Install desktop dependencies
+        working-directory: desktop
+        run: npm ci
+
+      - name: Build Windows 1.0.96
+        working-directory: desktop
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: npm run release:win
+
+      - name: Verify packaged WNS release
+        shell: pwsh
+        run: |
+          $appRoot="desktop/dist/win-unpacked/resources/app"
+          foreach($file in @(
+            "$appRoot/wns/Yamachat.WnsBridge.exe",
+            "$appRoot/wns/Yamachat.PushIdentity.msix",
+            "$appRoot/wns/WindowsAppRuntimeInstall-x64.exe",
+            "$appRoot/wns/wns-config.json",
+            "$appRoot/build/icon.ico",
+            "$appRoot/build/tray-status-online.png"
+          )){if(-not(Test-Path $file)){throw "Packaged release file missing: $file"}}
+
+          foreach($file in @(
+            "desktop/dist/Yamachat-Setup-1.0.96.exe",
+            "desktop/dist/Yamachat-Setup-1.0.96.exe.blockmap",
+            "desktop/dist/latest.yml"
+          )){if(-not(Test-Path $file)){throw "Missing release asset: $file"}}
+
+          $latest=Get-Content desktop/dist/latest.yml -Raw
+          if($latest -notmatch "version:\s*1\.0\.95"){throw "latest.yml is not 1.0.96"}
+          Write-Host "PASS Windows 1.0.96 package contains WNS runtime and updater assets"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: yamachat-windows-1.0.96-notification-hotfix
+          path: |
+            desktop/dist/Yamachat-Setup-1.0.96.exe
+            desktop/dist/Yamachat-Setup-1.0.96.exe.blockmap
+            desktop/dist/latest.yml
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Publish v1.0.96
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p release-assets
+          cp desktop/dist/Yamachat-Setup-1.0.96.exe release-assets/
+          cp desktop/dist/Yamachat-Setup-1.0.96.exe.blockmap release-assets/
+          cp desktop/dist/latest.yml release-assets/
+          cat > release-notes.md <<'EOF'
+          Yamachat 1.0.96
+
+          Windows hotfix for opening a message from a desktop notification.
+          The target message is now centered by scrolling only the chat message container; clicking a notification no longer shifts the entire Yamachat UI upward or leaves a large empty area at the bottom.
+          Built on the verified 1.0.95 Windows WNS release with desktop UI, voice, tray, updater and WNS infrastructure preserved.
+          PFN remains yamachat.eu-7E03B8AF_m02xq2dqtpa7p.
+          Background notifications while Yamachat is fully closed still depend on Microsoft completing the submitted PFN mapping.
+          EOF
+
+          if gh release view v1.0.96 --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release upload v1.0.96 release-assets/* --repo "$GITHUB_REPOSITORY" --clobber
+            gh release edit v1.0.96 --repo "$GITHUB_REPOSITORY" --title "Yamachat 1.0.96" --notes-file release-notes.md --latest
+          else
+            gh release create v1.0.96 release-assets/* --repo "$GITHUB_REPOSITORY" --target release/windows-1.0.96-wns --title "Yamachat 1.0.96" --notes-file release-notes.md --latest
+          fi
