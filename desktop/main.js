@@ -16,6 +16,7 @@ const {
 const path = require('path');
 const fs = require('fs');
 const { pathToFileURL } = require('url');
+const { execFile } = require('child_process');
 const { YamachatUpdater } = require('./updater');
 
 let mainWindow = null;
@@ -72,9 +73,95 @@ app.on('child-process-gone', (_event, details) => {
   }
 });
 
+function parseYamachatProtocolTarget(argv = []) {
+  try {
+    const raw = (Array.isArray(argv) ? argv : []).find(value => /^yamachat:\/\/notification(?:\?|$)/i.test(String(value || '')));
+    if (!raw) return null;
+    const url = new URL(String(raw));
+    if (url.protocol !== 'yamachat:' || url.hostname !== 'notification') return null;
+    const clean = key => String(url.searchParams.get(key) || '').slice(0, 180);
+    const target = {
+      messageId: clean('messageId'),
+      channelId: clean('channelId'),
+      threadId: clean('threadId'),
+      communityId: clean('communityId'),
+      channelName: clean('channelName')
+    };
+    return target.messageId || target.channelId || target.threadId ? target : null;
+  } catch {
+    return null;
+  }
+}
+
+let pendingProtocolTarget = parseYamachatProtocolTarget(process.argv);
+
+function deliverDesktopNotificationTarget(target) {
+  if (!target) return false;
+  pendingProtocolTarget = target;
+  if (!mainWindow || mainWindow.isDestroyed()) return false;
+  try {
+    if (mainWindow.isMinimized()) mainWindow.restore();
+    mainWindow.show();
+    mainWindow.focus();
+    wakeBackgroundAudio(mainWindow);
+    setTimeout(() => {
+      try {
+        if (!mainWindow || mainWindow.isDestroyed() || !pendingProtocolTarget) return;
+        mainWindow.webContents.send('yamachat:open-notification-target', pendingProtocolTarget);
+        pendingProtocolTarget = null;
+      } catch {}
+    }, 220);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function windowsWnsBridgePath() {
+  return path.join(__dirname, 'wns', 'Yamachat.WnsBridge.exe');
+}
+
+function requestWindowsWnsChannel() {
+  return new Promise((resolve) => {
+    if (process.platform !== 'win32') {
+      resolve({ ok: false, error: 'wns-windows-only' });
+      return;
+    }
+    const bridge = windowsWnsBridgePath();
+    if (!fs.existsSync(bridge)) {
+      resolve({ ok: false, error: 'wns-bridge-missing' });
+      return;
+    }
+    execFile(bridge, ['register'], { windowsHide: true, timeout: 90000, maxBuffer: 1024 * 1024 }, (error, stdout, stderr) => {
+      const lines = String(stdout || '').trim().split(/\r?\n/).filter(Boolean);
+      let parsed = null;
+      for (let i = lines.length - 1; i >= 0; i--) {
+        try { parsed = JSON.parse(lines[i]); break; } catch {}
+      }
+      if (parsed && typeof parsed === 'object') {
+        resolve(parsed);
+        return;
+      }
+      resolve({
+        ok: false,
+        error: error?.killed ? 'wns-channel-timeout' : 'wns-channel-failed',
+        detail: String(stderr || error?.message || '').slice(0, 500)
+      });
+    });
+  });
+}
+
 const hasInstanceLock = app.requestSingleInstanceLock();
 if (!hasInstanceLock) app.quit();
-app.on('second-instance', () => showMainWindow());
+app.on('second-instance', (_event, argv) => {
+  const target = parseYamachatProtocolTarget(argv);
+  if (target) {
+    pendingProtocolTarget = target;
+    if (!deliverDesktopNotificationTarget(target)) showMainWindow();
+    return;
+  }
+  showMainWindow();
+});
 
 function appSettingsPath() {
   return path.join(app.getPath('userData'), 'settings.json');
@@ -306,23 +393,10 @@ function showYamachatNotification(payload = {}) {
 function openYamachatNotificationTarget() {
   const target = notificationTarget ? { ...notificationTarget } : null;
   closeYamachatNotification();
-  if (!target || !mainWindow || mainWindow.isDestroyed()) return false;
-  try {
-    if (mainWindow.isMinimized()) mainWindow.restore();
-    mainWindow.show();
-    mainWindow.focus();
-    wakeBackgroundAudio(mainWindow);
-    setTimeout(() => {
-      try {
-        if (!mainWindow || mainWindow.isDestroyed()) return;
-        mainWindow.webContents.send('yamachat:open-notification-target', target);
-      } catch {}
-    }, 120);
-    return true;
-  } catch (error) {
-    console.warn('Yamachat notification target open failed', error);
-    return false;
-  }
+  if (!target) return false;
+  const opened = deliverDesktopNotificationTarget(target);
+  if (!opened && (!mainWindow || mainWindow.isDestroyed())) createWindow();
+  return true;
 }
 
 // ----------------------------------------------------
@@ -1234,6 +1308,10 @@ function createWindow() {
       void installAudioKeepAlive(win);
       startTrayVoicePolling();
       console.log('Yamachat loaded · status + notification + voice speaking tray active');
+      if (pendingProtocolTarget) {
+        const target = { ...pendingProtocolTarget };
+        setTimeout(() => deliverDesktopNotificationTarget(target), 500);
+      }
     }
   );
 
@@ -1276,6 +1354,7 @@ function createWindow() {
 app.whenReady().then(async () => {
   if (!hasInstanceLock) return;
   app.setAppUserModelId('cz.yamachat.desktop');
+  try { app.setAsDefaultProtocolClient('yamachat'); } catch (error) { console.warn('Yamachat protocol registration:', error.message); }
   appSettings = loadAppSettings();
 
   yamachatUpdater = new YamachatUpdater({ app, getWindow: () => mainWindow });
@@ -1289,6 +1368,7 @@ app.whenReady().then(async () => {
 
   handleClientIpc('yamachat:get-app-settings', () => ({ ...appSettings }));
   handleClientIpc('yamachat:show-notification', (_event, payload) => showYamachatNotification(payload || {}));
+  handleClientIpc('yamachat:wns-get-channel', async () => requestWindowsWnsChannel());
   handleClientIpc('yamachat:notification-open', () => openYamachatNotificationTarget());
   handleClientIpc('yamachat:notification-close', () => { closeYamachatNotification(); return true; });
   handleClientIpc('yamachat:set-app-setting', (_event, key, value) => setAppSetting(key, value));
