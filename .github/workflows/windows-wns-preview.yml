@@ -54,7 +54,9 @@ jobs:
         run: |
           npx --no-install winapp cert install desktop/wns/wns-devcert.pfx --password yamachat-ci
           Add-AppxPackage -Path (Resolve-Path desktop/wns/Yamachat.PushIdentity.msix) -ExternalLocation (Resolve-Path desktop)
+          Get-AppxPackage -Name "Yamachat.Desktop.Push.Dev" | Format-List Name,PackageFullName,PackageFamilyName,InstallLocation
           $raw=& desktop/wns/Yamachat.WnsBridge.exe status
+          Write-Host "Bridge status: $raw"
           $json=$raw | Select-Object -Last 1 | ConvertFrom-Json
           if(-not $json.ok -or -not $json.hasPackageIdentity){throw "WNS bridge did not acquire sparse package identity"}
           if(-not $json.packageFamilyName){throw "WNS package family name missing"}
