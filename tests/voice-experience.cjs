@@ -19,14 +19,19 @@ assert(html.includes("String(currentCommunity.id)===ycVoiceCommunityId()"),'Soun
 assert(!html.includes("speechSynthesis.cancel();speechSynthesis.speak(u);"),'Rapid voice announcements must not cancel the previous username');
 assert(html.includes("community_id:ycVoiceCommunity"),'Stream presence must remain on the joined voice community');
 
-// Presence: manual status wins, but automatic UI inactivity cannot mark an active voice call AFK.
-assert(html.includes("const voiceLive=!!voiceChannel&&!!voiceStream?.getAudioTracks?.().some(t=>t.readyState==='live');if(voiceLive)return'online'"),'Voice-connected AFK protection missing');
+// Presence: manual status wins. In voice, AFK may appear only after prolonged microphone/UI inactivity,
+ // and real microphone activity must wake the presence immediately.
+assert(html.includes("const voiceLive=!!voiceChannel&&!!voiceStream?.getAudioTracks?.().some(t=>t.readyState==='live');if(voiceLive){const lastVoiceActivity=Math.max(Number(window.__ycVoiceLastMicActivityAt||0),Number(ycLastInputAt||0));return Date.now()-lastVoiceActivity>=300000?'afk':'online'}"),'Microphone-aware voice AFK protection missing');
+assert(html.includes("window.__ycVoiceLastMicActivityAt=Date.now()"),'Voice VAD does not mark microphone activity');
+assert(html.includes("if(next&&ycLastPresenceSig.startsWith('afk|'))void ycTouchPresence(true)"),'Voice AFK does not recover promptly when speech resumes');
 assert(html.includes("if(pref!=='online')return pref"),'Manual AFK/DND/invisible preference must remain authoritative');
 
 // Immediate voice participant announcements use the existing participant row, including username.
 assert(html.includes("ycVoiceParticipantAnnouncement(row,'join')"),'Immediate join announcement missing');
 assert(html.includes("ycVoiceParticipantAnnouncement(row,'leave')"),'Immediate leave announcement missing');
 assert(html.includes("row.username||cached?.username||cached?.display_name||'Uživatel'"),'Voice announcement username/fallback source missing');
+assert(html.includes("row.channel_id||''"),'Voice announcement active-channel inference missing');
+assert(html.includes("cached?.channel_id||activeChannel"),'Voice leave announcement cannot recover channel/name from cached presence');
 assert(html.includes("if(window.__ycVoiceParticipantAnnouncements)return;"),'Legacy delayed TTS path is not suppressed');
 
 // Soundboard controls reuse the existing per-user voice mix store.
@@ -99,6 +104,6 @@ for(const marker of [
 
   assert.deepEqual(errors,[]);
   await page.close();
-  console.log('PASS voice experience: continuity guards, voice-aware AFK, named join/leave settings, soundboard controls, notification sound and themed bars.');
+  console.log('PASS voice experience: continuity guards, microphone-aware AFK, reliable named join/leave settings, soundboard controls, notification sound and themed bars.');
  }finally{await browser.close()}
 })().catch(e=>{console.error(e);process.exitCode=1});
