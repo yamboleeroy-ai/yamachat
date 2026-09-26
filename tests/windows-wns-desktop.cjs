@@ -17,7 +17,7 @@ const build=read('scripts/build-windows-wns.ps1');
 
 for(const marker of [
  'parseYamachatProtocolTarget',
- 'yamachat://notification',
+ "url.hostname !== 'notification'",
  "handleClientIpc('yamachat:wns-get-channel'",
  'requestWindowsWnsChannel',
  "app.setAsDefaultProtocolClient('yamachat')",
