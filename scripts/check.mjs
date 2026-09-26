@@ -52,6 +52,31 @@ try{
    'data-yc-modern-friends',
    '#ycGlobalNav .yc-v3-nav-fill:after{content:none!important'
  ]) assert(generatedWeb.includes(marker),'Generated web missing approved social/server marker: '+marker);
+ for(const marker of [
+   'ycVoiceExperienceStyle',
+   'ycVoiceThemePolishStyle',
+   'YC_MESSAGE_SOUND_DATA',
+   'ycVoiceSelectedVoice',
+   'u.voice=selected',
+   'u.rate=1;u.pitch=1',
+   "YC_VOICE_JOIN_CUE_SRC='./audio/yamachat_join_voice.mp3'",
+   "YC_VOICE_LEAVE_CUE_SRC='./audio/yamachat_leave_voice.mp3'",
+   'ycVoiceDiffAnnouncements',
+   'data-yc-real-voice-note',
+   'html body .composer'
+ ]) assert(generatedWeb.includes(marker),'Generated web missing verified Real Voices marker: '+marker);
+ for(const forbidden of ['male-deep','female-bright','yc_surface_theme_v1','ycSurfaceThemeStyle']){
+   assert(!generatedWeb.includes(forbidden),'Generated web contains rejected/fake theme or voice marker: '+forbidden);
+ }
+ const crypto=(await import('node:crypto')).default;
+ for(const [file,expected] of [
+   ['audio/yamachat_join_voice.mp3','d0f4654da5668871290144e88cef5e879397a8ab05a6df0f4ecbd1c7a9cd151e'],
+   ['audio/yamachat_leave_voice.mp3','08fcd45a4141b3e28e24d0ce6051b7123c0f0d124ae297291b0077a3788ebaa1']
+ ]){
+   const p=path.join(root,file);assert(fs.existsSync(p),'Missing verified voice cue: '+file);
+   assert.equal(crypto.createHash('sha256').update(fs.readFileSync(p)).digest('hex'),expected,'Voice cue changed: '+file);
+ }
+
  console.log('PASS: Android manual update-check section is registered and wired to the shared update manifest.');
  const mobileCss=fs.readFileSync(path.join(root,'web/mobile.css'),'utf8');
  for(const marker of [
