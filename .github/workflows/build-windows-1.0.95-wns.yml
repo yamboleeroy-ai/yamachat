@@ -73,27 +73,33 @@ jobs:
           & desktop/wns/WindowsAppRuntimeInstall-x64.exe --quiet
           if($LASTEXITCODE -ne 0){throw "Windows App Runtime install failed: $LASTEXITCODE"}
 
-          Import-Certificate -FilePath (Resolve-Path desktop/wns/wns-signing.cer) -CertStoreLocation Cert:\CurrentUser\TrustedPeople | Out-Null
-          Add-AppxPackage -Path (Resolve-Path desktop/wns/Yamachat.PushIdentity.msix) -ExternalLocation (Resolve-Path desktop) -ForceApplicationShutdown
+          Add-AppxPackage -Path (Resolve-Path desktop/wns/Yamachat.PushIdentity.msix) -ExternalLocation (Resolve-Path desktop) -AllowUnsigned -ForceApplicationShutdown
 
           $pkg=Get-AppxPackage -Name "yamachat.eu-7E03B8AF"
           if(-not $pkg){throw "Production WNS package identity was not registered"}
           if($pkg.PackageFamilyName -ne "yamachat.eu-7E03B8AF_m02xq2dqtpa7p"){throw "Unexpected PFN: $($pkg.PackageFamilyName)"}
-          if($pkg.SignatureKind -eq "None"){throw "Expected signed production sparse identity"}
+          if($pkg.SignatureKind -ne "None"){throw "Expected existing unsigned production sparse identity"}
 
-          $bridge=(Resolve-Path desktop/wns/Yamachat.WnsBridge.exe).Path
-          $out=Join-Path $env:RUNNER_TEMP "yamachat-wns-status.json"
-          $err=Join-Path $env:RUNNER_TEMP "yamachat-wns-status.err"
-          $proc=Start-Process -FilePath $bridge -ArgumentList "status" -Wait -PassThru -NoNewWindow -RedirectStandardOutput $out -RedirectStandardError $err
-          if($proc.ExitCode -ne 0){throw "WNS bridge status failed: $($proc.ExitCode) $(Get-Content $err -Raw -ErrorAction SilentlyContinue)"}
-          $raw=Get-Content $out -Raw
-          Write-Host "Bridge status: $raw"
-          $json=$raw | ConvertFrom-Json
+          $ipc=Join-Path $env:LOCALAPPDATA "Yamachat\wns-ipc"
+          New-Item -ItemType Directory -Force -Path $ipc | Out-Null
+          $requestId=[guid]::NewGuid().ToString("N")
+          $requestFile=Join-Path $ipc ("request-"+$requestId+".json")
+          $responseFile=Join-Path $ipc ("response-"+$requestId+".json")
+          @{requestId=$requestId;action="status"} | ConvertTo-Json -Compress | Set-Content -Path $requestFile -Encoding UTF8
+
+          Start-Process explorer.exe -ArgumentList "shell:AppsFolder\yamachat.eu-7E03B8AF_m02xq2dqtpa7p!YamachatPushHost"
+          $deadline=(Get-Date).AddSeconds(25)
+          while((Get-Date) -lt $deadline -and -not(Test-Path $responseFile)){Start-Sleep -Milliseconds 250}
+          if(-not(Test-Path $responseFile)){throw "Package activation did not produce WNS bridge status response"}
+
+          $json=Get-Content $responseFile -Raw | ConvertFrom-Json
+          Write-Host ("Bridge package status: ok={0}, identity={1}, pfn={2}" -f $json.ok,$json.hasPackageIdentity,$json.packageFamilyName)
           if(-not $json.ok -or -not $json.hasPackageIdentity){throw "WNS bridge did not acquire production package identity"}
           if($json.packageFamilyName -ne "yamachat.eu-7E03B8AF_m02xq2dqtpa7p"){throw "Bridge PFN mismatch"}
 
+          Remove-Item $requestFile,$responseFile -Force -ErrorAction SilentlyContinue
           Get-AppxPackage -Name "yamachat.eu-7E03B8AF" -ErrorAction SilentlyContinue | Remove-AppxPackage -ErrorAction SilentlyContinue
-          Write-Host "PASS production WNS PFN and bridge identity"
+          Write-Host "PASS production WNS PFN and package-activated bridge identity"
 
       - name: Verify WNS output
         shell: pwsh
@@ -103,14 +109,11 @@ jobs:
             "desktop/wns/Yamachat.PushIdentity.msix",
             "desktop/wns/WindowsAppRuntimeInstall-x64.exe",
             "desktop/wns/wns-config.json",
-            "desktop/wns/wns-signing.cer",
             "desktop/wns/Assets/StoreLogo.png",
             "desktop/wns/Assets/Square44x44Logo.png",
             "desktop/wns/Assets/Square150x150Logo.png"
           )
           foreach($file in $required){if(-not(Test-Path $file)){throw "Missing WNS output: $file"}}
-          if(Test-Path "desktop/wns/wns-signing-temp.pfx"){throw "Private WNS signing key must not remain in release output"}
-
           $cfg=Get-Content desktop/wns/wns-config.json -Raw | ConvertFrom-Json
           if($cfg.objectId -ne "ac8013be-a388-485b-b68f-6f70fa7ec6f6"){throw "Unexpected WNS Object ID"}
 
@@ -153,7 +156,6 @@ jobs:
             "$appRoot/wns/Yamachat.PushIdentity.msix",
             "$appRoot/wns/WindowsAppRuntimeInstall-x64.exe",
             "$appRoot/wns/wns-config.json",
-            "$appRoot/wns/wns-signing.cer",
             "$appRoot/build/icon.ico",
             "$appRoot/build/tray-status-online.png"
           )){if(-not(Test-Path $file)){throw "Packaged release file missing: $file"}}
