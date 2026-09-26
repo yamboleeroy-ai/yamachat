@@ -91,7 +91,7 @@ function ycVoiceAnnounceOnce(row,action){
  try{
   const uid=String(row?.user_id||'');const channel=String(row?.channel_id||voiceChannel?.id||'');if(!uid||!channel)return;
   const key=action+'|'+channel+'|'+uid,now=Date.now(),last=Number(ycVoiceAnnouncementDedup.get(key)||0);
-  if(now-last<1800)return;ycVoiceAnnouncementDedup.set(key,now);
+  if(now-last<6000)return;ycVoiceAnnouncementDedup.set(key,now);
   if(ycVoiceAnnouncementDedup.size>120)for(const [k,ts] of ycVoiceAnnouncementDedup)if(now-ts>15000)ycVoiceAnnouncementDedup.delete(k);
   ycVoiceParticipantAnnouncement({...row,channel_id:channel},action);
  }catch(e){console.warn('voice announcement dedup',e)}
@@ -229,16 +229,25 @@ export function withVoiceExperience(html){
  if(!html.includes(oldMix))throw Error('Voice user mix boundary missing');
  html=html.replace(oldMix,"return{muted:!!raw.muted,volume,soundboardMuted:!!raw.soundboardMuted}}");
 
- // Route immediate participant rows (which already include username) into the selected announcement mode.
+ // Use exactly one participant-announcement source: the refreshed participant diff below.
+ // Do not announce directly from INSERT/DELETE because older Yamachat clients can create parallel sessions.
  const oldLeave="if(uid!==user.id){if(voiceJoinSoundArmed&&(!id||voiceChannel?.id===id))playVoiceCue('other-leave');closeVoicePeer(uid)}";
- const newLeave="if(uid!==user.id){if(voiceJoinSoundArmed&&(!id||voiceChannel?.id===id))ycVoiceAnnounceOnce(row,'leave');closeVoicePeer(uid)}";
+ const newLeave="if(uid!==user.id){closeVoicePeer(uid)}";
  const oldJoin="if(payload.eventType==='INSERT'&&uid!==user.id&&voiceJoinSoundArmed&&voiceChannel?.id===id)playVoiceCue('other-join');";
- const newJoin="if(payload.eventType==='INSERT'&&uid!==user.id&&voiceJoinSoundArmed&&voiceChannel?.id===id)ycVoiceAnnounceOnce(row,'join');";
+ const newJoin="if(payload.eventType==='INSERT'&&uid!==user.id&&voiceJoinSoundArmed&&voiceChannel?.id===id)void 0;";
  if(!html.includes(oldLeave)||!html.includes(oldJoin))throw Error('Voice participant announcement boundary missing');
  html=html.replace(oldLeave,newLeave).replace(oldJoin,newJoin);
 
- // Disable the older second Realtime announcement path; it is intentionally slower and would duplicate speech.
+ // Preserve the cached participant until refresh. That lets the diff keep the username and also
+ // prevents a false LEAVE when the same user still has another web/desktop session in the room.
+ const oldDeleteCache="if(id){voicePresenceByChannel[id]=(voicePresenceByChannel[id]||[]).filter(p=>p.user_id!==uid);if(voiceChannel?.id===id)syncVoicePeers()}else{for(const key of Object.keys(voicePresenceByChannel))voicePresenceByChannel[key]=(voicePresenceByChannel[key]||[]).filter(p=>p.user_id!==uid)}renderVoiceChannels(voiceChannelDefs)";
+ const newDeleteCache="if(id){if(voiceChannel?.id===id)syncVoicePeers()}renderVoiceChannels(voiceChannelDefs)";
+ if(!html.includes(oldDeleteCache))throw Error('Voice participant DELETE cache boundary missing');
+ html=html.replace(oldDeleteCache,newDeleteCache);
+
+ // Disable both legacy TTS announcement paths. The participant diff below is authoritative.
  html=html.replace("function ycVoiceHandleAnnouncement(payload){\n  try{","function ycVoiceHandleAnnouncement(payload){\n  if(window.__ycVoiceParticipantAnnouncements)return;\n  try{");
+ html=html.replace("function ycVoiceSpeakPerson(row,action){\n  try{","function ycVoiceSpeakPerson(row,action){\n  if(window.__ycVoiceParticipantAnnouncements)return;\n  try{");
 
  // Never mutate soundboard administration on a different server merely because voice stays connected there.
  const oldCanManageSoundboard="function soundboardCanManage(){return canCommunityPermission('manage_soundboard')}";
