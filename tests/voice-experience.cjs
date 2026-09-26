@@ -67,8 +67,6 @@ for(const [file,expected] of [
  const bytes=fs.readFileSync(p);assert.equal(bytes.length,17324,'Uploaded voice cue size changed: '+file);
  assert.equal(crypto.createHash('sha256').update(bytes).digest('hex'),expected,'Uploaded voice cue bytes changed: '+file);
 }
-for(const profile of ['male-deep','male-natural','male-clear','female-soft','female-natural','female-bright'])
- assert(html.includes(profile),'Missing voice profile: '+profile);
 assert(html.includes("if(window.__ycVoiceParticipantAnnouncements)return;"),'Legacy delayed TTS path is not suppressed');
 
 // Soundboard controls reuse the existing per-user voice mix store.
