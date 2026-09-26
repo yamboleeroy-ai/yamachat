@@ -45,7 +45,7 @@ jobs:
           grep -q 'YC_VOICE_JOIN_CUE_SRC' desktop/desktop-client.html
           grep -q 'YC_VOICE_LEAVE_CUE_SRC' desktop/desktop-client.html
           grep -q 'ycVoiceDiffAnnouncements' desktop/desktop-client.html
-          grep -q 'female-bright' desktop/desktop-client.html
+          grep -q 'ycVoiceSelectedVoice' desktop/desktop-client.html
           grep -q 'disable-direct-composition' desktop/main.js
           grep -q 'id="ycPasswordRequestBack"' desktop/desktop-client.html
           grep -q 'Platform Admin · uživatelské účty' desktop/desktop-client.html
@@ -96,7 +96,7 @@ jobs:
             "YC_VOICE_JOIN_CUE_SRC",
             "YC_VOICE_LEAVE_CUE_SRC",
             "ycVoiceDiffAnnouncements",
-            "female-bright",
+            "ycVoiceSelectedVoice",
             "data:audio/mpeg;base64,SUQz",
             "ycServerCardContextStyle",
             "ycFriendsPanelRefreshStyle",
@@ -149,7 +149,7 @@ jobs:
             "YC_VOICE_JOIN_CUE_SRC",
             "YC_VOICE_LEAVE_CUE_SRC",
             "ycVoiceDiffAnnouncements",
-            "female-bright",
+            "ycVoiceSelectedVoice",
             "data:audio/mpeg;base64,SUQz",
             "ycServerCardContextStyle",
             "ycFriendsPanelRefreshStyle",
