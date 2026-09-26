@@ -27,11 +27,18 @@ assert(html.includes("if(next&&ycLastPresenceSig.startsWith('afk|'))void ycTouch
 assert(html.includes("if(pref!=='online')return pref"),'Manual AFK/DND/invisible preference must remain authoritative');
 
 // Immediate voice participant announcements use the existing participant row, including username.
-assert(html.includes("ycVoiceParticipantAnnouncement(row,'join')"),'Immediate join announcement missing');
-assert(html.includes("ycVoiceParticipantAnnouncement(row,'leave')"),'Immediate leave announcement missing');
+assert(html.includes("ycVoiceAnnounceOnce(row,'join')"),'Immediate join announcement missing');
+assert(html.includes("ycVoiceAnnounceOnce(row,'leave')"),'Immediate leave announcement missing');
 assert(html.includes("row.username||cached?.username||cached?.display_name||'Uživatel'"),'Voice announcement username/fallback source missing');
 assert(html.includes("row.channel_id||''"),'Voice announcement active-channel inference missing');
 assert(html.includes("cached?.channel_id||activeChannel"),'Voice leave announcement cannot recover channel/name from cached presence');
+assert(html.includes('ycVoiceDiffAnnouncements(id,before,after)'),'Participant refresh does not diff join/leave state');
+assert(html.includes("const before=[...(voicePresenceByChannel[id]||[])]"),'Participant refresh does not preserve cached leave rows');
+assert(html.includes('YC_VOICE_JOIN_CUE_DATA'),'Uploaded join cue missing');
+assert(html.includes('YC_VOICE_LEAVE_CUE_DATA'),'Uploaded leave cue missing');
+assert(html.includes('ycPlayVoiceFileCue(action)'),'Cue mode does not play uploaded join/leave audio');
+for(const profile of ['male-deep','male-natural','male-clear','female-soft','female-natural','female-bright'])
+ assert(html.includes(profile),'Missing voice profile: '+profile);
 assert(html.includes("if(window.__ycVoiceParticipantAnnouncements)return;"),'Legacy delayed TTS path is not suppressed');
 
 // Soundboard controls reuse the existing per-user voice mix store.
@@ -77,17 +84,17 @@ for(const marker of [
   const section=page.locator('[data-yc-settings-section="voice-experience"]');
   assert.equal(await section.locator('#ycVoiceAnnounceMode').count(),1);
   assert.equal(await section.locator('#ycVoiceAnnounceVoice').count(),1);
-  assert.equal(await section.locator('#ycVoiceAnnounceCharacter').count(),1);
+  assert.equal(await section.locator('#ycVoiceAnnounceProfile').count(),1);
   assert.equal(await section.locator('#ycSoundboardVolumeRange').count(),1);
-  await section.locator('#ycVoiceAnnounceMode').selectOption('off');
-  await section.locator('#ycVoiceAnnounceCharacter').selectOption('low');
+  await section.locator('#ycVoiceAnnounceMode').selectOption('cue');
+  await section.locator('#ycVoiceAnnounceProfile').selectOption('female-natural');
   await section.locator('#ycSoundboardVolumeRange').fill('35');
   const saved=await page.evaluate(()=>({
    mode:localStorage.getItem('yc_voice_announce_mode'),
-   character:localStorage.getItem('yc_voice_announce_character'),
+   profile:localStorage.getItem('yc_voice_announce_profile_v2'),
    volume:localStorage.getItem('yc_soundboard_volume_v1')
   }));
-  assert.deepEqual(saved,{mode:'off',character:'low',volume:'35'});
+  assert.deepEqual(saved,{mode:'cue',profile:'female-natural',volume:'35'});
 
   // Existing per-user voice menu gains a separate soundboard mute without changing voice volume/mute.
   await page.evaluate(()=>{
@@ -104,6 +111,6 @@ for(const marker of [
 
   assert.deepEqual(errors,[]);
   await page.close();
-  console.log('PASS voice experience: continuity guards, microphone-aware AFK, reliable named join/leave settings, soundboard controls, notification sound and themed bars.');
+  console.log('PASS voice experience: continuity guards, uploaded join/leave cues, microphone-aware AFK, reliable named leave fallback, six voice profiles, soundboard controls and themed bars.');
  }finally{await browser.close()}
 })().catch(e=>{console.error(e);process.exitCode=1});
