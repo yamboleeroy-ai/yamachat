@@ -16,7 +16,8 @@ function ycSoundboardGain(){return ycExpBool('yc_soundboard_enabled',true)?ycExp
 function ycSoundboardMutedMap(){try{const x=JSON.parse(ycExpRead('yc_soundboard_muted_users','{}'));return x&&typeof x==='object'?x:{}}catch{return{}}}
 function ycSoundboardUserMuted(uid){if(!uid||String(uid)===String(user?.id||''))return false;return !!ycSoundboardMutedMap()[String(uid)]}
 function ycSetSoundboardUserMuted(uid,muted){if(!uid)return;const map=ycSoundboardMutedMap();if(muted)map[String(uid)]=1;else delete map[String(uid)];ycExpWrite('yc_soundboard_muted_users',JSON.stringify(map))}
-function ycMessageSoundAllowed(){const pref=typeof ycPresencePreference==='function'?ycPresencePreference():'online';return ycExpBool('yc_message_sound_enabled',true)&&pref!=='dnd'&&pref!=='invisible'}
+function ycMessageSoundAllowedFor(pref){pref=String(pref||'online').toLowerCase();return ycExpBool('yc_message_sound_enabled',true)&&pref!=='dnd'&&pref!=='invisible'}
+function ycMessageSoundAllowed(){const pref=typeof ycPresencePreference==='function'?ycPresencePreference():'online';return ycMessageSoundAllowedFor(pref)}
 function ycMessageSoundVolume(){return ycExpNum('yc_message_sound_volume',85,0,100)/100}
 function ycEnsureMessageNotifyAudio(){if(!ycMessageNotifyAudio){ycMessageNotifyAudio=new Audio(YC_MESSAGE_UHOH_URI);ycMessageNotifyAudio.preload='auto';ycMessageNotifyAudio.playsInline=true}return ycMessageNotifyAudio}
 function ycPlayMessageNotifySound(force=false){try{if(!force&&!ycMessageSoundAllowed())return false;const a=ycEnsureMessageNotifyAudio();a.pause();a.currentTime=0;a.volume=ycMessageSoundVolume();const p=a.play();if(p&&typeof p.catch==='function')p.catch(()=>{});return true}catch(e){console.warn('message sound',e);return false}}
@@ -53,13 +54,14 @@ playVoiceCue=function(type){
  return ycVoiceExpCueBase(type)
 };
 function ycVoiceExpAnnouncementKey(action,uid){return String(action||'')+'|'+String(uid||'')}
+function ycVoiceExpAnnouncementText(action,name){name=String(name||'Uživatel').trim()||'Uživatel';return action==='leave'?name+' opustil místnost':name+' se připojil do místnosti'}
 function ycVoiceExpResolveName(row){const uid=String(row?.user_id||'');const cached=(voicePresenceByChannel?.[voiceChannel?.id]||[]).find(p=>String(p.user_id)===uid);return String(row?.username||cached?.username||'Uživatel').trim()||'Uživatel'}
 function ycVoiceExpSpeakParticipant(action,row){
  try{
   if(!row||String(row.user_id||'')===String(user?.id||''))return;
   if(String(row.channel_id||'')!==String(voiceChannel?.id||''))return;
   const key=ycVoiceExpAnnouncementKey(action,row.user_id),now=Date.now(),last=ycVoiceExpAnnounceSeen.get(key)||0;if(now-last<2400)return;ycVoiceExpAnnounceSeen.set(key,now);
-  const name=ycVoiceExpResolveName(row);if(action==='join')ycVoiceSpeak(name+' se připojil do místnosti');else ycVoiceSpeak(name+' opustil místnost')
+  const name=ycVoiceExpResolveName(row);ycVoiceSpeak(ycVoiceExpAnnouncementText(action,name))
  }catch(e){console.warn('voice participant announcement',e)}
 }
 ycVoiceHandleAnnouncement=function(payload){
@@ -119,17 +121,22 @@ selectCommunity=async function(...args){
 setInterval(()=>{try{if(voiceChannel&&voiceStream?.getAudioTracks?.().some(t=>t.readyState==='live')){if(!voiceHeartbeatTimer)startVoiceHeartbeat();if(!voiceRooms.has(voiceChannel.id))ensureVoiceRooms([...(voiceChannelDefs||[]),voiceChannel]);if(voiceSpeaking)ycVoiceExpLastSpeechAt=Date.now()}}catch{}},4000);
 
 const ycVoiceExpPresenceBase=ycAutoPresenceState;
+function ycVoiceExpPresenceFor(pref,connected,speaking,silentMs,minutes,fallback='online'){
+ pref=String(pref||'online').toLowerCase();if(pref!=='online')return pref;
+ if(!connected)return fallback;
+ if(speaking||Number(minutes)===0)return'online';
+ return Number(silentMs)<Number(minutes)*60000?'online':'afk'
+}
 ycAutoPresenceState=function(){
- const pref=ycPresencePreference();if(pref!=='online')return pref;
+ const pref=ycPresencePreference(),base=ycVoiceExpPresenceBase();
+ if(pref!=='online')return pref;
  if(voiceChannel){
-  if(voiceSpeaking){ycVoiceExpLastSpeechAt=Date.now();return'online'}
-  const minutes=ycExpNum('yc_voice_afk_minutes',20,0,120);if(minutes===0)return'online';
+  if(voiceSpeaking)ycVoiceExpLastSpeechAt=Date.now();
+  const minutes=ycExpNum('yc_voice_afk_minutes',20,0,120);
   if(!ycVoiceExpLastRoom||ycVoiceExpLastRoom!==String(voiceChannel.id)){ycVoiceExpLastRoom=String(voiceChannel.id);ycVoiceExpLastSpeechAt=Date.now()}
-  const silent=Date.now()-ycVoiceExpLastSpeechAt;
-  if(silent<minutes*60000)return'online';
-  return'afk'
+  return ycVoiceExpPresenceFor(pref,true,voiceSpeaking,Date.now()-ycVoiceExpLastSpeechAt,minutes,base)
  }
- ycVoiceExpLastRoom='';return ycVoiceExpPresenceBase()
+ ycVoiceExpLastRoom='';return ycVoiceExpPresenceFor(pref,false,false,0,0,base)
 };
 
 function ycVoiceExpSettingsHtml(){
@@ -152,6 +159,24 @@ function ycVoiceExpBindSettings(root){
  root.querySelector('[data-yc-msg-test]')?.addEventListener('click',()=>ycPlayMessageNotifySound(true))
 }
 ycRegisterAppSettingsSection({id:'voice-experience',title:'Zvuky, voice a oznámení',description:'Osobní nastavení hlasových oznámení, soundboardu, AFK a zvuku nových zpráv. Ukládá se na tomto zařízení.',render:ycVoiceExpSettingsHtml,bind:ycVoiceExpBindSettings});
+window.YamachatVoiceExperience=Object.freeze({
+ version:YC_VOICE_EXP_VERSION,
+ snapshot:()=>Object.freeze({
+  voiceConnected:!!voiceChannel,
+  voiceChannelId:String(voiceChannel?.id||''),
+  voiceCommunityId:String(voiceChannel?.community_id||''),
+  voiceSessionId:String(voiceSessionId||''),
+  micLive:!!voiceStream?.getAudioTracks?.().some(t=>t.readyState==='live'),
+  heartbeat:!!voiceHeartbeatTimer,
+  announceMode:ycVoiceAnnounceMode(),
+  soundboardGain:ycSoundboardGain(),
+  messageSoundAllowed:ycMessageSoundAllowed(),
+  afkMinutes:ycExpNum('yc_voice_afk_minutes',20,0,120)
+ }),
+ messageSoundAllowedFor:mode=>ycMessageSoundAllowedFor(mode),
+ announcementText:(action,name)=>ycVoiceExpAnnouncementText(action,name),
+ presenceFor:(pref,connected,speaking,silentMs,minutes,fallback='online')=>ycVoiceExpPresenceFor(pref,!!connected,!!speaking,Number(silentMs)||0,Number(minutes)||0,fallback)
+});
 `;
 const style=String.raw`
 <style id="ycVoiceExperienceStyle">
