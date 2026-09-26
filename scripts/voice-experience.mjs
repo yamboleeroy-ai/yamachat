@@ -182,7 +182,8 @@ export function withVoiceExperience(html){
  // Stream presence must also stay attached to the voice server while browsing elsewhere.
  const oldStream="if(!screenShareActive||!user?.id||!currentCommunity?.id||!voiceChannel?.id)return;const now=new Date().toISOString(),row={user_id:user.id,community_id:currentCommunity.id,channel_id:voiceChannel.id,updated_at:now};";
  const newStream="const ycVoiceCommunity=voiceChannel?.community_id||voiceChannel?.communityId||currentCommunity?.id;if(!screenShareActive||!user?.id||!ycVoiceCommunity||!voiceChannel?.id)return;const now=new Date().toISOString(),row={user_id:user.id,community_id:ycVoiceCommunity,channel_id:voiceChannel.id,updated_at:now};";
- if(html.includes(oldStream))html=html.replace(oldStream,newStream);
+ if(!html.includes(oldStream))throw Error('Voice stream community boundary missing');
+ html=html.replace(oldStream,newStream);
 
  return html.replace(marker,runtime+'\n'+marker).replace('</body>',style+'\n</body>');
 }
