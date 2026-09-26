@@ -42,14 +42,17 @@ internal static class Program
             {
                 PushNotificationManager.Default.PushReceived += (_, eventArgs) =>
                 {
+                    var deferral = eventArgs.GetDeferral();
                     try
                     {
-                        using var deferral = eventArgs.GetDeferral();
                         // Cloud-sourced Yamachat notifications are toast payloads handled by Windows.
                         // Raw payload support stays registered as a safe fallback for future use.
-                        deferral.Complete();
                     }
                     catch { }
+                    finally
+                    {
+                        deferral.Complete();
+                    }
                 };
 
                 PushNotificationManager.Default.Register();
@@ -113,7 +116,7 @@ internal static class Program
             if (args.Any(a => a.StartsWith("----WindowsAppRuntimePushServer:", StringComparison.OrdinalIgnoreCase)) ||
                 args.Any(a => a.StartsWith("----AppNotificationActivated:", StringComparison.OrdinalIgnoreCase)))
             {
-                _ = AppInstance.GetCurrent().GetActivatedEventArgs();
+                _ = Microsoft.Windows.AppLifecycle.AppInstance.GetCurrent().GetActivatedEventArgs();
                 await Task.WhenAny(ActivationHandled.Task, Task.Delay(TimeSpan.FromSeconds(12)));
                 return 0;
             }
