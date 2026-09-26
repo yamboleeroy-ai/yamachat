@@ -2,6 +2,9 @@ name: Windows voice theme portable preview
 
 on:
   workflow_dispatch:
+  pull_request:
+    branches:
+      - ci/voice-theme-portable-preview-20260926
   push:
     branches:
       - feature/voice-theme-polish-desktop
