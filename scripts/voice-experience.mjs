@@ -32,11 +32,16 @@ function ycVoiceSpeakEnhanced(text){
 }
 function ycVoiceParticipantAnnouncement(row,action){
  try{
-  if(!row||String(row.user_id||'')===String(user?.id||''))return;
-  if(String(row.channel_id||'')!==String(voiceChannel?.id||''))return;
+  if(!row)return;
+  const uid=String(row.user_id||'');if(!uid||uid===String(user?.id||''))return;
+  const activeChannel=String(voiceChannel?.id||'');if(!activeChannel)return;
+  const rowChannel=String(row.channel_id||'');
+  const cached=(voicePresenceByChannel?.[rowChannel||activeChannel]||[]).find(p=>String(p.user_id||'')===uid)
+    ||(voicePresenceByChannel?.[activeChannel]||[]).find(p=>String(p.user_id||'')===uid);
+  const channelId=rowChannel||String(cached?.channel_id||activeChannel);
+  if(channelId!==activeChannel)return;
   const mode=ycVoiceAnnounceMode();if(mode==='off')return;
   if(mode==='cue'){playVoiceCue(action==='join'?'other-join':'other-leave');return}
-  const cached=(voicePresenceByChannel?.[row.channel_id]||[]).find(p=>String(p.user_id||'')===String(row.user_id||''));
   const name=String(row.username||cached?.username||cached?.display_name||'Uživatel').trim()||'Uživatel';
   ycVoiceSpeakEnhanced(action==='join'?name+' se připojil do místnosti':name+' opustil místnost');
  }catch(e){console.warn('voice participant announcement',e)}
@@ -140,11 +145,22 @@ export function withVoiceExperience(html){
  ]) if(!html.includes(part))throw Error('Voice experience insertion boundary missing: '+part);
  if(html.includes('ycVoiceExperienceStyle'))return html;
 
- // Keep manual AFK/DND/invisible untouched; only automatic idle is suppressed while voice is genuinely connected.
+ // Manual AFK/DND/invisible always wins. While voice is connected, automatic AFK is based on
+ // prolonged microphone silence (or total inactivity), never merely on browsing another server or hiding the window.
  const oldPresence="function ycAutoPresenceState(){const pref=ycPresencePreference();if(pref!=='online')return pref;return document.hidden||Date.now()-ycLastInputAt>=300000?'afk':'online'}";
- const newPresence="function ycAutoPresenceState(){const pref=ycPresencePreference();if(pref!=='online')return pref;const voiceLive=!!voiceChannel&&!!voiceStream?.getAudioTracks?.().some(t=>t.readyState==='live');if(voiceLive)return'online';return document.hidden||Date.now()-ycLastInputAt>=300000?'afk':'online'}";
+ const newPresence="function ycAutoPresenceState(){const pref=ycPresencePreference();if(pref!=='online')return pref;const voiceLive=!!voiceChannel&&!!voiceStream?.getAudioTracks?.().some(t=>t.readyState==='live');if(voiceLive){const lastVoiceActivity=Math.max(Number(window.__ycVoiceLastMicActivityAt||0),Number(ycLastInputAt||0));return Date.now()-lastVoiceActivity>=300000?'afk':'online'}return document.hidden||Date.now()-ycLastInputAt>=300000?'afk':'online'}";
  if(!html.includes(oldPresence))throw Error('Voice AFK boundary missing');
  html=html.replace(oldPresence,newPresence);
+
+ // Reuse the existing VAD so AFK follows real microphone activity without adding a second audio capture/analyser.
+ const oldVadStart="function startVoiceActivityDetector(){stopVoiceActivityDetector();if(!voiceStream)return;try{";
+ const newVadStart="function startVoiceActivityDetector(){stopVoiceActivityDetector();if(!voiceStream)return;window.__ycVoiceLastMicActivityAt=Date.now();try{";
+ const oldVadHit="if(!voiceMuted&&!voiceDeafened&&rms>threshold)speakingUntil=now+420;";
+ const newVadHit="if(!voiceMuted&&!voiceDeafened&&rms>threshold){speakingUntil=now+420;window.__ycVoiceLastMicActivityAt=Date.now()}";
+ const oldVadState="if(next!==lastState&&now-lastSend>80){lastState=next;lastSend=now;voiceSpeaking=next;trackVoicePresence().catch(()=>{});renderVoiceChannels(voiceChannelDefs)}";
+ const newVadState="if(next!==lastState&&now-lastSend>80){lastState=next;lastSend=now;voiceSpeaking=next;if(next&&ycLastPresenceSig.startsWith('afk|'))void ycTouchPresence(true);trackVoicePresence().catch(()=>{});renderVoiceChannels(voiceChannelDefs)}";
+ for(const boundary of [oldVadStart,oldVadHit,oldVadState])if(!html.includes(boundary))throw Error('Voice microphone AFK boundary missing: '+boundary);
+ html=html.replace(oldVadStart,newVadStart).replace(oldVadHit,newVadHit).replace(oldVadState,newVadState);
 
  // Preserve the existing per-user voice volume/mute store and extend it with soundboard mute.
  const oldMix="return{muted:!!raw.muted,volume}}";
