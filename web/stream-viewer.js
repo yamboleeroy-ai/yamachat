@@ -108,7 +108,7 @@ const ycStreamViewer=(()=>{
     toast('Systémový fullscreen není dostupný. Stream je zvětšený v aplikaci.');
   }
   function remove(session){
-    session.abort.abort();session.video.pause();session.video.srcObject=null;session.panel.remove();sessions.delete(session.id);
+    session.abort.abort();session.trackAbort?.abort();session.video.pause();session.video.srcObject=null;session.panel.remove();sessions.delete(session.id);
     // Receiver tracks belong to RTC, so closing a viewer must never stop them.
     if(!sessions.size){layer?.remove();layer=null;safe=null}
   }
@@ -171,8 +171,9 @@ const ycStreamViewer=(()=>{
   }
   function bindStream(session,stream){
     if(!stream||session.stream===stream)return;
+    const before=session.stream?.getVideoTracks?.()||[],after=stream.getVideoTracks();
+    if(before.length&&before.length===after.length&&before.every((track,i)=>track===after[i]))return;
     session.trackAbort?.abort();session.trackAbort=new AbortController();
-    session.abort.signal.addEventListener('abort',()=>session.trackAbort.abort(),{once:true});
     session.stream=stream;session.lastProgress=performance.now();session.video.srcObject=stream;
     for(const track of stream.getVideoTracks())for(const event of ['mute','unmute','ended'])track.addEventListener(event,()=>update(session),{signal:session.trackAbort.signal});
     void play(session);
