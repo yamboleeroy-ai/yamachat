@@ -47,11 +47,7 @@ jobs:
       - name: Verify release version
         shell: pwsh
         run: |
-          $pkg=Get-Content desktop/package.json | ConvertFrom-Json
-          if($pkg.version -ne "1.0.95"){throw "Expected Windows version 1.0.95"}
-          $lock=Get-Content desktop/package-lock.json | ConvertFrom-Json
-          if($lock.version -ne "1.0.95"){throw "Expected lock version 1.0.95"}
-          if($lock.packages.PSObject.Properties[""].Value.version -ne "1.0.95"){throw "Expected root lock package version 1.0.95"}
+          node -e "const p=require('./desktop/package.json'); const l=require('./desktop/package-lock.json'); if(p.version!=='1.0.95'||l.version!=='1.0.95'||l.packages[''].version!=='1.0.95') process.exit(1); console.log('PASS release version 1.0.95')"
 
       - name: Restore verified Yamachat desktop assets
         shell: pwsh
