@@ -92,6 +92,24 @@ async function expectDrawer(page,kind){
    await page.waitForFunction(()=>document.querySelector('.yc-v3-content-grid>.right')?.classList.contains('yc-mobile-open'));
    await expectDrawer(page,'right');
 
+   // Opening a DM from the Friends/DM side drawer must close the drawer during
+   // the same tap, before selectThread rerenders the clicked row.
+   await page.locator('#ycMobileScrim').click();
+   await page.waitForFunction(()=>!document.getElementById('app')?.classList.contains('yc-mobile-drawer-open'));
+   await page.evaluate(()=>window.ycShowFriendsHome?.());
+   await page.locator('#mobileMenu').click();
+   await expectDrawer(page,'side');
+   await page.waitForSelector('#dmList [data-thread="dm-a"] .yc-dm-open',{state:'visible'});
+   await page.locator('#dmList [data-thread="dm-a"] .yc-dm-open').click();
+   await page.waitForFunction(()=>!document.getElementById('app')?.classList.contains('yc-mobile-drawer-open'));
+   const drawerState=await page.evaluate(()=>({
+     side:document.getElementById('side')?.classList.contains('mobile-open')||false,
+     right:document.querySelector('.yc-v3-content-grid>.right')?.classList.contains('yc-mobile-open')||false,
+     app:document.getElementById('app')?.classList.contains('yc-mobile-drawer-open')||false
+   }));
+   assert.deepEqual(drawerState,{side:false,right:false,app:false});
+   await page.waitForFunction(()=>document.getElementById('chatTitle')?.textContent?.startsWith('@ '));
+
    assert.deepEqual(errors,[]);
    await page.close();
   }
