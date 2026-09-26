@@ -7,3 +7,7 @@ ios/App/DerivedData/
 ios/App/Pods/
 *.xcuserstate
 .DS_Store
+
+# Never commit Firebase server/private credentials.
+firebase/service-account*.json
+firebase/*private*.json
