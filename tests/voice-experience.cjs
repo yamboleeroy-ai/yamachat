@@ -37,6 +37,10 @@ assert(html.includes("const before=[...(voicePresenceByChannel[id]||[])]"),'Part
 assert(html.includes('YC_VOICE_JOIN_CUE_DATA'),'Uploaded join cue missing');
 assert(html.includes('YC_VOICE_LEAVE_CUE_DATA'),'Uploaded leave cue missing');
 assert(html.includes('ycPlayVoiceFileCue(action)'),'Cue mode does not play uploaded join/leave audio');
+for(const marker of ['YC_VOICE_JOIN_CUE_DATA','YC_VOICE_LEAVE_CUE_DATA']){
+ const m=html.match(new RegExp("const "+marker+"='data:audio/mpeg;base64,([^']+)'"));
+ assert(m&&m[1].startsWith('SUQz')&&m[1].length>4500,'Embedded MP3 cue is missing or truncated: '+marker);
+}
 for(const profile of ['male-deep','male-natural','male-clear','female-soft','female-natural','female-bright'])
  assert(html.includes(profile),'Missing voice profile: '+profile);
 assert(html.includes("if(window.__ycVoiceParticipantAnnouncements)return;"),'Legacy delayed TTS path is not suppressed');
