@@ -51,7 +51,7 @@ jobs:
           if($pkg.version -ne "1.0.95"){throw "Expected Windows version 1.0.95"}
           $lock=Get-Content desktop/package-lock.json | ConvertFrom-Json
           if($lock.version -ne "1.0.95"){throw "Expected lock version 1.0.95"}
-          if($lock.packages."" .version -ne "1.0.95"){throw "Expected root lock package version 1.0.95"}
+          if($lock.packages.PSObject.Properties[""].Value.version -ne "1.0.95"){throw "Expected root lock package version 1.0.95"}
 
       - name: Restore verified Yamachat desktop assets
         shell: pwsh
