@@ -1,0 +1,80 @@
+name: Windows WNS Preview
+
+on:
+  pull_request:
+    branches:
+      - ci/windows-wns-preview-20260926
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  wns-preview:
+    runs-on: windows-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/windows-wns
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Install WinApp CLI
+        shell: pwsh
+        run: |
+          npm install --no-save @microsoft/winappcli
+          npx --no-install winapp --version
+
+      - name: Restore verified Yamachat desktop icons
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: ./scripts/restore-desktop-brand-assets.ps1 -Destination build
+
+      - name: Regenerate approved desktop client with WNS layer
+        run: node scripts/prepare-desktop-1.0.92.mjs
+
+      - name: Run WNS static regression guards
+        run: node tests/windows-wns-desktop.cjs
+
+      - name: Build WNS bridge and sparse identity with development certificate
+        shell: pwsh
+        run: ./scripts/build-windows-wns.ps1 -TestMode
+
+      - name: Verify WNS output
+        shell: pwsh
+        run: |
+          $required=@(
+            "desktop/wns/Yamachat.WnsBridge.exe",
+            "desktop/wns/Yamachat.PushIdentity.msix",
+            "desktop/wns/wns-config.json",
+            "desktop/wns/Assets/StoreLogo.png",
+            "desktop/wns/Assets/Square44x44Logo.png",
+            "desktop/wns/Assets/Square150x150Logo.png"
+          )
+          foreach($file in $required){if(-not(Test-Path $file)){throw "Missing WNS output: $file"}}
+          $cfg=Get-Content desktop/wns/wns-config.json -Raw | ConvertFrom-Json
+          if(-not $cfg.objectId){throw "WNS objectId config missing"}
+          $manifest=Get-Content desktop/wns/sparse/appxmanifest.xml -Raw
+          foreach($marker in @("AllowExternalContent","windows.comServer","windows.toastNotificationActivation","Yamachat.WnsBridge.exe")){
+            if(-not $manifest.Contains($marker)){throw "Sparse manifest missing: $marker"}
+          }
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: yamachat-windows-wns-preview
+          path: |
+            desktop/wns/Yamachat.WnsBridge.exe
+            desktop/wns/Yamachat.PushIdentity.msix
+            desktop/wns/wns-config.json
+            desktop/wns/Assets/
+          if-no-files-found: error
+          retention-days: 7
