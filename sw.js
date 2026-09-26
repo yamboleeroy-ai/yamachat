@@ -1,12 +1,12 @@
-const CACHE='yamachat-web-mobile-friends-drawer-20260926-1';
-const SHELL=['./','./index.html','./boot-guard.js','./vendor/supabase.js','./build/yamachat-logo-symbol.png','./manifest.webmanifest','./offline.html','./icons/icon-192.png','./icons/icon-512.png','./audio/mic-gate.worklet.js','./audio/rnnoise.worklet.js','./audio/rnnoise.mjs','./audio/rnnoise.wasm'];
+const CACHE='yamachat-web-real-voices-20260926-1';
+const SHELL=['./','./index.html','./boot-guard.js','./vendor/supabase.js','./build/yamachat-logo-symbol.png','./manifest.webmanifest','./offline.html','./icons/icon-192.png','./icons/icon-512.png','./audio/mic-gate.worklet.js','./audio/rnnoise.worklet.js','./audio/rnnoise.mjs','./audio/rnnoise.wasm','./audio/yamachat_join_voice.mp3','./audio/yamachat_leave_voice.mp3'];
 self.addEventListener('install',event=>event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(SHELL))));
 self.addEventListener('activate',event=>event.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k.startsWith('yamachat-web-')&&k!==CACHE).map(k=>caches.delete(k)))).then(()=>self.clients.claim())));
 self.addEventListener('message',event=>{if(event.data?.type==='SKIP_WAITING')self.skipWaiting()});
 self.addEventListener('fetch',event=>{
  const req=event.request,url=new URL(req.url);if(req.method!=='GET'||url.origin!==self.location.origin)return;
  if(req.mode==='navigate'){event.respondWith(fetch(req).then(r=>{if(r.ok){const safe=new URL('./index.html',self.registration.scope).href;caches.open(CACHE).then(c=>c.put(safe,r.clone()))}return r}).catch(async()=>await caches.match(new URL('./index.html',self.registration.scope).href)||await caches.match('./offline.html')));return}
- if(!/\.(?:js|mjs|wasm|png|ico|webmanifest)$/.test(url.pathname))return;
+ if(!/\.(?:js|mjs|wasm|mp3|png|ico|webmanifest)$/.test(url.pathname))return;
  event.respondWith(caches.match(req).then(cached=>cached||fetch(req).then(r=>{if(r.ok)caches.open(CACHE).then(c=>c.put(req,r.clone()));return r})));
 });
 self.addEventListener('notificationclick',event=>{
