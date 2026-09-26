@@ -30,6 +30,8 @@ jobs:
         run: node tests/mobile-friends-drawer.cjs
       - name: Voice theme and scrollbar polish
         run: node tests/voice-theme-polish-web.cjs
+      - name: Voice experience and cross-server persistence
+        run: node tests/voice-experience-web.cjs
       - name: Prepare web deployment
         run: |
           mkdir -p web-dist
