@@ -1,8 +1,8 @@
-const early=String.raw\`
+const early=String.raw`
 <script id="ycSurfaceThemeEarly">(()=>{try{const v=localStorage.getItem('yc_surface_theme_v1');document.documentElement.dataset.ycSurfaceTheme=v==='white'?'white':'dark'}catch{document.documentElement.dataset.ycSurfaceTheme='dark'}})();</script>
-\`;
+`;
 
-const style=String.raw\`
+const style=String.raw`
 <style id="ycSurfaceThemeStyle">
 :root,html[data-yc-surface-theme="dark"]{
  color-scheme:dark;--yc-surface-page:#070b14;--yc-surface-page2:#141126;--yc-surface-panel:rgba(13,18,34,.94);--yc-surface-strong:#0e1427;--yc-surface-soft:#171b32;--yc-surface-hover:#202540;--yc-surface-input:#0a1020;--yc-surface-line:rgba(150,160,210,.18);--yc-surface-line2:rgba(173,183,232,.30);--yc-surface-text:#f1f3ff;--yc-surface-muted:#98a0bd;--yc-surface-faint:#68718f;--yc-surface-shadow:rgba(0,0,0,.56);--yc-surface-backdrop:rgba(3,5,12,.74);--yc-surface-haze:color-mix(in srgb,var(--yc-theme,#a77cff) 15%,transparent);--yc-themed-scroll-track:#080d18
@@ -45,9 +45,9 @@ html[data-yc-surface-theme] body .toast,html[data-yc-surface-theme] body .yc-upd
 @media(max-width:560px){.yc-surface-theme-picker{grid-template-columns:1fr}}
 html[data-yc-surface-theme] body.yc-wotlk-theme{background:inherit!important}
 </style>
-\`;
+`;
 
-const runtime=String.raw\`
+const runtime=String.raw`
 <script id="ycSurfaceThemeRuntime">
 (()=>{
  const KEY='yc_surface_theme_v1';
@@ -61,7 +61,7 @@ const runtime=String.raw\`
  try{if(typeof ycRegisterAppSettingsSection==='function')ycRegisterAppSettingsSection({id:'appearance',title:'Vzhled Yamachatu',description:'Globální pozadí a panely. Tvoje osobní akcentní barva zůstává samostatně.',render,bind})}catch(e){console.warn('surface theme settings',e)}
 })();
 </script>
-\`;
+`;
 
 export function withYamachatSurfaceTheme(html){
  for(const marker of ['</head>','</body>','ycRegisterAppSettingsSection','yc-wotlk-theme'])if(!html.includes(marker))throw Error('Yamachat surface theme insertion boundary missing: '+marker);
