@@ -47,7 +47,7 @@ html[data-yc-surface-theme] body.yc-wotlk-theme{background:inherit!important}
 </style>
 `;
 
-const settingsRuntime=String.raw\`
+const settingsRuntime=String.raw`
 const YC_SURFACE_THEME_KEY='yc_surface_theme_v1';
 function ycSurfaceThemeGet(){return localStorage.getItem(YC_SURFACE_THEME_KEY)==='white'?'white':'dark'}
 function ycSurfaceThemeApply(value,persist=true){
@@ -67,9 +67,9 @@ function ycSurfaceThemeBind(root){
 window.YamachatSurfaceTheme={get:ycSurfaceThemeGet,apply:ycSurfaceThemeApply};
 ycSurfaceThemeApply(ycSurfaceThemeGet(),false);
 ycRegisterAppSettingsSection({id:'appearance',title:'Vzhled Yamachatu',description:'Globální pozadí a panely. Tvoje osobní akcentní barva zůstává samostatně.',render:ycSurfaceThemeRender,bind:ycSurfaceThemeBind});
-\`;
+`;
 
-const runtime=String.raw\`
+const runtime=String.raw`
 <script id="ycSurfaceThemeRuntime">
 (()=>{
  const api=window.YamachatSurfaceTheme;
@@ -78,7 +78,7 @@ const runtime=String.raw\`
  if(document.body){strip();new MutationObserver(strip).observe(document.body,{attributes:true,attributeFilter:['class']})}
 })();
 </script>
-\`;
+`;
 
 export function withYamachatSurfaceTheme(html){
  const settingsAnchor="ycRegisterAppSettingsSection({id:'window'";
