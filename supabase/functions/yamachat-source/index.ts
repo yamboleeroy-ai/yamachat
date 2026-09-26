@@ -38,8 +38,8 @@ async function webPush(row:any,c:any,cfg:any){
   }
 }
 
-async function fcmPush(row:any,c:any){
-  const raw=Deno.env.get('YAMACHAT_FCM_SERVICE_ACCOUNT_JSON')
+async function fcmPush(row:any,c:any,cfg:any){
+  const raw=Deno.env.get('YAMACHAT_FCM_SERVICE_ACCOUNT_JSON')||String(cfg?.fcm_service_account||'')
   if(!raw)return{ok:false,blocked:'missing-fcm-service-account'}
   try{
     const credentials=JSON.parse(raw)
@@ -66,7 +66,7 @@ async function fcmPush(row:any,c:any){
 async function pushHandler(req:Request){
   if(req.method==='OPTIONS')return new Response(null,{status:204,headers:CORS})
   try{
-    if(req.method==='GET'){const cfg=await runtimeConfig();return json({ok:true,vapidPublicKey:cfg.vapid_public,androidFcmConfigured:!!Deno.env.get('YAMACHAT_FCM_SERVICE_ACCOUNT_JSON')})}
+    if(req.method==='GET'){const cfg=await runtimeConfig();return json({ok:true,vapidPublicKey:cfg.vapid_public,androidFcmConfigured:!!(Deno.env.get('YAMACHAT_FCM_SERVICE_ACCOUNT_JSON')||cfg.fcm_service_account)})}
     if(req.method!=='POST')return json({error:'method-not-allowed'},405)
     const body=await req.json().catch(()=>({})),action=String(body?.action||'')
     if(action==='register'){
@@ -98,7 +98,7 @@ async function pushHandler(req:Request){
       const ids=Array.isArray(ctx.recipientIds)?ctx.recipientIds:[];if(!ids.length)return json({ok:true,delivered:0})
       const {data:rows,error}=await admin.from('push_subscriptions').select('*').in('user_id',ids).eq('active',true);if(error)throw error
       let delivered=0,blocked=0,failed=0
-      for(const row of rows||[]){const result=row.transport==='webpush'?await webPush(row,ctx,cfg):row.transport==='fcm'?await fcmPush(row,ctx):{ok:false,blocked:'apns-not-configured'};if(result.ok)delivered++;else if('blocked'in result)blocked++;else failed++}
+      for(const row of rows||[]){const result=row.transport==='webpush'?await webPush(row,ctx,cfg):row.transport==='fcm'?await fcmPush(row,ctx,cfg):{ok:false,blocked:'apns-not-configured'};if(result.ok)delivered++;else if('blocked'in result)blocked++;else failed++}
       return json({ok:true,subscriptions:(rows||[]).length,delivered,blocked,failed})
     }
     return json({error:'unknown-action'},400)
