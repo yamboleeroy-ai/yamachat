@@ -83,7 +83,7 @@ assert(html.includes('ycDmUnreadByThread[tid]'),'Visual DM unread state must rem
 // Personal theme contour must include the composer and connected voice cleanup.
 for(const marker of [
  'ycVoiceThemePolishStyle',
- 'html body .composer-wrap',
+ 'html body .composer',
  'html body #ycGlobalNav',
  '#voiceControls #voiceConnectionPanel',
  'border-bottom:0!important',
