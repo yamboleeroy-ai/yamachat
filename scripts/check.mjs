@@ -58,6 +58,18 @@ try{
    'border-bottom:0!important',
    'border-right:0!important'
  ]) assert(generatedWeb.includes(marker),'Generated web missing voice/theme polish marker: '+marker);
+ for(const marker of [
+   'ycVoiceExperienceStyle',
+   'YC_MESSAGE_UHOH_URI',
+   'yc_voice_announce_mode',
+   'yc_voice_announce_voice',
+   'yc_soundboard_volume',
+   'yc_soundboard_muted_users',
+   'yc_voice_afk_minutes',
+   'ycVoiceExpParticipantSub',
+   'ycSoundboardUserMuted(row.user_id)',
+   "id:'voice-experience'"
+ ]) assert(generatedWeb.includes(marker),'Generated web missing voice experience marker: '+marker);
  console.log('PASS: Android manual update-check section is registered and wired to the shared update manifest.');
  const mobileCss=fs.readFileSync(path.join(root,'web/mobile.css'),'utf8');
  for(const marker of [
