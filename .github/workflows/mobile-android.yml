@@ -103,7 +103,7 @@ jobs:
           data=json.loads(Path('/tmp/yamachat-push-config.json').read_text())
           ready=bool(data.get('androidFcmConfigured'))
           with open(os.environ['GITHUB_OUTPUT'],'a',encoding='utf-8') as out:
-              out.write('configured='+('true' if ready else 'false')+'\\n')
+              out.write('configured='+('true' if ready else 'false')+'\n')
           print('FCM server credential configured:', ready)
           PY
 
