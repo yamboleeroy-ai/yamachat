@@ -47,25 +47,44 @@ html[data-yc-surface-theme] body.yc-wotlk-theme{background:inherit!important}
 </style>
 `;
 
-const runtime=String.raw`
+const settingsRuntime=String.raw\`
+const YC_SURFACE_THEME_KEY='yc_surface_theme_v1';
+function ycSurfaceThemeGet(){return localStorage.getItem(YC_SURFACE_THEME_KEY)==='white'?'white':'dark'}
+function ycSurfaceThemeApply(value,persist=true){
+ const v=value==='white'?'white':'dark';
+ document.documentElement.dataset.ycSurfaceTheme=v;
+ if(document.body){document.body.dataset.ycSurfaceTheme=v;document.body.classList.remove('yc-wotlk-theme')}
+ if(persist)try{localStorage.setItem(YC_SURFACE_THEME_KEY,v)}catch{}
+ return v;
+}
+function ycSurfaceThemeRender(){
+ const current=ycSurfaceThemeGet();
+ return '<div class="yc-surface-theme-picker"><label class="yc-surface-choice"><input type="radio" name="ycSurfaceTheme" value="dark" '+(current==='dark'?'checked':'')+'><span class="yc-surface-preview dark"></span><span><strong>Dark · výchozí</strong><small>Tmavý modro-fialový Yamachat styl s jemným glow.</small></span></label><label class="yc-surface-choice"><input type="radio" name="ycSurfaceTheme" value="white" '+(current==='white'?'checked':'')+'><span class="yc-surface-preview white"></span><span><strong>White</strong><small>Světlý, měkký motiv se stejnou osobní akcentní barvou.</small></span></label></div>';
+}
+function ycSurfaceThemeBind(root){
+ root?.querySelectorAll('input[name="ycSurfaceTheme"]').forEach(r=>r.onchange=()=>{if(!r.checked)return;ycSurfaceThemeApply(r.value,true);try{toast('Vzhled Yamachatu změněn.')}catch{}});
+}
+window.YamachatSurfaceTheme={get:ycSurfaceThemeGet,apply:ycSurfaceThemeApply};
+ycSurfaceThemeApply(ycSurfaceThemeGet(),false);
+ycRegisterAppSettingsSection({id:'appearance',title:'Vzhled Yamachatu',description:'Globální pozadí a panely. Tvoje osobní akcentní barva zůstává samostatně.',render:ycSurfaceThemeRender,bind:ycSurfaceThemeBind});
+\`;
+
+const runtime=String.raw\`
 <script id="ycSurfaceThemeRuntime">
 (()=>{
- const KEY='yc_surface_theme_v1';
- const get=()=>localStorage.getItem(KEY)==='white'?'white':'dark';
- const apply=(value,persist=true)=>{const v=value==='white'?'white':'dark';document.documentElement.dataset.ycSurfaceTheme=v;if(document.body){document.body.dataset.ycSurfaceTheme=v;document.body.classList.remove('yc-wotlk-theme')}if(persist)try{localStorage.setItem(KEY,v)}catch{}return v};
- window.YamachatSurfaceTheme={get,apply};apply(get(),false);
+ const api=window.YamachatSurfaceTheme;
+ if(api?.apply)api.apply(api.get(),false);
  const strip=()=>{if(document.body?.classList.contains('yc-wotlk-theme'))document.body.classList.remove('yc-wotlk-theme')};
  if(document.body){strip();new MutationObserver(strip).observe(document.body,{attributes:true,attributeFilter:['class']})}
- const render=()=>{const current=get();return '<div class="yc-surface-theme-picker"><label class="yc-surface-choice"><input type="radio" name="ycSurfaceTheme" value="dark" '+(current==='dark'?'checked':'')+'><span class="yc-surface-preview dark"></span><span><strong>Dark · výchozí</strong><small>Tmavý modro-fialový Yamachat styl s jemným glow.</small></span></label><label class="yc-surface-choice"><input type="radio" name="ycSurfaceTheme" value="white" '+(current==='white'?'checked':'')+'><span class="yc-surface-preview white"></span><span><strong>White</strong><small>Světlý, měkký motiv se stejnou osobní akcentní barvou.</small></span></label></div>'};
- const bind=root=>root?.querySelectorAll('input[name="ycSurfaceTheme"]').forEach(r=>r.onchange=()=>{if(!r.checked)return;apply(r.value,true);try{toast('Vzhled Yamachatu změněn.')}catch{}});
- try{if(typeof ycRegisterAppSettingsSection==='function')ycRegisterAppSettingsSection({id:'appearance',title:'Vzhled Yamachatu',description:'Globální pozadí a panely. Tvoje osobní akcentní barva zůstává samostatně.',render,bind})}catch(e){console.warn('surface theme settings',e)}
 })();
 </script>
-`;
+\`;
 
 export function withYamachatSurfaceTheme(html){
- for(const marker of ['</head>','</body>','ycRegisterAppSettingsSection','yc-wotlk-theme'])if(!html.includes(marker))throw Error('Yamachat surface theme insertion boundary missing: '+marker);
+ const settingsAnchor="ycRegisterAppSettingsSection({id:'window'";
+ for(const marker of ['</head>','</body>',settingsAnchor,'yc-wotlk-theme'])if(!html.includes(marker))throw Error('Yamachat surface theme insertion boundary missing: '+marker);
  if(html.includes('ycSurfaceThemeStyle'))return html;
+ html=html.replace(settingsAnchor,settingsRuntime+'\\n'+settingsAnchor);
  html=html.replace('</head>',early+'\\n'+style+'\\n</head>');
  return html.replace('</body>',runtime+'\\n</body>');
 }
