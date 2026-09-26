@@ -151,10 +151,10 @@ jobs:
           android['apkUrl']=f"https://yamachat.eu/download/Yamachat-Android.apk?v={artifact['versionCode']}"
           android['sha256']=artifact['sha256']
           android['notes']=[
-            'Opravené přepínání mobilních vysouvacích panelů jedním klepnutím.',
-            'Přátelé teď automaticky zavřou aktuální panel a otevřou panel Členové/Přátelé.',
-            'Stejné chování funguje v portrétu i landscape na Androidu a iOS/PWA.',
-            'Ostatní funkce a desktop zůstávají beze změny.'
+            'Yamachat oznámení mají vlastní logo, ikonu a vlastní zvuk zprávy na Androidu.',
+            'Kliknutí na oznámení otevře přímo správnou DM, kanál a konkrétní zprávu.',
+            'Push registrace je připravená pro FCM; doručení při úplně ukončené APK vyžaduje Firebase konfiguraci projektu.',
+            'Současné mobilní rozložení, voice, Real Voices a ostatní funkce zůstávají beze změny.'
           ]
           manifest_path.write_text(json.dumps(manifest,ensure_ascii=False,indent=2)+'\n')
           PY
