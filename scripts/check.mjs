@@ -35,6 +35,20 @@ try{
    "id: 'updates'"
  ]) assert(nativeBridgeSource.includes(marker),`Missing Android update-settings marker: ${marker}`);
  const generatedWeb=fs.readFileSync(path.join(root,'index.html'),'utf8');
+ for(const marker of [
+   'function ycWebNotificationResetRootScroll()',
+   'function ycWebNotificationScrollRow(row)',
+   'ycWebNotificationScrollRow(row);row.classList.add(\'yc-notification-jump\')',
+   'ycWebNotificationScrollRow(row);ycWebNotificationResetRootScroll();row.classList.add(\'yc-mention-jump\')'
+ ]) assert(generatedWeb.includes(marker),'Generated web missing notification scroll isolation marker: '+marker);
+ const webNotificationJumpStart=generatedWeb.indexOf('async function ycWinJumpToMessage');
+ const webNotificationJumpEnd=generatedWeb.indexOf('async function ycWinOpenTarget',webNotificationJumpStart);
+ assert(webNotificationJumpStart>=0&&webNotificationJumpEnd>webNotificationJumpStart,'Generated web notification jump function missing');
+ assert(!generatedWeb.slice(webNotificationJumpStart,webNotificationJumpEnd).includes('scrollIntoView'),'Web notification jump must not scroll the root document');
+ const webMentionStart=generatedWeb.indexOf('function ycRenderMentions()');
+ const webMentionEnd=generatedWeb.indexOf('const ycBridgeLoadMessagesMentions',webMentionStart);
+ assert(webMentionStart>=0&&webMentionEnd>webMentionStart,'Generated web mention notification jump function missing');
+ assert(!generatedWeb.slice(webMentionStart,webMentionEnd).includes('scrollIntoView'),'Web mention notification jump must not scroll the root document');
  assert(generatedWeb.includes('ycServerContextFrame'), 'Generated client is missing connected active-server context visual');
  assert(generatedWeb.includes('function drawFrame()'), 'Generated client is missing the visual-only server context synchronizer');
  assert(generatedWeb.includes('pointer-events:none!important'), 'Server context visual must never block pointer interaction');
