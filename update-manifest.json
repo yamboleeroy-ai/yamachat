@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
-  "publishedAt": "2026-09-26T04:09:01Z",
+  "publishedAt": "2026-09-26T10:27:05Z",
   "windows": {
-    "latestVersion": "1.0.93",
+    "latestVersion": "1.0.94",
     "required": true,
-    "releaseUrl": "https://github.com/yamboleeroy-ai/yamachat/releases/tag/v1.0.93",
-    "notes": "Yamachat 1.0.93: ověřená Real Voices + Composer verze, skutečné systémové TTS hlasy přes voiceURI, přesné JOIN/LEAVE zvuky, opravené jednorázové voice oznámení se jménem, composer/voice accent a GPU compositor workaround."
+    "releaseUrl": "https://github.com/yamboleeroy-ai/yamachat/releases/tag/v1.0.94",
+    "notes": "Yamachat 1.0.94: hotfix desktop ikony a systémové tray ikony. Real Voices, composer, voice funkce a UI zůstávají beze změny proti 1.0.93. Obnovené a ověřené icon/tray assety jsou přímo uvnitř zabalené aplikace."
   },
   "android": {
     "latestVersion": "1.1.0.405",
