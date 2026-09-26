@@ -18,9 +18,16 @@
     DetailPrint "Yamachat Windows App Runtime install exit code: $0"
   yc_wns_runtime_done:
 
-  ; Production builds include a signed identity-only MSIX next to the WNS bridge.
+  ; Production builds include a signed identity-only MSIX and its public signing
+  ; certificate. Trust only the public certificate for the current Windows user;
+  ; the private signing key is never distributed.
+  IfFileExists "$INSTDIR\resources\app\wns\wns-signing.cer" 0 yc_wns_identity
+    nsExec::ExecToLog 'powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command "$ErrorActionPreference=''Stop''; Import-Certificate -FilePath ''$INSTDIR\resources\app\wns\wns-signing.cer'' -CertStoreLocation ''Cert:\CurrentUser\TrustedPeople'' | Out-Null"'
+    Pop $0
+    DetailPrint "Yamachat WNS certificate trust exit code: $0"
+  yc_wns_identity:
   IfFileExists "$INSTDIR\resources\app\wns\Yamachat.PushIdentity.msix" 0 yc_wns_done
-    nsExec::ExecToLog 'powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command "$ErrorActionPreference=''Stop''; Add-AppxPackage -Path ''$INSTDIR\resources\app\wns\Yamachat.PushIdentity.msix'' -ExternalLocation ''$INSTDIR\resources\app'' -AllowUnsigned -ForceApplicationShutdown"'
+    nsExec::ExecToLog 'powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command "$ErrorActionPreference=''Stop''; Add-AppxPackage -Path ''$INSTDIR\resources\app\wns\Yamachat.PushIdentity.msix'' -ExternalLocation ''$INSTDIR\resources\app'' -ForceApplicationShutdown"'
     Pop $0
     DetailPrint "Yamachat WNS identity registration exit code: $0"
   yc_wns_done:
