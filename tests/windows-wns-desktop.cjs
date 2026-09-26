@@ -50,6 +50,7 @@ for(const marker of [
 ]) assert(bridge.includes(marker),'native WNS bridge missing marker: '+marker);
 
 assert(project.includes('Microsoft.WindowsAppSDK')&&project.includes('2.5.1'),'Windows App SDK 2.5.1 dependency missing');
+assert(project.includes('WindowsAppSDKBootstrapAutoInitializeOptions_OnPackageIdentity_NoOp'),'sparse identity bootstrap option missing');
 assert(manifest.includes('uap10:AllowExternalContent')&&manifest.includes('windows.comServer'),'sparse WNS manifest incomplete');
 assert(manifest.includes('{{WNS_APP_ID}}'),'WNS COM AppId placeholder missing');
 
