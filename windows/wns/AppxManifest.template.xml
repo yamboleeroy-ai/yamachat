@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Package
+  xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
+  xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
+  xmlns:uap10="http://schemas.microsoft.com/appx/manifest/uap/windows10/10"
+  xmlns:desktop="http://schemas.microsoft.com/appx/manifest/desktop/windows10"
+  xmlns:com="http://schemas.microsoft.com/appx/manifest/com/windows10"
+  IgnorableNamespaces="uap uap10 desktop com">
+
+  <Identity
+    Name="{{PACKAGE_NAME}}"
+    Publisher="{{PUBLISHER}}"
+    Version="{{PACKAGE_VERSION}}"
+    ProcessorArchitecture="x64" />
+
+  <Properties>
+    <DisplayName>Yamachat</DisplayName>
+    <PublisherDisplayName>Yamachat</PublisherDisplayName>
+    <Logo>wns\Assets\StoreLogo.png</Logo>
+    <uap10:AllowExternalContent>true</uap10:AllowExternalContent>
+  </Properties>
+
+  <Dependencies>
+    <TargetDeviceFamily Name="Windows.Desktop" MinVersion="10.0.19041.0" MaxVersionTested="10.0.28000.0" />
+  </Dependencies>
+
+  <Applications>
+    <Application
+      Id="YamachatPushHost"
+      Executable="wns\Yamachat.WnsBridge.exe"
+      uap10:RuntimeBehavior="win32App"
+      uap10:TrustLevel="mediumIL">
+      <uap:VisualElements
+        AppListEntry="none"
+        DisplayName="Yamachat"
+        Description="Yamachat background push notifications"
+        BackgroundColor="transparent"
+        Square44x44Logo="wns\Assets\Square44x44Logo.png"
+        Square150x150Logo="wns\Assets\Square150x150Logo.png">
+        <uap:DefaultTile Wide310x150Logo="wns\Assets\Wide310x150Logo.png" />
+      </uap:VisualElements>
+      <Extensions>
+        <com:Extension Category="windows.comServer">
+          <com:ComServer>
+            <com:ExeServer
+              Executable="wns\Yamachat.WnsBridge.exe"
+              DisplayName="Yamachat Push"
+              Arguments="----WindowsAppRuntimePushServer:">
+              <com:Class Id="{{WNS_APP_ID}}" DisplayName="Yamachat Windows Push" />
+            </com:ExeServer>
+            <com:ExeServer
+              Executable="wns\Yamachat.WnsBridge.exe"
+              DisplayName="Yamachat Notification Activation"
+              Arguments="----AppNotificationActivated:">
+              <com:Class Id="dddb7af1-6645-4c86-87c2-1623b11a0004" DisplayName="Yamachat Notification Activation" />
+            </com:ExeServer>
+          </com:ComServer>
+        </com:Extension>
+        <desktop:Extension Category="windows.toastNotificationActivation">
+          <desktop:ToastNotificationActivation ToastActivatorCLSID="dddb7af1-6645-4c86-87c2-1623b11a0004" />
+        </desktop:Extension>
+      </Extensions>
+    </Application>
+  </Applications>
+</Package>
