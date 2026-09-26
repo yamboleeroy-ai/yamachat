@@ -60,6 +60,7 @@ for(const marker of [
  '-ExternalLocation',
  'Yamachat.PushIdentity.msix',
  "yamachat.eu-7E03B8AF",
+ '-AllowUnsigned',
  'Remove-AppxPackage'
 ]) assert(installer.includes(marker),'NSIS WNS/runtime integration missing: '+marker);
 
@@ -67,9 +68,9 @@ for(const marker of [
  'winapp pack',
  'winapp embed-identity',
  'dotnet publish',
- 'YAMACHAT_WNS_PFX_PATH',
  'windowsappsdk/2.5/2.5.1/windowsappruntimeinstall-x64.exe',
  'yamachat.eu-7E03B8AF',
+ 'OID.2.25.311729368913984317654407730594956997722=1',
  '9addf482-cc9c-4e61-8075-ebcb7adce1cf',
  'ac8013be-a388-485b-b68f-6f70fa7ec6f6'
 ]) assert(build.includes(marker),'WNS build pipeline missing: '+marker);
