@@ -5,6 +5,7 @@ const ycStreamViewer=(()=>{
   const sessions=new Map();
   let layer=null,safe=null,layoutFrame=0,recovering=false,localDismissed=null;
   const mobile=()=>!YC_STREAM_DESKTOP&&matchMedia('(pointer: coarse)').matches;
+  const iosPwa=()=>!YC_STREAM_DESKTOP&&(/iP(?:hone|ad|od)/i.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1))&&(navigator.standalone===true||matchMedia('(display-mode: standalone)').matches);
   const clamp=(n,a,b)=>Math.max(a,Math.min(b,n));
   function ensureLayer(){
     if(layer)return;
@@ -70,9 +71,24 @@ const ycStreamViewer=(()=>{
     if(layoutFrame||!sessions.size)return;
     layoutFrame=requestAnimationFrame(()=>{layoutFrame=0;for(const session of sessions.values())layout(session)});
   }
+  function resumeIosPwaPlaybackAfterLayout(session,video,stream){
+    if(!iosPwa()||!stream)return;
+    requestAnimationFrame(()=>requestAnimationFrame(()=>{
+      if(sessions.get(session.id)!==session||session.video!==video||video.srcObject!==stream)return;
+      video.setAttribute('playsinline','');video.setAttribute('webkit-playsinline','');
+      void video.play().then(()=>{
+        if(sessions.get(session.id)!==session||session.video!==video||video.srcObject!==stream)return;
+        session.blocked=false;update(session);
+      }).catch(error=>{
+        if(error?.name!=='AbortError'&&sessions.get(session.id)===session&&session.video===video&&video.srcObject===stream){session.blocked=true;update(session)}
+      });
+    }));
+  }
   function setMode(session,mode){
+    const previous=session.mode,video=session.video,stream=video.srcObject;
     if(document.fullscreenElement===session.panel)void document.exitFullscreen().catch(()=>{});
     session.mode=mode;layout(session);
+    if((mode==='mini'||previous==='mini')&&iosPwa())resumeIosPwaPlaybackAfterLayout(session,video,stream);
   }
   function bindMove(session,handle,resize=false){
     let drag=null;
