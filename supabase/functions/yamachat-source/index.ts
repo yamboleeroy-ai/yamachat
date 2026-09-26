@@ -63,21 +63,51 @@ async function fcmPush(row:any,c:any,cfg:any){
   }catch(error:any){console.error('fcm exception',error?.message||error);return{ok:false,error:String(error?.message||error)}}
 }
 
+async function wnsAccessToken(cfg:any){
+  const tenant=String(cfg?.wns_tenant_id||''),clientId=String(cfg?.wns_app_id||''),secret=String(cfg?.wns_client_secret||'')
+  if(!tenant||!clientId||!secret)return null
+  const body=new URLSearchParams({grant_type:'client_credentials',client_id:clientId,client_secret:secret,scope:'https://wns.windows.com/.default'})
+  const response=await fetch('https://login.microsoftonline.com/'+encodeURIComponent(tenant)+'/oauth2/v2.0/token',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body})
+  if(!response.ok){console.error('wns oauth',response.status,(await response.text()).slice(0,400));return null}
+  const data=await response.json().catch(()=>({}))
+  return String(data?.access_token||'')||null
+}
+function xmlEscape(value:any){return String(value??'').replace(/[&<>\"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":'&apos;'}[ch]||ch))}
+function wnsLaunch(c:any){const q=new URLSearchParams(cleanTarget(c) as Record<string,string>);return 'yamachat://notification?'+q.toString()}
+async function wnsPush(row:any,c:any,cfg:any){
+  const access=await wnsAccessToken(cfg);if(!access)return{ok:false,blocked:'missing-wns-credential'}
+  const launch=xmlEscape(wnsLaunch(c)),title=xmlEscape('Yamachat · '+String(c.sender||'Nová zpráva')),body=xmlEscape([c.where,c.body].filter(Boolean).join(' · '))
+  const xml='<toast launch="'+launch+'"><visual><binding template="ToastGeneric"><text>'+title+'</text><text>'+body+'</text><image placement="appLogoOverride" hint-crop="circle" src="https://yamachat.eu/icons/icon-192.png"/></binding></visual><audio src="ms-appx:///audio/yamachat_message.mp3"/></toast>'
+  try{
+    const response=await fetch(String(row.endpoint||''),{method:'POST',headers:{Authorization:'Bearer '+access,'Content-Type':'text/xml','X-WNS-Type':'wns/toast','X-WNS-RequestForStatus':'true'},body:xml})
+    if(response.ok)return{ok:true}
+    const status=response.status;if(status===404||status===410){await admin.from('push_subscriptions').delete().eq('id',row.id);return{ok:false,gone:true}}
+    console.error('wns',status,(await response.text()).slice(0,400));return{ok:false,status}
+  }catch(error:any){console.error('wns exception',error?.message||error);return{ok:false,error:String(error?.message||error)}}
+}
 async function pushHandler(req:Request){
   if(req.method==='OPTIONS')return new Response(null,{status:204,headers:CORS})
   try{
-    if(req.method==='GET'){const cfg=await runtimeConfig();return json({ok:true,vapidPublicKey:cfg.vapid_public,androidFcmConfigured:!!(Deno.env.get('YAMACHAT_FCM_SERVICE_ACCOUNT_JSON')||cfg.fcm_service_account)})}
+    if(req.method==='GET'){const cfg=await runtimeConfig();return json({ok:true,vapidPublicKey:cfg.vapid_public,androidFcmConfigured:!!(Deno.env.get('YAMACHAT_FCM_SERVICE_ACCOUNT_JSON')||cfg.fcm_service_account),windowsWnsConfigured:!!(cfg.wns_tenant_id&&cfg.wns_app_id&&cfg.wns_client_secret)})}
     if(req.method!=='POST')return json({error:'method-not-allowed'},405)
     const body=await req.json().catch(()=>({})),action=String(body?.action||'')
     if(action==='register'){
       const user=await requestUser(req);if(!user)return json({error:'unauthorized'},401)
       const transport=String(body.transport||''),platform=String(body.platform||'')
-      if(!['webpush','fcm','apns'].includes(transport)||!['web','pwa-ios','android','ios-native','desktop'].includes(platform))return json({error:'bad-registration'},400)
+      if(!['webpush','fcm','apns','wns'].includes(transport)||!['web','pwa-ios','android','ios-native','desktop'].includes(platform))return json({error:'bad-registration'},400)
       if(transport==='webpush'){
         const endpoint=String(body.endpoint||'').trim(),p256dh=String(body.keys?.p256dh||'').trim(),auth=String(body.keys?.auth||'').trim()
         if(!endpoint.startsWith('https://')||!p256dh||!auth)return json({error:'bad-web-subscription'},400)
         await admin.from('push_subscriptions').delete().eq('endpoint',endpoint)
         const {error}=await admin.from('push_subscriptions').insert({user_id:user.id,transport,platform,endpoint,p256dh,auth,user_agent:String(body.userAgent||'').slice(0,500),active:true,last_seen_at:new Date().toISOString()})
+        if(error)throw error;return json({ok:true})
+      }
+      if(transport==='wns'){
+        const endpoint=String(body.endpoint||'').trim();let endpointUrl:URL
+        try{endpointUrl=new URL(endpoint)}catch{return json({error:'bad-wns-channel'},400)}
+        if(endpointUrl.protocol!=='https:'||!/(^|\.)notify\.windows\.com$/i.test(endpointUrl.hostname))return json({error:'bad-wns-channel'},400)
+        await admin.from('push_subscriptions').delete().eq('user_id',user.id).eq('transport','wns').eq('platform','desktop')
+        const {error}=await admin.from('push_subscriptions').insert({user_id:user.id,transport,platform,endpoint,user_agent:String(body.userAgent||'').slice(0,500),active:true,last_seen_at:new Date().toISOString()})
         if(error)throw error;return json({ok:true})
       }
       const token=String(body.token||'').trim();if(!token)return json({error:'missing-token'},400)
@@ -98,7 +128,7 @@ async function pushHandler(req:Request){
       const ids=Array.isArray(ctx.recipientIds)?ctx.recipientIds:[];if(!ids.length)return json({ok:true,delivered:0})
       const {data:rows,error}=await admin.from('push_subscriptions').select('*').in('user_id',ids).eq('active',true);if(error)throw error
       let delivered=0,blocked=0,failed=0
-      for(const row of rows||[]){const result=row.transport==='webpush'?await webPush(row,ctx,cfg):row.transport==='fcm'?await fcmPush(row,ctx,cfg):{ok:false,blocked:'apns-not-configured'};if(result.ok)delivered++;else if('blocked'in result)blocked++;else failed++}
+      for(const row of rows||[]){const result=row.transport==='webpush'?await webPush(row,ctx,cfg):row.transport==='fcm'?await fcmPush(row,ctx,cfg):row.transport==='wns'?await wnsPush(row,ctx,cfg):{ok:false,blocked:'apns-not-configured'};if(result.ok)delivered++;else if('blocked'in result)blocked++;else failed++}
       return json({ok:true,subscriptions:(rows||[]).length,delivered,blocked,failed})
     }
     return json({error:'unknown-action'},400)
