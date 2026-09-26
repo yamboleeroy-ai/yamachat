@@ -49,7 +49,8 @@ html body .composer{
     inset 0 0 0 1px color-mix(in srgb,var(--yc-theme,#e056fd) 10%,transparent),
     0 0 12px color-mix(in srgb,var(--yc-theme,#e056fd) 8%,transparent)!important;
 }
-html body .composer:focus-within{
+html body .composer:focus-within,
+html body.yc-wotlk-theme .composer:focus-within{
   border-color:color-mix(in srgb,var(--yc-theme,#e056fd) 88%,#6b95a8)!important;
   box-shadow:
     0 0 0 2px color-mix(in srgb,var(--yc-theme,#e056fd) 18%,transparent),
