@@ -66,6 +66,12 @@ if (process.platform === 'win32') {
   app.commandLine.appendSwitch('disable-direct-composition');
 }
 
+app.on('child-process-gone', (_event, details) => {
+  if (details?.type === 'GPU') {
+    console.warn('Yamachat GPU process ended:', details.reason || 'unknown', details.exitCode ?? '');
+  }
+});
+
 const hasInstanceLock = app.requestSingleInstanceLock();
 if (!hasInstanceLock) app.quit();
 app.on('second-instance', () => showMainWindow());
@@ -1218,11 +1224,6 @@ function createWindow() {
     }
   });
   win.webContents.on('render-process-gone', () => yamachatUpdater?.markRendererUnavailable());
-  app.on('child-process-gone', (_event, details) => {
-    if (details?.type === 'GPU') {
-      console.warn('Yamachat GPU process ended:', details.reason || 'unknown', details.exitCode ?? '');
-    }
-  });
   win.webContents.on('unresponsive', () => yamachatUpdater?.markRendererUnavailable());
   win.webContents.on('did-start-loading', () => yamachatUpdater?.markRendererUnavailable());
 
