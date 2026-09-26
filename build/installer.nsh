@@ -21,7 +21,7 @@
   ; Production Yamachat keeps its existing unsigned sparse identity and PFN.
   ; Windows package activation gives the native WNS bridge package identity.
   IfFileExists "$INSTDIR\resources\app\wns\Yamachat.PushIdentity.msix" 0 yc_wns_done
-    nsExec::ExecToLog 'powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command "$ErrorActionPreference=''Stop''; Add-AppxPackage -Path ''$INSTDIR\resources\app\wns\Yamachat.PushIdentity.msix'' -ExternalLocation ''$INSTDIR\resources\app'' -AllowUnsigned -ForceApplicationShutdown"'
+    nsExec::ExecToLog 'powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command "$$ErrorActionPreference=''Stop''; Add-AppxPackage -Path ''$INSTDIR\resources\app\wns\Yamachat.PushIdentity.msix'' -ExternalLocation ''$INSTDIR\resources\app'' -AllowUnsigned -ForceApplicationShutdown"'
     Pop $0
     DetailPrint "Yamachat WNS identity registration exit code: $0"
   yc_wns_done:
