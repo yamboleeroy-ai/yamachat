@@ -7,7 +7,6 @@ on:
       - feature/voice-theme-polish-desktop
     paths:
       - "scripts/voice-theme-polish.mjs"
-      - "scripts/yamachat-surface-theme.mjs"
       - "scripts/voice-experience.mjs"
       - "audio/yamachat_join_voice.mp3"
       - "audio/yamachat_leave_voice.mp3"
@@ -15,7 +14,6 @@ on:
       - "scripts/message-notification-sound.mjs"
       - "scripts/prepare-desktop-1.0.92.mjs"
       - "tests/voice-theme-polish-desktop.cjs"
-      - "tests/yamachat-surface-theme.cjs"
       - "tests/voice-experience.cjs"
       - ".github/workflows/desktop-voice-theme-preview.yml"
 
@@ -38,10 +36,6 @@ jobs:
       - name: Verify generated markers
         run: |
           grep -q 'ycVoiceThemePolishStyle' desktop/desktop-client.html
-          grep -q 'ycSurfaceThemeStyle' desktop/desktop-client.html
-          grep -q 'ycSurfaceThemeRuntime' desktop/desktop-client.html
-          grep -q 'yc_surface_theme_v1' desktop/desktop-client.html
-          grep -q 'Dark · výchozí' desktop/desktop-client.html
           grep -q -- '--yc-themed-scroll-track' desktop/desktop-client.html
           grep -q 'ycServerCardContextStyle' desktop/desktop-client.html
           grep -q 'ycFriendsPanelRefreshStyle' desktop/desktop-client.html
@@ -60,8 +54,6 @@ jobs:
           npx playwright install --with-deps chromium
       - name: Test voice theme, scrollbars and connected layout
         run: node tests/voice-theme-polish-desktop.cjs
-      - name: Test unified Yamachat Dark and White surface themes
-        run: node tests/yamachat-surface-theme.cjs
       - name: Test voice continuity, announcements and soundboard preferences
         env:
           YC_CLIENT: desktop/desktop-client.html
@@ -95,9 +87,6 @@ jobs:
           $client = Get-Content desktop/desktop-client.html -Raw
           foreach ($marker in @(
             "ycVoiceThemePolishStyle",
-            "ycSurfaceThemeStyle",
-            "yc_surface_theme_v1",
-            "Dark · výchozí",
             "--yc-themed-scroll-track",
             "ycVoiceParticipantAnnouncement",
             "YC_SOUNDBOARD_VOLUME_KEY",
@@ -151,9 +140,6 @@ jobs:
           $client = Get-Content "$appRoot/desktop-client.html" -Raw
           foreach ($marker in @(
             "ycVoiceThemePolishStyle",
-            "ycSurfaceThemeStyle",
-            "yc_surface_theme_v1",
-            "Dark · výchozí",
             "--yc-themed-scroll-track",
             "ycVoiceParticipantAnnouncement",
             "YC_SOUNDBOARD_VOLUME_KEY",
