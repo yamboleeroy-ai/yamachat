@@ -92,7 +92,7 @@ if ($TestMode) {
   # ships with Yamachat; the private PFX is deleted after signing.
   $cert = Join-Path $outDir "wns-signing-temp.pfx"
   $certPassword = [guid]::NewGuid().ToString("N")
-  npx --no-install winapp cert generate --publisher $publisher --output $cert --password $certPassword --export-cer
+  npx --no-install winapp cert generate --manifest $manifestPath --output $cert --password $certPassword --export-cer
   if ($LASTEXITCODE -ne 0 -or -not (Test-Path $cert)) { throw "WNS production signing certificate generation failed." }
 
   $generatedCer = [IO.Path]::ChangeExtension($cert, ".cer")
