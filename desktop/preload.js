@@ -8,6 +8,7 @@ contextBridge.exposeInMainWorld('yamachatDesktop', {
   closeWindow: () => ipcRenderer.invoke('yamachat:window-close'),
   getWindowState: () => ipcRenderer.invoke('yamachat:get-window-state'),
   showNotification: (payload) => ipcRenderer.invoke('yamachat:show-notification', payload),
+  getWindowsPushChannel: () => ipcRenderer.invoke('yamachat:wns-get-channel'),
   getUpdateState: () => ipcRenderer.invoke('yamachat:update-get-state'),
   checkForUpdates: () => ipcRenderer.invoke('yamachat:update-check'),
   downloadUpdate: () => ipcRenderer.invoke('yamachat:update-download'),
