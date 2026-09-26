@@ -6,8 +6,9 @@ const results=[];
 (async()=>{
  const browser=await chromium.launch({headless:true,...(process.env.BROWSER_EXECUTABLE?{executablePath:process.env.BROWSER_EXECUTABLE}:{})});
  try{
-  for(const [platform,width,height,touch] of [['web',1440,900,false],['desktop',650,500,false],['android',390,844,true],['ios-layout',390,844,true]]){
-   const page=await browser.newPage({viewport:{width,height},hasTouch:touch,isMobile:touch,serviceWorkers:'block'});const errors=[];page.on('pageerror',e=>errors.push(e.message));
+  for(const [platform,width,height,touch,iosPwa] of [['web',1440,900,false,false],['desktop',650,500,false,false],['android',390,844,true,false],['ios-pwa',390,844,true,true]]){
+   const page=await browser.newPage({viewport:{width,height},hasTouch:touch,isMobile:touch,serviceWorkers:'block',...(iosPwa?{userAgent:'Mozilla/5.0 (iPhone; CPU iPhone OS 18_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.6 Mobile/15E148 Safari/604.1'}:{})});const errors=[];page.on('pageerror',e=>errors.push(e.message));
+   if(iosPwa)await page.addInitScript(()=>Object.defineProperty(navigator,'standalone',{value:true,configurable:true}));
    await page.route('**/*',route=>{
     const u=new URL(route.request().url());if(u.hostname!=='127.0.0.1')return route.abort();
     if(u.pathname.endsWith('/supabase.js'))return route.fulfill({contentType:'text/javascript',body:fixture.mock()});
@@ -22,9 +23,24 @@ const results=[];
    const initialTime=await video.evaluate(v=>v.currentTime);
    await page.waitForFunction(t=>document.querySelector('.yc-stream-viewer video').currentTime>t+.1,initialTime);
    const chatBefore=await page.locator('#messages').boundingBox();
+   if(iosPwa)await page.evaluate(()=>{
+    const video=document.querySelector('.yc-stream-viewer video'),nativePlay=video.play.bind(video);
+    window.__ycIosMini={video,stream:video.srcObject,peer:voicePeers.get('peer'),playCalls:0,nativePlay};
+    video.play=(...args)=>{window.__ycIosMini.playCalls++;return nativePlay(...args)};
+   });
    await page.locator('[data-action="minimize"]').click();
    const chatAfter=await page.locator('#messages').boundingBox();assert.deepEqual(chatAfter,chatBefore,'viewer must not resize chat');
+   if(iosPwa){
+    await page.waitForFunction(()=>window.__ycIosMini.playCalls>=1);
+    assert(await page.evaluate(()=>{const s=window.__ycIosMini,v=document.querySelector('.yc-stream-viewer video');return v===s.video&&v.srcObject===s.stream&&voicePeers.get('peer')===s.peer}),'iOS PWA mini keeps video, MediaStream and peer identity');
+    const miniTime=await video.evaluate(v=>v.currentTime);await page.waitForFunction(t=>document.querySelector('.yc-stream-viewer video').currentTime>t+.15,miniTime);
+   }
    await page.locator('.yc-sv-media').click();
+   if(iosPwa){
+    await page.waitForFunction(()=>window.__ycIosMini.playCalls>=2);
+    assert(await page.evaluate(()=>{const s=window.__ycIosMini,v=document.querySelector('.yc-stream-viewer video');return v===s.video&&v.srcObject===s.stream&&voicePeers.get('peer')===s.peer}),'iOS PWA restore keeps video, MediaStream and peer identity');
+    const restoredMiniTime=await video.evaluate(v=>v.currentTime);await page.waitForFunction(t=>document.querySelector('.yc-stream-viewer video').currentTime>t+.15,restoredMiniTime);
+   }
    for(const where of ['channel','server','friends','dm','settings']){
     await page.evaluate(w=>streamTest.navigate(w),where);
     assert(await page.evaluate(()=>streamTest.same()),platform+' player/peer survived '+where);
@@ -35,6 +51,15 @@ const results=[];
    await page.locator('[data-action="minimize"]').click();
    assert.equal(await page.locator('.yc-stream-viewer').getAttribute('data-mode'),'mini');
    await page.waitForTimeout(550);
+   if(iosPwa){
+    const beforeRotate=await video.evaluate(v=>v.currentTime);
+    await page.setViewportSize({width:844,height:390});await page.waitForTimeout(120);
+    assert(await page.evaluate(()=>{const s=window.__ycIosMini,v=document.querySelector('.yc-stream-viewer video');return v===s.video&&v.srcObject===s.stream&&voicePeers.get('peer')===s.peer}),'iOS PWA landscape keeps video, MediaStream and peer identity');
+    await page.waitForFunction(t=>document.querySelector('.yc-stream-viewer video').currentTime>t+.15,beforeRotate);
+    const landscapeTime=await video.evaluate(v=>v.currentTime);
+    await page.setViewportSize({width:390,height:844});await page.waitForTimeout(120);
+    await page.waitForFunction(t=>document.querySelector('.yc-stream-viewer video').currentTime>t+.15,landscapeTime);
+   }
    const overlaps=await page.evaluate(()=>{
     const r=document.querySelector('.yc-stream-viewer').getBoundingClientRect();
     return [...document.querySelectorAll('.composer-wrap,.voice-controls,#ycMobileVoiceDock,#ycGlobalNav,#rail,#ycMobileHeader,#mobileMenu,#ycMobileNavBtn')].filter(n=>{const b=n.getBoundingClientRect();return b.width&&b.height&&getComputedStyle(n).visibility!=='hidden'&&Math.min(r.right,b.right)>Math.max(r.left,b.left)+1&&Math.min(r.bottom,b.bottom)>Math.max(r.top,b.top)+1}).map(n=>n.id||n.className);
@@ -83,5 +108,5 @@ const results=[];
    results.push({platform,engine:'Chromium',width,height,touch,passed:true});await page.close();
   }
  }finally{await browser.close();fs.writeFileSync(path.join(out,'stream-results.json'),JSON.stringify(results,null,2))}
- console.log('PASS: real loopback WebRTC video, navigation identity, mini exclusion, drag/resize, orientation, recovery and cleanup on 4 client configurations.');
+ console.log('PASS: real loopback WebRTC video, navigation identity, iOS PWA mini playback identity/resume, mini exclusion, drag/resize, orientation, recovery and cleanup on 4 client configurations.');
 })().catch(e=>{console.error(e);process.exit(1)});
