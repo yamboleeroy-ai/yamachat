@@ -23,11 +23,12 @@ async function boot(browser,width,height,mobile=false){
 }
 async function snapshot(page,color,glow){
  return await page.evaluate(async({color,glow})=>{
-  const root=document.documentElement,voice=document.getElementById('voiceControls'),panel=document.getElementById('voiceConnectionPanel'),messages=document.getElementById('messages');
+  const root=document.documentElement,voice=document.getElementById('voiceControls'),panel=document.getElementById('voiceConnectionPanel'),messages=document.getElementById('messages'),composer=document.querySelector('.composer-wrap'),nav=document.getElementById('ycGlobalNav');
   root.style.setProperty('--yc-theme',color);root.style.setProperty('--yc-theme-glow',glow);
   panel.classList.remove('hidden');voice.classList.remove('is-idle');voice.classList.add('is-connected');
   await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));
   const vr=voice.getBoundingClientRect(),vs=getComputedStyle(voice),ps=getComputedStyle(panel),ms=getComputedStyle(messages);
+  const cr=composer?.getBoundingClientRect(),cs=composer?getComputedStyle(composer):null,nr=nav?.getBoundingClientRect(),ns=nav?getComputedStyle(nav):null;
   return {
    border:vs.borderColor,
    shadow:vs.boxShadow,
@@ -35,6 +36,8 @@ async function snapshot(page,color,glow){
    bottom:ps.borderBottomWidth,
    right:ps.borderRightWidth,
    scrollbar:ms.getPropertyValue('scrollbar-color').trim(),
+   composerBorder:cs?.borderColor||'',composerW:cr?.width||0,composerH:cr?.height||0,
+   navOutline:ns?.outlineColor||'',navW:nr?.width||0,navH:nr?.height||0,
    styleText:document.getElementById('ycVoiceThemePolishStyle')?.textContent||''
   };
  },{color,glow});
