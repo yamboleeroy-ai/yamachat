@@ -2,7 +2,7 @@ const runtime=String.raw`
 const YC_MESSAGE_UHOH_URI='data:audio/mpeg;base64,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';
 const YC_VOICE_EXP_VERSION='20260926-1';
 let ycMessageNotifyAudio=null,ycVoiceExpParticipantSub=null,ycVoiceExpBrowseSnapshot=null,ycVoiceExpLastSpeechAt=Date.now(),ycVoiceExpLastRoom='';
-const ycVoiceExpAnnounceSeen=new Map();
+const ycVoiceExpAnnounceSeen=new Map(),ycVoiceExpNameCache=new Map();
 
 function ycExpRead(key,fallback=''){try{const v=localStorage.getItem(key);return v===null?fallback:v}catch{return fallback}}
 function ycExpWrite(key,value){try{localStorage.setItem(key,String(value))}catch{}}
@@ -60,7 +60,11 @@ playVoiceCue=function(type){
 };
 function ycVoiceExpAnnouncementKey(action,uid){return String(action||'')+'|'+String(uid||'')}
 function ycVoiceExpAnnouncementText(action,name){name=String(name||'Uživatel').trim()||'Uživatel';return action==='leave'?name+' opustil místnost':name+' se připojil do místnosti'}
-function ycVoiceExpResolveName(row){const uid=String(row?.user_id||'');const cached=(voicePresenceByChannel?.[voiceChannel?.id]||[]).find(p=>String(p.user_id)===uid);return String(row?.username||cached?.username||'Uživatel').trim()||'Uživatel'}
+function ycVoiceExpResolveName(row){
+ const uid=String(row?.user_id||''),cached=(voicePresenceByChannel?.[voiceChannel?.id]||[]).find(p=>String(p.user_id)===uid);
+ const name=String(row?.username||cached?.username||ycVoiceExpNameCache.get(uid)||'Uživatel').trim()||'Uživatel';
+ if(uid&&name!=='Uživatel')ycVoiceExpNameCache.set(uid,name);return name
+}
 function ycVoiceExpSpeakParticipant(action,row){
  try{
   if(!row||String(row.user_id||'')===String(user?.id||''))return;
@@ -72,16 +76,21 @@ function ycVoiceExpSpeakParticipant(action,row){
 ycVoiceHandleAnnouncement=function(payload){
  try{if(!payload||String(payload.user_id||'')===String(user?.id||''))return;if(String(payload.room_id||'')!==String(voiceChannel?.id||''))return;ycVoiceExpSpeakParticipant(payload.action==='leave'?'leave':'join',{user_id:payload.user_id,channel_id:payload.room_id,username:payload.name})}catch(e){console.warn('voice announcement receive',e)}
 };
+const ycVoiceExpUsesCoreNameEvents=typeof ycEnsureVoiceNamesRealtime==='function'&&typeof ycVoiceSpeakPerson==='function';
+if(ycVoiceExpUsesCoreNameEvents){
+ ycVoiceSpeakPerson=function(row,action){ycVoiceExpSpeakParticipant(action==='leave'?'leave':'join',row)}
+}
 async function ycVoiceExpStartParticipantAnnouncements(){
+ if(ycVoiceExpUsesCoreNameEvents){try{ycEnsureVoiceNamesRealtime()}catch{};return}
  if(!user?.id)return;if(ycVoiceExpParticipantSub){try{await sb.removeChannel(ycVoiceExpParticipantSub)}catch{}ycVoiceExpParticipantSub=null}
  ycVoiceExpParticipantSub=sb.channel('yc-voice-exp-'+user.id+'-'+Date.now()).on('postgres_changes',{event:'*',schema:'public',table:'voice_participants'},payload=>{
   const row=payload.new||payload.old||{};if(!row?.user_id)return;
   if(payload.eventType==='INSERT')ycVoiceExpSpeakParticipant('join',row);else if(payload.eventType==='DELETE')ycVoiceExpSpeakParticipant('leave',row)
  }).subscribe()
 }
-async function ycVoiceExpStopParticipantAnnouncements(){const ch=ycVoiceExpParticipantSub;ycVoiceExpParticipantSub=null;if(ch)try{await sb.removeChannel(ch)}catch{}}
+async function ycVoiceExpStopParticipantAnnouncements(){if(ycVoiceExpUsesCoreNameEvents)return;const ch=ycVoiceExpParticipantSub;ycVoiceExpParticipantSub=null;if(ch)try{await sb.removeChannel(ch)}catch{}}
 ycOnLifecycle('init',()=>{void ycVoiceExpStartParticipantAnnouncements()});
-ycOnLifecycle('beforeAuth',()=>{void ycVoiceExpStopParticipantAnnouncements();try{speechSynthesis.cancel()}catch{}});
+ycOnLifecycle('beforeAuth',()=>{void ycVoiceExpStopParticipantAnnouncements();ycVoiceExpNameCache.clear();try{speechSynthesis.cancel()}catch{}});
 
 const ycVoiceExpOpenUserMenuBase=openVoiceUserMenu;
 openVoiceUserMenu=function(uid,name,x,y){
