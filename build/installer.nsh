@@ -20,7 +20,7 @@
 
   ; Production builds include a signed identity-only MSIX next to the WNS bridge.
   IfFileExists "$INSTDIR\resources\app\wns\Yamachat.PushIdentity.msix" 0 yc_wns_done
-    nsExec::ExecToLog 'powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command "$ErrorActionPreference=''Stop''; Add-AppxPackage -Path ''$INSTDIR\resources\app\wns\Yamachat.PushIdentity.msix'' -ExternalLocation ''$INSTDIR\resources\app'' -ForceApplicationShutdown"'
+    nsExec::ExecToLog 'powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command "$ErrorActionPreference=''Stop''; Add-AppxPackage -Path ''$INSTDIR\resources\app\wns\Yamachat.PushIdentity.msix'' -ExternalLocation ''$INSTDIR\resources\app'' -AllowUnsigned -ForceApplicationShutdown"'
     Pop $0
     DetailPrint "Yamachat WNS identity registration exit code: $0"
   yc_wns_done:
