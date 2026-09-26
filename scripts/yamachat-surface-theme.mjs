@@ -84,7 +84,7 @@ export function withYamachatSurfaceTheme(html){
  const settingsAnchor="ycRegisterAppSettingsSection({id:'window'";
  for(const marker of ['</head>','</body>',settingsAnchor,'yc-wotlk-theme'])if(!html.includes(marker))throw Error('Yamachat surface theme insertion boundary missing: '+marker);
  if(html.includes('ycSurfaceThemeStyle'))return html;
- html=html.replace(settingsAnchor,settingsRuntime+'\\n'+settingsAnchor);
- html=html.replace('</head>',early+'\\n'+style+'\\n</head>');
+ html=html.replace(settingsAnchor,settingsRuntime+'\n'+settingsAnchor);
+ html=html.replace('</head>',early+'\n'+style+'\\n</head>');
  return html.replace('</body>',runtime+'\\n</body>');
 }
