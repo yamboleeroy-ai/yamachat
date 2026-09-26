@@ -49,6 +49,18 @@ jobs:
         shell: pwsh
         run: ./scripts/build-windows-wns.ps1 -TestMode
 
+      - name: Register sparse identity and verify package identity
+        shell: pwsh
+        run: |
+          npx --no-install winapp cert install desktop/wns/wns-devcert.pfx --password yamachat-ci
+          Add-AppxPackage -Path (Resolve-Path desktop/wns/Yamachat.PushIdentity.msix) -ExternalLocation (Resolve-Path desktop)
+          $raw=& desktop/wns/Yamachat.WnsBridge.exe status
+          $json=$raw | Select-Object -Last 1 | ConvertFrom-Json
+          if(-not $json.ok -or -not $json.hasPackageIdentity){throw "WNS bridge did not acquire sparse package identity"}
+          if(-not $json.packageFamilyName){throw "WNS package family name missing"}
+          Write-Host "PASS package identity PFN: $($json.packageFamilyName)"
+          Get-AppxPackage -Name "Yamachat.Desktop.Push.Dev" -ErrorAction SilentlyContinue | Remove-AppxPackage -ErrorAction SilentlyContinue
+
       - name: Verify WNS output
         shell: pwsh
         run: |
