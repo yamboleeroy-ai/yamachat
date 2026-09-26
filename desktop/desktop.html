@@ -258,16 +258,19 @@
     void window.yamachatDesktop?.getUpdateState?.().then(forwardUpdateState).catch(() => {});
 
     window.yamachatDesktop?.onOpenNotificationTarget?.((target) => {
+      let attempts = 0;
       const deliver = () => {
+        attempts += 1;
         try {
           const fn = iframe.contentWindow?.ycOpenDesktopNotificationTarget;
-          if (typeof fn === 'function') { fn(target); return true; }
+          if (typeof fn === 'function') { void fn(target); return true; }
         } catch (error) {
           console.warn('Yamachat notification target forward failed', error);
         }
+        if (attempts < 24) setTimeout(deliver, 250);
         return false;
       };
-      if (!deliver()) setTimeout(deliver, 350);
+      deliver();
     });
 
     const YC_DESKTOP_DEFAULT_THEME = '#e056fd';
@@ -1475,6 +1478,8 @@
             data.payload?.key,
             data.payload?.value
           );
+        } else if (data.action === 'get-wns-channel') {
+          result = await window.yamachatDesktop?.getWindowsPushChannel?.();
         } else if (data.action === 'get-update-state') {
           result = await window.yamachatDesktop?.getUpdateState?.();
         } else if (data.action === 'check-update') {
