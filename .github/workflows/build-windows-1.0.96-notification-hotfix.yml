@@ -167,7 +167,7 @@ jobs:
           )){if(-not(Test-Path $file)){throw "Missing release asset: $file"}}
 
           $latest=Get-Content desktop/dist/latest.yml -Raw
-          if($latest -notmatch "version:\s*1\.0\.95"){throw "latest.yml is not 1.0.96"}
+          if($latest -notmatch "version:\s*1\.0\.96"){throw "latest.yml is not 1.0.96"}
           Write-Host "PASS Windows 1.0.96 package contains WNS runtime and updater assets"
 
       - uses: actions/upload-artifact@v4
