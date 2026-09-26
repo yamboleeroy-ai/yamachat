@@ -28,6 +28,8 @@ jobs:
         run: node tests/social-release-web.cjs
       - name: Mobile Friends drawer one-tap switch
         run: node tests/mobile-friends-drawer.cjs
+      - name: Voice theme and scrollbar polish
+        run: node tests/voice-theme-polish-web.cjs
       - name: Prepare web deployment
         run: |
           mkdir -p web-dist
