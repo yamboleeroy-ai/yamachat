@@ -41,8 +41,30 @@ function patchAndroidBranding(res) {
   fs.mkdirSync(nodpi, { recursive: true });
   fs.copyFileSync(brandLogo, path.join(nodpi, 'yamachat_splash_logo.png'));
 
+  // Notification branding: a full Yamachat logo for expanded/local notifications.
+  fs.copyFileSync(brandLogo, path.join(nodpi, 'yamachat_notification_logo.png'));
+
+  // Android status-bar icons must be monochrome. Keep the Yamachat chat/Y
+  // silhouette separate from the full-color app logo to avoid a white square.
   const drawable = path.join(res, 'drawable');
   fs.mkdirSync(drawable, { recursive: true });
+  fs.writeFileSync(path.join(drawable, 'ic_yamachat_notification.xml'), `<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp" android:height="24dp"
+    android:viewportWidth="24" android:viewportHeight="24">
+    <path android:pathData="M4,3.5H20A1.5,1.5 0,0 1,21.5 5V15.5A1.5,1.5 0,0 1,20 17H8L4,20.5V17H4A1.5,1.5 0,0 1,2.5 15.5V5A1.5,1.5 0,0 1,4 3.5Z"
+        android:fillColor="#00000000" android:strokeColor="#FFFFFFFF" android:strokeWidth="2"/>
+    <path android:pathData="M6.5,7L11.2,11.7V15.5H13.8V11.7L18.5,7L16.5,5.7L12.5,9.7L8.5,5.7Z"
+        android:fillColor="#FFFFFFFF"/>
+</vector>
+`, 'utf8');
+
+  const rawDir = path.join(res, 'raw');
+  fs.mkdirSync(rawDir, { recursive: true });
+  const messageSound = path.join(root, 'native-assets/yamachat_message.mp3');
+  if (!fs.existsSync(messageSound)) throw new Error('Yamachat native message sound is missing');
+  fs.copyFileSync(messageSound, path.join(rawDir, 'yamachat_message.mp3'));
+
   fs.writeFileSync(path.join(drawable, 'splash.xml'), `<?xml version="1.0" encoding="utf-8"?>
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
     <item>
@@ -96,6 +118,13 @@ function patchAndroid() {
   for (const line of permissions) {
     const name = line.match(/android:name="([^"]+)"/)?.[1];
     if (name && !xml.includes(name)) xml = xml.replace(/<manifest([^>]*)>/, '<manifest$1>\n    ' + line);
+  }
+  if (!xml.includes('com.google.firebase.messaging.default_notification_icon')) {
+    const meta = [
+      '        <meta-data android:name="com.google.firebase.messaging.default_notification_icon" android:resource="@drawable/ic_yamachat_notification" />',
+      '        <meta-data android:name="com.google.firebase.messaging.default_notification_channel_id" android:value="yamachat-messages-v2" />'
+    ].join('\n');
+    xml = xml.replace('</application>', meta + '\n    </application>');
   }
   if (!xml.includes('android.support.FILE_PROVIDER_PATHS')) {
     const provider = [

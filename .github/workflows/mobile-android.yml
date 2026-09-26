@@ -61,6 +61,24 @@ jobs:
           npx cap sync android
           node scripts/patch-native.mjs android
 
+      - name: Restore Firebase client config when configured
+        working-directory: mobile
+        env:
+          GOOGLE_SERVICES_JSON_B64: ${{ secrets.GOOGLE_SERVICES_JSON_B64 }}
+        run: |
+          set -euo pipefail
+          if [ -n "${GOOGLE_SERVICES_JSON_B64:-}" ]; then
+            printf '%s' "$GOOGLE_SERVICES_JSON_B64" | base64 -d > android/app/google-services.json
+            echo "Firebase client config restored."
+          else
+            echo "Firebase client config is not configured; APK will build, but killed-app FCM delivery stays disabled."
+          fi
+          test -f android/app/src/main/res/raw/yamachat_message.mp3
+          test -f android/app/src/main/res/drawable/ic_yamachat_notification.xml
+          test -f android/app/src/main/res/drawable-nodpi/yamachat_notification_logo.png
+          grep -q 'com.google.firebase.messaging.default_notification_icon' android/app/src/main/AndroidManifest.xml
+          grep -q 'yamachat-messages-v2' android/app/src/main/AndroidManifest.xml
+
       - name: Build with permanent Android identity
         working-directory: mobile/android
         env:
@@ -133,10 +151,10 @@ jobs:
           android['apkUrl']=f"https://yamachat.eu/download/Yamachat-Android.apk?v={artifact['versionCode']}"
           android['sha256']=artifact['sha256']
           android['notes']=[
-            'Opravené přepínání mobilních vysouvacích panelů jedním klepnutím.',
-            'Přátelé teď automaticky zavřou aktuální panel a otevřou panel Členové/Přátelé.',
-            'Stejné chování funguje v portrétu i landscape na Androidu a iOS/PWA.',
-            'Ostatní funkce a desktop zůstávají beze změny.'
+            'Yamachat oznámení mají vlastní logo, ikonu a vlastní zvuk zprávy na Androidu.',
+            'Kliknutí na oznámení otevře přímo správnou DM, kanál a konkrétní zprávu.',
+            'Push registrace je připravená pro FCM; doručení při úplně ukončené APK vyžaduje Firebase konfiguraci projektu.',
+            'Současné mobilní rozložení, voice, Real Voices a ostatní funkce zůstávají beze změny.'
           ]
           manifest_path.write_text(json.dumps(manifest,ensure_ascii=False,indent=2)+'\n')
           PY

@@ -108,6 +108,73 @@ try{
    "leaveVoiceChannel(true)",
    "await joinVoiceChannel(channel)"
  ]) assert(webIntegration.includes(marker),`Missing iOS PWA voice reconnect marker: ${marker}`);
+
+ for(const marker of [
+   "YC_PUSH_API='https://bxjvmjdppmqgbxfcowpf.supabase.co/functions/v1/yamachat-source/push'",
+   'pushManager.getSubscription()',
+   'pushManager.subscribe({userVisibleOnly:true',
+   "transport:'webpush'",
+   'ycWebOpenLaunchNotificationTarget',
+   "params.get('message')",
+   "params.get('channel')",
+   "params.get('dm')",
+   "params.get('community')",
+   "icon:'./icons/icon-192.png'",
+   "badge:'./build/yamachat-logo-symbol.png'"
+ ]) assert(webIntegration.includes(marker),`Missing Web Push/deep-link marker: ${marker}`);
+
+ const swSource=fs.readFileSync(path.join(root,'sw.js'),'utf8');
+ assert.equal(spawnSync(process.execPath,['--check',path.join(root,'sw.js')],{encoding:'utf8'}).status,0,'Service worker must parse');
+ for(const marker of [
+   "self.addEventListener('push'",
+   "self.addEventListener('notificationclick'",
+   "icon:payload.icon||'./icons/icon-192.png'",
+   "badge:payload.badge||'./build/yamachat-logo-symbol.png'",
+   "type:'yamachat:web-notification'",
+   "url.searchParams.set('message'",
+   "url.searchParams.set('channel'",
+   "url.searchParams.set('dm'",
+   "url.searchParams.set('community'"
+ ]) assert(swSource.includes(marker),`Missing service-worker push marker: ${marker}`);
+
+ for(const marker of [
+   "PushNotifications.addListener('registration'",
+   "PushNotifications.addListener('registrationError'",
+   "PushNotifications.addListener('pushNotificationActionPerformed'",
+   'PushNotifications.register()',
+   "id:'yamachat-messages-v2'",
+   "sound:'yamachat_message.mp3'",
+   "smallIcon:'ic_yamachat_notification'",
+   "largeIcon:'yamachat_notification_logo'"
+ ]) assert(nativeBridgeSource.includes(marker),`Missing native push marker: ${marker}`);
+
+ for(const marker of [
+   'ic_yamachat_notification.xml',
+   'yamachat_notification_logo.png',
+   'native-assets/yamachat_message.mp3',
+   'com.google.firebase.messaging.default_notification_icon',
+   'yamachat-messages-v2'
+ ]) assert(nativePatchSource.includes(marker),`Missing Android push asset marker: ${marker}`);
+
+ const nativeSound=fs.readFileSync(path.join(root,'mobile/native-assets/yamachat_message.mp3'));
+ const messageSoundScript=fs.readFileSync(path.join(root,'scripts/message-notification-sound.mjs'),'utf8');
+ const soundMatch=messageSoundScript.match(/YC_MESSAGE_SOUND_DATA='data:audio\/mpeg;base64,([^']+)'/);
+ assert(soundMatch,'Embedded Yamachat message sound is missing');
+ assert(nativeSound.equals(Buffer.from(soundMatch[1],'base64')),'Android notification sound must exactly match the uploaded Yamachat message sound');
+
+ const pushFn=fs.readFileSync(path.join(root,'supabase/functions/yamachat-source/index.ts'),'utf8');
+ for(const marker of [
+   "PUSH_ROUTE='/yamachat-source/push'",
+   "action==='register'",
+   "action==='message_insert'",
+   "transport==='webpush'",
+   "transport==='fcm'",
+   "channel_id:'yamachat-messages-v2'",
+   "icon:'ic_yamachat_notification'",
+   "sound:'yamachat_message'",
+   "icon:'https://yamachat.eu/icons/icon-192.png'",
+   "badge:'https://yamachat.eu/build/yamachat-logo-symbol.png'"
+ ]) assert(pushFn.includes(marker),`Missing push backend marker: ${marker}`);
  console.log(`PASS: ${count} scripts parse; desktop SHA-256 and backend constants preserved; runtime assets present.`);
  const recoveryScript=path.join(root,'build/password-recovery.js');
  assert.equal(spawnSync(process.execPath,['--check',recoveryScript],{encoding:'utf8'}).status,0,'Recovery script must parse');

@@ -15,6 +15,7 @@ declare global {
       build?: string;
     };
     ycNativeRequestNotifications?: () => Promise<{granted:boolean; token?:string}>;
+    __ycNativePushToken?: string;
     ycCloseMobileSurface?: () => boolean;
     ycNativeNotificationPermission?: () => Promise<boolean>;
     ycNativeShowNotification?: (payload: {title?:string;body?:string;where?:string;target?:Record<string,string>}) => Promise<boolean>;
@@ -53,10 +54,13 @@ const YAMACHAT_UPDATE_MANIFEST_URL = 'https://yamachat.eu/update-manifest.json';
   window.ycNativeNotificationPermission = async () => (await LocalNotifications.checkPermissions()).display === 'granted';
   window.ycNativeShowNotification = async payload => {
     if (!(await window.ycNativeNotificationPermission!())) return false;
-    await LocalNotifications.schedule({notifications:[{id:Math.floor(Math.random()*2147483646)+1,title:payload.title||'Yamachat',body:[payload.where,payload.body].filter(Boolean).join(' · '),extra:payload.target||{},channelId:'yamachat-messages'}]});
+    await LocalNotifications.schedule({notifications:[{id:Math.floor(Math.random()*2147483646)+1,title:payload.title||'Yamachat',body:[payload.where,payload.body].filter(Boolean).join(' · '),extra:payload.target||{},channelId:'yamachat-messages-v2',sound:'yamachat_message.mp3',smallIcon:'ic_yamachat_notification',largeIcon:'yamachat_notification_logo',iconColor:'#E056FD'}]});
     return true;
   };
-  if(platform==='android')void LocalNotifications.createChannel({id:'yamachat-messages',name:'Zprávy Yamachat',importance:4}).catch(()=>{});
+  if(platform==='android'){
+    void PushNotifications.createChannel({id:'yamachat-messages-v2',name:'Zprávy Yamachat',description:'Nové zprávy a zmínky v Yamachatu',importance:5,sound:'yamachat_message.mp3',vibration:true,visibility:0,lights:true,lightColor:'#E056FD'}).catch(()=>{});
+    void LocalNotifications.createChannel({id:'yamachat-messages-v2',name:'Zprávy Yamachat',description:'Nové zprávy a zmínky v Yamachatu',importance:5,sound:'yamachat_message.mp3',vibration:true,visibility:0,lights:true,lightColor:'#E056FD'}).catch(()=>{});
+  }
   void LocalNotifications.addListener('localNotificationActionPerformed',action=>{
     void window.ycOpenDesktopNotificationTarget?.(action.notification.extra||{});
   });
@@ -127,10 +131,17 @@ const YAMACHAT_UPDATE_MANIFEST_URL = 'https://yamachat.eu/update-manifest.json';
   } catch {}
 
   let pushToken = '';
+  let pushRegistrationWaiters: Array<(token:string)=>void> = [];
   try {
     PushNotifications.addListener('registration', token => {
       pushToken = token.value || '';
+      window.__ycNativePushToken = pushToken;
+      for(const resolve of pushRegistrationWaiters.splice(0))resolve(pushToken);
       window.dispatchEvent(new CustomEvent('yamachat:native-push-token', { detail: { token: pushToken, platform } }));
+    });
+    PushNotifications.addListener('registrationError', error => {
+      console.warn('Yamachat push registration', error);
+      for(const resolve of pushRegistrationWaiters.splice(0))resolve('');
     });
     PushNotifications.addListener('pushNotificationReceived', notification => {
       window.dispatchEvent(new CustomEvent('yamachat:native-push', { detail: notification }));
@@ -389,10 +400,23 @@ const YAMACHAT_UPDATE_MANIFEST_URL = 'https://yamachat.eu/update-manifest.json';
 
   window.ycNativeRequestNotifications = async () => {
     try {
-      const permission = await LocalNotifications.requestPermissions();
-      return { granted: permission.display === 'granted' };
-    } catch {
+      const localPermission = await LocalNotifications.requestPermissions();
+      let pushPermission = await PushNotifications.checkPermissions();
+      if(pushPermission.receive==='prompt'||pushPermission.receive==='prompt-with-rationale')pushPermission=await PushNotifications.requestPermissions();
+      const granted=localPermission.display==='granted'&&pushPermission.receive==='granted';
+      if(!granted)return {granted:false};
+      if(pushToken)return {granted:true,token:pushToken};
+      const tokenPromise=new Promise<string>(resolve=>{pushRegistrationWaiters.push(resolve);setTimeout(()=>{const i=pushRegistrationWaiters.indexOf(resolve);if(i>=0){pushRegistrationWaiters.splice(i,1);resolve(pushToken)}},7000)});
+      await PushNotifications.register();
+      const token=await tokenPromise;
+      return {granted:true,token:token||undefined};
+    } catch(error) {
+      console.warn('Yamachat notification permission',error);
       return { granted: false };
     }
   };
+  try{
+    const existing=await PushNotifications.checkPermissions();
+    if(existing.receive==='granted')void PushNotifications.register();
+  }catch{};
 })();

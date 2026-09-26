@@ -21,6 +21,22 @@
     "Keyboard": {
       "resize": "native",
       "resizeOnFullScreen": true
+    },
+    "PushNotifications": {
+      "presentationOptions": [
+        "badge"
+      ]
+    },
+    "LocalNotifications": {
+      "smallIcon": "ic_yamachat_notification",
+      "iconColor": "#E056FD",
+      "sound": "yamachat_message.mp3",
+      "presentationOptions": [
+        "badge",
+        "sound",
+        "banner",
+        "list"
+      ]
     }
   }
 }
