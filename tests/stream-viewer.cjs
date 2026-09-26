@@ -25,20 +25,20 @@ const results=[];
    const chatBefore=await page.locator('#messages').boundingBox();
    if(iosPwa)await page.evaluate(()=>{
     const video=document.querySelector('.yc-stream-viewer video'),nativePlay=video.play.bind(video);
-    window.__ycIosMini={video,stream:video.srcObject,peer:voicePeers.get('peer'),playCalls:0,nativePlay};
+    window.__ycIosMini={video,stream:video.srcObject,playCalls:0,nativePlay};
     video.play=(...args)=>{window.__ycIosMini.playCalls++;return nativePlay(...args)};
    });
    await page.locator('[data-action="minimize"]').click();
    const chatAfter=await page.locator('#messages').boundingBox();assert.deepEqual(chatAfter,chatBefore,'viewer must not resize chat');
    if(iosPwa){
     await page.waitForFunction(()=>window.__ycIosMini.playCalls>=1);
-    assert(await page.evaluate(()=>{const s=window.__ycIosMini,v=document.querySelector('.yc-stream-viewer video');return v===s.video&&v.srcObject===s.stream&&voicePeers.get('peer')===s.peer}),'iOS PWA mini keeps video, MediaStream and peer identity');
+    assert(await page.evaluate(()=>{const s=window.__ycIosMini,v=document.querySelector('.yc-stream-viewer video');return v===s.video&&v.srcObject===s.stream&&streamTest.same()}),'iOS PWA mini keeps video, MediaStream and peer identity');
     const miniTime=await video.evaluate(v=>v.currentTime);await page.waitForFunction(t=>document.querySelector('.yc-stream-viewer video').currentTime>t+.15,miniTime);
    }
    await page.locator('.yc-sv-media').click();
    if(iosPwa){
     await page.waitForFunction(()=>window.__ycIosMini.playCalls>=2);
-    assert(await page.evaluate(()=>{const s=window.__ycIosMini,v=document.querySelector('.yc-stream-viewer video');return v===s.video&&v.srcObject===s.stream&&voicePeers.get('peer')===s.peer}),'iOS PWA restore keeps video, MediaStream and peer identity');
+    assert(await page.evaluate(()=>{const s=window.__ycIosMini,v=document.querySelector('.yc-stream-viewer video');return v===s.video&&v.srcObject===s.stream&&streamTest.same()}),'iOS PWA restore keeps video, MediaStream and peer identity');
     const restoredMiniTime=await video.evaluate(v=>v.currentTime);await page.waitForFunction(t=>document.querySelector('.yc-stream-viewer video').currentTime>t+.15,restoredMiniTime);
    }
    for(const where of ['channel','server','friends','dm','settings']){
@@ -54,7 +54,7 @@ const results=[];
    if(iosPwa){
     const beforeRotate=await video.evaluate(v=>v.currentTime);
     await page.setViewportSize({width:844,height:390});await page.waitForTimeout(120);
-    assert(await page.evaluate(()=>{const s=window.__ycIosMini,v=document.querySelector('.yc-stream-viewer video');return v===s.video&&v.srcObject===s.stream&&voicePeers.get('peer')===s.peer}),'iOS PWA landscape keeps video, MediaStream and peer identity');
+    assert(await page.evaluate(()=>{const s=window.__ycIosMini,v=document.querySelector('.yc-stream-viewer video');return v===s.video&&v.srcObject===s.stream&&streamTest.same()}),'iOS PWA landscape keeps video, MediaStream and peer identity');
     await page.waitForFunction(t=>document.querySelector('.yc-stream-viewer video').currentTime>t+.15,beforeRotate);
     const landscapeTime=await video.evaluate(v=>v.currentTime);
     await page.setViewportSize({width:390,height:844});await page.waitForTimeout(120);
