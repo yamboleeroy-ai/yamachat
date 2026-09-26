@@ -16,6 +16,7 @@ const {
 const path = require('path');
 const fs = require('fs');
 const { pathToFileURL } = require('url');
+const crypto = require('crypto');
 const { execFile } = require('child_process');
 const { YamachatUpdater } = require('./updater');
 
@@ -117,38 +118,84 @@ function deliverDesktopNotificationTarget(target) {
   }
 }
 
-function windowsWnsBridgePath() {
-  return path.join(__dirname, 'wns', 'Yamachat.WnsBridge.exe');
+const YAMACHAT_WNS_AUMID = 'yamachat.eu-7E03B8AF_m02xq2dqtpa7p!YamachatPushHost';
+
+function windowsWnsIpcDirectory() {
+  const base = process.env.LOCALAPPDATA || app.getPath('userData');
+  return path.join(base, 'Yamachat', 'wns-ipc');
 }
 
-function requestWindowsWnsChannel() {
+function requestPackagedWnsAction(action, timeoutMs = 90000) {
   return new Promise((resolve) => {
     if (process.platform !== 'win32') {
       resolve({ ok: false, error: 'wns-windows-only' });
       return;
     }
-    const bridge = windowsWnsBridgePath();
-    if (!fs.existsSync(bridge)) {
-      resolve({ ok: false, error: 'wns-bridge-missing' });
+
+    const requestId = crypto.randomBytes(16).toString('hex');
+    const directory = windowsWnsIpcDirectory();
+    const requestFile = path.join(directory, `request-${requestId}.json`);
+    const responseFile = path.join(directory, `response-${requestId}.json`);
+    const startedAt = Date.now();
+    let settled = false;
+
+    const cleanup = () => {
+      try { if (fs.existsSync(requestFile)) fs.unlinkSync(requestFile); } catch {}
+      try { if (fs.existsSync(responseFile)) fs.unlinkSync(responseFile); } catch {}
+    };
+    const finish = (result) => {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      resolve(result);
+    };
+
+    try {
+      fs.mkdirSync(directory, { recursive: true });
+      fs.writeFileSync(requestFile, JSON.stringify({ requestId, action }), { encoding: 'utf8', mode: 0o600 });
+    } catch (error) {
+      finish({ ok: false, error: 'wns-ipc-write-failed', detail: String(error?.message || '').slice(0, 240) });
       return;
     }
-    execFile(bridge, ['register'], { windowsHide: true, timeout: 90000, maxBuffer: 1024 * 1024 }, (error, stdout, stderr) => {
-      const lines = String(stdout || '').trim().split(/\r?\n/).filter(Boolean);
-      let parsed = null;
-      for (let i = lines.length - 1; i >= 0; i--) {
-        try { parsed = JSON.parse(lines[i]); break; } catch {}
+
+    execFile(
+      'explorer.exe',
+      [`shell:AppsFolder\\${YAMACHAT_WNS_AUMID}`],
+      { windowsHide: true, timeout: 15000 },
+      (error) => {
+        if (error && !settled) {
+          finish({ ok: false, error: 'wns-package-activation-failed', detail: String(error.message || '').slice(0, 240) });
+        }
       }
-      if (parsed && typeof parsed === 'object') {
-        resolve(parsed);
+    );
+
+    const poll = () => {
+      if (settled) return;
+      try {
+        if (fs.existsSync(responseFile)) {
+          const raw = fs.readFileSync(responseFile, 'utf8');
+          const parsed = JSON.parse(raw);
+          finish(parsed && typeof parsed === 'object' ? parsed : { ok: false, error: 'wns-ipc-invalid-response' });
+          return;
+        }
+      } catch (error) {
+        finish({ ok: false, error: 'wns-ipc-read-failed', detail: String(error?.message || '').slice(0, 240) });
         return;
       }
-      resolve({
-        ok: false,
-        error: error?.killed ? 'wns-channel-timeout' : 'wns-channel-failed',
-        detail: String(stderr || error?.message || '').slice(0, 500)
-      });
-    });
+
+      if (Date.now() - startedAt >= timeoutMs) {
+        finish({ ok: false, error: 'wns-channel-timeout' });
+        return;
+      }
+      setTimeout(poll, 250);
+    };
+
+    setTimeout(poll, 150);
   });
+}
+
+function requestWindowsWnsChannel() {
+  return requestPackagedWnsAction('register');
 }
 
 const hasInstanceLock = app.requestSingleInstanceLock();
