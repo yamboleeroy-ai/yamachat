@@ -806,6 +806,202 @@ body .app .chat-head>#ycServerMenuBtn{position:relative!important;inset:auto!imp
 <meta name="mobile-web-app-capable" content="yes">
 <link rel="manifest" href="./manifest.webmanifest">
 <link rel="icon" href="./favicon.ico">
+
+<style id="ycVoiceThemePolishStyle">
+:root{--yc-themed-scroll-track:#050f17}
+
+/* One final scrollbar skin: the user's Yamachat theme wins over older cyan/blue skins. */
+html,body,*{
+  scrollbar-color:color-mix(in srgb,var(--yc-theme,#e056fd) 48%,#28485b) var(--yc-themed-scroll-track)!important;
+}
+*::-webkit-scrollbar-track{
+  background:var(--yc-themed-scroll-track)!important;
+  border-color:color-mix(in srgb,var(--yc-theme,#e056fd) 10%,#132633)!important;
+}
+*::-webkit-scrollbar-thumb{
+  background:linear-gradient(
+    180deg,
+    color-mix(in srgb,var(--yc-theme,#e056fd) 56%,#31546a),
+    color-mix(in srgb,var(--yc-theme,#e056fd) 34%,#173447)
+  )!important;
+  border:2px solid var(--yc-themed-scroll-track)!important;
+  border-radius:999px!important;
+}
+*::-webkit-scrollbar-thumb:hover{
+  background:linear-gradient(
+    180deg,
+    color-mix(in srgb,var(--yc-theme,#e056fd) 72%,#4c7185),
+    color-mix(in srgb,var(--yc-theme,#e056fd) 48%,#23475d)
+  )!important;
+}
+.yc-v3-voice-host #soundboardPanel .soundboard-grid::-webkit-scrollbar-thumb{
+  background:color-mix(in srgb,var(--yc-theme,#e056fd) 48%,#45687b)!important;
+}
+
+/* Theme contour for the main Yamachat bars/panels. Outline does not change geometry. */
+html body #ycGlobalNav,
+html body .yc-v3-ribbon,
+html body .yc-v3-content-grid>.side,
+html body .yc-v3-content-grid>.chat,
+html body .yc-v3-content-grid>.right,
+html body .yc-v3-workspace>.top{
+  outline:1px solid color-mix(in srgb,var(--yc-theme,#e056fd) 34%,#27485b)!important;
+  outline-offset:-1px!important;
+}
+html body .chat-head{
+  border-color:color-mix(in srgb,var(--yc-theme,#e056fd) 48%,#34596b)!important;
+}
+html body .composer{
+  border-color:color-mix(in srgb,var(--yc-theme,#e056fd) 62%,#34596b)!important;
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb,var(--yc-theme,#e056fd) 10%,transparent),
+    0 0 12px color-mix(in srgb,var(--yc-theme,#e056fd) 8%,transparent)!important;
+}
+html body .composer:focus-within,
+html body.yc-wotlk-theme .composer:focus-within{
+  border-color:color-mix(in srgb,var(--yc-theme,#e056fd) 88%,#6b95a8)!important;
+  box-shadow:
+    0 0 0 2px color-mix(in srgb,var(--yc-theme,#e056fd) 18%,transparent),
+    0 0 18px color-mix(in srgb,var(--yc-theme,#e056fd) 28%,transparent),
+    inset 0 0 0 1px color-mix(in srgb,var(--yc-theme,#e056fd) 24%,transparent)!important;
+}
+
+/* Voice dock outline follows the personal Yamachat theme, never the server color. */
+html body #voiceControls,
+html body .yc-v3-voice-host #voiceControls.voice-controls,
+html body #voiceControls.yc-desktop-server-voice-accent{
+  border-color:color-mix(in srgb,var(--yc-theme,#e056fd) 66%,#365769)!important;
+  box-shadow:
+    0 -8px 28px rgba(0,0,0,.16),
+    inset 0 0 0 1px color-mix(in srgb,var(--yc-theme,#e056fd) 12%,transparent),
+    0 0 18px var(--yc-theme-glow,rgba(224,86,253,.16))!important;
+}
+
+/* Remove the old connection dividers that form the thin L-shaped artefact. */
+#voiceControls #voiceConnectionPanel,
+.yc-v3-voice-host #voiceConnectionPanel{
+  border-bottom:0!important;
+}
+#voiceControls .voice-card-top,
+.yc-v3-voice-host .voice-card-top{
+  border-right:0!important;
+}
+
+/* Server settings now use the same personal Yamachat theme language as the rest of the desktop UI. */
+html body .yc-ss-back{
+  background:rgba(2,7,12,.78)!important;
+  backdrop-filter:blur(10px)!important;
+}
+html body .yc-ss-shell{
+  background:
+    radial-gradient(circle at 12% -8%,color-mix(in srgb,var(--yc-theme,#e056fd) 15%,transparent),transparent 38%),
+    linear-gradient(145deg,#0b1721,#071019 74%)!important;
+  border-color:color-mix(in srgb,var(--yc-theme,#e056fd) 46%,#365769)!important;
+  box-shadow:0 28px 80px rgba(0,0,0,.62),0 0 26px var(--yc-theme-glow,rgba(224,86,253,.12)),inset 0 1px 0 rgba(255,255,255,.035)!important;
+}
+html body .yc-ss-nav{
+  background:linear-gradient(180deg,#0a1822,#07111a)!important;
+  border-right-color:color-mix(in srgb,var(--yc-theme,#e056fd) 23%,#254050)!important;
+}
+html body .yc-ss-server{
+  border-bottom-color:color-mix(in srgb,var(--yc-theme,#e056fd) 18%,#27404d)!important;
+}
+html body .yc-ss-server small,
+html body .yc-ss-section,
+html body .yc-ss-head small,
+html body .yc-ss-card p,
+html body .yc-ss-field label{
+  color:#8fa8b5!important;
+}
+html body .yc-ss-server strong,
+html body .yc-ss-head strong,
+html body .yc-ss-card h3{
+  color:#edf8fc!important;
+}
+html body .yc-ss-tab{
+  color:#9db5c1!important;
+  border:1px solid transparent!important;
+}
+html body .yc-ss-tab:hover{
+  background:color-mix(in srgb,var(--yc-theme,#e056fd) 8%,#102532)!important;
+  border-color:color-mix(in srgb,var(--yc-theme,#e056fd) 20%,#29495b)!important;
+  color:#fff!important;
+}
+html body .yc-ss-tab.active{
+  background:linear-gradient(100deg,color-mix(in srgb,var(--yc-theme,#e056fd) 20%,#173244),#112532)!important;
+  border-color:color-mix(in srgb,var(--yc-theme,#e056fd) 48%,#365c70)!important;
+  color:#fff!important;
+  box-shadow:inset 3px 0 0 var(--yc-theme,#e056fd),0 0 14px var(--yc-theme-soft,rgba(224,86,253,.10))!important;
+}
+html body .yc-ss-main{
+  background:linear-gradient(180deg,rgba(8,21,30,.96),rgba(6,15,23,.98))!important;
+}
+html body .yc-ss-head{
+  background:linear-gradient(180deg,rgba(11,28,39,.98),rgba(7,18,27,.96))!important;
+  border-bottom-color:color-mix(in srgb,var(--yc-theme,#e056fd) 24%,#294555)!important;
+}
+html body .yc-ss-close{
+  border-color:color-mix(in srgb,var(--yc-theme,#e056fd) 34%,#36566a)!important;
+  background:#0d202b!important;
+  color:#b9cdd6!important;
+  border-radius:10px!important;
+}
+html body .yc-ss-close:hover{
+  border-color:color-mix(in srgb,var(--yc-theme,#e056fd) 70%,#52758a)!important;
+  color:#fff!important;
+}
+html body .yc-ss-card,
+html body .yc-role-list,
+html body .yc-role-editor{
+  background:linear-gradient(180deg,#0d1d28,#09151e)!important;
+  border-color:color-mix(in srgb,var(--yc-theme,#e056fd) 20%,#294759)!important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.025)!important;
+}
+html body .yc-ss-field input,
+html body .yc-ss-field textarea,
+html body .yc-ss-field select,
+html body .yc-invite-box input{
+  background:#07151f!important;
+  border-color:color-mix(in srgb,var(--yc-theme,#e056fd) 22%,#29495a)!important;
+  color:#e8f7fb!important;
+}
+html body .yc-ss-field input:focus,
+html body .yc-ss-field textarea:focus,
+html body .yc-ss-field select:focus{
+  border-color:color-mix(in srgb,var(--yc-theme,#e056fd) 72%,#4f7b8c)!important;
+  box-shadow:0 0 0 3px var(--yc-theme-soft,rgba(224,86,253,.10))!important;
+}
+html body .yc-ss-toggle,
+html body .yc-perm,
+html body .yc-role-assign-menu{
+  background:#0a1923!important;
+  border-color:color-mix(in srgb,var(--yc-theme,#e056fd) 20%,#294653)!important;
+}
+html body .yc-ss-toggle input,
+html body .yc-perm input,
+html body .yc-role-assign-menu input{
+  accent-color:var(--yc-theme,#e056fd)!important;
+}
+html body .yc-ss-btn{
+  background:#102635!important;
+  border-color:color-mix(in srgb,var(--yc-theme,#e056fd) 26%,#36596b)!important;
+  color:#dff7fb!important;
+}
+html body .yc-ss-btn:hover{
+  border-color:color-mix(in srgb,var(--yc-theme,#e056fd) 68%,#52798b)!important;
+}
+html body .yc-ss-btn.primary{
+  background:linear-gradient(105deg,color-mix(in srgb,var(--yc-theme,#e056fd) 82%,#3d91b8),color-mix(in srgb,var(--yc-theme,#e056fd) 52%,#2e718f))!important;
+  border:1px solid color-mix(in srgb,var(--yc-theme,#e056fd) 78%,#5d92a8)!important;
+  color:#fff!important;
+  text-shadow:0 1px 1px rgba(0,0,0,.3)!important;
+}
+html body .yc-ss-note{
+  border-left-color:var(--yc-theme,#e056fd)!important;
+  background:color-mix(in srgb,var(--yc-theme,#e056fd) 7%,#0b1923)!important;
+}
+</style>
+
 </head>
 <body>
 <div id="ycBootSplash" class="yc-boot-splash" aria-live="polite"><div class="yc-boot-mark">Y</div><strong>Yamachat</strong><small>Načítám aplikaci…</small></div>
@@ -2551,7 +2747,7 @@ function subscribeUserRealtime(){if(userRealtimeSub){sb.removeChannel(userRealti
 
 function loadVoiceUserMix(){try{const raw=JSON.parse(localStorage.getItem('yc_voice_user_mix')||'{}');voiceUserMix=raw&&typeof raw==='object'?raw:{}}catch{voiceUserMix={}}}
 function saveVoiceUserMix(){try{localStorage.setItem('yc_voice_user_mix',JSON.stringify(voiceUserMix))}catch{}}
-function voiceMixFor(uid){const raw=voiceUserMix?.[uid]||{};let volume=Number(raw.volume);if(!Number.isFinite(volume))volume=100;volume=Math.max(0,Math.min(400,volume));return{muted:!!raw.muted,volume}}
+function voiceMixFor(uid){const raw=voiceUserMix?.[uid]||{};let volume=Number(raw.volume);if(!Number.isFinite(volume))volume=100;volume=Math.max(0,Math.min(400,volume));return{muted:!!raw.muted,volume,soundboardMuted:!!raw.soundboardMuted}}
 function voiceGainForPercent(v){v=Math.max(0,Math.min(400,Number(v)||0));if(v<=100)return v/100;return Math.min(5,1+(v-100)/75)}
 function setVoiceUserMix(uid,patch){const cur=voiceMixFor(uid);voiceUserMix[uid]={...cur,...patch};saveVoiceUserMix();applyVoiceUserMix(uid);renderVoiceChannels(voiceChannelDefs)}
 function applyVoiceUserMix(uid){const mix=voiceMixFor(uid),level=(voiceDeafened||mix.muted)?0:voiceGainForPercent(mix.volume);const nodes=voiceAudioNodes.get(uid);if(nodes?.gain)nodes.gain.gain.value=level;const a=$('voice-audio-'+uid);if(a){if(voiceAudioContext){a.muted=true}else{a.muted=voiceDeafened||mix.muted;a.volume=Math.min(1,mix.volume/100)}}}
@@ -2570,8 +2766,8 @@ window.addEventListener('pointerdown',e=>{if(e.button!==0||!e.target.closest?.('
 window.addEventListener('dblclick',e=>{if(e.target.closest?.('.voice-channel[data-voice]')){clearTimeout(ycVoiceGestureTimer);ycVoiceGestureTimer=setTimeout(ycFlushVoiceGesture,0)}},true);
 window.addEventListener('blur',ycFlushVoiceGesture);
 function renderVoiceChannels(chs){voiceChannelDefs=chs||[];const root=$('voiceChannelList');if(!root)return;const activeId=(window.__ycVoiceSwitchBusy&&window.__ycVoiceSwitchTargetId)?String(window.__ycVoiceSwitchTargetId):String(voiceChannel?.id||'');root.innerHTML=voiceChannelDefs.map(c=>{const people=voicePresenceByChannel[c.id]||[];return '<div class="voice-block"><button class="voice-channel '+(activeId===String(c.id)?'active':'')+'" data-voice="'+c.id+'"><span>🔊</span><span>'+esc(c.name)+'</span><span class="voice-count">'+people.length+'</span></button><div class="voice-users">'+people.map(p=>{const mix=voiceMixFor(p.user_id),remote=p.user_id!==user?.id;return '<div class="voice-user '+(p.user_id===user?.id?'me-voice':'')+' '+(p.speaking&&!p.muted?'is-speaking':'')+' '+(remote&&mix.muted?'local-muted':'')+'" data-user-id="'+esc(p.user_id)+'" data-user-name="'+esc(p.username||'Uživatel')+'" title="'+(remote?'Pravým tlačítkem: hlasitost / lokální mute':'Ty')+'"><span class="voice-talk-dot"></span><span>'+(p.muted?'🔇':'🎙')+'</span><span>'+esc(p.username||'Uživatel')+'</span><span class="voice-user-icons">'+(remote&&mix.muted?'🔇':remote&&mix.volume!==100?'🔈 '+mix.volume+'%':'')+(p.deafened?' 🎧':'')+'</span></div>'}).join('')+'</div></div>'}).join('')}
-function subscribeVoiceParticipants(){if(voiceParticipantSub)return;voiceParticipantSub=sb.channel('yc-voice-participants-'+user.id+'-'+Date.now()).on('postgres_changes',{event:'*',schema:'public',table:'voice_participants'},payload=>{const row=payload.new||payload.old,id=row?.channel_id,uid=row?.user_id;if(payload.eventType==='DELETE'){if(uid){if(uid!==user.id){if(voiceJoinSoundArmed&&(!id||voiceChannel?.id===id))playVoiceCue('other-leave');closeVoicePeer(uid)}if(id){voicePresenceByChannel[id]=(voicePresenceByChannel[id]||[]).filter(p=>p.user_id!==uid);if(voiceChannel?.id===id)syncVoicePeers()}else{for(const key of Object.keys(voicePresenceByChannel))voicePresenceByChannel[key]=(voicePresenceByChannel[key]||[]).filter(p=>p.user_id!==uid)}renderVoiceChannels(voiceChannelDefs)}if(id){setTimeout(()=>refreshVoiceParticipants(id),180);setTimeout(()=>refreshVoiceParticipants(id),900)}else{for(const c of voiceChannelDefs)setTimeout(()=>refreshVoiceParticipants(c.id),180)}return}if(!id)return;if(!voiceChannelDefs.some(c=>c.id===id)&&voiceChannel?.id!==id)return;if(payload.eventType==='INSERT'&&uid!==user.id&&voiceJoinSoundArmed&&voiceChannel?.id===id)playVoiceCue('other-join');refreshVoiceParticipants(id);if(uid){for(const c of voiceChannelDefs){if(c.id!==id)refreshVoiceParticipants(c.id)}}}).subscribe()}
-async function refreshVoiceParticipants(id){if(!id)return;const cutoff=new Date(Date.now()-20000).toISOString();const {data,error}=await sb.from('voice_participants').select('channel_id,user_id,session_id,username,muted,deafened,speaking,joined_at,last_seen').eq('channel_id',id).gt('last_seen',cutoff).order('joined_at');if(error){console.warn('voice participants',error);return}voicePresenceByChannel[id]=data||[];renderVoiceChannels(voiceChannelDefs);if(voiceChannel?.id===id)syncVoicePeers()}
+function subscribeVoiceParticipants(){if(voiceParticipantSub)return;voiceParticipantSub=sb.channel('yc-voice-participants-'+user.id+'-'+Date.now()).on('postgres_changes',{event:'*',schema:'public',table:'voice_participants'},payload=>{const row=payload.new||payload.old,id=row?.channel_id,uid=row?.user_id;if(payload.eventType==='DELETE'){if(uid){if(uid!==user.id){closeVoicePeer(uid)}if(id){if(voiceChannel?.id===id)syncVoicePeers()}renderVoiceChannels(voiceChannelDefs)}if(id){setTimeout(()=>refreshVoiceParticipants(id),180);setTimeout(()=>refreshVoiceParticipants(id),900)}else{for(const c of voiceChannelDefs)setTimeout(()=>refreshVoiceParticipants(c.id),180)}return}if(!id)return;if(!voiceChannelDefs.some(c=>c.id===id)&&voiceChannel?.id!==id)return;if(payload.eventType==='INSERT'&&uid!==user.id&&voiceJoinSoundArmed&&voiceChannel?.id===id)void 0;refreshVoiceParticipants(id);if(uid){for(const c of voiceChannelDefs){if(c.id!==id)refreshVoiceParticipants(c.id)}}}).subscribe()}
+async function refreshVoiceParticipants(id){if(!id)return;const before=[...(voicePresenceByChannel[id]||[])],cutoff=new Date(Date.now()-20000).toISOString();const {data,error}=await sb.from('voice_participants').select('channel_id,user_id,session_id,username,muted,deafened,speaking,joined_at,last_seen').eq('channel_id',id).gt('last_seen',cutoff).order('joined_at');if(error){console.warn('voice participants',error);return}const after=data||[];voicePresenceByChannel[id]=after;ycVoiceDiffAnnouncements(id,before,after);renderVoiceChannels(voiceChannelDefs);if(voiceChannel?.id===id)syncVoicePeers()}
 function ensureVoiceRooms(chs){subscribeVoiceParticipants();const wanted=new Set((chs||[]).map(c=>c.id));if(voiceChannel?.id)wanted.add(voiceChannel.id);for(const [id,room] of voiceRooms){if(!wanted.has(id)){sb.removeChannel(room);voiceRooms.delete(id);delete voicePresenceByChannel[id]}}for(const c of chs||[]){if(voiceRooms.has(c.id))continue;const id=c.id;const room=sb.channel('yc-voice-'+id,{config:{presence:{key:user.id},broadcast:{self:false}}}).on('presence',{event:'sync'},()=>{if(voiceChannel?.id===id)trackVoicePresence();refreshVoiceParticipants(id)}).on('presence',{event:'join'},()=>refreshVoiceParticipants(id)).on('presence',{event:'leave'},()=>{setTimeout(()=>refreshVoiceParticipants(id),250);setTimeout(()=>refreshVoiceParticipants(id),1000)}).on('broadcast',{event:'rtc-signal'},({payload})=>{if(voiceChannel?.id===id)handleVoiceSignal(payload)}).subscribe(status=>{if(status==='SUBSCRIBED'){if(voiceChannel?.id===id)trackVoicePresence();refreshVoiceParticipants(id)}});voiceRooms.set(id,room);refreshVoiceParticipants(id)}}
 function updateVoicePresence(id){refreshVoiceParticipants(id)}
 function getVoiceMediaDevices(){try{const f=window.frameElement;if(f){f.setAttribute('allow','microphone; camera; display-capture; autoplay; fullscreen; clipboard-read; clipboard-write; speaker-selection; picture-in-picture');f.setAttribute('allowfullscreen','')}}catch{}try{if(window.parent&&window.parent!==window&&window.parent.navigator?.mediaDevices)return window.parent.navigator.mediaDevices}catch{}return navigator.mediaDevices}
@@ -2768,7 +2964,7 @@ async function ycSwitchVoiceInput(){
 async function applyVoiceOutput(){if(voiceAudioContext&&typeof voiceAudioContext.setSinkId==='function')try{await voiceAudioContext.setSinkId(voiceOutputId||'default')}catch{}for(const a of document.querySelectorAll('audio[id^="voice-audio-"]')){if(typeof a.setSinkId==='function')try{await a.setSinkId(voiceOutputId||'default')}catch{}}}
 function playVoiceCue(type){try{unlockVoiceAudio();const ctx=voiceAudioContext;if(!ctx)return;const now=ctx.currentTime;const pattern=type==='self-join'?[[523,.00,.08],[659,.09,.10]]:type==='self-leave'?[[659,.00,.07],[440,.08,.11]]:type==='other-join'?[[740,.00,.06],[880,.07,.07]]:[[440,.00,.06],[330,.07,.08]];for(const [freq,delay,dur] of pattern){const o=ctx.createOscillator(),g=ctx.createGain();o.type='sine';o.frequency.setValueAtTime(freq,now+delay);g.gain.setValueAtTime(0,now+delay);g.gain.linearRampToValueAtTime(type.startsWith('other')?.035:.055,now+delay+.01);g.gain.exponentialRampToValueAtTime(.001,now+delay+dur);o.connect(g).connect(ctx.destination);o.start(now+delay);o.stop(now+delay+dur+.02)}}catch{}}
 function stopVoiceActivityDetector(){if(voiceVadStop){voiceVadStop();voiceVadStop=null}}
-function startVoiceActivityDetector(){stopVoiceActivityDetector();if(!voiceStream)return;try{const C=window.AudioContext||window.webkitAudioContext,ctx=new C(),an=ctx.createAnalyser(),src=ctx.createMediaStreamSource(voiceStream);ctx.resume().catch(()=>{});an.fftSize=256;an.smoothingTimeConstant=.35;src.connect(an);const arr=new Uint8Array(an.fftSize);let raf=0,lastState=false,lastSend=0,lastSample=0,noiseFloor=.004,speakingUntil=0;const tick=ts=>{if(!lastSample||ts-lastSample>=32){lastSample=ts;an.getByteTimeDomainData(arr);let sum=0;for(const v of arr){const x=(v-128)/128;sum+=x*x}const rms=Math.sqrt(sum/arr.length),now=performance.now();if(!lastState&&rms<.04)noiseFloor=noiseFloor*.97+rms*.03;const threshold=Math.max(.009,noiseFloor*2.15);if(!voiceMuted&&!voiceDeafened&&rms>threshold)speakingUntil=now+420;const next=!voiceMuted&&!voiceDeafened&&now<speakingUntil;if(next!==lastState&&now-lastSend>80){lastState=next;lastSend=now;voiceSpeaking=next;trackVoicePresence().catch(()=>{});renderVoiceChannels(voiceChannelDefs)}}raf=requestAnimationFrame(tick)};raf=requestAnimationFrame(tick);voiceVadStop=()=>{cancelAnimationFrame(raf);try{src.disconnect()}catch{}ctx.close().catch(()=>{})}}catch{}}
+function startVoiceActivityDetector(){stopVoiceActivityDetector();if(!voiceStream)return;window.__ycVoiceLastMicActivityAt=Date.now();try{const C=window.AudioContext||window.webkitAudioContext,ctx=new C(),an=ctx.createAnalyser(),src=ctx.createMediaStreamSource(voiceStream);ctx.resume().catch(()=>{});an.fftSize=256;an.smoothingTimeConstant=.35;src.connect(an);const arr=new Uint8Array(an.fftSize);let raf=0,lastState=false,lastSend=0,lastSample=0,noiseFloor=.004,speakingUntil=0;const tick=ts=>{if(!lastSample||ts-lastSample>=32){lastSample=ts;an.getByteTimeDomainData(arr);let sum=0;for(const v of arr){const x=(v-128)/128;sum+=x*x}const rms=Math.sqrt(sum/arr.length),now=performance.now();if(!lastState&&rms<.04)noiseFloor=noiseFloor*.97+rms*.03;const threshold=Math.max(.009,noiseFloor*2.15);if(!voiceMuted&&!voiceDeafened&&rms>threshold){speakingUntil=now+420;window.__ycVoiceLastMicActivityAt=Date.now()}const next=!voiceMuted&&!voiceDeafened&&now<speakingUntil;if(next!==lastState&&now-lastSend>80){lastState=next;lastSend=now;voiceSpeaking=next;if(next&&ycLastPresenceSig.startsWith('afk|'))void ycTouchPresence(true);trackVoicePresence().catch(()=>{});renderVoiceChannels(voiceChannelDefs)}}raf=requestAnimationFrame(tick)};raf=requestAnimationFrame(tick);voiceVadStop=()=>{cancelAnimationFrame(raf);try{src.disconnect()}catch{}ctx.close().catch(()=>{})}}catch{}}
 function stopVoiceMeter(){if(voiceMeterStop){voiceMeterStop();voiceMeterStop=null}}
 function startVoiceMeter(){stopVoiceMeter();const bar=$('voiceMeterBar');if(!bar||!voiceStream)return;try{const ctx=new (window.AudioContext||window.webkitAudioContext)(),an=ctx.createAnalyser(),src=ctx.createMediaStreamSource(voiceStream);an.fftSize=256;src.connect(an);const arr=new Uint8Array(an.fftSize);let raf=0,last=0;const tick=ts=>{if(!last||ts-last>=32){last=ts;an.getByteTimeDomainData(arr);let sum=0;for(const v of arr){const x=(v-128)/128;sum+=x*x}const rms=Math.sqrt(sum/arr.length);bar.style.width=Math.min(100,Math.round(rms*260))+'%'}raf=requestAnimationFrame(tick)};raf=requestAnimationFrame(tick);voiceMeterStop=()=>{cancelAnimationFrame(raf);try{src.disconnect()}catch{}ctx.close().catch(()=>{})}}catch{}}
 let ycMicTestStream=null,ycMicTestAudio=null,ycMicTestMeterStop=null
@@ -2785,17 +2981,17 @@ const SOUND_PRESETS=[
   {key:'boing',icon:'🌀',name:'Boing'},
   {key:'laser',icon:'⚡',name:'Laser'}
 ];
-function soundboardCanManage(){return canCommunityPermission('manage_soundboard')}
+function soundboardCanManage(){return !!currentCommunity&&String(currentCommunity.id)===ycVoiceCommunityId()&&canCommunityPermission('manage_soundboard')}
 async function subscribeSoundboardEvents(){if(!voiceChannel)return;if(soundboardSub){sb.removeChannel(soundboardSub);soundboardSub=null}const cid=voiceChannel.id;soundboardSub=sb.channel('yc-soundboard-'+cid+'-'+Date.now()).on('postgres_changes',{event:'INSERT',schema:'public',table:'soundboard_events',filter:'channel_id=eq.'+cid},({new:row})=>handleSoundboardEvent(row)).subscribe()}
 function cleanupSoundboardVoice(){if(soundboardSub){sb.removeChannel(soundboardSub);soundboardSub=null}soundboardEventSeen.clear()}
-async function loadSoundboardSounds(){if(!currentCommunity)return[];const {data,error}=await sb.from('soundboard_sounds').select('*').eq('community_id',currentCommunity.id).order('created_at');if(error){console.warn('soundboard sounds',error);return soundboardSounds}soundboardSounds=data||[];if(!$('soundboardPanel')?.classList.contains('hidden'))renderSoundboardPanel();return soundboardSounds}
+async function loadSoundboardSounds(){const ycVoiceCid=ycVoiceCommunityId();if(!ycVoiceCid)return[];const {data,error}=await sb.from('soundboard_sounds').select('*').eq('community_id',ycVoiceCid).order('created_at');if(error){console.warn('soundboard sounds',error);return soundboardSounds}soundboardSounds=data||[];if(!$('soundboardPanel')?.classList.contains('hidden'))renderSoundboardPanel();return soundboardSounds}
 function renderSoundboardPanel(){const panel=$('soundboardPanel');if(!panel)return;const built=SOUND_PRESETS.map(s=>'<button class="soundboard-sound" data-sound-key="'+esc(s.key)+'"><span class="sb-icon">'+s.icon+'</span><span class="sb-name">'+esc(s.name)+'</span></button>').join('');const custom=soundboardSounds.map(s=>'<button class="soundboard-sound soundboard-custom" data-sound-id="'+s.id+'"><span class="sb-icon">🔊</span><span class="sb-name">'+esc(s.name)+'</span>'+(soundboardCanManage()?'<span class="soundboard-delete" data-delete-sound="'+s.id+'" title="Smazat">×</span>':'')+'</button>').join('');panel.innerHTML='<div class="soundboard-head"><strong>Soundboard</strong><button class="soundboard-close" id="soundboardCloseBtn">×</button></div><div class="soundboard-grid">'+built+custom+'</div>'+(soundboardCanManage()?'<button id="soundboardUploadBtn" class="soundboard-upload">＋ Přidat vlastní zvuk</button>':'')+'<div class="soundboard-note">Zvuk se přehraje všem ve stejném hlasovém kanálu.</div>'}
 async function toggleSoundboardPanel(){if(!voiceChannel){toast('Nejdřív se připoj do voice.',true);return}const panel=$('soundboardPanel');if(!panel)return;const opening=panel.classList.contains('hidden');panel.classList.toggle('hidden',!opening);if(opening){await loadSoundboardSounds();renderSoundboardPanel()}}
-function playPresetSound(key){unlockVoiceAudio();const ctx=voiceAudioContext;if(!ctx||voiceDeafened)return;const now=ctx.currentTime;const make=(type,freq,start,dur,gain=.08,endFreq=null)=>{const o=ctx.createOscillator(),g=ctx.createGain();o.type=type;o.frequency.setValueAtTime(freq,now+start);if(endFreq)o.frequency.exponentialRampToValueAtTime(endFreq,now+start+dur);g.gain.setValueAtTime(.0001,now+start);g.gain.exponentialRampToValueAtTime(gain,now+start+.015);g.gain.exponentialRampToValueAtTime(.0001,now+start+dur);o.connect(g).connect(ctx.destination);o.start(now+start);o.stop(now+start+dur+.03)};if(key==='airhorn'){make('sawtooth',420,0,.42,.055,315);make('square',210,0,.42,.025,165)}else if(key==='bell'){make('sine',880,0,.55,.09);make('sine',1320,0,.42,.04)}else if(key==='error'){make('square',180,0,.18,.05);make('square',145,.2,.28,.045)}else if(key==='victory'){[523,659,784,1047].forEach((f,i)=>make('triangle',f,i*.11,.18,.055))}else if(key==='boing'){make('sine',190,0,.45,.08,520)}else if(key==='laser'){make('sawtooth',1250,0,.3,.045,140)} }
+function playPresetSound(key,gainScale=1){unlockVoiceAudio();const ctx=voiceAudioContext;if(!ctx||voiceDeafened)return;const now=ctx.currentTime;const make=(type,freq,start,dur,gain=.08,endFreq=null)=>{const o=ctx.createOscillator(),g=ctx.createGain();o.type=type;o.frequency.setValueAtTime(freq,now+start);if(endFreq)o.frequency.exponentialRampToValueAtTime(endFreq,now+start+dur);g.gain.setValueAtTime(.0001,now+start);g.gain.exponentialRampToValueAtTime(gain*Math.max(0,Number(gainScale)||0),now+start+.015);g.gain.exponentialRampToValueAtTime(.0001,now+start+dur);o.connect(g).connect(ctx.destination);o.start(now+start);o.stop(now+start+dur+.03)};if(key==='airhorn'){make('sawtooth',420,0,.42,.055,315);make('square',210,0,.42,.025,165)}else if(key==='bell'){make('sine',880,0,.55,.09);make('sine',1320,0,.42,.04)}else if(key==='error'){make('square',180,0,.18,.05);make('square',145,.2,.28,.045)}else if(key==='victory'){[523,659,784,1047].forEach((f,i)=>make('triangle',f,i*.11,.18,.055))}else if(key==='boing'){make('sine',190,0,.45,.08,520)}else if(key==='laser'){make('sawtooth',1250,0,.3,.045,140)} }
 async function getSoundboardBuffer(sound){if(soundboardBuffers.has(sound.id))return soundboardBuffers.get(sound.id);const {data,error}=await sb.storage.from('soundboard').createSignedUrl(sound.storage_path,3600);if(error||!data?.signedUrl)throw error||new Error('Zvuk není dostupný');unlockVoiceAudio();const res=await fetch(data.signedUrl);const arr=await res.arrayBuffer();const buf=await voiceAudioContext.decodeAudioData(arr.slice(0));soundboardBuffers.set(sound.id,buf);return buf}
-async function playCustomSound(soundId){if(voiceDeafened)return;let sound=soundboardSounds.find(s=>s.id===soundId);if(!sound){const {data}=await sb.from('soundboard_sounds').select('*').eq('id',soundId).maybeSingle();sound=data;if(sound)soundboardSounds.push(sound)}if(!sound)return;try{const buf=await getSoundboardBuffer(sound);unlockVoiceAudio();const src=voiceAudioContext.createBufferSource(),g=voiceAudioContext.createGain();g.gain.value=.72;src.buffer=buf;src.connect(g).connect(voiceAudioContext.destination);src.start()}catch(e){console.warn('soundboard audio',e)}}
-async function handleSoundboardEvent(row){if(!row||!voiceChannel||row.channel_id!==voiceChannel.id||soundboardEventSeen.has(row.id))return;soundboardEventSeen.add(row.id);if(soundboardEventSeen.size>300)soundboardEventSeen.clear();if(row.sound_key)playPresetSound(row.sound_key);else if(row.sound_id)await playCustomSound(row.sound_id)}
-async function triggerSoundboard(soundKey=null,soundId=null){if(!voiceChannel){toast('Nejdřív se připoj do voice.',true);return}const now=Date.now();if(now-soundboardLastPlay<650)return;soundboardLastPlay=now;const id=crypto.randomUUID();soundboardEventSeen.add(id);if(soundKey)playPresetSound(soundKey);else if(soundId)void playCustomSound(soundId);const {error}=await sb.from('soundboard_events').insert({id,channel_id:voiceChannel.id,user_id:user.id,sound_key:soundKey,sound_id:soundId});if(error)toast('Soundboard: '+error.message,true)}
+async function playCustomSound(soundId,gainScale=1){if(voiceDeafened)return;let sound=soundboardSounds.find(s=>s.id===soundId);if(!sound){const {data}=await sb.from('soundboard_sounds').select('*').eq('id',soundId).maybeSingle();sound=data;if(sound)soundboardSounds.push(sound)}if(!sound)return;try{const buf=await getSoundboardBuffer(sound);unlockVoiceAudio();const src=voiceAudioContext.createBufferSource(),g=voiceAudioContext.createGain();g.gain.value=.72*Math.max(0,Number(gainScale)||0);src.buffer=buf;src.connect(g).connect(voiceAudioContext.destination);src.start()}catch(e){console.warn('soundboard audio',e)}}
+async function handleSoundboardEvent(row){if(!row||!voiceChannel||row.channel_id!==voiceChannel.id||soundboardEventSeen.has(row.id))return;soundboardEventSeen.add(row.id);if(soundboardEventSeen.size>300)soundboardEventSeen.clear();const scale=ycSoundboardScaleFor(row.user_id);if(scale<=0)return;if(row.sound_key)playPresetSound(row.sound_key,scale);else if(row.sound_id)await playCustomSound(row.sound_id,scale)}
+async function triggerSoundboard(soundKey=null,soundId=null){if(!voiceChannel){toast('Nejdřív se připoj do voice.',true);return}const now=Date.now();if(now-soundboardLastPlay<650)return;soundboardLastPlay=now;const id=crypto.randomUUID();soundboardEventSeen.add(id);const ycSbScale=ycSoundboardScaleFor(user?.id);if(soundKey)playPresetSound(soundKey,ycSbScale);else if(soundId)void playCustomSound(soundId,ycSbScale);const {error}=await sb.from('soundboard_events').insert({id,channel_id:voiceChannel.id,user_id:user.id,sound_key:soundKey,sound_id:soundId});if(error)toast('Soundboard: '+error.message,true)}
 async function validateSoundFile(file){if(!file)return false;if(file.size>5*1024*1024){toast('Soundboard zvuk může mít maximálně 5 MB.',true);return false}if(!file.type.startsWith('audio/')){toast('Vyber audio soubor MP3, WAV, OGG nebo WebM.',true);return false}return await new Promise(resolve=>{const a=document.createElement('audio'),u=URL.createObjectURL(file);a.preload='metadata';a.onloadedmetadata=()=>{URL.revokeObjectURL(u);if(!Number.isFinite(a.duration)||a.duration>12){toast('Zvuk může mít maximálně 12 sekund.',true);resolve(false)}else resolve(true)};a.onerror=()=>{URL.revokeObjectURL(u);toast('Zvuk se nepodařilo načíst.',true);resolve(false)};a.src=u})}
 async function uploadSoundboardSound(){if(!soundboardCanManage()||!currentCommunity)return;const input=document.createElement('input');input.type='file';input.accept='audio/mpeg,audio/wav,audio/x-wav,audio/ogg,audio/webm,audio/mp4';input.onchange=async()=>{const file=input.files?.[0];if(!await validateSoundFile(file))return;const name=(await ycDesktopPrompt('Název zvuku:',file.name.replace(/.[^.]+$/,''))||'').trim().slice(0,40);if(!name)return;const safe=file.name.replace(/[^a-zA-Z0-9._-]/g,'_'),path=currentCommunity.id+'/'+crypto.randomUUID()+'-'+safe;const {error:upErr}=await sb.storage.from('soundboard').upload(path,file,{contentType:file.type,upsert:false});if(upErr){toast('Upload zvuku: '+upErr.message,true);return}const {error}=await sb.from('soundboard_sounds').insert({community_id:currentCommunity.id,uploader_id:user.id,name,storage_path:path,mime_type:file.type,size_bytes:file.size});if(error){await sb.storage.from('soundboard').remove([path]);toast('Soundboard: '+error.message,true);return}toast('Zvuk přidán do soundboardu.');await loadSoundboardSounds()};input.click()}
 async function deleteSoundboardSound(id){if(!soundboardCanManage())return;const s=soundboardSounds.find(x=>x.id===id);if(!s||!confirm('Smazat zvuk '+s.name+'?'))return;const {error}=await sb.from('soundboard_sounds').delete().eq('id',id);if(error){toast(error.message,true);return}await sb.storage.from('soundboard').remove([s.storage_path]);soundboardBuffers.delete(id);soundboardSounds=soundboardSounds.filter(x=>x.id!==id);renderSoundboardPanel();toast('Zvuk smazán.')}
@@ -3081,7 +3277,7 @@ document.querySelector('.me')?.addEventListener('click',e=>{e.stopPropagation();
 let ycLastInputAt=Date.now(),ycPresenceTimer=null,ycSocialRefreshTimer=null,ycPresenceWriting=false,ycLastPresenceSig=''
 function ycCurrentActivity(){try{if(profile?.custom_activity?.trim())return profile.custom_activity.trim();if(typeof screenShareActive!=='undefined'&&screenShareActive)return'Sdílí obrazovku';if(typeof voiceChannel!=='undefined'&&voiceChannel)return'V hlasové místnosti';return'V Yamachatu'}catch{return'V Yamachatu'}}
 function ycPresencePreference(){const raw=String(profile?.status||'online').toLowerCase(),s=raw==='busy'?'dnd':raw==='away'?'afk':raw;return ['online','afk','dnd','invisible'].includes(s)?s:'online'}
-function ycAutoPresenceState(){const pref=ycPresencePreference();if(pref!=='online')return pref;return document.hidden||Date.now()-ycLastInputAt>=300000?'afk':'online'}
+function ycAutoPresenceState(){const pref=ycPresencePreference();if(pref!=='online')return pref;const voiceLive=!!voiceChannel&&!!voiceStream?.getAudioTracks?.().some(t=>t.readyState==='live');if(voiceLive){const lastVoiceActivity=Math.max(Number(window.__ycVoiceLastMicActivityAt||0),Number(ycLastInputAt||0));return Date.now()-lastVoiceActivity>=300000?'afk':'online'}return document.hidden||Date.now()-ycLastInputAt>=300000?'afk':'online'}
 async function ycTouchPresence(force=false){if(!user||!profile||ycPresenceWriting)return;const state=ycAutoPresenceState(),activity=state==='invisible'?'':ycCurrentActivity(),sig=state+'|'+activity;if(typeof renderVoiceControls==='function')renderVoiceControls();if(!force&&sig===ycLastPresenceSig&&Date.now()-Number(sessionStorage.getItem('yc_presence_touch')||0)<15000)return;ycPresenceWriting=true;try{const now=new Date().toISOString();const {error}=await sb.from('user_presence').upsert({user_id:user.id,state,activity_text:activity,last_seen_at:now},{onConflict:'user_id'});if(!error){ycLastPresenceSig=sig;sessionStorage.setItem('yc_presence_touch',String(Date.now()))}}catch(e){console.warn('presence heartbeat',e)}finally{ycPresenceWriting=false}}
 async function ycPresenceOffline(){try{if(user)await sb.from('user_presence').upsert({user_id:user.id,state:'offline',activity_text:'',last_seen_at:new Date().toISOString()},{onConflict:'user_id'})}catch{}}
 function ycStartPresence(){if(ycPresenceTimer)return;ycPresenceTimer=setInterval(()=>{if(user&&profile)ycTouchPresence(true)},20000);ycSocialRefreshTimer=setInterval(()=>{if(!user||document.hidden)return;if(rightMode==='friends')void renderFriends();else if(rightMode==='members')void renderRight();if(ycFriendsHomeMode)void loadDmThreads()},15000);for(const ev of ['pointerdown','keydown','touchstart'])window.addEventListener(ev,()=>{ycLastInputAt=Date.now();if(user&&profile&&ycPresencePreference()==='online'&&ycLastPresenceSig.startsWith('afk|'))ycTouchPresence(true)},{passive:true});let ycLastMouseMark=0;window.addEventListener('mousemove',()=>{const now=Date.now();if(now-ycLastMouseMark>=1000){ycLastMouseMark=now;ycLastInputAt=now}},{passive:true});document.addEventListener('visibilitychange',()=>{if(!document.hidden)ycLastInputAt=Date.now();ycTouchPresence(true)});setTimeout(()=>{ycTouchPresence(true);ycSyncDiscordIdentity()},700)}
@@ -3117,6 +3313,7 @@ function ycVoiceSpeak(text){
 }
 function ycVoiceAnnounceName(){return String(profile?.display_name||profile?.username||user?.email?.split('@')[0]||'Uživatel').trim()||'Uživatel'}
 function ycVoiceHandleAnnouncement(payload){
+  if(window.__ycVoiceParticipantAnnouncements)return;
   try{
     if(!payload||String(payload.user_id||'')===String(user?.id||''))return
     if(String(payload.room_id||'')!==String(voiceChannel?.id||''))return
@@ -3496,6 +3693,7 @@ function ycVoiceNameAllow(row,action){
   return true
 }
 function ycVoiceSpeakPerson(row,action){
+  if(window.__ycVoiceParticipantAnnouncements)return;
   try{
     if(!row||!voiceChannel||row.channel_id!==voiceChannel.id||row.user_id===user?.id)return
     if(!ycVoiceNameAllow(row,action))return
@@ -3652,7 +3850,7 @@ async function ycSyncUpdateState(){const state=await ycDesktopSettingsRequest('g
 function ycRenderUpdateNotice(){ycInstallAppSettingsStyle();const st=ycUpdateState||{},status=st.status||'';let n=$('ycUpdateNotice');if(!['available','downloaded'].includes(status)||(!st.availableVersion&&status==='available')||ycUpdateNoticeDismissedFor===String(st.availableVersion||status)){n?.remove();return}if(!n){n=document.createElement('div');n.id='ycUpdateNotice';n.className='yc-update-notice';document.body.appendChild(n)}const ready=status==='downloaded';n.innerHTML='<strong>'+(ready?'Aktualizace je připravena':'Nový Yamachat '+esc(st.availableVersion||''))+'</strong><p>'+(ready?'Stažení je hotové. Restartuj Yamachat a aktualizace se nainstaluje automaticky.':'Novou verzi můžeš stáhnout přímo v aplikaci. Nemusíš otevírat web ani hledat ZIP.')+'</p><div class="yc-update-notice-actions"><button id="ycUpdateNoticeLater" type="button">Později</button><button id="ycUpdateNoticeOpen" class="primary" type="button">'+(ready?'Restartovat a aktualizovat':'Zobrazit aktualizaci')+'</button></div>';n.querySelector('#ycUpdateNoticeLater').onclick=()=>{ycUpdateNoticeDismissedFor=String(st.availableVersion||status);n.remove()};n.querySelector('#ycUpdateNoticeOpen').onclick=()=>{if(ready){void ycDesktopSettingsRequest('install-update')}else{n.remove();void ycOpenAppSettings()}}}
 ycRegisterAppSettingsSection({id:'window',title:'Chování okna',description:'Určuje, co má desktopová aplikace udělat po kliknutí na zavírací křížek.',render:ycCloseBehaviorSectionHtml,bind:root=>{root.querySelectorAll('input[name="ycCloseBehavior"]').forEach(r=>r.onchange=async()=>{if(!r.checked)return;ycAppSettingsState.closeBehavior=r.value;localStorage.setItem('yc_close_behavior',r.value);await ycDesktopSettingsRequest('set-setting',{key:'closeBehavior',value:r.value});toast('Nastavení zavírání uloženo.')})}});
 ycRegisterAppSettingsSection({id:'updates',title:'Aktualizace Yamachatu',description:'Nové verze se kontrolují automaticky a instalují se až po tvém potvrzení.',render:ycUpdateSectionHtml,bind:ycBindUpdateSection});
-async function ycOpenAppSettings(){ycInstallAppSettingsStyle();await ycSyncAppSettings();const sections=[...ycAppSettingsSections.values()].filter(s=>s.visible===undefined||(typeof s.visible==='function'?s.visible():s.visible));$('modalRoot').innerHTML='<div class="modal-back"><div class="modal yc-app-settings-modal"><div class="modal-head"><h3>⚙ Nastavení aplikace</h3><button class="x" id="closeModal">×</button></div><div id="ycAppSettingsSections">'+sections.map(s=>'<section class="yc-app-settings-section" data-yc-settings-section="'+esc(s.id)+'"><h4>'+esc(s.title||s.id)+'</h4>'+(s.description?'<p>'+esc(s.description)+'</p>':'')+(s.render?s.render():'')+'</section>').join('')+'</div><div class="yc-settings-note">Nastavení je připravené jako rozšiřitelný modul. Další volby můžeme přidávat po sekcích bez zásahu do ostatních částí Yamachatu.</div></div></div>';$('closeModal').onclick=closeModal;const root=$('ycAppSettingsSections');for(const s of sections)try{s.bind?.(root.querySelector('[data-yc-settings-section="'+s.id+'"]'))}catch(e){console.warn('app settings bind',s.id,e)}}
+async function ycOpenAppSettings(){ycInstallAppSettingsStyle();await ycSyncAppSettings();const sections=[...ycAppSettingsSections.values()].filter(s=>s.visible===undefined||(typeof s.visible==='function'?s.visible():s.visible));$('modalRoot').innerHTML='<div class="modal-back"><div class="modal yc-app-settings-modal"><div class="modal-head"><h3>⚙ Nastavení aplikace</h3><button class="x" id="closeModal">×</button></div><div id="ycAppSettingsSections">'+sections.map(s=>'<section class="yc-app-settings-section" data-yc-settings-section="'+esc(s.id)+'"><h4>'+esc(s.title||s.id)+'</h4>'+(s.description?'<p>'+esc(s.description)+'</p>':'')+(s.render?s.render():'')+'</section>').join('')+'</div><div class="yc-settings-note">Nastavení je připravené jako rozšiřitelný modul. Další volby můžeme přidávat po sekcích bez zásahu do ostatních částí Yamachatu.</div></div></div>';$('closeModal').onclick=closeModal;const ycAppSettingsBack=$('modalRoot')?.querySelector('.modal-back');if(ycAppSettingsBack)ycAppSettingsBack.addEventListener('pointerdown',e=>{if(e.target===ycAppSettingsBack)closeModal()});const root=$('ycAppSettingsSections');for(const s of sections)try{s.bind?.(root.querySelector('[data-yc-settings-section="'+s.id+'"]'))}catch(e){console.warn('app settings bind',s.id,e)}}
 window.YamachatAppSettings={register:ycRegisterAppSettingsSection,open:ycOpenAppSettings,state:ycAppSettingsState,sync:ycSyncAppSettings};
 ycOnLifecycle('init',()=>{const b=$('appSettingsBtn');if(b)b.onclick=()=>void ycOpenAppSettings();void ycSyncAppSettings();void ycSyncUpdateState()});
 
@@ -3935,9 +4133,27 @@ function ycEnsureDmAudio(){
  try{if(!ycDmAudioCtx){const AC=window.AudioContext||window.webkitAudioContext;if(AC)ycDmAudioCtx=new AC()}if(ycDmAudioCtx?.state==='suspended')void ycDmAudioCtx.resume()}catch{}
 }
 function ycArmDmAudio(){if(ycDmAudioArmed)return;ycDmAudioArmed=true;const arm=()=>ycEnsureDmAudio();window.addEventListener('pointerdown',arm,{passive:true});window.addEventListener('keydown',arm)}
-function ycPlayDmSound(){
- try{if(typeof ycPresencePreference==='function'&&ycPresencePreference()==='dnd')return;ycEnsureDmAudio();const ctx=ycDmAudioCtx;if(!ctx||ctx.state!=='running')return;const now=ctx.currentTime;const master=ctx.createGain();master.gain.setValueAtTime(.0001,now);master.gain.exponentialRampToValueAtTime(.12,now+.012);master.gain.exponentialRampToValueAtTime(.0001,now+.52);master.connect(ctx.destination);
-  const tones=[{f:690,t:0,d:.13},{f:520,t:.16,d:.14},{f:780,t:.32,d:.16}];for(const x of tones){const o=ctx.createOscillator(),g=ctx.createGain();o.type='sine';o.frequency.setValueAtTime(x.f,now+x.t);g.gain.setValueAtTime(.0001,now+x.t);g.gain.exponentialRampToValueAtTime(.7,now+x.t+.012);g.gain.exponentialRampToValueAtTime(.0001,now+x.t+x.d);o.connect(g);g.connect(master);o.start(now+x.t);o.stop(now+x.t+x.d+.02)}
+
+const YC_MESSAGE_SOUND_DATA='data:audio/mpeg;base64,SUQzBAAAAAAAIlRTU0UAAAAOAAADTGF2ZjYxLjcuMTAzAAAAAAAAAAAAAAD/84TAAAAAAAAAAAAASW5mbwAAAA8AAABHAAAUuAAMEBMTFxoaHiElJSgsLC8yNjY5PT1AREdHS05OUlVZWVxgYGNnZ2pucXF0eHh7f4KChomJjZCUlJebm56ipaWprKyws7O3ur29wcTEyMvPz9LW1tnd4ODk5+fr7vLy9fn5/P8AAAAATGF2YzYxLjE5AAAAAAAAAAAAAAAAJAOAAAAAAAAAFLgx6qoIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD/8zTEAAAAA0gAAAAATEFNRTMuMTAwVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVUxBTUUzLjEwMFVVVVVVVVVVVVX/8zTEOwAAA0gAAAAAVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVUxBTUUzLjEwMFVVVVVVVVVVVVX/8zTEdgAAA0gAAAAAVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVUxBTUUzLjEwMFVVVVVVVVVVVVX/8zTEsQAAA0gAAAAAVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVUxBTUUzLjEwMFVVVVVVVVVVVVX/8zTExAAAA0gAAAAAVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVUxBTUUzLjEwMFVVVVVVVVVVVVX/8zTExAAAA0gAAAAAVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVUxBTUUzLjEwMFVVVVVVVVVVVVX/8zTExAAAA0gAAAAAVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVUxBTUUzLjEwMFVVVVVVVVVVVVX/8zTExAAAA0gAAAAAVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVUxBTUUzLjEwMFVVVVVVVVVVVVX/8zTExAAAA0gAAAAAVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVUxBTUUzLjEwMFVVVVVVVVVVVVX/8zTExAAAA0gAAAAAVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVUxBTUUzLjEwMFVVVVVVVVVVVVX/8zTExAAAA0gAAAAAVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVUxBTUUzLjEwMFVVVVVVVVVVVVX/8zTExAAAA0gAAAAAVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVUxBTUUzLjEwMFVVVVVVVVVVVVX/8zTExAAAA0gAAAAAVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVUxBTUUzLjEwMFVVVVVVVVVVVVX/8zTExAAAA0gAAAAAVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVUxBTUUzLjEwMFVVVVVVVVVVVVX/8zTExAAAA0gAAAAAVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVUxBTUUzLjEwMFVVVVVVVVVVVVX/8zTExAAAA0gAAAAAVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVUxBTUUzLjEwMFVVVVVVVVVVVVX/8zTExAAAA0gAAAAAVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVQCDDACDCDDAAPDJQU9mC5gL8dj/8zTExAAAA0gAAAAACYGJ+2LhGkI8/wMeJC14BQYAMI/d8OqFp4Ii4NAIGVA/vd8AKeDZgjwWFgACAGgn/tZgzAXPmwFggsv/8zTExAAAA0gAAAAALgBwz/2azcaopcQGDSAbGx8i5g2wPS//93v4WYD5xXxCwNjggiGKgBiikkbCcQgEAiMRhEIAAAzchjX/8zTExAAAA0gAAAAAQ1L7x4TU3/wKVho5MTOKhttGKFRObfGUkE2ALQZOTE8uWNyPnIILm3WI4ybfaBiqUgxe+sY8dzbv/tz/8zTExAAAA0gBQAAAITvXw6sI4eaP8MMgMh8hn/r33f+F//iUoEYUtXLR81/yyD/bvYkzz5JarX0KRR51nDa7/8rJ7NRmo7b/8zTE/x3qYcWVkKAAc7qfNtW4qfrlX7kf9GgbWi5hmNKMAeY0KbUlMUBmFGBC0ZPILnCQ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qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqkxBTUUzLjEwMKqqqqqqqqqqqqr/8zTExAAAA0gAAAAAqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqkxBTUUzLjEwMKqqqqqqqqqqqqr/8zTExAAAA0gAAAAAqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqkxBTUUzLjEwMKqqqqqqqqqqqqr/8zTExAAAA0gAAAAAqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqkxBTUUzLjEwMKqqqqqqqqqqqqr/8zTExAAAA0gAAAAAqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqkxBTUUzLjEwMKqqqqqqqqqqqqr/8zTExAAAA0gAAAAAqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqkxBTUUzLjEwMKqqqqqqqqqqqqr/8zTExAAAA0gAAAAAqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqkxBTUUzLjEwMKqqqqqqqqqqqqr/8zTExAAAA0gAAAAAqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqkxBTUUzLjEwMKqqqqqqqqqqqqr/8zTExAAAA0gAAAAAqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqr/8zTExAAAA0gAAAAAqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqr/8zTExAAAA0gAAAAAqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqr/8zTExAAAA0gAAAAAqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqr/8zTExAAAA0gAAAAAqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqo='
+let ycMessageSoundBuffer=null,ycMessageSoundLoading=null
+async function ycLoadMessageSound(){
+ if(ycMessageSoundBuffer)return ycMessageSoundBuffer
+ if(ycMessageSoundLoading)return ycMessageSoundLoading
+ ycMessageSoundLoading=(async()=>{
+  ycEnsureDmAudio();const ctx=ycDmAudioCtx;if(!ctx)return null
+  const res=await fetch(YC_MESSAGE_SOUND_DATA),arr=await res.arrayBuffer()
+  ycMessageSoundBuffer=await ctx.decodeAudioData(arr.slice(0));return ycMessageSoundBuffer
+ })().catch(e=>{console.warn('message sound load',e);return null}).finally(()=>{ycMessageSoundLoading=null})
+ return ycMessageSoundLoading
+}
+async function ycPlayDmSound(){
+ try{
+  const presence=typeof ycPresencePreference==='function'?ycPresencePreference():'online'
+  if(presence==='dnd'||presence==='invisible')return
+  ycEnsureDmAudio();const ctx=ycDmAudioCtx;if(!ctx||ctx.state!=='running')return
+  const buffer=await ycLoadMessageSound();if(!buffer)return
+  const src=ctx.createBufferSource(),gain=ctx.createGain();gain.gain.value=.88
+  src.buffer=buffer;src.connect(gain).connect(ctx.destination);src.start()
  }catch(e){console.warn('dm sound',e)}
 }
 function ycUpdateDmBadge(){
@@ -4080,7 +4296,7 @@ async function ycCaptureStreamPreviewData(){
   try{const stream=screenShareStream,track=stream?.getVideoTracks?.()[0];if(!screenShareActive||!track||track.readyState!=='live')return null;const v=document.createElement('video');v.muted=true;v.playsInline=true;v.srcObject=stream;try{await v.play()}catch{};for(let i=0;i<12&&!v.videoWidth;i++)await new Promise(r=>setTimeout(r,80));if(!v.videoWidth||!v.videoHeight){v.srcObject=null;return null}const c=document.createElement('canvas');c.width=320;c.height=180;const ctx=c.getContext('2d');if(!ctx){v.srcObject=null;return null}ctx.fillStyle='#071019';ctx.fillRect(0,0,c.width,c.height);const scale=Math.min(c.width/v.videoWidth,c.height/v.videoHeight),dw=Math.max(1,Math.round(v.videoWidth*scale)),dh=Math.max(1,Math.round(v.videoHeight*scale)),dx=Math.round((c.width-dw)/2),dy=Math.round((c.height-dh)/2);ctx.drawImage(v,dx,dy,dw,dh);v.srcObject=null;return c.toDataURL('image/jpeg',.5)}catch(e){console.warn('stream preview capture',e);return null}
 }
 async function ycPublishStreamPresence(initial=false,withPreview=false){
-  if(!screenShareActive||!user?.id||!currentCommunity?.id||!voiceChannel?.id)return;const now=new Date().toISOString(),row={user_id:user.id,community_id:currentCommunity.id,channel_id:voiceChannel.id,updated_at:now};if(initial){row.started_at=now;row.preview_data=null}if(withPreview){const p=await ycCaptureStreamPreviewData();if(p)row.preview_data=p}
+  const ycVoiceCommunity=voiceChannel?.community_id||voiceChannel?.communityId||currentCommunity?.id;if(!screenShareActive||!user?.id||!ycVoiceCommunity||!voiceChannel?.id)return;const now=new Date().toISOString(),row={user_id:user.id,community_id:ycVoiceCommunity,channel_id:voiceChannel.id,updated_at:now};if(initial){row.started_at=now;row.preview_data=null}if(withPreview){const p=await ycCaptureStreamPreviewData();if(p)row.preview_data=p}
   try{const {data,error}=await sb.from('community_stream_presence').upsert(row,{onConflict:'user_id'}).select().maybeSingle();if(error)throw error;if(data)ycCommunityStreams.set(String(user.id),data);renderVoiceChannels(voiceChannelDefs)}catch(e){console.warn('stream presence publish',e)}
 }
 async function ycStartGlobalStreamPresence(){
@@ -6495,6 +6711,191 @@ ycOnLifecycle('communities',ycFriendsRefreshDecorate);
 ycOnLifecycle('community',ycFriendsRefreshDecorate);
 setTimeout(ycFriendsRefreshDecorate,0);
 setTimeout(ycFriendsRefreshDecorate,350);
+
+
+// Voice experience preferences: local per-user choices, no new backend schema.
+window.__ycVoiceParticipantAnnouncements=true;
+const YC_VOICE_ANNOUNCE_MODE_KEY='yc_voice_announce_mode';
+const YC_VOICE_ANNOUNCE_VOICE_KEY='yc_voice_announce_voice';
+const YC_VOICE_ANNOUNCE_CHARACTER_KEY='yc_voice_announce_character'; // legacy only
+const YC_SOUNDBOARD_VOLUME_KEY='yc_soundboard_volume_v1';
+const YC_VOICE_JOIN_CUE_SRC='./audio/yamachat_join_voice.mp3';
+const YC_VOICE_LEAVE_CUE_SRC='./audio/yamachat_leave_voice.mp3';
+const ycVoiceCuePlayers=new Set();
+const ycVoiceAnnouncementDedup=new Map();
+
+function ycVoiceAnnounceMode(){
+ const v=localStorage.getItem(YC_VOICE_ANNOUNCE_MODE_KEY)||'speech';
+ return ['speech','cue','off'].includes(v)?v:'speech';
+}
+function ycVoiceAvailableVoices(){
+ try{
+  const raw=[...(speechSynthesis?.getVoices?.()||[])],seen=new Set(),out=[];
+  for(const v of raw){
+   const key=String(v.voiceURI||'')||String(v.name||'')+'|'+String(v.lang||'');
+   if(!key||seen.has(key))continue;seen.add(key);out.push(v);
+  }
+  return out.sort((a,b)=>{
+   const ac=String(a.lang||'').toLowerCase().startsWith('cs')?0:1,bc=String(b.lang||'').toLowerCase().startsWith('cs')?0:1;
+   return ac-bc||String(a.name||'').localeCompare(String(b.name||''),'cs');
+  });
+ }catch{return[]}
+}
+function ycVoiceGenderHint(v){
+ const n=String(v?.name||'');
+ const female=/(^|\b)(vlasta|zira|hazel|susan|linda|heera|helena|zuzana|tereza|iva|mark[eé]ta|veronika|johana|lucie|anna|katja|elsa|sabina|female|woman)(\b|$)/i;
+ const male=/(^|\b)(jakub|david|mark|george|james|richard|pavel|michal|daniel|filip|jan|adam|anton[ií]n|ondřej|ondrej|matěj|matej|male|man)(\b|$)/i;
+ return female.test(n)?'female':male.test(n)?'male':'';
+}
+function ycVoiceSelectedVoice(voices){
+ const wanted=localStorage.getItem(YC_VOICE_ANNOUNCE_VOICE_KEY)||'';
+ const exact=voices.find(v=>v.voiceURI===wanted||v.name===wanted);if(exact)return exact;
+ return voices.find(v=>String(v.lang||'').toLowerCase().startsWith('cs'))||voices.find(v=>v.default)||voices[0]||null;
+}
+function ycVoiceOptionLabel(v){
+ const hint=ycVoiceGenderHint(v),gender=hint==='female'?' · ženský':hint==='male'?' · mužský':'';
+ return String(v.name||'Systémový hlas')+' · '+String(v.lang||'')+gender;
+}
+function ycVoiceOptionsHtml(voices){
+ const groups=[
+  ['Čeština · ženské',voices.filter(v=>String(v.lang||'').toLowerCase().startsWith('cs')&&ycVoiceGenderHint(v)==='female')],
+  ['Čeština · mužské',voices.filter(v=>String(v.lang||'').toLowerCase().startsWith('cs')&&ycVoiceGenderHint(v)==='male')],
+  ['Čeština · další',voices.filter(v=>String(v.lang||'').toLowerCase().startsWith('cs')&&!ycVoiceGenderHint(v))],
+  ['Ostatní skutečné hlasy',voices.filter(v=>!String(v.lang||'').toLowerCase().startsWith('cs'))]
+ ];
+ return groups.filter(([,list])=>list.length).map(([label,list])=>'<optgroup label="'+esc(label)+'">'+list.map(v=>'<option value="'+esc(v.voiceURI||v.name)+'">'+esc(ycVoiceOptionLabel(v))+'</option>').join('')+'</optgroup>').join('');
+}
+async function ycPlayVoiceFileCue(action,onDone){
+ let audio=null,finished=false;
+ const finish=()=>{if(finished)return;finished=true;if(audio)ycVoiceCuePlayers.delete(audio);try{onDone?.()}catch{}};
+ try{
+  if(voiceDeafened){finish();return null}
+  const src=action==='leave'?YC_VOICE_LEAVE_CUE_SRC:YC_VOICE_JOIN_CUE_SRC;
+  audio=new Audio(src);audio.preload='auto';audio.volume=.92;ycVoiceCuePlayers.add(audio);
+  audio.onended=finish;audio.onerror=finish;
+  if(voiceOutputId&&typeof audio.setSinkId==='function')try{await audio.setSinkId(voiceOutputId)}catch{}
+  await audio.play();return audio;
+ }catch(e){finish();console.warn('voice join/leave cue',e);return null}
+}
+function ycVoiceSpeakEnhanced(text,onDone){
+ if(!text||ycVoiceAnnounceMode()!=='speech'||!('speechSynthesis' in window)){try{onDone?.()}catch{};return null}
+ try{
+  const u=new SpeechSynthesisUtterance(text),voices=ycVoiceAvailableVoices(),selected=ycVoiceSelectedVoice(voices);
+  u.voice=selected;u.lang=selected?.lang||'cs-CZ';u.rate=1;u.pitch=1;u.volume=.94;
+  if(onDone){let done=false;const finish=()=>{if(done)return;done=true;try{onDone()}catch{}};u.onend=finish;u.onerror=finish;setTimeout(finish,5200)}
+  speechSynthesis.speak(u);return u;
+ }catch(e){try{onDone?.()}catch{};console.warn('voice participant TTS',e);return null}
+}
+function ycVoiceParticipantAnnouncement(row,action){
+ try{
+  if(!row)return;
+  const uid=String(row.user_id||'');if(!uid||uid===String(user?.id||''))return;
+  const activeChannel=String(voiceChannel?.id||'');if(!activeChannel)return;
+  const rowChannel=String(row.channel_id||'');
+  const cached=(voicePresenceByChannel?.[rowChannel||activeChannel]||[]).find(p=>String(p.user_id||'')===uid)
+    ||(voicePresenceByChannel?.[activeChannel]||[]).find(p=>String(p.user_id||'')===uid);
+  const channelId=rowChannel||String(cached?.channel_id||activeChannel);
+  if(channelId!==activeChannel)return;
+  const mode=ycVoiceAnnounceMode();if(mode==='off')return;
+  if(mode==='cue'){void ycPlayVoiceFileCue(action);return}
+  const name=String(row.username||cached?.username||cached?.display_name||'Uživatel').trim()||'Uživatel';
+  ycVoiceSpeakEnhanced(action==='join'?name+' se připojil do místnosti':name+' opustil místnost');
+ }catch(e){console.warn('voice participant announcement',e)}
+}
+function ycVoiceAnnounceOnce(row,action){
+ try{
+  const uid=String(row?.user_id||'');const channel=String(row?.channel_id||voiceChannel?.id||'');if(!uid||!channel)return;
+  const key=action+'|'+channel+'|'+uid,now=Date.now(),last=Number(ycVoiceAnnouncementDedup.get(key)||0);
+  if(now-last<6000)return;ycVoiceAnnouncementDedup.set(key,now);
+  if(ycVoiceAnnouncementDedup.size>120)for(const [k,ts] of ycVoiceAnnouncementDedup)if(now-ts>15000)ycVoiceAnnouncementDedup.delete(k);
+  ycVoiceParticipantAnnouncement({...row,channel_id:channel},action);
+ }catch(e){console.warn('voice announcement dedup',e)}
+}
+function ycVoiceDiffAnnouncements(channelId,before,after){
+ if(!voiceJoinSoundArmed||String(channelId||'')!==String(voiceChannel?.id||''))return;
+ const oldMap=new Map((before||[]).map(p=>[String(p.user_id||''),p]).filter(([id])=>id));
+ const newMap=new Map((after||[]).map(p=>[String(p.user_id||''),p]).filter(([id])=>id));
+ for(const [uid,row] of newMap)if(uid!==String(user?.id||'')&&!oldMap.has(uid))ycVoiceAnnounceOnce(row,'join');
+ for(const [uid,row] of oldMap)if(uid!==String(user?.id||'')&&!newMap.has(uid))ycVoiceAnnounceOnce(row,'leave');
+}
+function ycSoundboardVolume(){
+ const n=Number(localStorage.getItem(YC_SOUNDBOARD_VOLUME_KEY));
+ return Number.isFinite(n)?Math.max(0,Math.min(100,n)):100;
+}
+function ycSoundboardScaleFor(uid){
+ const mix=uid&&typeof voiceMixFor==='function'?voiceMixFor(uid):{soundboardMuted:false};
+ if(mix?.soundboardMuted)return 0;
+ return ycSoundboardVolume()/100;
+}
+function ycMountSoundboardVolume(){
+ const panel=$('soundboardPanel');if(!panel||panel.querySelector('[data-yc-sb-volume]'))return;
+ const note=panel.querySelector('.soundboard-note'),wrap=document.createElement('div');wrap.className='yc-soundboard-volume';wrap.dataset.ycSbVolume='1';
+ const value=ycSoundboardVolume();
+ wrap.innerHTML='<label><span>Hlasitost soundboardu</span><strong data-yc-sb-volume-value>'+value+' %</strong></label><input data-yc-sb-volume-range type="range" min="0" max="100" step="5" value="'+value+'">';
+ (note?.parentElement||panel).insertBefore(wrap,note||null);
+ const input=wrap.querySelector('[data-yc-sb-volume-range]'),out=wrap.querySelector('[data-yc-sb-volume-value]');
+ input.oninput=()=>{const v=Math.max(0,Math.min(100,Number(input.value)||0));localStorage.setItem(YC_SOUNDBOARD_VOLUME_KEY,String(v));out.textContent=v+' %'};
+}
+const ycVoiceExperienceBaseRenderSoundboard=renderSoundboardPanel;
+renderSoundboardPanel=function(...args){const out=ycVoiceExperienceBaseRenderSoundboard.apply(this,args);ycMountSoundboardVolume();return out};
+
+const ycVoiceExperienceBaseUserMenu=openVoiceUserMenu;
+openVoiceUserMenu=function(uid,name,x,y){
+ const out=ycVoiceExperienceBaseUserMenu.call(this,uid,name,x,y),m=$('voiceUserContextMenu');if(!m||!uid||uid===user?.id)return out;
+ const mix=voiceMixFor(uid),btn=document.createElement('button');btn.type='button';btn.className='voice-user-menu-row';btn.dataset.ycSoundboardMuteUser=uid;
+ btn.textContent=mix.soundboardMuted?'🔊 Povolit jeho soundboard':'🔇 Ztlumit jeho soundboard';
+ const reset=$('voiceUserResetBtn');m.insertBefore(btn,reset||null);
+ btn.onclick=()=>{const cur=voiceMixFor(uid);setVoiceUserMix(uid,{soundboardMuted:!cur.soundboardMuted});openVoiceUserMenu(uid,name,x,y)};
+ return out;
+};
+
+function ycVoiceCommunityId(){
+ return String(voiceChannel?.community_id||voiceChannel?.communityId||currentCommunity?.id||'');
+}
+function ycVoiceExperienceSettingsHtml(){
+ const mode=ycVoiceAnnounceMode(),volume=ycSoundboardVolume();
+ const opt=(v,label)=>'<option value="'+v+'" '+(mode===v?'selected':'')+'>'+label+'</option>';
+ return '<div class="yc-voice-experience-settings">'+
+  '<div class="field"><label>Oznámení vstupu a odchodu z voice</label><select id="ycVoiceAnnounceMode">'+opt('speech','Přečíst jméno hlasem')+opt('cue','Jen krátký zvuk')+opt('off','Vypnuto')+'</select></div>'+
+  '<div class="field" data-yc-voice-select-wrap><label>Skutečný hlas pro čtení jmen</label><select id="ycVoiceAnnounceVoice"><option value="">Automaticky · preferovat češtinu</option></select><small data-yc-real-voice-note>Seznam obsahuje skutečné hlasy, které poskytuje Windows/Electron. Mužský/ženský štítek se zobrazí jen u hlasů, které lze bezpečně rozpoznat podle názvu.</small></div>'+
+  '<div class="yc-voice-preview-row"><button type="button" id="ycVoiceAnnounceTest">▶ Vyzkoušet hlas</button><button type="button" id="ycVoiceJoinTest" hidden>▶ JOIN zvuk</button><button type="button" id="ycVoiceLeaveTest" hidden>▶ LEAVE zvuk</button></div>'+
+  '<div class="field"><label>Hlasitost soundboardu · <span id="ycSoundboardVolumeValue">'+volume+' %</span></label><input id="ycSoundboardVolumeRange" type="range" min="0" max="100" step="5" value="'+volume+'"></div>'+
+  '<p class="yc-settings-note">Hlasitost lidí a lokální mute zůstávají zvlášť pro každého uživatele. Pravým kliknutím na člověka ve voice můžeš navíc ztlumit jen jeho soundboard.</p>'+
+ '</div>';
+}
+function ycBindVoiceExperienceSettings(root){
+ if(!root)return;
+ const mode=root.querySelector('#ycVoiceAnnounceMode'),voiceSelect=root.querySelector('#ycVoiceAnnounceVoice');
+ const syncVisibility=()=>{const speech=mode?.value==='speech',cue=mode?.value==='cue';root.querySelector('[data-yc-voice-select-wrap]')?.toggleAttribute('hidden',!speech);root.querySelector('#ycVoiceAnnounceTest')?.toggleAttribute('hidden',!speech);root.querySelector('#ycVoiceJoinTest')?.toggleAttribute('hidden',!cue);root.querySelector('#ycVoiceLeaveTest')?.toggleAttribute('hidden',!cue)};
+ const fillVoices=()=>{
+  if(!voiceSelect)return;const chosen=localStorage.getItem(YC_VOICE_ANNOUNCE_VOICE_KEY)||'',voices=ycVoiceAvailableVoices();
+  voiceSelect.innerHTML='<option value="">Automaticky · preferovat češtinu</option>'+ycVoiceOptionsHtml(voices);
+  voiceSelect.value=[...voiceSelect.options].some(o=>o.value===chosen)?chosen:'';
+  const note=root.querySelector('[data-yc-real-voice-note]');
+  if(note)note.textContent=voices.length
+   ?'Nalezeno '+voices.length+' skutečných systémových hlasů. Výběr mění voiceURI, ne rychlost nebo výšku jednoho hlasu.'
+   :'Windows/Electron zatím nevrátil žádný systémový hlas. Pokud se hlasy načtou později, seznam se automaticky obnoví.';
+ };
+ fillVoices();try{speechSynthesis?.addEventListener?.('voiceschanged',fillVoices,{once:true})}catch{}
+ mode.onchange=()=>{localStorage.setItem(YC_VOICE_ANNOUNCE_MODE_KEY,mode.value);syncVisibility()};
+ voiceSelect.onchange=()=>{localStorage.setItem(YC_VOICE_ANNOUNCE_VOICE_KEY,voiceSelect.value);try{speechSynthesis.cancel()}catch{}};
+ const sb=root.querySelector('#ycSoundboardVolumeRange'),sbv=root.querySelector('#ycSoundboardVolumeValue');
+ sb.oninput=()=>{const v=Math.max(0,Math.min(100,Number(sb.value)||0));localStorage.setItem(YC_SOUNDBOARD_VOLUME_KEY,String(v));sbv.textContent=v+' %'};
+ const previewButtons=[...root.querySelectorAll('#ycVoiceAnnounceTest,#ycVoiceJoinTest,#ycVoiceLeaveTest')];let previewBusy=false,previewTimer=0;
+ const previewUnlock=()=>{previewBusy=false;clearTimeout(previewTimer);previewButtons.forEach(b=>b.disabled=false)};
+ const previewRun=(runner,minLock=2600)=>{if(previewBusy)return;previewBusy=true;previewButtons.forEach(b=>b.disabled=true);const started=Date.now(),done=()=>{const rest=Math.max(0,minLock-(Date.now()-started));clearTimeout(previewTimer);previewTimer=setTimeout(previewUnlock,rest)};previewTimer=setTimeout(previewUnlock,Math.max(minLock,6000));try{runner(done)}catch(e){done();console.warn('voice preview',e)}};
+ root.querySelector('#ycVoiceAnnounceTest').onclick=()=>previewRun(done=>{try{speechSynthesis.cancel()}catch{};ycVoiceSpeakEnhanced((profile?.display_name||profile?.username||'Yamachat')+' se připojil do místnosti',done)},3600);
+ root.querySelector('#ycVoiceJoinTest').onclick=()=>previewRun(done=>void ycPlayVoiceFileCue('join',done),2600);
+ root.querySelector('#ycVoiceLeaveTest').onclick=()=>previewRun(done=>void ycPlayVoiceFileCue('leave',done),2600);
+ syncVisibility();
+}
+ycRegisterAppSettingsSection({
+ id:'voice-experience',
+ title:'Voice a zvuky',
+ description:'Oznámení lidí ve voice, hlas čtení a osobní hlasitost soundboardu.',
+ render:ycVoiceExperienceSettingsHtml,
+ bind:ycBindVoiceExperienceSettings
+});
 
 // Register every feature before restoring a cached session. Keep the splash until
 // lifecycle hooks and desktop appearance have finished, including on fresh login.
@@ -9428,6 +9829,18 @@ html.yc-ios-mobile .yc-v3-workspace{
  const password=document.getElementById('password');if(password){password.autocomplete='current-password';password.setAttribute('autocapitalize','none');password.setAttribute('autocorrect','off');password.spellcheck=false;const b=document.createElement('button');b.type='button';b.className='ghost';b.textContent='Zobrazit heslo';b.onclick=()=>{const show=password.type==='password';password.type=show?'text':'password';b.textContent=show?'Skrýt heslo':'Zobrazit heslo';b.setAttribute('aria-pressed',String(show))};password.after(b)}
 })();
 </script>
+
+<style id="ycVoiceExperienceStyle">
+.yc-voice-experience-settings{display:grid;gap:10px}
+.yc-voice-experience-settings .field{display:grid;gap:6px}
+.yc-voice-experience-settings select,.yc-voice-experience-settings input[type="range"]{width:100%}
+.yc-voice-experience-settings select{padding:9px 10px;border-radius:9px;border:1px solid color-mix(in srgb,var(--yc-theme,#e056fd) 34%,#35566a);background:#0c1d28;color:#e9f7fc}
+.yc-voice-experience-settings button{min-height:38px;border:1px solid color-mix(in srgb,var(--yc-theme,#e056fd) 42%,#385b6f);border-radius:9px;background:#112936;color:#e9f8ff;font-weight:800}.yc-voice-experience-settings button:disabled{opacity:.48;cursor:wait}.yc-voice-preview-row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.yc-voice-preview-row>#ycVoiceAnnounceTest{grid-column:1/-1}.yc-voice-preview-row>[hidden]{display:none!important}
+.yc-soundboard-volume{display:grid;gap:6px;padding:9px 10px;border:1px solid color-mix(in srgb,var(--yc-theme,#e056fd) 24%,#29495d);border-radius:9px;background:#091923}
+.yc-soundboard-volume label{display:flex;justify-content:space-between;gap:10px;color:#a8c4d0;font-size:10px}
+.yc-soundboard-volume input{width:100%;accent-color:var(--yc-theme,#e056fd)}
+</style>
+
 </body>
 
 
