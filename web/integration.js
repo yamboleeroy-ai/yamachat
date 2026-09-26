@@ -162,6 +162,28 @@ window.addEventListener('online',()=>{if(ycWebIsIosPwa())setTimeout(()=>void ycI
 ycOnLifecycle('community',()=>{if(ycWebIsIosPwa())setTimeout(()=>void ycIosVoiceReconnect('community'),500)});
 ycOnLifecycle('beforeAuth',()=>{if(ycWebIsIosPwa())ycIosVoiceClearTarget()});
 ycOnLifecycle('init',()=>{if(!window.Capacitor?.isNativePlatform?.()&&Notification.permission==='granted')setTimeout(()=>void ycWebPushSync(false),900)});
+async function ycWebOpenLaunchNotificationTarget(){
+ try{
+  if(window.Capacitor?.isNativePlatform?.())return false;
+  const params=new URL(location.href).searchParams;
+  const target={
+   messageId:String(params.get('message')||''),
+   channelId:String(params.get('channel')||''),
+   threadId:String(params.get('dm')||''),
+   communityId:String(params.get('community')||'')
+  };
+  if(!target.messageId&&!target.channelId&&!target.threadId&&!target.communityId)return false;
+  const clean=new URL(location.href);for(const key of ['message','channel','dm','community'])clean.searchParams.delete(key);
+  history.replaceState(history.state,'',clean.pathname+(clean.search||'')+clean.hash);
+  for(let i=0;i<30;i++){
+   if(user&&typeof window.ycOpenDesktopNotificationTarget==='function'){await window.ycOpenDesktopNotificationTarget(target);return true}
+   await new Promise(r=>setTimeout(r,150));
+  }
+ }catch(e){console.warn('Yamachat push launch target',e)}
+ return false
+}
+ycOnLifecycle('init',()=>setTimeout(()=>void ycWebOpenLaunchNotificationTarget(),350));
+
 async function ycWebSyncWakeLock(){if(!('wakeLock' in navigator))return;const needed=!!voiceChannel&&document.visibilityState==='visible';if(!needed){if(ycWebWakeLock){const lock=ycWebWakeLock;ycWebWakeLock=null;await lock.release().catch(()=>{})}return}if(ycWebWakeLock||ycWebWakePending)return;ycWebWakePending=true;try{const lock=await navigator.wakeLock.request('screen');ycWebWakeLock=lock;lock.addEventListener('release',()=>{if(ycWebWakeLock===lock)ycWebWakeLock=null});if(!voiceChannel||document.visibilityState!=='visible'){ycWebWakeLock=null;await lock.release()}}catch{}finally{ycWebWakePending=false}}
 document.addEventListener('visibilitychange',()=>void ycWebSyncWakeLock());
 setInterval(()=>{void ycWebSyncWakeLock();const count=window.__ycDesktopState?.().notificationUnreadCount||0;document.title=(count?'('+count+') ':'')+'Yamachat';try{if(count)navigator.setAppBadge?.(count)?.catch(()=>{});else navigator.clearAppBadge?.()?.catch(()=>{})}catch{}},3000);
