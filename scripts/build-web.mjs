@@ -13,6 +13,7 @@ import {withFriendsPanelRefresh} from './friends-panel-refresh.mjs';
 import {withVoiceThemePolish} from './voice-theme-polish.mjs';
 import {withVoiceExperience} from './voice-experience.mjs';
 import {withMessageNotificationSound} from './message-notification-sound.mjs';
+import {withStreamViewer} from './stream-viewer.mjs';
 
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
 const read=p=>fs.readFileSync(path.join(root,p),'utf8');
@@ -152,6 +153,7 @@ html=html.replace(
  // This keeps current Android/iOS/PWA navigation and geometry authoritative.
  html=withVoiceThemePolish(withMessageNotificationSound(withVoiceExperience(html)));
 
+html=withStreamViewer(html);
 fs.writeFileSync(path.join(root,'index.html'),html);
 console.log('Web generated from verified desktop 1.0.78 reference; desktop files were not modified.');
 

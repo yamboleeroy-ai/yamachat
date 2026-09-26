@@ -121,8 +121,13 @@ async function ycIosVoiceReconnect(reason='resume'){
       ycIosVoiceSaveTarget(channel);
       try{ycEnsureRealtime()}catch{}
       await new Promise(resolve=>setTimeout(resolve,180));
-      if(voiceChannel)await leaveVoiceChannel(true);
-      await joinVoiceChannel(channel);
+      const streamIntents=ycStreamViewer.beginRecovery();
+      try{
+        if(voiceChannel)await leaveVoiceChannel(true);
+        await joinVoiceChannel(channel);
+      }finally{
+        await ycStreamViewer.endRecovery(streamIntents,String(voiceChannel?.id||'')===String(channel.id));
+      }
       const ok=String(voiceChannel?.id||'')===String(channel.id);
       if(ok){ycIosVoiceSaveTarget(voiceChannel);return true}
       toast('Hlas se po návratu nepodařilo automaticky obnovit. Klepni znovu na hlasový kanál.',true);
