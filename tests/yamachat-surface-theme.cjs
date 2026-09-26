@@ -62,7 +62,7 @@ function geomEqual(a,b,key){
   await page.waitForSelector('[data-yc-settings-section="appearance"]');
   const appearance=page.locator('[data-yc-settings-section="appearance"]');
   assert.equal(await appearance.locator('input[name="ycSurfaceTheme"][value="dark"]').isChecked(),true,'Dark radio must be selected by default');
-  await appearance.locator('input[name="ycSurfaceTheme"][value="white"]').check();
+  await appearance.locator('label.yc-surface-choice:has(input[value="white"])').click();
   await page.waitForFunction(()=>document.documentElement.dataset.ycSurfaceTheme==='white');
   const white=await snap(page);
   assert.equal(white.theme,'white');
@@ -75,7 +75,7 @@ function geomEqual(a,b,key){
   }
   if(dark.chat&&white.chat)assert.notEqual(dark.chat.color,white.chat.color,'Chat text color must change between Dark and White');
 
-  await appearance.locator('input[name="ycSurfaceTheme"][value="dark"]').check();
+  await appearance.locator('label.yc-surface-choice:has(input[value="dark"])').click();
   await page.waitForFunction(()=>document.documentElement.dataset.ycSurfaceTheme==='dark');
   assert.equal(await page.evaluate(()=>localStorage.getItem('yc_surface_theme_v1')),'dark','Dark choice must persist when selected again');
   assert.deepEqual(errors,[]);
