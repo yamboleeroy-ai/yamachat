@@ -1,7 +1,7 @@
 {
   "name": "yamachat-windows",
-  "version": "1.0.95",
-  "description": "Yamachat desktop 1.0.95 with Windows WNS background notifications on the verified 1.0.94 runtime",
+  "version": "1.0.96",
+  "description": "Yamachat desktop 1.0.96 notification-scroll hotfix on the verified 1.0.95 Windows WNS release",
   "main": "main.js",
   "productName": "Yamachat",
   "author": "Yamachat",
