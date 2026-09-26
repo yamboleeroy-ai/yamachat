@@ -8,7 +8,6 @@ const results=[];
  try{
   for(const [platform,width,height,touch,iosPwa] of [['web',1440,900,false,false],['desktop',650,500,false,false],['android',390,844,true,false],['ios-pwa',390,844,true,true]]){
    const page=await browser.newPage({viewport:{width,height},hasTouch:touch,isMobile:touch,serviceWorkers:'block',...(iosPwa?{userAgent:'Mozilla/5.0 (iPhone; CPU iPhone OS 18_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.6 Mobile/15E148 Safari/604.1'}:{})});const errors=[];page.on('pageerror',e=>errors.push(e.message));
-   if(iosPwa)await page.addInitScript(()=>Object.defineProperty(navigator,'standalone',{value:true,configurable:true}));
    await page.route('**/*',route=>{
     const u=new URL(route.request().url());if(u.hostname!=='127.0.0.1')return route.abort();
     if(u.pathname.endsWith('/supabase.js'))return route.fulfill({contentType:'text/javascript',body:fixture.mock()});
@@ -24,6 +23,7 @@ const results=[];
    await page.waitForFunction(t=>document.querySelector('.yc-stream-viewer video').currentTime>t+.1,initialTime);
    const chatBefore=await page.locator('#messages').boundingBox();
    if(iosPwa)await page.evaluate(()=>{
+    Object.defineProperty(navigator,'standalone',{value:true,configurable:true});
     const video=document.querySelector('.yc-stream-viewer video'),nativePlay=video.play.bind(video);
     window.__ycIosMini={video,stream:video.srcObject,playCalls:0,nativePlay};
     video.play=(...args)=>{window.__ycIosMini.playCalls++;return nativePlay(...args)};
@@ -40,6 +40,7 @@ const results=[];
     await page.waitForFunction(()=>window.__ycIosMini.playCalls>=2);
     assert(await page.evaluate(()=>{const s=window.__ycIosMini,v=document.querySelector('.yc-stream-viewer video');return v===s.video&&v.srcObject===s.stream&&streamTest.same()}),'iOS PWA restore keeps video, MediaStream and peer identity');
     const restoredMiniTime=await video.evaluate(v=>v.currentTime);await page.waitForFunction(t=>document.querySelector('.yc-stream-viewer video').currentTime>t+.15,restoredMiniTime);
+    await page.evaluate(()=>Object.defineProperty(navigator,'standalone',{value:false,configurable:true}));
    }
    for(const where of ['channel','server','friends','dm','settings']){
     await page.evaluate(w=>streamTest.navigate(w),where);
@@ -48,6 +49,7 @@ const results=[];
    }
    // Settings stays operable; dismiss only its own dialog for pointer tests.
    await page.evaluate(()=>document.getElementById('modalRoot').replaceChildren());
+   if(iosPwa)await page.evaluate(()=>Object.defineProperty(navigator,'standalone',{value:true,configurable:true}));
    await page.locator('[data-action="minimize"]').click();
    assert.equal(await page.locator('.yc-stream-viewer').getAttribute('data-mode'),'mini');
    await page.waitForTimeout(550);
@@ -67,6 +69,7 @@ const results=[];
    await page.screenshot({path:path.join(out,platform+'-mini.png')});
    await page.locator('.yc-sv-media').click();
    assert.equal(await page.locator('.yc-stream-viewer').getAttribute('data-mode'),'floating');
+   if(iosPwa){await page.waitForFunction(()=>window.__ycIosMini.playCalls>=4);await page.evaluate(()=>Object.defineProperty(navigator,'standalone',{value:false,configurable:true}))}
    if(!touch){
     await page.locator('[data-action="maximize"]').click();assert.equal(await page.locator('.yc-stream-viewer').getAttribute('data-mode'),'maximized');
     await page.keyboard.press('Escape');
