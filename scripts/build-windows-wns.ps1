@@ -80,20 +80,19 @@ Set-Content -Path $manifestPath -Value $manifest -Encoding UTF8
   protocol = "yamachat"
 } | ConvertTo-Json | Set-Content -Path $configPath -Encoding UTF8
 
-$cert = $env:YAMACHAT_WNS_PFX_PATH
-$certPassword = $env:YAMACHAT_WNS_PFX_PASSWORD
 if ($TestMode) {
   $cert = Join-Path $outDir "wns-devcert.pfx"
   $certPassword = "yamachat-ci"
   npx --no-install winapp cert generate --manifest $manifestPath --output $cert --password $certPassword
   if ($LASTEXITCODE -ne 0 -or -not (Test-Path $cert)) { throw "WNS development certificate generation failed." }
-} else {
-  Require-Value "YAMACHAT_WNS_PFX_PATH" $cert | Out-Null
-  Require-Value "YAMACHAT_WNS_PFX_PASSWORD" $certPassword | Out-Null
-  if (-not (Test-Path $cert)) { throw "WNS production signing PFX was not found." }
-}
 
-npx --no-install winapp pack $manifestPath --output $identityMsix --cert $cert --cert-password $certPassword
+  npx --no-install winapp pack $manifestPath --output $identityMsix --cert $cert --cert-password $certPassword
+} else {
+  # The production identity is intentionally unsigned. Its Publisher contains
+  # Microsoft's required unsigned-package marker and must remain byte-for-byte
+  # stable to preserve PFN yamachat.eu-7E03B8AF_m02xq2dqtpa7p.
+  npx --no-install winapp pack $manifestPath --output $identityMsix
+}
 if ($LASTEXITCODE -ne 0 -or -not (Test-Path $identityMsix)) { throw "WNS identity package build failed." }
 
 npx --no-install winapp embed-identity $bridgeExe --manifest $manifestPath
