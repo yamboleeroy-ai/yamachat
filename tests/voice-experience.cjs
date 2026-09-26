@@ -15,6 +15,8 @@ for(const forbidden of ['leaveVoiceChannel(','ycRequestVoiceDisconnect(','cleanu
 assert(html.includes("if(voiceChannel?.id)wanted.add(voiceChannel.id)"),'Active voice room must remain subscribed while browsing another server');
 assert(html.includes('function ycVoiceCommunityId()'),'Independent voice community context missing');
 assert(html.includes("const ycVoiceCid=ycVoiceCommunityId();"),'Soundboard must load from voice community context');
+assert(html.includes("String(currentCommunity.id)===ycVoiceCommunityId()"),'Soundboard admin actions must stay on the joined voice server');
+assert(!html.includes("speechSynthesis.cancel();speechSynthesis.speak(u);"),'Rapid voice announcements must not cancel the previous username');
 assert(html.includes("community_id:ycVoiceCommunity"),'Stream presence must remain on the joined voice community');
 
 // Presence: manual status wins, but automatic UI inactivity cannot mark an active voice call AFK.
