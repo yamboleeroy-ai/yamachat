@@ -80,9 +80,14 @@ jobs:
           if($pkg.PackageFamilyName -ne "yamachat.eu-7E03B8AF_m02xq2dqtpa7p"){throw "Unexpected PFN: $($pkg.PackageFamilyName)"}
           if($pkg.SignatureKind -ne "None"){throw "Expected unsigned production sparse identity"}
 
-          $raw=& desktop/wns/Yamachat.WnsBridge.exe status
+          $bridge=(Resolve-Path desktop/wns/Yamachat.WnsBridge.exe).Path
+          $out=Join-Path $env:RUNNER_TEMP "yamachat-wns-status.json"
+          $err=Join-Path $env:RUNNER_TEMP "yamachat-wns-status.err"
+          $proc=Start-Process -FilePath $bridge -ArgumentList "status" -Wait -PassThru -NoNewWindow -RedirectStandardOutput $out -RedirectStandardError $err
+          if($proc.ExitCode -ne 0){throw "WNS bridge status failed: $($proc.ExitCode) $(Get-Content $err -Raw -ErrorAction SilentlyContinue)"}
+          $raw=Get-Content $out -Raw
           Write-Host "Bridge status: $raw"
-          $json=$raw | Select-Object -Last 1 | ConvertFrom-Json
+          $json=$raw | ConvertFrom-Json
           if(-not $json.ok -or -not $json.hasPackageIdentity){throw "WNS bridge did not acquire production package identity"}
           if($json.packageFamilyName -ne "yamachat.eu-7E03B8AF_m02xq2dqtpa7p"){throw "Bridge PFN mismatch"}
 
