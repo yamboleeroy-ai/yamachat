@@ -1,0 +1,103 @@
+name: Validate Yamachat Windows 1.0.93 Real Voices
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches:
+      - ci/windows-1.0.93-real-voices-20260926
+
+permissions:
+  contents: read
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: release/windows-1.0.93-real-voices
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: desktop/package-lock.json
+
+      - name: Regenerate exact verified desktop client
+        run: node scripts/prepare-desktop-1.0.92.mjs
+
+      - name: Verify exact uploaded portable baseline
+        shell: pwsh
+        run: |
+          $p = Get-Content desktop/package.json | ConvertFrom-Json
+          if ($p.version -ne "1.0.93") { throw "Expected desktop version 1.0.93" }
+
+          $clientHash=(Get-FileHash desktop/desktop-client.html -Algorithm SHA256).Hash.ToLower()
+          $mainHash=(Get-FileHash desktop/main.js -Algorithm SHA256).Hash.ToLower()
+          $desktopHash=(Get-FileHash desktop/desktop.html -Algorithm SHA256).Hash.ToLower()
+          $joinHash=(Get-FileHash audio/yamachat_join_voice.mp3 -Algorithm SHA256).Hash.ToLower()
+          $leaveHash=(Get-FileHash audio/yamachat_leave_voice.mp3 -Algorithm SHA256).Hash.ToLower()
+
+          if ($clientHash -ne "382368b2846df72aa78d17d004b5784fe83a7397f598b3b83b1537fab6c1e5f0") { throw "desktop-client differs from uploaded verified portable" }
+          if ($mainHash -ne "c6167fafb770ba2b92b37e132b22c1839d7f2ae1c06735721091fd878bc64159") { throw "main.js differs from uploaded verified portable" }
+          if ($desktopHash -ne "5800c157cf689ffd6789a89134bd3509d69ad040f2f9171fa0bdd603d779881d") { throw "desktop.html differs from uploaded verified portable" }
+          if ($joinHash -ne "d0f4654da5668871290144e88cef5e879397a8ab05a6df0f4ecbd1c7a9cd151e") { throw "JOIN sound differs from uploaded file" }
+          if ($leaveHash -ne "08fcd45a4141b3e28e24d0ce6051b7123c0f0d124ae297291b0077a3788ebaa1") { throw "LEAVE sound differs from uploaded file" }
+
+          $client=Get-Content desktop/desktop-client.html -Raw
+          foreach($marker in @(
+            "ycVoiceSelectedVoice",
+            "YC_VOICE_JOIN_CUE_SRC",
+            "YC_VOICE_LEAVE_CUE_SRC",
+            "ycVoiceDiffAnnouncements",
+            "ycVoiceThemePolishStyle",
+            "html body .composer"
+          )) { if(-not $client.Contains($marker)){ throw "Missing Real Voices marker: $marker" } }
+          foreach($forbidden in @("ycSurfaceThemeStyle","yc_surface_theme_v1","male-deep","female-bright")){
+            if($client.Contains($forbidden)){ throw "Rejected experiment/fake voice marker found: $forbidden" }
+          }
+          $runtime=Get-Content desktop/main.js -Raw
+          if(-not $runtime.Contains("disable-direct-composition")) { throw "GPU compositor workaround missing" }
+
+      - name: Prepare runtime assets
+        shell: pwsh
+        run: |
+          Copy-Item -Recurse -Force build desktop\build
+          Copy-Item -Recurse -Force audio desktop\audio
+          Copy-Item -Force boot-guard.js desktop\boot-guard.js
+
+      - name: Install desktop dependencies
+        working-directory: desktop
+        run: npm ci
+
+      - name: Build Windows update
+        working-directory: desktop
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: npm run release:win
+
+      - name: Verify packaged update
+        shell: pwsh
+        run: |
+          $appRoot="desktop/dist/win-unpacked/resources/app"
+          if(-not (Test-Path "$appRoot/desktop-client.html")) { throw "Packaged desktop client missing" }
+          if((Get-FileHash "$appRoot/desktop-client.html" -Algorithm SHA256).Hash.ToLower() -ne "382368b2846df72aa78d17d004b5784fe83a7397f598b3b83b1537fab6c1e5f0"){throw "Packaged client changed"}
+          if((Get-FileHash "$appRoot/main.js" -Algorithm SHA256).Hash.ToLower() -ne "c6167fafb770ba2b92b37e132b22c1839d7f2ae1c06735721091fd878bc64159"){throw "Packaged runtime changed"}
+          if((Get-FileHash "$appRoot/audio/yamachat_join_voice.mp3" -Algorithm SHA256).Hash.ToLower() -ne "d0f4654da5668871290144e88cef5e879397a8ab05a6df0f4ecbd1c7a9cd151e"){throw "Packaged JOIN changed"}
+          if((Get-FileHash "$appRoot/audio/yamachat_leave_voice.mp3" -Algorithm SHA256).Hash.ToLower() -ne "08fcd45a4141b3e28e24d0ce6051b7123c0f0d124ae297291b0077a3788ebaa1"){throw "Packaged LEAVE changed"}
+          if(-not (Test-Path "desktop/dist/Yamachat-Setup-1.0.93.exe")){throw "Setup 1.0.93 missing"}
+          if(-not (Test-Path "desktop/dist/Yamachat-Setup-1.0.93.exe.blockmap")){throw "Blockmap 1.0.93 missing"}
+          $latest=Get-Content desktop/dist/latest.yml -Raw
+          if($latest -notmatch "version:\s*1\.0\.93"){throw "latest.yml is not 1.0.93"}
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: yamachat-windows-1.0.93-real-voices
+          path: |
+            desktop/dist/Yamachat-Setup-1.0.93.exe
+            desktop/dist/Yamachat-Setup-1.0.93.exe.blockmap
+            desktop/dist/latest.yml
+          if-no-files-found: error
+          retention-days: 30
