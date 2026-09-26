@@ -41,7 +41,8 @@
       "desktop.html",
       "desktop-client.html",
       "audio/**/*",
-      "build/**/*"
+      "build/**/*",
+      "wns/**/*"
     ],
     "win": {
       "target": [
@@ -73,8 +74,14 @@
         "repo": "yamachat",
         "releaseType": "release"
       }
+    ],
+    "protocols": [
+      {
+        "name": "Yamachat",
+        "schemes": [
+          "yamachat"
+        ]
+      }
     ]
   }
 }
-
-
