@@ -11,6 +11,7 @@ on:
     paths:
       - "scripts/voice-theme-polish.mjs"
       - "scripts/voice-experience.mjs"
+      - "desktop/main.js"
       - "scripts/message-notification-sound.mjs"
       - "scripts/prepare-desktop-1.0.92.mjs"
       - "tests/voice-theme-polish-desktop.cjs"
@@ -39,6 +40,11 @@ jobs:
           grep -q -- '--yc-themed-scroll-track' desktop/desktop-client.html
           grep -q 'ycServerCardContextStyle' desktop/desktop-client.html
           grep -q 'ycFriendsPanelRefreshStyle' desktop/desktop-client.html
+          grep -q 'YC_VOICE_JOIN_CUE_DATA' desktop/desktop-client.html
+          grep -q 'YC_VOICE_LEAVE_CUE_DATA' desktop/desktop-client.html
+          grep -q 'ycVoiceDiffAnnouncements' desktop/desktop-client.html
+          grep -q 'female-bright' desktop/desktop-client.html
+          grep -q 'disable-direct-composition' desktop/main.js
           grep -q 'id="ycPasswordRequestBack"' desktop/desktop-client.html
           grep -q 'Platform Admin · uživatelské účty' desktop/desktop-client.html
       - name: Install browser test runtime
@@ -83,6 +89,10 @@ jobs:
             "--yc-themed-scroll-track",
             "ycVoiceParticipantAnnouncement",
             "YC_SOUNDBOARD_VOLUME_KEY",
+            "YC_VOICE_JOIN_CUE_DATA",
+            "YC_VOICE_LEAVE_CUE_DATA",
+            "ycVoiceDiffAnnouncements",
+            "female-bright",
             "data:audio/mpeg;base64,SUQz",
             "ycServerCardContextStyle",
             "ycFriendsPanelRefreshStyle",
@@ -101,6 +111,8 @@ jobs:
           )) {
             if ($client.Contains($forbidden)) { throw "Forbidden old active-server runtime found: $forbidden" }
           }
+          $main = Get-Content desktop/main.js -Raw
+          if (-not $main.Contains("disable-direct-composition")) { throw "Windows compositor workaround missing" }
           ./scripts/restore-desktop-brand-assets.ps1 -Destination build
       - name: Prepare desktop runtime assets
         shell: pwsh
@@ -126,6 +138,10 @@ jobs:
             "--yc-themed-scroll-track",
             "ycVoiceParticipantAnnouncement",
             "YC_SOUNDBOARD_VOLUME_KEY",
+            "YC_VOICE_JOIN_CUE_DATA",
+            "YC_VOICE_LEAVE_CUE_DATA",
+            "ycVoiceDiffAnnouncements",
+            "female-bright",
             "data:audio/mpeg;base64,SUQz",
             "ycServerCardContextStyle",
             "ycFriendsPanelRefreshStyle",
@@ -135,6 +151,8 @@ jobs:
           )) {
             if (-not $client.Contains($marker)) { throw "Packaged portable missing marker: $marker" }
           }
+          $main = Get-Content "$appRoot/main.js" -Raw
+          if (-not $main.Contains("disable-direct-composition")) { throw "Packaged portable missing compositor workaround" }
           if (-not (Test-Path "desktop/dist/win-unpacked/Yamachat.exe")) { throw "Portable Yamachat.exe missing" }
           Write-Host "PASS: Windows portable contains voice/theme polish and approved stable features."
       - uses: actions/upload-artifact@v4
