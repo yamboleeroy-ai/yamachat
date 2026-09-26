@@ -53,9 +53,11 @@ assert(html.includes('if(previewBusy)return'),'Voice preview anti-spam guard mis
 assert(html.includes('previewButtons.forEach(b=>b.disabled=true)'),'Voice preview buttons are not disabled while a preview is active');
 assert(html.includes("previewRun(done=>void ycPlayVoiceFileCue('join',done),2600)"),'JOIN preview cooldown is too short or missing');
 assert(html.includes("previewRun(done=>void ycPlayVoiceFileCue('leave',done),2600)"),'LEAVE preview cooldown is too short or missing');
-assert(html.includes('ycVoiceProfileVoice(voices,wanted,profileCfg)'),'Voice profiles do not select profile-aware system voices');
-for(const marker of ["rate:.70,pitch:.50","rate:.96,pitch:.88","rate:1.30,pitch:1.12","rate:.76,pitch:1.16","rate:1.02,pitch:1.42","rate:1.34,pitch:1.85"])
- assert(html.includes(marker),'Distinct voice profile tuning missing: '+marker);
+assert(html.includes('function ycVoiceSelectedVoice(voices)'),'Real system voice selector missing');
+assert(html.includes('u.voice=selected'),'Speech does not use the selected real system voice');
+assert(html.includes("u.rate=1;u.pitch=1"),'Speech must not fake different voices with rate/pitch profiles');
+assert(html.includes('ycVoiceOptionsHtml(voices)'),'Real system voice option renderer missing');
+assert(!html.includes('male-deep')&&!html.includes('female-bright'),'Fake male/female pitch profiles must not remain');
 const crypto=require('node:crypto');
 for(const [file,expected] of [
  ['audio/yamachat_join_voice.mp3','d0f4654da5668871290144e88cef5e879397a8ab05a6df0f4ecbd1c7a9cd151e'],
@@ -112,7 +114,7 @@ for(const marker of [
   const section=page.locator('[data-yc-settings-section="voice-experience"]');
   assert.equal(await section.locator('#ycVoiceAnnounceMode').count(),1);
   assert.equal(await section.locator('#ycVoiceAnnounceVoice').count(),1);
-  assert.equal(await section.locator('#ycVoiceAnnounceProfile').count(),1);
+  assert.equal(await section.locator('#ycVoiceAnnounceProfile').count(),0);
   assert.equal(await section.locator('#ycSoundboardVolumeRange').count(),1);
   assert.equal(await section.locator('#ycVoiceJoinTest').count(),1);
   assert.equal(await section.locator('#ycVoiceLeaveTest').count(),1);
@@ -120,14 +122,16 @@ for(const marker of [
   assert.equal(await section.locator('#ycVoiceJoinTest').isVisible(),true);
   assert.equal(await section.locator('#ycVoiceLeaveTest').isVisible(),true);
   assert.equal(await section.locator('#ycVoiceAnnounceTest').isVisible(),false);
-  await section.locator('#ycVoiceAnnounceProfile').selectOption('female-natural');
+  await section.locator('#ycVoiceAnnounceMode').selectOption('speech');
+  await section.locator('#ycVoiceAnnounceVoice').evaluate(sel=>{const o=document.createElement('option');o.value='mock-real-voice-uri';o.textContent='Mock real voice';sel.appendChild(o)});
+  await section.locator('#ycVoiceAnnounceVoice').selectOption('mock-real-voice-uri');
   await section.locator('#ycSoundboardVolumeRange').fill('35');
   const saved=await page.evaluate(()=>({
    mode:localStorage.getItem('yc_voice_announce_mode'),
-   profile:localStorage.getItem('yc_voice_announce_profile_v2'),
+   voice:localStorage.getItem('yc_voice_announce_voice'),
    volume:localStorage.getItem('yc_soundboard_volume_v1')
   }));
-  assert.deepEqual(saved,{mode:'cue',profile:'female-natural',volume:'35'});
+  assert.deepEqual(saved,{mode:'speech',voice:'mock-real-voice-uri',volume:'35'});
 
   // Personal settings close on a click on the shaded area, not only via the X button.
   const settingsBack=page.locator('#modalRoot>.modal-back');
@@ -150,6 +154,6 @@ for(const marker of [
 
   assert.deepEqual(errors,[]);
   await page.close();
-  console.log('PASS voice experience: single-source join/leave announcements, exact uploaded MP3 cues, preview cooldown, distinct voice profiles, backdrop-close settings, continuity, AFK and soundboard controls.');
+  console.log('PASS voice experience: single-source join/leave announcements, exact uploaded MP3 cues, preview cooldown, real voiceURI TTS selection, backdrop-close settings, continuity, AFK and soundboard controls.');
  }finally{await browser.close()}
 })().catch(e=>{console.error(e);process.exitCode=1});
