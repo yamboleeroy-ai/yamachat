@@ -3,9 +3,9 @@ name: Publish Yamachat Windows 1.0.96 Notification Hotfix
 on:
   push:
     branches:
-      - release/windows-1.0.96-wns
+      - release/windows-1.0.96-notification-hotfix
     paths:
-      - ".github/workflows/build-windows-1.0.96-wns.yml"
+      - ".github/workflows/build-windows-1.0.96-notification-hotfix.yml"
       - "desktop/**"
       - "windows/wns/**"
       - "scripts/build-windows-wns.ps1"
@@ -25,7 +25,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: release/windows-1.0.96-wns
+          ref: release/windows-1.0.96-notification-hotfix
           fetch-depth: 0
 
       - uses: actions/setup-node@v4
@@ -204,5 +204,5 @@ jobs:
             gh release upload v1.0.96 release-assets/* --repo "$GITHUB_REPOSITORY" --clobber
             gh release edit v1.0.96 --repo "$GITHUB_REPOSITORY" --title "Yamachat 1.0.96" --notes-file release-notes.md --latest
           else
-            gh release create v1.0.96 release-assets/* --repo "$GITHUB_REPOSITORY" --target release/windows-1.0.96-wns --title "Yamachat 1.0.96" --notes-file release-notes.md --latest
+            gh release create v1.0.96 release-assets/* --repo "$GITHUB_REPOSITORY" --target release/windows-1.0.96-notification-hotfix --title "Yamachat 1.0.96" --notes-file release-notes.md --latest
           fi
