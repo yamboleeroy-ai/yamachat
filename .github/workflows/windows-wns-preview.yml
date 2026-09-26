@@ -5,6 +5,9 @@ on:
     branches:
       - feature/windows-wns
       - feature/windows-wns-runtime-20260926
+  pull_request:
+    branches:
+      - feature/windows-wns
   workflow_dispatch:
 
 permissions:
