@@ -23,7 +23,7 @@ assert(html.includes("if(pref!=='online')return pref"),'Manual AFK/DND/invisible
 // Immediate voice participant announcements use the existing participant row, including username.
 assert(html.includes("ycVoiceParticipantAnnouncement(row,'join')"),'Immediate join announcement missing');
 assert(html.includes("ycVoiceParticipantAnnouncement(row,'leave')"),'Immediate leave announcement missing');
-assert(html.includes("const name=String(row.username||'Uživatel')"),'Voice announcement username source missing');
+assert(html.includes("row.username||cached?.username||cached?.display_name||'Uživatel'"),'Voice announcement username/fallback source missing');
 assert(html.includes("if(window.__ycVoiceParticipantAnnouncements)return;"),'Legacy delayed TTS path is not suppressed');
 
 // Soundboard controls reuse the existing per-user voice mix store.
