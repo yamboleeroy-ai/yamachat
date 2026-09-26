@@ -55,7 +55,7 @@ try{
  for(const marker of [
    'ycVoiceExperienceStyle',
    'ycVoiceThemePolishStyle',
-   'ycMessageNotificationSound',
+   'YC_MESSAGE_SOUND_DATA',
    'ycVoiceSelectedVoice',
    'u.voice=selected',
    'u.rate=1;u.pitch=1',
