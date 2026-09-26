@@ -15,7 +15,7 @@ self.addEventListener('push',event=>{
   const target=payload?.data?.target||payload?.target||{};
   const windows=await self.clients.matchAll({type:'window',includeUncontrolled:true});
   const focused=windows.some(c=>c.visibilityState==='visible'&&c.focused);
-  if(focused){windows.forEach(c=>c.postMessage({type:'yamachat:push-received',target}));return}
+  if(focused)return;
   try{if(self.navigator?.setAppBadge)await self.navigator.setAppBadge()}catch{}
   await self.registration.showNotification(payload.title||'Yamachat',{
    body:payload.body||'Nová zpráva',
