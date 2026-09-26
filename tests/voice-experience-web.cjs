@@ -68,7 +68,7 @@ async function themeSnapshot(page,theme){
    assert.notEqual(a.composer.border,b.composer.border,'Composer border must follow theme');
 
    // Settings section exists and exposes all requested controls.
-   await page.locator('#appSettingsBtn').click();
+   await page.evaluate(()=>ycOpenAppSettings());
    await page.waitForSelector('[data-yc-settings-section="voice-experience"]');
    for(const sel of ['[data-yc-ann-mode]','[data-yc-ann-preset]','[data-yc-ann-voice]','[data-yc-ann-sound]','[data-yc-ann-vol]','[data-yc-sb-vol]','[data-yc-sb-enabled]','[data-yc-msg-enabled]','[data-yc-msg-vol]','[data-yc-afk]'])
     assert.equal(await page.locator('[data-yc-settings-section="voice-experience"] '+sel).count(),1,'Missing settings '+sel);
