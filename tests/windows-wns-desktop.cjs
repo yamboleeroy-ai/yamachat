@@ -43,6 +43,14 @@ for(const marker of [
 
 assert(prepare.includes('withWindowsWnsClient'),'desktop generator does not apply WNS transform');
 assert(transform.includes("action:'register'"),'WNS push registration payload missing');
+assert(transform.includes('ycWinResetRootScroll'),'notification root-scroll reset transform missing');
+assert(transform.includes('ycWinScrollMessageRow'),'notification chat-only scroll transform missing');
+assert(client.includes('ycWinResetRootScroll'),'generated desktop client missing notification root-scroll reset');
+assert(client.includes('ycWinScrollMessageRow'),'generated desktop client missing chat-only notification scroll');
+const jumpStart=client.indexOf('async function ycWinJumpToMessage');
+const jumpEnd=client.indexOf('async function ycWinOpenTarget',jumpStart);
+assert(jumpStart>=0&&jumpEnd>jumpStart,'desktop notification jump function missing');
+assert(!client.slice(jumpStart,jumpEnd).includes('scrollIntoView'),'desktop notification jump must not scroll the root document');
 
 for(const marker of [
  'PushNotificationManager.Default.CreateChannelAsync',

@@ -73,5 +73,48 @@ setInterval(()=>{if(user?.id)void ycRegisterWindowsWnsPush(false)},60*60*1000);
   if(!html.includes(notifyGuard)) throw new Error('Windows notification WNS dedupe boundary missing');
   html=html.replace(notifyGuard,notifyGuard+"\n  if(window.__ycWnsActive===true)return");
 
+  const unsafeJump=String.raw`async function ycWinJumpToMessage(messageId){
+ const id=String(messageId||'');if(!id)return false
+ for(let i=0;i<12;i++){
+  const row=document.querySelector('[data-message-id="'+CSS.escape(id)+'"]')
+  if(row){row.scrollIntoView({behavior:'smooth',block:'center'});row.classList.add('yc-notification-jump');setTimeout(()=>row.classList.remove('yc-notification-jump'),1800);return true}
+  await new Promise(r=>setTimeout(r,80))
+ }
+ return false
+}`;
+  const safeJump=String.raw`function ycWinResetRootScroll(){
+ try{
+  if(document.scrollingElement)document.scrollingElement.scrollTop=0
+  document.documentElement.scrollTop=0
+  document.body.scrollTop=0
+ }catch{}
+}
+function ycWinScrollMessageRow(row){
+ const scroller=document.getElementById('messages')
+ if(!row||!scroller||!scroller.contains(row))return false
+ try{
+  const sr=scroller.getBoundingClientRect(),rr=row.getBoundingClientRect()
+  const max=Math.max(0,scroller.scrollHeight-scroller.clientHeight)
+  const delta=((rr.top+rr.bottom)-(sr.top+sr.bottom))/2
+  const next=Math.max(0,Math.min(max,scroller.scrollTop+delta))
+  scroller.scrollTo({top:next,behavior:'smooth'})
+  ycWinResetRootScroll()
+  return true
+ }catch{return false}
+}
+async function ycWinJumpToMessage(messageId){
+ const id=String(messageId||'');if(!id)return false
+ ycWinResetRootScroll()
+ for(let i=0;i<12;i++){
+  const row=document.querySelector('[data-message-id="'+CSS.escape(id)+'"]')
+  if(row){ycWinScrollMessageRow(row);row.classList.add('yc-notification-jump');setTimeout(()=>row.classList.remove('yc-notification-jump'),1800);ycWinResetRootScroll();return true}
+  await new Promise(r=>setTimeout(r,80))
+ }
+ ycWinResetRootScroll()
+ return false
+}`;
+  if(!html.includes(unsafeJump)) throw new Error('Windows notification jump boundary missing');
+  html=html.replace(unsafeJump,safeJump);
+
   return html;
 }
