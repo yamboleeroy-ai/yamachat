@@ -8,16 +8,16 @@
     "notes": "Yamachat 1.0.94: hotfix desktop ikony a systémové tray ikony. Real Voices, composer, voice funkce a UI zůstávají beze změny proti 1.0.93. Obnovené a ověřené icon/tray assety jsou přímo uvnitř zabalené aplikace."
   },
   "android": {
-    "latestVersion": "1.1.0.405",
-    "latestVersionCode": 200405,
+    "latestVersion": "1.1.0.419",
+    "latestVersionCode": 200419,
     "required": true,
-    "apkUrl": "https://yamachat.eu/download/Yamachat-Android.apk?v=200405",
-    "sha256": "d3b3d6c30441a4afb0e54a33ea7f7a5c939479261f8a3597d15ebc110995c3d8",
+    "apkUrl": "https://yamachat.eu/download/Yamachat-Android.apk?v=200419",
+    "sha256": "1d6583200a143fd4111b6a1d373dbcbb5815857b34acf9335577e4398b676c51",
     "notes": [
-      "Přenesené ověřené Real Voices/Composer funkce bez změny současného mobilního rozložení.",
-      "Skutečné dostupné systémové TTS hlasy přes speechSynthesis voiceURI; žádné falešné pitch/rate profily.",
-      "Přesné JOIN/LEAVE zvuky a jednorázová voice oznámení bez dvojitého čtení.",
-      "Zachované Android/iOS/PWA vysouvací panely, safe-area, portrét/landscape a spodní voice dock."
+      "Yamachat oznámení mají vlastní logo, ikonu a vlastní zvuk zprávy na Androidu.",
+      "Kliknutí na oznámení otevře přímo správnou DM, kanál a konkrétní zprávu.",
+      "Push registrace je připravená pro FCM; doručení při úplně ukončené APK vyžaduje Firebase konfiguraci projektu.",
+      "Současné mobilní rozložení, voice, Real Voices a ostatní funkce zůstávají beze změny."
     ]
   }
 }
