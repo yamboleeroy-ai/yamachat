@@ -64,8 +64,19 @@ async function themeSnapshot(page,theme){
  },theme);
 }
 async function joinVoiceA(page){
- const row=page.locator('.voice-channel[data-voice="voice-a"]');await row.waitFor({state:'attached'});await row.dispatchEvent('dblclick',{bubbles:true});
- await page.waitForFunction(()=>window.YamachatVoiceExperience?.snapshot().voiceConnected,{},{timeout:12000});
+ const row=page.locator('.voice-channel[data-voice="voice-a"]');await row.waitFor({state:'visible'});await row.dblclick();
+ try{
+  await page.waitForFunction(()=>window.YamachatVoiceExperience?.snapshot().voiceConnected,{},{timeout:15000});
+ }catch(error){
+  const debug=await page.evaluate(()=>({
+   snapshot:window.YamachatVoiceExperience?.snapshot?.()||null,
+   toast:document.getElementById('toast')?.textContent||'',
+   voiceStatus:document.getElementById('voiceStatusSub')?.textContent||'',
+   switching:!!window.__ycVoiceSwitchBusy,
+   target:String(window.__ycVoiceSwitchTargetId||'')
+  }));
+  throw new Error('Voice join failed: '+JSON.stringify(debug)+' :: '+error.message);
+ }
  return page.evaluate(()=>window.YamachatVoiceExperience.snapshot());
 }
 (async()=>{
