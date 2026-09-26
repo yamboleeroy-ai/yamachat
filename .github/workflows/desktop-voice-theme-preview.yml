@@ -7,8 +7,11 @@ on:
       - feature/voice-theme-polish-desktop
     paths:
       - "scripts/voice-theme-polish.mjs"
+      - "scripts/voice-experience.mjs"
+      - "scripts/message-notification-sound.mjs"
       - "scripts/prepare-desktop-1.0.92.mjs"
       - "tests/voice-theme-polish-desktop.cjs"
+      - "tests/voice-experience.cjs"
       - ".github/workflows/desktop-voice-theme-preview.yml"
 
 permissions:
@@ -41,6 +44,10 @@ jobs:
           npx playwright install --with-deps chromium
       - name: Test voice theme, scrollbars and connected layout
         run: node tests/voice-theme-polish-desktop.cjs
+      - name: Test voice continuity, announcements and soundboard preferences
+        env:
+          YC_CLIENT: desktop/desktop-client.html
+        run: node tests/voice-experience.cjs
       - name: Recheck approved server context
         run: node tests/server-card-context-desktop.cjs
       - name: Recheck approved Friends panel
@@ -71,6 +78,9 @@ jobs:
           foreach ($marker in @(
             "ycVoiceThemePolishStyle",
             "--yc-themed-scroll-track",
+            "ycVoiceParticipantAnnouncement",
+            "YC_SOUNDBOARD_VOLUME_KEY",
+            "data:audio/mpeg;base64,SUQz",
             "ycServerCardContextStyle",
             "ycFriendsPanelRefreshStyle",
             "ycServerContextFrame",
@@ -111,6 +121,9 @@ jobs:
           foreach ($marker in @(
             "ycVoiceThemePolishStyle",
             "--yc-themed-scroll-track",
+            "ycVoiceParticipantAnnouncement",
+            "YC_SOUNDBOARD_VOLUME_KEY",
+            "data:audio/mpeg;base64,SUQz",
             "ycServerCardContextStyle",
             "ycFriendsPanelRefreshStyle",
             "ycServerContextFrame",
