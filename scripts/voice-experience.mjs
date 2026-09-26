@@ -20,6 +20,11 @@ function ycMessageSoundAllowedFor(pref){pref=String(pref||'online').toLowerCase(
 function ycMessageSoundAllowed(){const pref=typeof ycPresencePreference==='function'?ycPresencePreference():'online';return ycMessageSoundAllowedFor(pref)}
 function ycMessageSoundVolume(){return ycExpNum('yc_message_sound_volume',85,0,100)/100}
 function ycEnsureMessageNotifyAudio(){if(!ycMessageNotifyAudio){ycMessageNotifyAudio=new Audio(YC_MESSAGE_UHOH_URI);ycMessageNotifyAudio.preload='auto';ycMessageNotifyAudio.playsInline=true}return ycMessageNotifyAudio}
+let ycMessageNotifyUnlocked=false;
+function ycUnlockMessageNotifyAudio(){
+ if(ycMessageNotifyUnlocked)return;try{const a=ycEnsureMessageNotifyAudio(),old=a.volume;a.volume=0;const p=a.play();if(p&&typeof p.then==='function')p.then(()=>{a.pause();a.currentTime=0;a.volume=old;ycMessageNotifyUnlocked=true}).catch(()=>{a.volume=old});else{a.pause();a.currentTime=0;a.volume=old;ycMessageNotifyUnlocked=true}}catch{}
+}
+window.addEventListener('pointerdown',ycUnlockMessageNotifyAudio,{passive:true});window.addEventListener('keydown',ycUnlockMessageNotifyAudio);
 function ycPlayMessageNotifySound(force=false){try{if(!force&&!ycMessageSoundAllowed())return false;const a=ycEnsureMessageNotifyAudio();a.pause();a.currentTime=0;a.volume=ycMessageSoundVolume();const p=a.play();if(p&&typeof p.catch==='function')p.catch(()=>{});return true}catch(e){console.warn('message sound',e);return false}}
 ycPlayDmSound=()=>ycPlayMessageNotifySound(false);
 
@@ -171,9 +176,11 @@ window.YamachatVoiceExperience=Object.freeze({
   announceMode:ycVoiceAnnounceMode(),
   soundboardGain:ycSoundboardGain(),
   messageSoundAllowed:ycMessageSoundAllowed(),
+  messageSoundEmbedded:YC_MESSAGE_UHOH_URI.startsWith('data:audio/mpeg;base64,')&&YC_MESSAGE_UHOH_URI.length>4000,
   afkMinutes:ycExpNum('yc_voice_afk_minutes',20,0,120)
  }),
  messageSoundAllowedFor:mode=>ycMessageSoundAllowedFor(mode),
+ isSoundboardUserMuted:uid=>ycSoundboardUserMuted(uid),
  announcementText:(action,name)=>ycVoiceExpAnnouncementText(action,name),
  presenceFor:(pref,connected,speaking,silentMs,minutes,fallback='online')=>ycVoiceExpPresenceFor(pref,!!connected,!!speaking,Number(silentMs)||0,Number(minutes)||0,fallback)
 });
