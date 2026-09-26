@@ -30,6 +30,26 @@ html,body,*{
   background:color-mix(in srgb,var(--yc-theme,#e056fd) 48%,#45687b)!important;
 }
 
+/* Theme contour for the main Yamachat bars/panels. Outline does not change geometry. */
+html body #ycGlobalNav,
+html body .yc-v3-ribbon,
+html body .yc-v3-content-grid>.side,
+html body .yc-v3-content-grid>.chat,
+html body .yc-v3-content-grid>.right,
+html body .yc-v3-workspace>.top{
+  outline:1px solid color-mix(in srgb,var(--yc-theme,#e056fd) 34%,#27485b)!important;
+  outline-offset:-1px!important;
+}
+html body .chat-head,
+html body .composer-wrap{
+  border-color:color-mix(in srgb,var(--yc-theme,#e056fd) 48%,#34596b)!important;
+  box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--yc-theme,#e056fd) 8%,transparent)!important;
+}
+html body .composer-wrap:focus-within{
+  border-color:color-mix(in srgb,var(--yc-theme,#e056fd) 72%,#4c7183)!important;
+  box-shadow:0 0 14px var(--yc-theme-soft,rgba(224,86,253,.12)),inset 0 0 0 1px color-mix(in srgb,var(--yc-theme,#e056fd) 16%,transparent)!important;
+}
+
 /* Voice dock outline follows the personal Yamachat theme, never the server color. */
 html body #voiceControls,
 html body .yc-v3-voice-host #voiceControls.voice-controls,
