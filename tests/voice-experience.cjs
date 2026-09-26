@@ -37,6 +37,14 @@ assert(html.includes("const before=[...(voicePresenceByChannel[id]||[])]"),'Part
 assert(html.includes('YC_VOICE_JOIN_CUE_DATA'),'Uploaded join cue missing');
 assert(html.includes('YC_VOICE_LEAVE_CUE_DATA'),'Uploaded leave cue missing');
 assert(html.includes('ycPlayVoiceFileCue(action)'),'Cue mode does not play uploaded join/leave audio');
+assert(html.includes("audio=new Audio(data)"),'Uploaded join/leave cues are not played as the embedded MP3 files');
+assert(html.includes("root.querySelector('#ycVoiceJoinTest').onclick"),'JOIN preview button is not wired to uploaded audio');
+assert(html.includes("root.querySelector('#ycVoiceLeaveTest').onclick"),'LEAVE preview button is not wired to uploaded audio');
+assert(html.includes('if(previewBusy)return'),'Voice preview anti-spam guard missing');
+assert(html.includes('previewButtons.forEach(b=>b.disabled=true)'),'Voice preview buttons are not disabled while a preview is active');
+assert(html.includes('ycVoiceProfileVoice(voices,wanted,profileCfg)'),'Voice profiles do not select profile-aware system voices');
+for(const marker of ["rate:.80,pitch:.55","rate:.94,pitch:.82","rate:1.12,pitch:1.05","rate:.86,pitch:1.18","rate:1.00,pitch:1.42","rate:1.16,pitch:1.70"])
+ assert(html.includes(marker),'Distinct voice profile tuning missing: '+marker);
 for(const marker of ['YC_VOICE_JOIN_CUE_DATA','YC_VOICE_LEAVE_CUE_DATA']){
  const m=html.match(new RegExp("const "+marker+"='data:audio/mpeg;base64,([^']+)'"));
  assert(m&&m[1].startsWith('SUQz')&&m[1].length>4500,'Embedded MP3 cue is missing or truncated: '+marker);
@@ -90,7 +98,12 @@ for(const marker of [
   assert.equal(await section.locator('#ycVoiceAnnounceVoice').count(),1);
   assert.equal(await section.locator('#ycVoiceAnnounceProfile').count(),1);
   assert.equal(await section.locator('#ycSoundboardVolumeRange').count(),1);
+  assert.equal(await section.locator('#ycVoiceJoinTest').count(),1);
+  assert.equal(await section.locator('#ycVoiceLeaveTest').count(),1);
   await section.locator('#ycVoiceAnnounceMode').selectOption('cue');
+  assert.equal(await section.locator('#ycVoiceJoinTest').isVisible(),true);
+  assert.equal(await section.locator('#ycVoiceLeaveTest').isVisible(),true);
+  assert.equal(await section.locator('#ycVoiceAnnounceTest').isVisible(),false);
   await section.locator('#ycVoiceAnnounceProfile').selectOption('female-natural');
   await section.locator('#ycSoundboardVolumeRange').fill('35');
   const saved=await page.evaluate(()=>({
@@ -99,6 +112,12 @@ for(const marker of [
    volume:localStorage.getItem('yc_soundboard_volume_v1')
   }));
   assert.deepEqual(saved,{mode:'cue',profile:'female-natural',volume:'35'});
+
+  // Personal settings close on a click on the shaded area, not only via the X button.
+  const settingsBack=page.locator('#modalRoot>.modal-back');
+  assert.equal(await settingsBack.count(),1);
+  await settingsBack.click({position:{x:3,y:3}});
+  await page.waitForFunction(()=>!document.querySelector('#modalRoot .yc-app-settings-modal'));
 
   // Existing per-user voice menu gains a separate soundboard mute without changing voice volume/mute.
   await page.evaluate(()=>{
@@ -115,6 +134,6 @@ for(const marker of [
 
   assert.deepEqual(errors,[]);
   await page.close();
-  console.log('PASS voice experience: continuity guards, uploaded join/leave cues, microphone-aware AFK, reliable named leave fallback, six voice profiles, soundboard controls and themed bars.');
+  console.log('PASS voice experience: MP3 join/leave preview, anti-spam guard, distinct voice profiles, backdrop-close settings, continuity, AFK and soundboard controls.');
  }finally{await browser.close()}
 })().catch(e=>{console.error(e);process.exitCode=1});
