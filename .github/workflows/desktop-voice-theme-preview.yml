@@ -11,6 +11,8 @@ on:
     paths:
       - "scripts/voice-theme-polish.mjs"
       - "scripts/voice-experience.mjs"
+      - "audio/yamachat_join_voice.mp3"
+      - "audio/yamachat_leave_voice.mp3"
       - "desktop/main.js"
       - "scripts/message-notification-sound.mjs"
       - "scripts/prepare-desktop-1.0.92.mjs"
@@ -40,13 +42,15 @@ jobs:
           grep -q -- '--yc-themed-scroll-track' desktop/desktop-client.html
           grep -q 'ycServerCardContextStyle' desktop/desktop-client.html
           grep -q 'ycFriendsPanelRefreshStyle' desktop/desktop-client.html
-          grep -q 'YC_VOICE_JOIN_CUE_DATA' desktop/desktop-client.html
-          grep -q 'YC_VOICE_LEAVE_CUE_DATA' desktop/desktop-client.html
+          grep -q 'YC_VOICE_JOIN_CUE_SRC' desktop/desktop-client.html
+          grep -q 'YC_VOICE_LEAVE_CUE_SRC' desktop/desktop-client.html
           grep -q 'ycVoiceDiffAnnouncements' desktop/desktop-client.html
           grep -q 'female-bright' desktop/desktop-client.html
           grep -q 'disable-direct-composition' desktop/main.js
           grep -q 'id="ycPasswordRequestBack"' desktop/desktop-client.html
           grep -q 'Platform Admin · uživatelské účty' desktop/desktop-client.html
+          echo "d0f4654da5668871290144e88cef5e879397a8ab05a6df0f4ecbd1c7a9cd151e  audio/yamachat_join_voice.mp3" | sha256sum -c -
+          echo "08fcd45a4141b3e28e24d0ce6051b7123c0f0d124ae297291b0077a3788ebaa1  audio/yamachat_leave_voice.mp3" | sha256sum -c -
       - name: Install browser test runtime
         run: |
           npm install --no-save --package-lock=false playwright@1.62.1
@@ -89,8 +93,8 @@ jobs:
             "--yc-themed-scroll-track",
             "ycVoiceParticipantAnnouncement",
             "YC_SOUNDBOARD_VOLUME_KEY",
-            "YC_VOICE_JOIN_CUE_DATA",
-            "YC_VOICE_LEAVE_CUE_DATA",
+            "YC_VOICE_JOIN_CUE_SRC",
+            "YC_VOICE_LEAVE_CUE_SRC",
             "ycVoiceDiffAnnouncements",
             "female-bright",
             "data:audio/mpeg;base64,SUQz",
@@ -119,6 +123,10 @@ jobs:
         run: |
           Copy-Item -Recurse -Force build desktop\build
           Copy-Item -Recurse -Force audio desktop\audio
+          $joinHash=(Get-FileHash "desktop\audio\yamachat_join_voice.mp3" -Algorithm SHA256).Hash.ToLower()
+          $leaveHash=(Get-FileHash "desktop\audio\yamachat_leave_voice.mp3" -Algorithm SHA256).Hash.ToLower()
+          if ($joinHash -ne "d0f4654da5668871290144e88cef5e879397a8ab05a6df0f4ecbd1c7a9cd151e") { throw "JOIN MP3 bytes changed" }
+          if ($leaveHash -ne "08fcd45a4141b3e28e24d0ce6051b7123c0f0d124ae297291b0077a3788ebaa1") { throw "LEAVE MP3 bytes changed" }
           Copy-Item -Force boot-guard.js desktop\boot-guard.js
       - name: Install desktop dependencies
         working-directory: desktop
@@ -138,8 +146,8 @@ jobs:
             "--yc-themed-scroll-track",
             "ycVoiceParticipantAnnouncement",
             "YC_SOUNDBOARD_VOLUME_KEY",
-            "YC_VOICE_JOIN_CUE_DATA",
-            "YC_VOICE_LEAVE_CUE_DATA",
+            "YC_VOICE_JOIN_CUE_SRC",
+            "YC_VOICE_LEAVE_CUE_SRC",
             "ycVoiceDiffAnnouncements",
             "female-bright",
             "data:audio/mpeg;base64,SUQz",
@@ -153,6 +161,11 @@ jobs:
           }
           $main = Get-Content "$appRoot/main.js" -Raw
           if (-not $main.Contains("disable-direct-composition")) { throw "Packaged portable missing compositor workaround" }
+          $join="$appRoot/audio/yamachat_join_voice.mp3"
+          $leave="$appRoot/audio/yamachat_leave_voice.mp3"
+          if (-not (Test-Path $join) -or -not (Test-Path $leave)) { throw "Packaged JOIN/LEAVE MP3 missing" }
+          if ((Get-FileHash $join -Algorithm SHA256).Hash.ToLower() -ne "d0f4654da5668871290144e88cef5e879397a8ab05a6df0f4ecbd1c7a9cd151e") { throw "Packaged JOIN MP3 bytes changed" }
+          if ((Get-FileHash $leave -Algorithm SHA256).Hash.ToLower() -ne "08fcd45a4141b3e28e24d0ce6051b7123c0f0d124ae297291b0077a3788ebaa1") { throw "Packaged LEAVE MP3 bytes changed" }
           if (-not (Test-Path "desktop/dist/win-unpacked/Yamachat.exe")) { throw "Portable Yamachat.exe missing" }
           Write-Host "PASS: Windows portable contains voice/theme polish and approved stable features."
       - uses: actions/upload-artifact@v4
