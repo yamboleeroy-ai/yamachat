@@ -20,6 +20,9 @@ for(const marker of [
  "url.hostname !== 'notification'",
  "handleClientIpc('yamachat:wns-get-channel'",
  'requestWindowsWnsChannel',
+ 'requestPackagedWnsAction',
+ 'shell:AppsFolder',
+ 'yamachat.eu-7E03B8AF_m02xq2dqtpa7p!YamachatPushHost',
  "app.setAsDefaultProtocolClient('yamachat')",
  'pendingProtocolTarget'
 ]) assert(main.includes(marker),'desktop main missing WNS marker: '+marker);
@@ -46,7 +49,11 @@ for(const marker of [
  'AppNotificationManager.Default.NotificationInvoked',
  '----WindowsAppRuntimePushServer:',
  '----AppNotificationActivated:',
- 'yamachat://notification'
+ 'yamachat://notification',
+ 'TryHandlePendingRequestAsync',
+ 'CreateChannelResultAsync',
+ 'wns-ipc',
+ 'request-*.json'
 ]) assert(bridge.includes(marker),'native WNS bridge missing marker: '+marker);
 
 assert(project.includes('Microsoft.WindowsAppSDK')&&project.includes('2.5.1'),'Windows App SDK 2.5.1 dependency missing');
@@ -60,8 +67,7 @@ for(const marker of [
  'Add-AppxPackage',
  '-ExternalLocation',
  'Yamachat.PushIdentity.msix',
- 'wns-signing.cer',
- 'Import-Certificate',
+ '-AllowUnsigned',
  "yamachat.eu-7E03B8AF",
  'Remove-AppxPackage'
 ]) assert(installer.includes(marker),'NSIS WNS/runtime integration missing: '+marker);
@@ -69,8 +75,6 @@ for(const marker of [
 for(const marker of [
  'winapp pack',
  'winapp embed-identity',
- 'winapp sign',
- '--export-cer',
  'dotnet publish',
  'windowsappsdk/2.5/2.5.1/windowsappruntimeinstall-x64.exe',
  'yamachat.eu-7E03B8AF',
