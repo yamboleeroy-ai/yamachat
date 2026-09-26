@@ -90,10 +90,6 @@ if ($LASTEXITCODE -ne 0 -or -not (Test-Path $identityMsix)) { throw "WNS identit
 npx --no-install winapp embed-identity $bridgeExe --manifest $manifestPath
 if ($LASTEXITCODE -ne 0) { throw "Embedding sparse package identity into the WNS bridge failed." }
 
-if ($TestMode) {
-  Remove-Item $cert -Force -ErrorAction SilentlyContinue
-}
-
 Write-Host "PASS: Yamachat WNS bridge + sparse identity built."
 Write-Host "Bridge: $bridgeExe"
 Write-Host "Identity: $identityMsix"
