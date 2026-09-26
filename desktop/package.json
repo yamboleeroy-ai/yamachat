@@ -1,7 +1,7 @@
 {
   "name": "yamachat-windows",
-  "version": "1.0.96",
-  "description": "Yamachat desktop 1.0.96 notification-scroll hotfix on the verified 1.0.95 Windows WNS release",
+  "version": "1.0.97",
+  "description": "Yamachat desktop 1.0.97 independent stream viewer on the verified 1.0.96 Windows WNS release",
   "main": "main.js",
   "productName": "Yamachat",
   "author": "Yamachat",
