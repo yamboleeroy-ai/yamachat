@@ -27,7 +27,7 @@ function ycVoiceSpeakEnhanced(text){
   u.lang='cs-CZ';u.rate=.98;u.pitch=character==='low'?.78:character==='high'?1.22:1;u.volume=.92;
   const voices=ycVoiceAvailableVoices(),wanted=localStorage.getItem(YC_VOICE_ANNOUNCE_VOICE_KEY)||'';
   u.voice=voices.find(v=>v.voiceURI===wanted||v.name===wanted)||voices.find(v=>String(v.lang||'').toLowerCase().startsWith('cs'))||voices[0]||null;
-  speechSynthesis.cancel();speechSynthesis.speak(u);
+  speechSynthesis.speak(u);
  }catch(e){console.warn('voice participant TTS',e)}
 }
 function ycVoiceParticipantAnnouncement(row,action){
@@ -161,6 +161,12 @@ export function withVoiceExperience(html){
 
  // Disable the older second Realtime announcement path; it is intentionally slower and would duplicate speech.
  html=html.replace("function ycVoiceHandleAnnouncement(payload){\n  try{","function ycVoiceHandleAnnouncement(payload){\n  if(window.__ycVoiceParticipantAnnouncements)return;\n  try{");
+
+ // Never mutate soundboard administration on a different server merely because voice stays connected there.
+ const oldCanManageSoundboard="function soundboardCanManage(){return canCommunityPermission('manage_soundboard')||canCommunityPermission('manage_server')}";
+ const newCanManageSoundboard="function soundboardCanManage(){return !!currentCommunity&&String(currentCommunity.id)===ycVoiceCommunityId()&&(canCommunityPermission('manage_soundboard')||canCommunityPermission('manage_server'))}";
+ if(!html.includes(oldCanManageSoundboard))throw Error('Soundboard management context boundary missing');
+ html=html.replace(oldCanManageSoundboard,newCanManageSoundboard);
 
  // Soundboard global volume + per-sender mute, while preserving existing presets/custom loading.
  html=html.replace("function playPresetSound(key){","function playPresetSound(key,gainScale=1){");
