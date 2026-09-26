@@ -40,14 +40,20 @@ html body .yc-v3-workspace>.top{
   outline:1px solid color-mix(in srgb,var(--yc-theme,#e056fd) 34%,#27485b)!important;
   outline-offset:-1px!important;
 }
-html body .chat-head,
-html body .composer-wrap{
+html body .chat-head{
   border-color:color-mix(in srgb,var(--yc-theme,#e056fd) 48%,#34596b)!important;
-  box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--yc-theme,#e056fd) 8%,transparent)!important;
 }
-html body .composer-wrap:focus-within{
-  border-color:color-mix(in srgb,var(--yc-theme,#e056fd) 72%,#4c7183)!important;
-  box-shadow:0 0 14px var(--yc-theme-soft,rgba(224,86,253,.12)),inset 0 0 0 1px color-mix(in srgb,var(--yc-theme,#e056fd) 16%,transparent)!important;
+html body .composer{
+  border-color:color-mix(in srgb,var(--yc-theme,#e056fd) 62%,#34596b)!important;
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb,var(--yc-theme,#e056fd) 10%,transparent),
+    0 0 12px color-mix(in srgb,var(--yc-theme,#e056fd) 8%,transparent)!important;
+}
+html body .composer:focus-within{
+  border-color:color-mix(in srgb,var(--yc-theme,#e056fd) 88%,#6b95a8)!important;
+  box-shadow:
+    0 0 18px var(--yc-theme-glow,rgba(224,86,253,.16)),
+    inset 0 0 0 1px color-mix(in srgb,var(--yc-theme,#e056fd) 24%,transparent)!important;
 }
 
 /* Voice dock outline follows the personal Yamachat theme, never the server color. */
