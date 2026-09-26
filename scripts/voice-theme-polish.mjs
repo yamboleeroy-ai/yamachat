@@ -31,9 +31,9 @@ html,body,*{
 }
 
 /* Voice dock outline follows the personal Yamachat theme, never the server color. */
-#voiceControls,
-.yc-v3-voice-host .voice-controls,
-#voiceControls.yc-desktop-server-voice-accent{
+html body #voiceControls,
+html body .yc-v3-voice-host #voiceControls.voice-controls,
+html body #voiceControls.yc-desktop-server-voice-accent{
   border-color:color-mix(in srgb,var(--yc-theme,#e056fd) 66%,#365769)!important;
   box-shadow:
     0 -8px 28px rgba(0,0,0,.16),
