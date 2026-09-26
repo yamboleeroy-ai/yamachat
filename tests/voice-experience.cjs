@@ -26,14 +26,19 @@ assert(html.includes("window.__ycVoiceLastMicActivityAt=Date.now()"),'Voice VAD 
 assert(html.includes("if(next&&ycLastPresenceSig.startsWith('afk|'))void ycTouchPresence(true)"),'Voice AFK does not recover promptly when speech resumes');
 assert(html.includes("if(pref!=='online')return pref"),'Manual AFK/DND/invisible preference must remain authoritative');
 
-// Immediate voice participant announcements use the existing participant row, including username.
-assert(html.includes("ycVoiceAnnounceOnce(row,'join')"),'Immediate join announcement missing');
-assert(html.includes("ycVoiceAnnounceOnce(row,'leave')"),'Immediate leave announcement missing');
+// Voice participant announcements have one authoritative source: refreshed participant diffs.
+assert(!html.includes("ycVoiceAnnounceOnce(row,'join')"),'Direct INSERT join announcement would duplicate the refreshed participant diff');
+assert(!html.includes("ycVoiceAnnounceOnce(row,'leave')"),'Direct DELETE leave announcement would duplicate the refreshed participant diff');
+assert(html.includes("ycVoiceDiffAnnouncements(id,before,after)"),'Participant diff announcement source missing');
+assert(html.includes("function ycVoiceHandleAnnouncement(payload){\n  if(window.__ycVoiceParticipantAnnouncements)return;"),'Legacy broadcast TTS path is not suppressed');
+assert(html.includes("function ycVoiceSpeakPerson(row,action){\n  if(window.__ycVoiceParticipantAnnouncements)return;"),'Legacy participant TTS path is not suppressed');
+assert(html.includes("if(now-last<6000)return"),'Voice announcement duplicate guard is too short or missing');
 assert(html.includes("row.username||cached?.username||cached?.display_name||'Uživatel'"),'Voice announcement username/fallback source missing');
 assert(html.includes("row.channel_id||''"),'Voice announcement active-channel inference missing');
 assert(html.includes("cached?.channel_id||activeChannel"),'Voice leave announcement cannot recover channel/name from cached presence');
 assert(html.includes('ycVoiceDiffAnnouncements(id,before,after)'),'Participant refresh does not diff join/leave state');
 assert(html.includes("const before=[...(voicePresenceByChannel[id]||[])]"),'Participant refresh does not preserve cached leave rows');
+assert(html.includes("const newDeleteCache=\"if(id){if(voiceChannel?.id===id)syncVoicePeers()}renderVoiceChannels(voiceChannelDefs)\"")||html.includes("if(id){if(voiceChannel?.id===id)syncVoicePeers()}renderVoiceChannels(voiceChannelDefs)"),'DELETE path removes cached participant before diff can retain the username');
 assert(html.includes('YC_VOICE_JOIN_CUE_DATA'),'Uploaded join cue missing');
 assert(html.includes('YC_VOICE_LEAVE_CUE_DATA'),'Uploaded leave cue missing');
 assert(html.includes('ycPlayVoiceFileCue(action)'),'Cue mode does not play uploaded join/leave audio');
@@ -134,6 +139,6 @@ for(const marker of [
 
   assert.deepEqual(errors,[]);
   await page.close();
-  console.log('PASS voice experience: MP3 join/leave preview, anti-spam guard, distinct voice profiles, backdrop-close settings, continuity, AFK and soundboard controls.');
+  console.log('PASS voice experience: single-source join/leave announcements, MP3 previews, anti-spam guard, distinct voice profiles, backdrop-close settings, continuity, AFK and soundboard controls.');
  }finally{await browser.close()}
 })().catch(e=>{console.error(e);process.exitCode=1});
