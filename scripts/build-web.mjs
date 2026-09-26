@@ -11,6 +11,7 @@ import {withActiveServerGlow} from './active-server-glow.mjs';
 import {withServerCardContext} from './server-card-context.mjs';
 import {withFriendsPanelRefresh} from './friends-panel-refresh.mjs';
 import {withVoiceThemePolish} from './voice-theme-polish.mjs';
+import {withVoiceExperience} from './voice-experience.mjs';
 
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
 const read=p=>fs.readFileSync(path.join(root,p),'utf8');
@@ -148,7 +149,7 @@ html=html.replace(
 
 // Final visual override must run after responsive/mobile CSS so old fixed cyan
 // scrollbar and voice-dock rules cannot win the cascade.
-html=withVoiceThemePolish(html);
+html=withVoiceThemePolish(withVoiceExperience(html));
 
 fs.writeFileSync(path.join(root,'index.html'),html);
 console.log('Web generated from verified desktop 1.0.78 reference; desktop files were not modified.');
