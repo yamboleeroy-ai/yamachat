@@ -18,6 +18,22 @@ internal static class Program
         try
         {
             var config = LoadConfig();
+            var command = args.FirstOrDefault(a => !a.StartsWith("----", StringComparison.OrdinalIgnoreCase)) ?? "activation";
+
+            // Status must work even on a clean machine before Windows App Runtime
+            // has been installed, so package-identity diagnostics run first.
+            if (string.Equals(command, "status", StringComparison.OrdinalIgnoreCase))
+            {
+                var family = TryPackageFamilyName();
+                Console.WriteLine(JsonSerializer.Serialize(new
+                {
+                    ok = true,
+                    packageFamilyName = family,
+                    hasPackageIdentity = !string.IsNullOrWhiteSpace(family),
+                    objectIdConfigured = Guid.TryParse(config.ObjectId, out var parsed) && parsed != Guid.Empty
+                }));
+                return 0;
+            }
 
             AppNotificationManager.Default.NotificationInvoked += (_, eventArgs) =>
             {
@@ -56,22 +72,6 @@ internal static class Program
                 };
 
                 PushNotificationManager.Default.Register();
-            }
-
-            var command = args.FirstOrDefault(a => !a.StartsWith("----", StringComparison.OrdinalIgnoreCase)) ?? "activation";
-
-            if (string.Equals(command, "status", StringComparison.OrdinalIgnoreCase))
-            {
-                var family = TryPackageFamilyName();
-                Console.WriteLine(JsonSerializer.Serialize(new
-                {
-                    ok = true,
-                    supported = PushNotificationManager.IsSupported(),
-                    packageFamilyName = family,
-                    hasPackageIdentity = !string.IsNullOrWhiteSpace(family),
-                    objectIdConfigured = Guid.TryParse(config.ObjectId, out var parsed) && parsed != Guid.Empty
-                }));
-                return 0;
             }
 
             if (string.Equals(command, "register", StringComparison.OrdinalIgnoreCase))
