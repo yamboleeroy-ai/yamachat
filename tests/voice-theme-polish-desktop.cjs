@@ -62,9 +62,12 @@ async function snap(page,{theme,server}){
    assert(Math.abs(orangeA.navW-purple.navW)<0.2&&Math.abs(orangeA.navH-purple.navH)<0.2,'Navigation geometry changed with theme');
    assert.match(purple.style,/--yc-themed-scroll-track/);
    assert.match(purple.style,/yc-desktop-server-voice-accent/);
+   assert.match(purple.style,/yc-ss-shell/,'Server settings shell must use current Yamachat theme');
+   assert.match(purple.style,/yc-ss-tab\.active/,'Server settings navigation must use current Yamachat theme');
+   assert.match(purple.style,/yc-ss-btn\.primary/,'Server settings primary actions must use current Yamachat theme');
    assert.deepEqual(errors,[]);
    await page.close();
   }
-  console.log('PASS desktop voice theme polish: user theme controls voice outline/scrollbars, server color cannot override it, L divider removed, geometry stable.');
+  console.log('PASS desktop theme polish: voice, scrollbars and server settings follow the personal Yamachat theme; geometry remains stable.');
  }finally{await browser.close()}
 })().catch(e=>{console.error(e);process.exitCode=1});
