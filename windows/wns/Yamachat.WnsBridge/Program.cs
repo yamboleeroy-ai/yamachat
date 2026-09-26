@@ -19,9 +19,10 @@ internal static class Program
         {
             var config = LoadConfig();
             var command = args.FirstOrDefault(a => !a.StartsWith("----", StringComparison.OrdinalIgnoreCase)) ?? "activation";
+            var systemActivation = args.Any(a => a.StartsWith("----", StringComparison.OrdinalIgnoreCase));
 
-            // Status must work even on a clean machine before Windows App Runtime
-            // has been installed, so package-identity diagnostics run first.
+            // Development/diagnostic direct invocation. Production Yamachat uses
+            // package activation + the local request/response files below.
             if (string.Equals(command, "status", StringComparison.OrdinalIgnoreCase))
             {
                 var family = TryPackageFamilyName();
@@ -33,6 +34,16 @@ internal static class Program
                     objectIdConfigured = Guid.TryParse(config.ObjectId, out var parsed) && parsed != Guid.Empty
                 }));
                 return 0;
+            }
+
+            // A normal AppsFolder activation is how the unpackaged Electron client
+            // asks the sparse package host for a WNS channel. Windows starts this
+            // executable with the registered package identity, so production does
+            // not need an unsigned <msix> element embedded in the EXE manifest.
+            if (!systemActivation)
+            {
+                var requestHandled = await TryHandlePendingRequestAsync(config);
+                if (requestHandled.HasValue) return requestHandled.Value;
             }
 
             AppNotificationManager.Default.NotificationInvoked += (_, eventArgs) =>
@@ -76,40 +87,9 @@ internal static class Program
 
             if (string.Equals(command, "register", StringComparison.OrdinalIgnoreCase))
             {
-                if (!PushNotificationManager.IsSupported())
-                {
-                    Console.WriteLine(JsonSerializer.Serialize(new { ok = false, error = "wns-not-supported" }));
-                    return 20;
-                }
-
-                if (!Guid.TryParse(config.ObjectId, out var objectId) || objectId == Guid.Empty)
-                {
-                    Console.WriteLine(JsonSerializer.Serialize(new { ok = false, error = "wns-object-id-not-configured" }));
-                    return 21;
-                }
-
-                var result = await PushNotificationManager.Default.CreateChannelAsync(objectId);
-
-                if (result.Status != PushNotificationChannelStatus.CompletedSuccess || result.Channel is null)
-                {
-                    Console.WriteLine(JsonSerializer.Serialize(new
-                    {
-                        ok = false,
-                        error = "wns-channel-failed",
-                        status = result.Status.ToString(),
-                        extendedError = result.ExtendedError?.HResult ?? 0
-                    }));
-                    return 22;
-                }
-
-                Console.WriteLine(JsonSerializer.Serialize(new
-                {
-                    ok = true,
-                    channelUri = result.Channel.Uri.ToString(),
-                    expiresAt = result.Channel.ExpirationTime.ToUniversalTime().ToString("O"),
-                    packageFamilyName = TryPackageFamilyName()
-                }));
-                return 0;
+                var result = await CreateChannelResultAsync(config);
+                Console.WriteLine(JsonSerializer.Serialize(result));
+                return ResultOk(result) ? 0 : 22;
             }
 
             // COM activation paths used by Windows for background push / notification click.
@@ -133,6 +113,161 @@ internal static class Program
             try { PushNotificationManager.Default.Unregister(); } catch { }
             try { AppNotificationManager.Default.Unregister(); } catch { }
         }
+    }
+
+    private static async Task<int?> TryHandlePendingRequestAsync(BridgeConfig config)
+    {
+        var directory = IpcDirectory();
+        Directory.CreateDirectory(directory);
+
+        foreach (var file in Directory.EnumerateFiles(directory, "request-*.json")
+                     .OrderByDescending(File.GetLastWriteTimeUtc)
+                     .Take(8))
+        {
+            string requestId = "";
+            try
+            {
+                using var document = JsonDocument.Parse(File.ReadAllText(file));
+                var root = document.RootElement;
+                requestId = root.TryGetProperty("requestId", out var id) ? id.GetString() ?? "" : "";
+                var action = root.TryGetProperty("action", out var a) ? a.GetString() ?? "" : "";
+
+                if (requestId.Length != 32 || requestId.Any(ch => !Uri.IsHexDigit(ch)))
+                {
+                    TryDelete(file);
+                    continue;
+                }
+
+                object response;
+                if (string.Equals(action, "status", StringComparison.OrdinalIgnoreCase))
+                {
+                    var family = TryPackageFamilyName();
+                    response = new
+                    {
+                        ok = true,
+                        packageFamilyName = family,
+                        hasPackageIdentity = !string.IsNullOrWhiteSpace(family),
+                        objectIdConfigured = Guid.TryParse(config.ObjectId, out var parsed) && parsed != Guid.Empty
+                    };
+                }
+                else if (string.Equals(action, "register", StringComparison.OrdinalIgnoreCase))
+                {
+                    response = await CreateChannelResultAsync(config);
+                }
+                else
+                {
+                    response = new { ok = false, error = "unsupported-action" };
+                }
+
+                WriteIpcResponse(directory, requestId, response);
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                if (requestId.Length == 32)
+                {
+                    WriteIpcResponse(directory, requestId, new
+                    {
+                        ok = false,
+                        error = "bridge-request-failed",
+                        detail = ex.GetType().Name
+                    });
+                    return 0;
+                }
+            }
+            finally
+            {
+                TryDelete(file);
+            }
+        }
+
+        return null;
+    }
+
+    private static async Task<object> CreateChannelResultAsync(BridgeConfig config)
+    {
+        var family = TryPackageFamilyName();
+        if (string.IsNullOrWhiteSpace(family))
+            return new { ok = false, error = "wns-package-identity-missing" };
+
+        if (!PushNotificationManager.IsSupported())
+            return new { ok = false, error = "wns-not-supported", packageFamilyName = family };
+
+        if (!Guid.TryParse(config.ObjectId, out var objectId) || objectId == Guid.Empty)
+            return new { ok = false, error = "wns-object-id-not-configured", packageFamilyName = family };
+
+        try
+        {
+            PushNotificationManager.Default.Register();
+            var result = await PushNotificationManager.Default.CreateChannelAsync(objectId);
+
+            if (result.Status != PushNotificationChannelStatus.CompletedSuccess || result.Channel is null)
+            {
+                return new
+                {
+                    ok = false,
+                    error = "wns-channel-failed",
+                    status = result.Status.ToString(),
+                    extendedError = result.ExtendedError?.HResult ?? 0,
+                    packageFamilyName = family
+                };
+            }
+
+            return new
+            {
+                ok = true,
+                channelUri = result.Channel.Uri.ToString(),
+                expiresAt = result.Channel.ExpirationTime.ToUniversalTime().ToString("O"),
+                packageFamilyName = family
+            };
+        }
+        catch (Exception ex)
+        {
+            return new
+            {
+                ok = false,
+                error = "wns-channel-exception",
+                hresult = ex.HResult,
+                packageFamilyName = family
+            };
+        }
+        finally
+        {
+            try { PushNotificationManager.Default.Unregister(); } catch { }
+        }
+    }
+
+    private static bool ResultOk(object result)
+    {
+        try
+        {
+            var json = JsonSerializer.SerializeToElement(result);
+            return json.TryGetProperty("ok", out var ok) && ok.ValueKind == JsonValueKind.True;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private static string IpcDirectory() =>
+        Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "Yamachat",
+            "wns-ipc");
+
+    private static void WriteIpcResponse(string directory, string requestId, object response)
+    {
+        Directory.CreateDirectory(directory);
+        var target = Path.Combine(directory, $"response-{requestId}.json");
+        var temp = target + ".tmp";
+        File.WriteAllText(temp, JsonSerializer.Serialize(response));
+        File.Move(temp, target, true);
+    }
+
+    private static void TryDelete(string file)
+    {
+        try { if (File.Exists(file)) File.Delete(file); } catch { }
     }
 
     private static BridgeConfig LoadConfig()
