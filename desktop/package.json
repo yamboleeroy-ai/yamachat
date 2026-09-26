@@ -1,7 +1,7 @@
 {
   "name": "yamachat-windows",
-  "version": "1.0.93",
-  "description": "Yamachat desktop 1.0.93 based exactly on the verified Real Voices + Composer 1.0.92 test build",
+  "version": "1.0.94",
+  "description": "Yamachat desktop 1.0.94 icon and tray hotfix on the verified Real Voices 1.0.93 runtime",
   "main": "main.js",
   "productName": "Yamachat",
   "author": "Yamachat",
