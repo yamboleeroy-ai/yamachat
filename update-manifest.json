@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
-  "publishedAt": "2026-09-25T22:41:57Z",
+  "publishedAt": "2026-09-26T04:09:01Z",
   "windows": {
-    "latestVersion": "1.0.92",
+    "latestVersion": "1.0.93",
     "required": true,
-    "releaseUrl": "https://github.com/yamboleeroy-ai/yamachat/releases/tag/v1.0.92",
-    "notes": "Yamachat 1.0.92: modernizovaný panel Přátelé, stabilnější Členové/Přátelé/DM, opravená klikatelnost levé navigace a kontextové menu serveru. Stabilní základ 1.0.81."
+    "releaseUrl": "https://github.com/yamboleeroy-ai/yamachat/releases/tag/v1.0.93",
+    "notes": "Yamachat 1.0.93: ověřená Real Voices + Composer verze, skutečné systémové TTS hlasy přes voiceURI, přesné JOIN/LEAVE zvuky, opravené jednorázové voice oznámení se jménem, composer/voice accent a GPU compositor workaround."
   },
   "android": {
     "latestVersion": "1.1.0.405",
@@ -14,10 +14,10 @@
     "apkUrl": "https://yamachat.eu/download/Yamachat-Android.apk?v=200405",
     "sha256": "d3b3d6c30441a4afb0e54a33ea7f7a5c939479261f8a3597d15ebc110995c3d8",
     "notes": [
-      "Opravené přepínání mobilních vysouvacích panelů jedním klepnutím.",
-      "Přátelé teď automaticky zavřou aktuální panel a otevřou panel Členové/Přátelé.",
-      "Stejné chování funguje v portrétu i landscape na Androidu a iOS/PWA.",
-      "Ostatní funkce a desktop zůstávají beze změny."
+      "Přenesené ověřené Real Voices/Composer funkce bez změny současného mobilního rozložení.",
+      "Skutečné dostupné systémové TTS hlasy přes speechSynthesis voiceURI; žádné falešné pitch/rate profily.",
+      "Přesné JOIN/LEAVE zvuky a jednorázová voice oznámení bez dvojitého čtení.",
+      "Zachované Android/iOS/PWA vysouvací panely, safe-area, portrét/landscape a spodní voice dock."
     ]
   }
 }
