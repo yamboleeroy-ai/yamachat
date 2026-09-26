@@ -75,11 +75,29 @@ async function openSettings(page,mobile){
  await page.locator('#appSettingsBtn').click();
  await page.waitForSelector('[data-yc-settings-section="voice-experience"]');
 }
-async function joinVoiceA(page){
+async function joinVoiceA(page,mobile){
+ if(mobile){
+  const side=page.locator('#side');
+  if(!await side.evaluate(el=>el.classList.contains('mobile-open'))){
+   await page.locator('#mobileMenu').click();
+   await page.waitForFunction(()=>document.getElementById('side')?.classList.contains('mobile-open'));
+  }
+ }
  const row=page.locator('.voice-channel[data-voice="voice-a"]');
- await row.waitFor({state:'attached'});
- await row.dispatchEvent('dblclick',{bubbles:true});
- await page.waitForFunction(()=>window.YamachatVoiceExperience?.snapshot().voiceConnected,{},{timeout:12000});
+ await row.waitFor({state:'visible'});
+ await row.dblclick();
+ try{
+  await page.waitForFunction(()=>window.YamachatVoiceExperience?.snapshot().voiceConnected,{},{timeout:15000});
+ }catch(error){
+  const debug=await page.evaluate(()=>({
+   snapshot:window.YamachatVoiceExperience?.snapshot?.()||null,
+   toast:document.getElementById('toast')?.textContent||'',
+   voiceStatus:document.getElementById('voiceStatusSub')?.textContent||'',
+   switching:!!window.__ycVoiceSwitchBusy,
+   target:String(window.__ycVoiceSwitchTargetId||'')
+  }));
+  throw new Error('Voice join failed: '+JSON.stringify(debug)+' :: '+error.message);
+ }
  return page.evaluate(()=>window.YamachatVoiceExperience.snapshot());
 }
 (async()=>{
@@ -125,7 +143,7 @@ async function joinVoiceA(page){
    await page.evaluate(()=>localStorage.setItem('yc_soundboard_muted_users',JSON.stringify({peer:1})));
    assert.equal(await page.evaluate(()=>window.YamachatVoiceExperience.isSoundboardUserMuted('peer')),true);
 
-   const before=await joinVoiceA(page);
+   const before=await joinVoiceA(page,mobile);
    assert.equal(before.voiceChannelId,'voice-a',JSON.stringify(before));assert.equal(before.voiceCommunityId,'community-a',JSON.stringify(before));assert.equal(before.micLive,true,JSON.stringify(before));assert.equal(before.heartbeat,true,JSON.stringify(before));
 
    await page.locator('#voiceSoundboardBtn').click();
