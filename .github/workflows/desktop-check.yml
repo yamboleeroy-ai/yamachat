@@ -36,47 +36,26 @@ jobs:
           node --check desktop/preload.js
           node --check desktop/notification-preload.js
 
-      - name: Install release extractor
-        run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y -qq p7zip-full
-
-      - name: Download released Windows 1.0.94 baseline
-        env:
-          GH_TOKEN: ${{ github.token }}
+      - name: Verify non-WNS runtime matches released 1.0.94 source
         run: |
           set -euo pipefail
-          mkdir -p /tmp/yamachat-1094
-          gh release download v1.0.94 \
-            --repo "${GITHUB_REPOSITORY}" \
-            --pattern "Yamachat-Setup-1.0.94.exe" \
-            --dir /tmp/yamachat-1094
+          base=origin/release/windows-1.0.94-icon-tray-hotfix
+          git rev-parse --verify "$base" >/dev/null
 
-      - name: Verify Windows runtime matches released 1.0.94
-        run: |
-          set -euo pipefail
-          mkdir -p /tmp/yamachat-1094-nsis /tmp/yamachat-1094-app
-          7z x /tmp/yamachat-1094/Yamachat-Setup-1.0.94.exe -o/tmp/yamachat-1094-nsis -y >/dev/null
-          archive="$(find /tmp/yamachat-1094-nsis -type f \( -name 'app-64.7z' -o -name 'app-*.7z' \) | head -n 1 || true)"
-          if [ -n "$archive" ]; then
-            7z x "$archive" -o/tmp/yamachat-1094-app -y >/dev/null
-          else
-            cp -a /tmp/yamachat-1094-nsis/. /tmp/yamachat-1094-app/
-          fi
-          app_root="$(dirname "$(find /tmp/yamachat-1094-app /tmp/yamachat-1094-nsis -type f -path '*/resources/app/main.js' | head -n 1)")"
-          test -n "$app_root"
           # WNS intentionally changes main.js, preload.js and desktop.html.
-          # Keep the rest of the released 1.0.94 desktop runtime byte-for-byte unchanged.
-          for file in updater.js updater-helper.ps1 notification-preload.js; do
-            test -f "$app_root/$file"
-            test -f "desktop/$file"
-            cmp "$app_root/$file" "desktop/$file"
-            echo "PASS released 1.0.94 unchanged runtime: $file"
+          # Everything unrelated to WNS must stay identical to the source that built 1.0.94.
+          for file in desktop/updater.js desktop/updater-helper.ps1 desktop/notification-preload.js; do
+            git diff --exit-code "$base" -- "$file"
+            echo "PASS 1.0.94 unchanged source: $file"
           done
-          for file in main.js preload.js desktop.html; do
-            test -f "$app_root/$file"
-            test -f "desktop/$file"
-            echo "PASS intentional WNS runtime delta present: $file"
+
+          for file in desktop/main.js desktop/preload.js desktop/desktop.html; do
+            test -f "$file"
+            if git diff --quiet "$base" -- "$file"; then
+              echo "Expected WNS delta missing: $file"
+              exit 1
+            fi
+            echo "PASS intentional WNS runtime delta: $file"
           done
 
       - name: Verify generated desktop client
