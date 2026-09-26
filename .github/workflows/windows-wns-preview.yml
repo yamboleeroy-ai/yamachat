@@ -69,6 +69,7 @@ jobs:
           $required=@(
             "desktop/wns/Yamachat.WnsBridge.exe",
             "desktop/wns/Yamachat.PushIdentity.msix",
+            "desktop/wns/WindowsAppRuntimeInstall-x64.exe",
             "desktop/wns/wns-config.json",
             "desktop/wns/Assets/StoreLogo.png",
             "desktop/wns/Assets/Square44x44Logo.png",
@@ -88,6 +89,7 @@ jobs:
           path: |
             desktop/wns/Yamachat.WnsBridge.exe
             desktop/wns/Yamachat.PushIdentity.msix
+            desktop/wns/WindowsAppRuntimeInstall-x64.exe
             desktop/wns/wns-config.json
             desktop/wns/Assets/
           if-no-files-found: error
