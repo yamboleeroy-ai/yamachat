@@ -35,6 +35,21 @@ async function boot(browser,width=1440,height=900,mobile=false){
  const page=await browser.newPage({viewport:{width,height},serviceWorkers:'block',hasTouch:mobile,isMobile:mobile});
  const errors=[];page.on('pageerror',e=>errors.push(e.message));
  await page.addInitScript(()=>{
+  const NativeAudioContext=window.AudioContext||window.webkitAudioContext;
+  const TestAudioContext=function(...args){
+   const ctx=new NativeAudioContext(...args);
+   try{Object.defineProperty(ctx,'audioWorklet',{configurable:true,value:{addModule:async()=>{}}})}catch{}
+   return ctx
+  };
+  TestAudioContext.prototype=NativeAudioContext.prototype;
+  window.AudioContext=TestAudioContext;window.webkitAudioContext=TestAudioContext;
+  window.AudioWorkletNode=class{
+   constructor(ctx){
+    const node=ctx.createGain();
+    node.port={onmessage:null,postMessage(){}};
+    return node
+   }
+  };
   const makeStream=()=>{
    const C=window.AudioContext||window.webkitAudioContext,ctx=new C(),dst=ctx.createMediaStreamDestination(),osc=ctx.createOscillator(),gain=ctx.createGain();
    gain.gain.value=.00001;osc.connect(gain).connect(dst);osc.start();window.__ycTestMic={ctx,osc,stream:dst.stream};return dst.stream;
