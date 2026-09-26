@@ -1,0 +1,179 @@
+name: Publish Yamachat Windows 1.0.94 Icon Tray Hotfix
+
+on:
+  push:
+    branches:
+      - release/windows-1.0.94-icon-tray-hotfix
+    paths:
+      - ".github/workflows/build-windows-1.0.94-icon-tray.yml"
+      - "desktop/package.json"
+      - "desktop/package-lock.json"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-publish:
+    runs-on: windows-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: release/windows-1.0.94-icon-tray-hotfix
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: desktop/package-lock.json
+
+      - name: Regenerate verified Real Voices client
+        run: node scripts/prepare-desktop-1.0.92.mjs
+
+      - name: Verify Real Voices runtime stayed unchanged
+        shell: pwsh
+        run: |
+          $pkg=Get-Content desktop/package.json | ConvertFrom-Json
+          if($pkg.version -ne "1.0.94"){throw "Expected Windows version 1.0.94"}
+
+          $expected=@{
+            "desktop/desktop-client.html"="382368b2846df72aa78d17d004b5784fe83a7397f598b3b83b1537fab6c1e5f0"
+            "desktop/desktop.html"="5800c157cf689ffd6789a89134bd3509d69ad040f2f9171fa0bdd603d779881d"
+            "desktop/main.js"="c6167fafb770ba2b92b37e132b22c1839d7f2ae1c06735721091fd878bc64159"
+            "audio/yamachat_join_voice.mp3"="d0f4654da5668871290144e88cef5e879397a8ab05a6df0f4ecbd1c7a9cd151e"
+            "audio/yamachat_leave_voice.mp3"="08fcd45a4141b3e28e24d0ce6051b7123c0f0d124ae297291b0077a3788ebaa1"
+          }
+          foreach($file in $expected.Keys){
+            $actual=(Get-FileHash $file -Algorithm SHA256).Hash.ToLower()
+            if($actual -ne $expected[$file]){throw "$file changed from approved Real Voices build"}
+          }
+
+          $main=Get-Content desktop/main.js -Raw
+          foreach($marker in @(
+            "function createTray()",
+            "new Tray(trayIconForCurrentState())",
+            "createTray();",
+            "icon: path.join(",
+            "'build',",
+            "'icon.ico'"
+          )){if(-not $main.Contains($marker)){throw "Missing icon/tray runtime marker: $marker"}}
+
+      - name: Restore proven Yamachat icon and tray assets
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          ./scripts/restore-desktop-brand-assets.ps1 -Destination build
+
+          $expected=@{
+            "icon.ico"="3d286b12f69b42fcfced22ce7cc32623bfb02329df66b9681c092cdc0837a838"
+            "app-icon-source.png"="ae6fd30a2de1b53b199fb6998b57f6ffb2ea06710cf2b25a3ac2199f3cfa0ac9"
+            "tray-controller-idle.png"="234ce8f2b7d19e6e4ccc2e6616c44fcf391e4151c42f618b4c29e4427943fc8f"
+            "tray-controller-speaking.png"="68a0802519a9c609ad143ea2612eced4b3cb254ec08bdbbc1411cc5349ed0cb3"
+            "tray-status-afk-notify.png"="f23a2a097327e1429c924f6b5fbfde0ff88a10069dca539e00ba58309a5e8d44"
+            "tray-status-afk.png"="bf38f212716567c53862bce6bf8b832c9007dcf9430ca7a61d063e109d65b44a"
+            "tray-status-dnd-notify.png"="e14a8d0f04bea7a63137819b6d7582c7d41b53f2e2b820930c35022e2cfef767"
+            "tray-status-dnd.png"="9bd1aa65fe387f28339bbece8481abcc99525b9836fb667948e46f4e339695bd"
+            "tray-status-invisible-notify.png"="f927fcc1cc61a061fe11b0b7f7d2499fba420cb9ea3ec61b2ff7fe7220328ba8"
+            "tray-status-invisible.png"="38412a2fc7157b1bc70085802a67a07297ec3b2adee811cd418b28256fb7d3eb"
+            "tray-status-online-notify.png"="645f417e2a291912735cf77a3d14db5b80f259b19f9e4e0e1a11c6ad1653af82"
+            "tray-status-online.png"="42d7e997bb3b988259bccd5224c4a66b6c6318c1be3289b328b09ef4c26b85cc"
+            "tray-voice.png"="68a0802519a9c609ad143ea2612eced4b3cb254ec08bdbbc1411cc5349ed0cb3"
+            "yamachat-logo-ui.webp"="88e1179d327d260b1a480cc9afab984d5807a690c065c826be0e1fcafe7e9498"
+          }
+          foreach($name in $expected.Keys){
+            $p=Join-Path "build" $name
+            if(-not (Test-Path $p)){throw "Missing restored asset: $name"}
+            $actual=(Get-FileHash $p -Algorithm SHA256).Hash.ToLower()
+            if($actual -ne $expected[$name]){throw "Restored asset hash mismatch: $name"}
+          }
+
+      - name: Prepare runtime assets
+        shell: pwsh
+        run: |
+          Copy-Item -Recurse -Force build desktop\build
+          Copy-Item -Recurse -Force audio desktop\audio
+          Copy-Item -Force boot-guard.js desktop\boot-guard.js
+
+      - name: Install desktop dependencies
+        working-directory: desktop
+        run: npm ci
+
+      - name: Build Windows hotfix
+        working-directory: desktop
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: npm run release:win
+
+      - name: Verify packaged icon tray and approved runtime
+        shell: pwsh
+        run: |
+          $appRoot="desktop/dist/win-unpacked/resources/app"
+          $assets=@(
+            "icon.ico",
+            "tray-controller-idle.png",
+            "tray-controller-speaking.png",
+            "tray-status-online.png",
+            "tray-status-online-notify.png",
+            "tray-status-afk.png",
+            "tray-status-afk-notify.png",
+            "tray-status-dnd.png",
+            "tray-status-dnd-notify.png",
+            "tray-status-invisible.png",
+            "tray-status-invisible-notify.png",
+            "tray-voice.png"
+          )
+          foreach($name in $assets){
+            if(-not (Test-Path "$appRoot/build/$name")){throw "Packaged tray/icon asset missing: $name"}
+          }
+
+          if((Get-FileHash "$appRoot/build/icon.ico" -Algorithm SHA256).Hash.ToLower() -ne "3d286b12f69b42fcfced22ce7cc32623bfb02329df66b9681c092cdc0837a838"){throw "Packaged app icon changed"}
+          if((Get-FileHash "$appRoot/build/tray-status-online.png" -Algorithm SHA256).Hash.ToLower() -ne "42d7e997bb3b988259bccd5224c4a66b6c6318c1be3289b328b09ef4c26b85cc"){throw "Packaged online tray icon changed"}
+          if((Get-FileHash "$appRoot/build/tray-controller-idle.png" -Algorithm SHA256).Hash.ToLower() -ne "234ce8f2b7d19e6e4ccc2e6616c44fcf391e4151c42f618b4c29e4427943fc8f"){throw "Packaged voice tray icon changed"}
+
+          if((Get-FileHash "$appRoot/desktop-client.html" -Algorithm SHA256).Hash.ToLower() -ne "382368b2846df72aa78d17d004b5784fe83a7397f598b3b83b1537fab6c1e5f0"){throw "Packaged client changed"}
+          if((Get-FileHash "$appRoot/main.js" -Algorithm SHA256).Hash.ToLower() -ne "c6167fafb770ba2b92b37e132b22c1839d7f2ae1c06735721091fd878bc64159"){throw "Packaged runtime changed"}
+
+          foreach($file in @(
+            "desktop/dist/Yamachat-Setup-1.0.94.exe",
+            "desktop/dist/Yamachat-Setup-1.0.94.exe.blockmap",
+            "desktop/dist/latest.yml"
+          )){if(-not (Test-Path $file)){throw "Missing hotfix update asset: $file"}}
+          $latest=Get-Content desktop/dist/latest.yml -Raw
+          if($latest -notmatch "version:\s*1\.0\.94"){throw "latest.yml is not 1.0.94"}
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: yamachat-windows-1.0.94-icon-tray-hotfix
+          path: |
+            desktop/dist/Yamachat-Setup-1.0.94.exe
+            desktop/dist/Yamachat-Setup-1.0.94.exe.blockmap
+            desktop/dist/latest.yml
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Publish v1.0.94 hotfix
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p release-assets
+          cp desktop/dist/Yamachat-Setup-1.0.94.exe release-assets/
+          cp desktop/dist/Yamachat-Setup-1.0.94.exe.blockmap release-assets/
+          cp desktop/dist/latest.yml release-assets/
+          cat > release-notes.md <<'EOF'
+          Yamachat 1.0.94
+
+          Hotfix desktop ikony a systémové tray ikony.
+          Real Voices, composer, voice funkce a UI jsou beze změny proti 1.0.93.
+          Obnoveny ověřené Yamachat icon/tray assety a kontrola jejich přítomnosti přímo v zabalené aplikaci.
+          EOF
+          if gh release view v1.0.94 --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release upload v1.0.94 release-assets/* --repo "$GITHUB_REPOSITORY" --clobber
+            gh release edit v1.0.94 --repo "$GITHUB_REPOSITORY" --title "Yamachat 1.0.94" --notes-file release-notes.md --latest
+          else
+            gh release create v1.0.94 release-assets/* --repo "$GITHUB_REPOSITORY" --target release/windows-1.0.94-icon-tray-hotfix --title "Yamachat 1.0.94" --notes-file release-notes.md --latest
+          fi
