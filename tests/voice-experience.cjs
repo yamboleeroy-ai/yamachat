@@ -39,20 +39,29 @@ assert(html.includes("cached?.channel_id||activeChannel"),'Voice leave announcem
 assert(html.includes('ycVoiceDiffAnnouncements(id,before,after)'),'Participant refresh does not diff join/leave state');
 assert(html.includes("const before=[...(voicePresenceByChannel[id]||[])]"),'Participant refresh does not preserve cached leave rows');
 assert(html.includes("const newDeleteCache=\"if(id){if(voiceChannel?.id===id)syncVoicePeers()}renderVoiceChannels(voiceChannelDefs)\"")||html.includes("if(id){if(voiceChannel?.id===id)syncVoicePeers()}renderVoiceChannels(voiceChannelDefs)"),'DELETE path removes cached participant before diff can retain the username');
-assert(html.includes('YC_VOICE_JOIN_CUE_DATA'),'Uploaded join cue missing');
-assert(html.includes('YC_VOICE_LEAVE_CUE_DATA'),'Uploaded leave cue missing');
+assert(html.includes('YC_VOICE_JOIN_CUE_SRC'),'Uploaded join cue path missing');
+assert(html.includes('YC_VOICE_LEAVE_CUE_SRC'),'Uploaded leave cue path missing');
+assert(html.includes("./audio/yamachat_join_voice.mp3"),'Exact JOIN file is not referenced');
+assert(html.includes("./audio/yamachat_leave_voice.mp3"),'Exact LEAVE file is not referenced');
 assert(html.includes('ycPlayVoiceFileCue(action)'),'Cue mode does not play uploaded join/leave audio');
-assert(html.includes("audio=new Audio(data)"),'Uploaded join/leave cues are not played as the embedded MP3 files');
+assert(html.includes("audio=new Audio(src)"),'Uploaded join/leave cues are not played from packaged MP3 files');
 assert(html.includes("root.querySelector('#ycVoiceJoinTest').onclick"),'JOIN preview button is not wired to uploaded audio');
 assert(html.includes("root.querySelector('#ycVoiceLeaveTest').onclick"),'LEAVE preview button is not wired to uploaded audio');
 assert(html.includes('if(previewBusy)return'),'Voice preview anti-spam guard missing');
 assert(html.includes('previewButtons.forEach(b=>b.disabled=true)'),'Voice preview buttons are not disabled while a preview is active');
+assert(html.includes("previewRun(done=>void ycPlayVoiceFileCue('join',done),2600)"),'JOIN preview cooldown is too short or missing');
+assert(html.includes("previewRun(done=>void ycPlayVoiceFileCue('leave',done),2600)"),'LEAVE preview cooldown is too short or missing');
 assert(html.includes('ycVoiceProfileVoice(voices,wanted,profileCfg)'),'Voice profiles do not select profile-aware system voices');
-for(const marker of ["rate:.80,pitch:.55","rate:.94,pitch:.82","rate:1.12,pitch:1.05","rate:.86,pitch:1.18","rate:1.00,pitch:1.42","rate:1.16,pitch:1.70"])
+for(const marker of ["rate:.70,pitch:.50","rate:.96,pitch:.88","rate:1.30,pitch:1.12","rate:.76,pitch:1.16","rate:1.02,pitch:1.42","rate:1.34,pitch:1.85"])
  assert(html.includes(marker),'Distinct voice profile tuning missing: '+marker);
-for(const marker of ['YC_VOICE_JOIN_CUE_DATA','YC_VOICE_LEAVE_CUE_DATA']){
- const m=html.match(new RegExp("const "+marker+"='data:audio/mpeg;base64,([^']+)'"));
- assert(m&&m[1].startsWith('SUQz')&&m[1].length>4500,'Embedded MP3 cue is missing or truncated: '+marker);
+const crypto=require('node:crypto');
+for(const [file,expected] of [
+ ['audio/yamachat_join_voice.mp3','d0f4654da5668871290144e88cef5e879397a8ab05a6df0f4ecbd1c7a9cd151e'],
+ ['audio/yamachat_leave_voice.mp3','08fcd45a4141b3e28e24d0ce6051b7123c0f0d124ae297291b0077a3788ebaa1']
+]){
+ const p=path.join(root,file);assert(fs.existsSync(p),'Uploaded voice cue missing: '+file);
+ const bytes=fs.readFileSync(p);assert.equal(bytes.length,17324,'Uploaded voice cue size changed: '+file);
+ assert.equal(crypto.createHash('sha256').update(bytes).digest('hex'),expected,'Uploaded voice cue bytes changed: '+file);
 }
 for(const profile of ['male-deep','male-natural','male-clear','female-soft','female-natural','female-bright'])
  assert(html.includes(profile),'Missing voice profile: '+profile);
@@ -139,6 +148,6 @@ for(const marker of [
 
   assert.deepEqual(errors,[]);
   await page.close();
-  console.log('PASS voice experience: single-source join/leave announcements, MP3 previews, anti-spam guard, distinct voice profiles, backdrop-close settings, continuity, AFK and soundboard controls.');
+  console.log('PASS voice experience: single-source join/leave announcements, exact uploaded MP3 cues, preview cooldown, distinct voice profiles, backdrop-close settings, continuity, AFK and soundboard controls.');
  }finally{await browser.close()}
 })().catch(e=>{console.error(e);process.exitCode=1});
