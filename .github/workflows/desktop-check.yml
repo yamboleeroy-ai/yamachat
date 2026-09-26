@@ -36,40 +36,26 @@ jobs:
           node --check desktop/preload.js
           node --check desktop/notification-preload.js
 
-      - name: Install release extractor
-        run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y -qq p7zip-full
-
-      - name: Download released Windows 1.0.79 baseline
-        env:
-          GH_TOKEN: ${{ github.token }}
+      - name: Verify non-WNS runtime matches released 1.0.94 source
         run: |
           set -euo pipefail
-          mkdir -p /tmp/yamachat-1079
-          gh release download v1.0.79 \
-            --repo "${GITHUB_REPOSITORY}" \
-            --pattern "Yamachat-Setup-1.0.79.exe" \
-            --dir /tmp/yamachat-1079
+          base=origin/release/windows-1.0.94-icon-tray-hotfix
+          git rev-parse --verify "$base" >/dev/null
 
-      - name: Verify Windows runtime matches released 1.0.79
-        run: |
-          set -euo pipefail
-          mkdir -p /tmp/yamachat-1079-nsis /tmp/yamachat-1079-app
-          7z x /tmp/yamachat-1079/Yamachat-Setup-1.0.79.exe -o/tmp/yamachat-1079-nsis -y >/dev/null
-          archive="$(find /tmp/yamachat-1079-nsis -type f \( -name 'app-64.7z' -o -name 'app-*.7z' \) | head -n 1 || true)"
-          if [ -n "$archive" ]; then
-            7z x "$archive" -o/tmp/yamachat-1079-app -y >/dev/null
-          else
-            cp -a /tmp/yamachat-1079-nsis/. /tmp/yamachat-1079-app/
-          fi
-          app_root="$(dirname "$(find /tmp/yamachat-1079-app /tmp/yamachat-1079-nsis -type f -path '*/resources/app/main.js' | head -n 1)")"
-          test -n "$app_root"
-          for file in main.js updater.js updater-helper.ps1 preload.js notification-preload.js desktop.html; do
-            test -f "$app_root/$file"
-            test -f "desktop/$file"
-            cmp "$app_root/$file" "desktop/$file"
-            echo "PASS released 1.0.79 runtime: $file"
+          # WNS intentionally changes main.js, preload.js and desktop.html.
+          # Everything unrelated to WNS must stay identical to the source that built 1.0.94.
+          for file in desktop/updater.js desktop/updater-helper.ps1 desktop/notification-preload.js; do
+            git diff --exit-code "$base" -- "$file"
+            echo "PASS 1.0.94 unchanged source: $file"
+          done
+
+          for file in desktop/main.js desktop/preload.js desktop/desktop.html; do
+            test -f "$file"
+            if git diff --quiet "$base" -- "$file"; then
+              echo "Expected WNS delta missing: $file"
+              exit 1
+            fi
+            echo "PASS intentional WNS runtime delta: $file"
           done
 
       - name: Verify generated desktop client
@@ -95,13 +81,13 @@ jobs:
           foreach ($name in @("icon.ico","tray-controller-idle.png","tray-controller-speaking.png","tray-status-online.png","tray-status-online-notify.png","app-icon-source.png","yamachat-logo-ui.webp")) {
             if (-not (Test-Path (Join-Path build $name))) { throw "Missing restored Windows asset $name" }
           }
-          Write-Host "PASS tray and Windows app icon assets restored from 1.0.79"
+          Write-Host "PASS tray and Windows app icon assets restored from 1.0.94"
 
       - name: Verify desktop release version
         run: |
           node - <<'NODE'
           const p=require('./desktop/package.json');
-          if(p.version!=='1.0.92') throw new Error('Expected desktop source version 1.0.92');
+          if(p.version!=='1.0.94') throw new Error('Expected desktop source version 1.0.94');
           if(!p.dependencies?.['electron-updater']) throw new Error('electron-updater missing');
           console.log('PASS desktop',p.version);
           NODE

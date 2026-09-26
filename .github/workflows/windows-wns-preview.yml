@@ -4,6 +4,10 @@ on:
   push:
     branches:
       - feature/windows-wns
+      - feature/windows-wns-runtime-20260926
+  pull_request:
+    branches:
+      - feature/windows-wns
   workflow_dispatch:
 
 permissions:
@@ -16,7 +20,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: feature/windows-wns
           fetch-depth: 0
 
       - uses: actions/setup-node@v4
@@ -52,6 +55,8 @@ jobs:
       - name: Register sparse identity and verify package identity
         shell: pwsh
         run: |
+          & desktop/wns/WindowsAppRuntimeInstall-x64.exe --quiet
+          if($LASTEXITCODE -ne 0){throw "Windows App Runtime install failed: $LASTEXITCODE"}
           npx --no-install winapp cert install desktop/wns/wns-devcert.pfx --password yamachat-ci
           Add-AppxPackage -Path (Resolve-Path desktop/wns/Yamachat.PushIdentity.msix) -ExternalLocation (Resolve-Path desktop)
           Get-AppxPackage -Name "Yamachat.Desktop.Push.Dev" | Format-List Name,PackageFullName,PackageFamilyName,InstallLocation
@@ -69,6 +74,7 @@ jobs:
           $required=@(
             "desktop/wns/Yamachat.WnsBridge.exe",
             "desktop/wns/Yamachat.PushIdentity.msix",
+            "desktop/wns/WindowsAppRuntimeInstall-x64.exe",
             "desktop/wns/wns-config.json",
             "desktop/wns/Assets/StoreLogo.png",
             "desktop/wns/Assets/Square44x44Logo.png",
@@ -88,6 +94,7 @@ jobs:
           path: |
             desktop/wns/Yamachat.WnsBridge.exe
             desktop/wns/Yamachat.PushIdentity.msix
+            desktop/wns/WindowsAppRuntimeInstall-x64.exe
             desktop/wns/wns-config.json
             desktop/wns/Assets/
           if-no-files-found: error
