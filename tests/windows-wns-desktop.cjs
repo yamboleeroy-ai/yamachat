@@ -60,14 +60,17 @@ for(const marker of [
  'Add-AppxPackage',
  '-ExternalLocation',
  'Yamachat.PushIdentity.msix',
+ 'wns-signing.cer',
+ 'Import-Certificate',
  "yamachat.eu-7E03B8AF",
- '-AllowUnsigned',
  'Remove-AppxPackage'
 ]) assert(installer.includes(marker),'NSIS WNS/runtime integration missing: '+marker);
 
 for(const marker of [
  'winapp pack',
  'winapp embed-identity',
+ 'winapp sign',
+ '--export-cer',
  'dotnet publish',
  'windowsappsdk/2.5/2.5.1/windowsappruntimeinstall-x64.exe',
  'yamachat.eu-7E03B8AF',
