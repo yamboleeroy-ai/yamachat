@@ -12,6 +12,7 @@ $assetsDir = Join-Path $outDir "Assets"
 $bridgeExe = Join-Path $outDir "Yamachat.WnsBridge.exe"
 $identityMsix = Join-Path $outDir "Yamachat.PushIdentity.msix"
 $configPath = Join-Path $outDir "wns-config.json"
+$publicCertPath = Join-Path $outDir "wns-signing.cer"
 $runtimeInstaller = Join-Path $outDir "WindowsAppRuntimeInstall-x64.exe"
 $runtimeInstallerUrl = if ($env:YAMACHAT_WINDOWS_APP_RUNTIME_URL) { $env:YAMACHAT_WINDOWS_APP_RUNTIME_URL } else { "https://aka.ms/windowsappsdk/2.5/2.5.1/windowsappruntimeinstall-x64.exe" }
 
@@ -85,18 +86,34 @@ if ($TestMode) {
   $certPassword = "yamachat-ci"
   npx --no-install winapp cert generate --manifest $manifestPath --output $cert --password $certPassword
   if ($LASTEXITCODE -ne 0 -or -not (Test-Path $cert)) { throw "WNS development certificate generation failed." }
-
-  npx --no-install winapp pack $manifestPath --output $identityMsix --cert $cert --cert-password $certPassword
 } else {
-  # The production identity is intentionally unsigned. Its Publisher contains
-  # Microsoft's required unsigned-package marker and must remain byte-for-byte
-  # stable to preserve PFN yamachat.eu-7E03B8AF_m02xq2dqtpa7p.
-  npx --no-install winapp pack $manifestPath --output $identityMsix
+  # Production sparse packages must be signed. Generate a one-build certificate
+  # with the exact Publisher DN so the PFN remains stable. Only the public CER
+  # ships with Yamachat; the private PFX is deleted after signing.
+  $cert = Join-Path $outDir "wns-signing-temp.pfx"
+  $certPassword = [guid]::NewGuid().ToString("N")
+  npx --no-install winapp cert generate --publisher $publisher --output $cert --password $certPassword --export-cer
+  if ($LASTEXITCODE -ne 0 -or -not (Test-Path $cert)) { throw "WNS production signing certificate generation failed." }
+
+  $generatedCer = [IO.Path]::ChangeExtension($cert, ".cer")
+  if (-not (Test-Path $generatedCer)) { throw "WNS public signing certificate export failed." }
+  Move-Item -Force $generatedCer $publicCertPath
 }
+
+npx --no-install winapp pack $manifestPath --output $identityMsix --cert $cert --cert-password $certPassword
 if ($LASTEXITCODE -ne 0 -or -not (Test-Path $identityMsix)) { throw "WNS identity package build failed." }
 
 npx --no-install winapp embed-identity $bridgeExe --manifest $manifestPath
 if ($LASTEXITCODE -ne 0) { throw "Embedding sparse package identity into the WNS bridge failed." }
+
+# embed-identity rewrites the PE manifest, so sign the final bridge afterward.
+npx --no-install winapp sign $bridgeExe $cert --password $certPassword
+if ($LASTEXITCODE -ne 0) { throw "Signing WNS bridge failed." }
+
+if (-not $TestMode) {
+  Remove-Item $cert -Force
+  if (Test-Path $cert) { throw "Temporary WNS signing PFX was not removed." }
+}
 
 Write-Host "PASS: Yamachat WNS bridge + sparse identity built."
 Write-Host "Bridge: $bridgeExe"
