@@ -74,7 +74,15 @@
  }
  const observer=new MutationObserver(()=>{if(mount())observer.disconnect()});observer.observe(document.getElementById('app'),{childList:true,subtree:true});mount();
  document.addEventListener('keydown',e=>{if(e.key==='Escape'&&activeDrawer){close();e.preventDefault()}if(e.key==='Tab'&&activeDrawer){const items=[...activeDrawer.querySelectorAll('button,a,input,[tabindex="0"]')].filter(x=>!x.disabled&&x.getClientRects().length);const first=items[0],last=items.at(-1);if(e.shiftKey&&document.activeElement===first){e.preventDefault();last?.focus()}else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first?.focus()}}});
- document.addEventListener('click',e=>{if(mobile.matches&&e.target.closest('[data-channel],[data-thread],#profileBtn,#appSettingsBtn,#ycServerSettingsNavBtn,#logoutBtn'))close()});
+ // DM rows rerender immediately when selectThread starts. Close the drawer in
+ // capture phase while the original row is still the event target.
+ document.addEventListener('click',e=>{
+  if(!mobile.matches)return;
+  const thread=e.target.closest?.('[data-thread]');
+  if(!thread||e.target.closest?.('[data-profile-open]'))return;
+  close();
+ },true);
+ document.addEventListener('click',e=>{if(mobile.matches&&e.target.closest('[data-channel],#profileBtn,#appSettingsBtn,#ycServerSettingsNavBtn,#logoutBtn'))close()});
  // Friends is housed in the right social drawer on mobile. Selecting it from
  // another drawer must replace the current drawer in one tap, not leave the
  // old surface open with only the underlying mode changed.
