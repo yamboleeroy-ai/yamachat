@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
-  "publishedAt": "2026-09-26T10:27:05Z",
+  "publishedAt": "2026-09-26T23:22:45Z",
   "windows": {
-    "latestVersion": "1.0.94",
+    "latestVersion": "1.0.97",
     "required": true,
-    "releaseUrl": "https://github.com/yamboleeroy-ai/yamachat/releases/tag/v1.0.94",
-    "notes": "Yamachat 1.0.94: hotfix desktop ikony a systémové tray ikony. Real Voices, composer, voice funkce a UI zůstávají beze změny proti 1.0.93. Obnovené a ověřené icon/tray assety jsou přímo uvnitř zabalené aplikace."
+    "releaseUrl": "https://github.com/yamboleeroy-ai/yamachat/releases/tag/v1.0.97",
+    "notes": "Yamachat 1.0.97\n\nStreaming no longer lives inside the chat. Streams now open in an independent Yamachat viewer that remains usable while navigating between channels, servers, Friends, DMs and settings.\nThe viewer supports floating, resize, maximize, fullscreen with an in-app fallback, and a mini-player. Mobile layouts keep the viewer outside the chat geometry and protect the composer, voice controls and navigation.\nExisting voice/WebRTC transport, tray, updater, WNS notification infrastructure, authentication and desktop UI are preserved from the verified Windows 1.0.96 release.\nPFN remains yamachat.eu-7E03B8AF_m02xq2dqtpa7p.\nBackground notifications while Yamachat is fully closed still depend on Microsoft completing the submitted PFN mapping."
   },
   "android": {
     "latestVersion": "1.1.0.468",
