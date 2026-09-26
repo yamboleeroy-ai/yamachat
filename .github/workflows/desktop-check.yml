@@ -87,9 +87,9 @@ jobs:
         run: |
           node - <<'NODE'
           const p=require('./desktop/package.json');
-          if(p.version!=='1.0.95') throw new Error('Expected desktop source version 1.0.95');
+          if(p.version!=='1.0.96') throw new Error('Expected desktop source version 1.0.96');
           if(!p.dependencies?.['electron-updater']) throw new Error('electron-updater missing');
-          console.log('PASS desktop hotfix baseline',p.version);
+          console.log('PASS desktop notification hotfix',p.version);
           NODE
 
 
