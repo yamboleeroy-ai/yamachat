@@ -61,7 +61,8 @@ jobs:
           npx cap sync android
           node scripts/patch-native.mjs android
 
-      - name: Restore Firebase client config when configured
+      - name: Restore and validate Firebase client config
+        id: firebase_client
         working-directory: mobile
         env:
           GOOGLE_SERVICES_JSON_B64: ${{ secrets.GOOGLE_SERVICES_JSON_B64 }}
@@ -69,15 +70,38 @@ jobs:
           set -euo pipefail
           if [ -n "${GOOGLE_SERVICES_JSON_B64:-}" ]; then
             printf '%s' "$GOOGLE_SERVICES_JSON_B64" | base64 -d > android/app/google-services.json
-            echo "Firebase client config restored."
+            node scripts/verify-firebase-config.mjs android/app/google-services.json android-release.json
+            grep -q 'com.google.gms.google-services' android/app/build.gradle
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+            echo "Firebase client config verified for eu.yamachat.app."
           else
+            echo "configured=false" >> "$GITHUB_OUTPUT"
             echo "Firebase client config is not configured; APK will build, but killed-app FCM delivery stays disabled."
           fi
           test -f android/app/src/main/res/raw/yamachat_message.mp3
           test -f android/app/src/main/res/drawable/ic_yamachat_notification.xml
           test -f android/app/src/main/res/drawable-nodpi/yamachat_notification_logo.png
           grep -q 'com.google.firebase.messaging.default_notification_icon' android/app/src/main/AndroidManifest.xml
+          grep -q 'com.google.firebase.messaging.default_notification_channel_id' android/app/src/main/AndroidManifest.xml
           grep -q 'yamachat-messages-v2' android/app/src/main/AndroidManifest.xml
+
+      - name: Check Yamachat FCM backend readiness
+        id: firebase_server
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error --retry 3 --retry-all-errors \
+            https://bxjvmjdppmqgbxfcowpf.supabase.co/functions/v1/yamachat-source/push \
+            -o /tmp/yamachat-push-config.json
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          data=json.loads(Path('/tmp/yamachat-push-config.json').read_text())
+          ready=bool(data.get('androidFcmConfigured'))
+          with open(os.environ['GITHUB_OUTPUT'],'a',encoding='utf-8') as out:
+              out.write('configured='+('true' if ready else 'false')+'\\n')
+          print('FCM server credential configured:', ready)
+          PY
 
       - name: Build with permanent Android identity
         working-directory: mobile/android
@@ -113,8 +137,21 @@ jobs:
             --apk ../../Yamachat-Android.apk --previous ../../download/Yamachat-Android.apk \
             --expected-code "$ANDROID_VERSION_CODE" --report ../../android-artifact.json
 
+      - name: Report killed-app FCM readiness
+        run: |
+          echo "Firebase client configured: ${{ steps.firebase_client.outputs.configured }}"
+          echo "Firebase server configured: ${{ steps.firebase_server.outputs.configured }}"
+          if [ "${{ steps.firebase_client.outputs.configured }}" = "true" ] && [ "${{ steps.firebase_server.outputs.configured }}" = "true" ]; then
+            echo "FCM killed-app push is fully configured."
+          else
+            echo "FCM killed-app push is NOT fully configured yet."
+          fi
+
       - name: Publish APK for yamachat.eu
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        env:
+          YAMACHAT_FCM_CLIENT_READY: ${{ steps.firebase_client.outputs.configured }}
+          YAMACHAT_FCM_SERVER_READY: ${{ steps.firebase_server.outputs.configured }}
         run: |
           set -euo pipefail
           cp Yamachat-Android.apk /tmp/Yamachat-Android.apk
@@ -150,10 +187,12 @@ jobs:
           android['required']=True
           android['apkUrl']=f"https://yamachat.eu/download/Yamachat-Android.apk?v={artifact['versionCode']}"
           android['sha256']=artifact['sha256']
+          import os
+          fcm_ready=os.environ.get('YAMACHAT_FCM_CLIENT_READY')=='true' and os.environ.get('YAMACHAT_FCM_SERVER_READY')=='true'
           android['notes']=[
             'Yamachat oznámení mají vlastní logo, ikonu a vlastní zvuk zprávy na Androidu.',
             'Kliknutí na oznámení otevře přímo správnou DM, kanál a konkrétní zprávu.',
-            'Push registrace je připravená pro FCM; doručení při úplně ukončené APK vyžaduje Firebase konfiguraci projektu.',
+            ('FCM push při úplně ukončené APK je aktivní.' if fcm_ready else 'FCM push při úplně ukončené APK ještě čeká na Firebase klient/server credential.'),
             'Současné mobilní rozložení, voice, Real Voices a ostatní funkce zůstávají beze změny.'
           ]
           manifest_path.write_text(json.dumps(manifest,ensure_ascii=False,indent=2)+'\n')
