@@ -132,7 +132,9 @@ async function joinVoiceA(page){
    assert.equal(await page.evaluate(()=>window.YamachatVoiceExperience.isSoundboardUserMuted('peer')),true);
 
    const before=await joinVoiceA(page);
-   assert.equal(before.voiceChannelId,'voice-a');assert.equal(before.micLive,true);assert.equal(before.heartbeat,true);
+   assert.equal(before.voiceChannelId,'voice-a',JSON.stringify(before));
+   assert.equal(before.micLive,true,JSON.stringify(before));
+   assert.equal(before.heartbeat,true,JSON.stringify(before));
    await page.locator('#voiceSoundboardBtn').click();await page.waitForSelector('#soundboardPanel:not(.hidden)');
    assert.equal(await page.locator('#soundboardPanel .yc-soundboard-master').count(),1);assert.equal(await page.locator('#soundboardPanel .yc-soundboard-folder').count(),2);
    await page.locator('#soundboardCloseBtn').click();
