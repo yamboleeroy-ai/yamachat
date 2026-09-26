@@ -64,6 +64,7 @@ const results=[];
    await page.evaluate(()=>streamTest.recovery());assert(await page.evaluate(()=>streamTest.same()),'recovery preserves node');
    const recoveredTime=await video.evaluate(v=>v.currentTime);await page.waitForFunction(t=>document.querySelector('.yc-stream-viewer video').currentTime>t+.2,recoveredTime);
    await page.locator('[data-action="fullscreen"]').click();
+   await page.waitForFunction(()=>!!document.fullscreenElement||document.querySelector('.yc-stream-viewer')?.dataset.mode==='maximized');
    assert(await page.evaluate(()=>!!document.fullscreenElement||document.querySelector('.yc-stream-viewer').dataset.mode==='maximized'),'fullscreen or app fallback');
    await page.evaluate(async()=>{if(document.fullscreenElement)await document.exitFullscreen()});
    await page.screenshot({path:path.join(out,platform+'-viewer.png')});
