@@ -13,22 +13,32 @@ assert(selectStart>=0&&selectEnd>selectStart,'selectCommunity boundary missing')
 const selectBody=html.slice(selectStart,selectEnd);
 for(const forbidden of ['leaveVoiceChannel(','ycRequestVoiceDisconnect(','cleanupVoiceRooms('])
  assert(!selectBody.includes(forbidden),'Browsing another server must not disconnect voice: '+forbidden);
-if(isDesktop)assert(html.includes("if(voiceChannel?.id&&!defs.some(c=>String(c.id)===String(voiceChannel.id)))defs.push(voiceChannel)"),'Joined voice room must remain subscribed while browsing other channels/servers');
-else assert(html.includes("if(voiceChannel?.id)wanted.add(voiceChannel.id)"),'Active voice room must remain subscribed while browsing another server');
+assert(html.includes("if(voiceChannel?.id&&!defs.some(c=>String(c.id)===String(voiceChannel.id)))defs.push(voiceChannel)"),'Joined voice room must remain recreatable while browsing other channels/servers');
+assert(html.includes("['CHANNEL_ERROR','TIMED_OUT','CLOSED'].includes(status)&&String(voiceChannel?.id||'')===String(id)"),'Active voice realtime room must recover after timeout/closure while browsing another server');
+assert(html.includes("if(String(voiceChannel?.id||'')===String(id))ensureVoiceRooms(voiceChannelDefs)"),'Active voice realtime retry must not depend on the visible community channel list');
 assert(html.includes('function ycVoiceCommunityId()'),'Independent voice community context missing');
 assert(html.includes("const ycVoiceCid=ycVoiceCommunityId();"),'Soundboard must load from voice community context');
 assert(html.includes("String(currentCommunity.id)===ycVoiceCommunityId()"),'Soundboard admin actions must stay on the joined voice server');
 assert(!html.includes("speechSynthesis.cancel();speechSynthesis.speak(u);"),'Rapid voice announcements must not cancel the previous username');
 assert(html.includes("community_id:ycVoiceCommunity"),'Stream presence must remain on the joined voice community');
+if(!isDesktop){
+ assert(html.includes("function ycIosVoiceCommunityId(channel=voiceChannel)"),'iOS PWA voice target must track the joined channel community');
+ assert(html.includes("communityId:ycIosVoiceCommunityId(channel)"),'iOS PWA saved voice target must not use the browsed community');
+ assert(html.includes("communityId:ycIosVoiceCommunityId(live)"),'iOS PWA live reconnect target must not use the browsed community');
+ const findLive=html.indexOf("if(voiceChannel&&String(voiceChannel.id)===String(target.channelId))return voiceChannel;");
+ const rejectOther=html.indexOf("if(target.communityId&&currentCommunity?.id&&String(target.communityId)!==String(currentCommunity.id))return null;");
+ assert(findLive>=0&&rejectOther>findLive,'iOS PWA must prefer the still-live voice channel before rejecting a different browsed community');
+}
+assert(html.includes("void trackVoicePresence().catch(e=>console.warn('voice presence keepalive',e))"),'Voice heartbeat must renew Realtime presence');
+assert(html.includes("uid!==user.id&&String(voiceChannel?.id||'')===String(id||'')"),'Participant DELETE must not close the active peer because of another channel');
+assert(html.includes("if(pc?.connectionState==='connected'){voiceMissingSince.delete(id);continue}"),'Connected peers must survive transient participant metadata loss while browsing another server');
+assert(html.includes("if(now-since>60000)closeVoicePeer(id)"),'Transient participant metadata loss needs the desktop-proven peer grace period');
+assert(html.includes("const voiceBelongsHere=!!hadVoice&&!!voiceCommunityId&&voiceCommunityId===cid"),'Secure channel refresh must scope voice validation to the joined voice community');
+assert(html.includes("if(voiceBelongsHere&&!activeVoice){try{await ycRequestVoiceDisconnect()}catch{}}"),'Voice disconnect on channel removal must be gated by the joined voice community');
+assert(!html.includes("if(hadVoice&&!activeVoice){try{await ycRequestVoiceDisconnect()}catch{}}"),'Browsing another community must not be treated as a removed voice channel');
 if(isDesktop){
- assert(html.includes("void trackVoicePresence().catch(e=>console.warn('voice presence keepalive',e))"),'Voice heartbeat must renew Realtime presence');
- assert(html.includes("uid!==user.id&&String(voiceChannel?.id||'')===String(id||'')"),'Participant DELETE must not close the active peer because of another channel');
  assert(html.includes("Promise.allSettled([\n    sb.functions.invoke('yamachat-turn-cloudflare'"),'TURN providers must be loaded in parallel');
  assert(html.includes("providers.join('+')||'stun'"),'TURN provider fallback state missing');
- assert(html.includes("if(pc?.connectionState==='connected'){voiceMissingSince.delete(id);continue}"),'Connected peers must survive transient participant metadata loss while browsing another server');
- assert(html.includes("const voiceBelongsHere=!!hadVoice&&!!voiceCommunityId&&voiceCommunityId===cid"),'Secure channel refresh must scope voice validation to the joined voice community');
- assert(html.includes("if(voiceBelongsHere&&!activeVoice){try{await ycRequestVoiceDisconnect()}catch{}}"),'Voice disconnect on channel removal must be gated by the joined voice community');
- assert(!html.includes("if(hadVoice&&!activeVoice){try{await ycRequestVoiceDisconnect()}catch{}}"),'Browsing another community must not be treated as a removed voice channel');
 }
 
 // Presence: manual status wins. In voice, AFK may appear only after prolonged microphone/UI inactivity,
@@ -42,8 +52,7 @@ assert(html.includes("if(pref!=='online')return pref"),'Manual AFK/DND/invisible
 assert(!html.includes("payload.eventType==='INSERT'&&uid!==user.id&&voiceJoinSoundArmed&&voiceChannel?.id===id)ycVoiceAnnounceOnce(row,'join')"),'Direct INSERT join announcement would duplicate the refreshed participant diff');
 assert(!html.includes("if(voiceJoinSoundArmed&&(!id||voiceChannel?.id===id))ycVoiceAnnounceOnce(row,'leave')"),'Direct DELETE leave announcement would duplicate the refreshed participant diff');
 assert(html.includes("payload.eventType==='INSERT'&&uid!==user.id&&voiceJoinSoundArmed&&voiceChannel?.id===id)void 0"),'INSERT path is not neutralized before participant diff');
-if(isDesktop)assert(html.includes("if(uid!==user.id&&String(voiceChannel?.id||'')===String(id||'')){closeVoicePeer(uid)}"),'Desktop DELETE path must only close peers from the active voice room');
-else assert(html.includes("if(uid!==user.id){closeVoicePeer(uid)}"),'DELETE path should close the peer without announcing directly');
+assert(html.includes("if(uid!==user.id&&String(voiceChannel?.id||'')===String(id||'')){closeVoicePeer(uid)}"),'Participant DELETE must only close peers from the currently joined voice room');
 assert(html.includes("ycVoiceDiffAnnouncements(id,before,after)"),'Participant diff announcement source missing');
 assert(html.includes("function ycVoiceHandleAnnouncement(payload){\n  if(window.__ycVoiceParticipantAnnouncements)return;"),'Legacy broadcast TTS path is not suppressed');
 assert(html.includes("function ycVoiceSpeakPerson(row,action){\n  if(window.__ycVoiceParticipantAnnouncements)return;"),'Legacy participant TTS path is not suppressed');
