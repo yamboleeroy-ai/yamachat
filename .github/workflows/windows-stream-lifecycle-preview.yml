@@ -40,6 +40,12 @@ jobs:
         with:
           dotnet-version: "8.0.x"
 
+      - name: Install WinApp CLI
+        shell: pwsh
+        run: |
+          npm install --no-save @microsoft/winappcli
+          npx --no-install winapp --version
+
       - name: Parse Electron runtime
         shell: pwsh
         run: |
