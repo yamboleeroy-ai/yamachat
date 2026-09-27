@@ -14,16 +14,20 @@ function section(source,name){
 }
 for(const [name,before,after] of [['web',baseline,fs.readFileSync('index.html','utf8')],['desktop',desktop,fs.readFileSync('desktop/desktop-client.html','utf8')]]){
  for(const fn of functions){
-  if(name==='desktop'&&fn==='stopScreenShare')continue;
+  if(name==='desktop'&&(fn==='stopScreenShare'||fn==='attachVoiceAudio'))continue;
   assert.equal(section(after,fn),section(before,fn),name+' transport changed: '+fn);
  }
  if(name==='desktop'){
   const stop=section(after,'stopScreenShare');
   assert(stop.includes("if(typeof ycResetScreenAudioSenders==='function')await ycResetScreenAudioSenders()"),'desktop stop must retire stale stream-audio sender');
   assert(after.includes('async function ycResetScreenAudioSenders()'),'desktop fresh screen-audio transceiver helper missing');
+  const voiceAudio=section(after,'attachVoiceAudio');
+  assert(voiceAudio.includes("window.__ycScreenAudioTracks?.get?.(peerId)?.id===track.id"),'desktop voice path must reject the dedicated screen-audio track');
+  assert(voiceAudio.includes("trackId:track?.id||''"),'desktop voice path must retain track identity for safe stream-audio cleanup');
+  assert(after.includes("secondaryAudio=!!e.transceiver&&audioTx.indexOf(e.transceiver)>0"),'desktop must classify the second audio transceiver as stream audio');
  }
  for(const old of ['screenShareStage','ycShareOverlay','__ycMultiStreamViewerInstalled','__ycSafeStreamVolumeInstalled','__ycDeadShareCleanup','__ycStreamResizeInstalled'])assert(!after.includes(old),name+' old UI remains '+old);
  assert.equal((after.match(/const ycStreamViewer=/g)||[]).length,1);
  assert(after.includes("audio:{restrictOwnAudio:true},systemAudio:'include'"),name+' does not exclude Yamachat playback from stream audio');
- console.log('PASS '+name+': nine protected voice/screen transport functions unchanged; Yamachat playback excluded from stream audio; one viewer; old UI absent.');
+ console.log('PASS '+name+': protected voice/screen transport functions unchanged except reviewed desktop stream-audio routing; Yamachat playback excluded from stream audio; one viewer; old UI absent.');
 }
