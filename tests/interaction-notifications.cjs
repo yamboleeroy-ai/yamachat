@@ -57,7 +57,11 @@ async function longPress(page,selector){
   await page.locator('#mobileMenu').click();
   await page.waitForSelector('#channelList [data-channel]');
   await longPress(page,'#channelList [data-channel]');
-  await page.waitForFunction(()=>{const m=document.getElementById('ycUiMenuRoot');return m&&!m.classList.contains('hidden')&&/oznámen/i.test(m.textContent)});
+  await page.waitForFunction(()=>window.__ycLongPressLastOpen?.kind==='text-channel',null,{timeout:3000});
+  await page.waitForTimeout(350);
+  const channelState=await page.evaluate(()=>({last:window.__ycLongPressLastOpen,menu:document.getElementById('ycUiMenuRoot')?.textContent||'',hidden:document.getElementById('ycUiMenuRoot')?.classList.contains('hidden'),community:window.currentCommunity?.id||null}));
+  assert.equal(channelState.hidden,false,JSON.stringify(channelState));
+  assert.match(channelState.menu,/oznámen/i,JSON.stringify(channelState));
   const channelMenu=await page.locator('#ycUiMenuRoot').innerText();
   assert.match(channelMenu,/Vypnout oznámení z kanálu|Zapnout oznámení z kanálu/);
   await page.getByText(/Vypnout oznámení z kanálu|Zapnout oznámení z kanálu/).click();
@@ -67,7 +71,11 @@ async function longPress(page,selector){
   await page.locator('#ycMobileMembersBtn').click();
   await page.waitForSelector('#rightContent .steam-member-row[data-member-id="peer"]');
   await longPress(page,'#rightContent .steam-member-row[data-member-id="peer"]');
-  await page.waitForFunction(()=>{const m=document.getElementById('ycUiMenuRoot');return m&&!m.classList.contains('hidden')&&/oznámen/i.test(m.textContent)});
+  await page.waitForFunction(()=>window.__ycLongPressLastOpen?.kind==='member',null,{timeout:3000});
+  await page.waitForTimeout(350);
+  const userState=await page.evaluate(()=>({last:window.__ycLongPressLastOpen,menu:document.getElementById('ycUiMenuRoot')?.textContent||'',hidden:document.getElementById('ycUiMenuRoot')?.classList.contains('hidden')}));
+  assert.equal(userState.hidden,false,JSON.stringify(userState));
+  assert.match(userState.menu,/oznámen/i,JSON.stringify(userState));
   const userMenu=await page.locator('#ycUiMenuRoot').innerText();
   assert.match(userMenu,/Vypnout oznámení od uživatele|Zapnout oznámení od uživatele/);
 
