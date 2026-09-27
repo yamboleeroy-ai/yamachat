@@ -6,7 +6,7 @@ const main=read('desktop/main.js');
 const preload=read('desktop/preload.js');
 const shell=read('desktop/desktop.html');
 const client=read('desktop-client-dist/desktop-client.html');
-const pkg=require('../yamachat/desktop/package.json');
+const pkg=require('../desktop/package.json');
 
 assert.equal(pkg.version,'1.0.97','Windows preview must stay on released 1.0.97 lineage');
 
