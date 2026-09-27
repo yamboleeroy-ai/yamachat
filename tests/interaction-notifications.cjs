@@ -1,7 +1,9 @@
 const fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict');
 const {chromium}=require('playwright');
+const {execFileSync}=require('node:child_process');
 const root=path.resolve(__dirname,'..');
 const baseMock=fs.readFileSync(path.join(__dirname,'supabase-fixture.js'),'utf8');
+execFileSync(process.execPath,[path.join(root,'scripts/build-web.mjs')],{cwd:root,stdio:'inherit'});
 
 function interactionMock(){
  let mock=baseMock;
