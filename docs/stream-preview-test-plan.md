@@ -41,3 +41,15 @@ deadline; the preview allows 8s. PCM framing and startup generation races are fi
 
 Preview artifacts and green CI are necessary, not sufficient, for public release.
 User approval of preview and the hardware matrix remain mandatory.
+
+## Hardware evidence, 2026-09-27
+
+The real packaged Electron runtime booted outside the restricted test sandbox;
+preview updater was disabled and its fullscreen bridge preserved native bounds.
+The native include-tree helper captured a 997 Hz tone from a child PowerShell
+process (amplitude 0.05489). Exclude-tree on this host still captured the tone
+(0.08730). FxSound and virtual devices are installed; rerendering outside the
+excluded process tree is a likely cause, not yet a proven complete diagnosis.
+Screen audio now refuses known virtual default outputs (or unknown endpoints),
+with a direct-device/app-share explanation. App-only include-tree is preserved.
+Physical-output exclusion, elevated capture and real iOS remain release gates.

@@ -102,6 +102,7 @@ function startProcessAudioCapture() {
       resolve(result);
     };
     const fail = (reason, detail = '') => {
+      if (detail.includes('VIRTUAL_AUDIO_ROUTE')) detail = 'Výchozí zvukový výstup je virtuální nebo jej nelze ověřit. Pro zvuk celé obrazovky vyber přímý výstup sluchátek/reproduktorů bez virtuálního mixéru, nebo sdílej konkrétní aplikaci.';
       if (processAudioChild === child) processAudioChild = null;
       try { child.kill(); } catch {}
       sendProcessAudioStatus({ state: 'error', reason, detail, generation });

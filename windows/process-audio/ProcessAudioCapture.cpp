@@ -4,6 +4,7 @@
 #include <audioclient.h>
 #include <audioclientactivationparams.h>
 #include <mmdeviceapi.h>
+#include <functiondiscoverykeys_devpkey.h>
 #include <wrl.h>
 #include <wrl/implements.h>
 #include <fcntl.h>
@@ -12,6 +13,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <cwchar>
+#include <cwctype>
 #include <string>
 #include <vector>
 
@@ -153,6 +155,27 @@ DWORD integrity_level(HANDLE process) {
   return level;
 }
 
+bool virtual_default_output() {
+  ComPtr<IMMDeviceEnumerator> enumerator;
+  if (FAILED(CoCreateInstance(__uuidof(MMDeviceEnumerator), nullptr, CLSCTX_ALL, IID_PPV_ARGS(&enumerator)))) return true;
+  ComPtr<IMMDevice> device;
+  if (FAILED(enumerator->GetDefaultAudioEndpoint(eRender, eConsole, &device))) return true;
+  ComPtr<IPropertyStore> properties;
+  if (FAILED(device->OpenPropertyStore(STGM_READ, &properties))) return true;
+  PROPVARIANT name; PropVariantInit(&name);
+  if (FAILED(properties->GetValue(PKEY_Device_FriendlyName, &name))) return true;
+  std::wstring label = name.vt == VT_LPWSTR && name.pwszVal ? name.pwszVal : L"";
+  PropVariantClear(&name);
+  fwprintf(stderr, L"YAMACHAT_PROCESS_AUDIO_OUTPUT %ls\n", label.c_str());
+  for (auto& character : label) character = towlower(character);
+  // A virtual mixer can render Yamachat's audio again under a different PID.
+  // Excluding our process tree cannot remove that second rendering safely.
+  for (const auto* marker : {L"fxsound", L"voicemeeter", L"vb-audio", L"virtual", L"sonar", L"steam streaming"}) {
+    if (label.find(marker) != std::wstring::npos) return true;
+  }
+  return label.empty();
+}
+
 int capture_process(DWORD processId, bool excludeTree) {
   HANDLE target = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE, processId);
   const DWORD targetError = target ? 0 : GetLastError();
@@ -167,6 +190,12 @@ int capture_process(DWORD processId, bool excludeTree) {
   if (FAILED(hr) && hr != RPC_E_CHANGED_MODE) {
     print_hresult(L"CoInitializeEx", hr);
     return 10;
+  }
+  if (excludeTree && virtual_default_output()) {
+    fwprintf(stderr, L"YAMACHAT_PROCESS_AUDIO_ERROR VIRTUAL_AUDIO_ROUTE: use a direct speaker/headphone output or share an application; virtual mixers may replay excluded audio under another process.\n");
+    fflush(stderr);
+    if (comInitialized) CoUninitialize();
+    return 18;
   }
 
   ComPtr<IAudioClient> audioClient;
