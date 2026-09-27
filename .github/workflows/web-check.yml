@@ -30,6 +30,8 @@ jobs:
         run: node tests/social-release-web.cjs
       - name: Mobile Friends drawer one-tap switch
         run: node tests/mobile-friends-drawer.cjs
+      - name: Mobile long-press, mic-test and notification preferences
+        run: node tests/interaction-notifications.cjs
       - name: Independent stream viewer and WebRTC lifecycle
         run: |
           node tests/stream-transport.mjs
