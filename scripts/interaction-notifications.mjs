@@ -86,13 +86,9 @@ function ycMicTestSettingChanged(event){
 \`.trim();
  html=replaceOnce(html,oldToggle,newToggle,'mic test toggle');
 
- html=replaceOnce(
-  html,
-  "$('ycVoiceFocus').checked=o.focus",
-  "$('ycVoiceFocus').checked=o.focus",
-  'noop guard'
- ).replace("$('ycVoiceFocus').value=o.focus;$('ycVoiceFocus').onchange=()=>{if($('ycVoiceFocus').value!=='off'&&ycNoiseModeFromUi()!=='ai'){$('ycNoiseModeSelect').value='ai';ycStopMicTest();ycRenderNoiseModeHint();toast('Zapnuto YamaClean AI. Spusť znovu test mikrofonu.')}else ycMicUpdateTest()};",
- "$('ycVoiceFocus').value=o.focus;$('ycVoiceFocus').onchange=()=>{if($('ycVoiceFocus').value!=='off'&&ycNoiseModeFromUi()!=='ai'){$('ycNoiseModeSelect').value='ai';ycRenderNoiseModeHint();ycRestartMicTest();toast('Zapnuto YamaClean AI. Test mikrofonu pokračuje s novým režimem.')}else ycMicUpdateTest()};");
+ const oldFocus="$('ycVoiceFocus').value=o.focus;$('ycVoiceFocus').onchange=()=>{if($('ycVoiceFocus').value!=='off'&&ycNoiseModeFromUi()!=='ai'){$('ycNoiseModeSelect').value='ai';ycStopMicTest();ycRenderNoiseModeHint();toast('Zapnuto YamaClean AI. Spusť znovu test mikrofonu.')}else ycMicUpdateTest()};";
+ const newFocus="$('ycVoiceFocus').value=o.focus;$('ycVoiceFocus').onchange=()=>{if($('ycVoiceFocus').value!=='off'&&ycNoiseModeFromUi()!=='ai'){$('ycNoiseModeSelect').value='ai';ycRenderNoiseModeHint();ycRestartMicTest();toast('Zapnuto YamaClean AI. Test mikrofonu pokračuje s novým režimem.')}else ycMicUpdateTest()};";
+ html=replaceOnce(html,oldFocus,newFocus,'voice focus mic-test restart');
 
  if(!html.includes("for(const id of ['voiceMicSelect','voiceOutputSelect','voiceEchoCheck','voiceAgcCheck'])$(id)?.addEventListener('change',ycStopMicTest);"))
    throw Error('Mic settings change boundary missing');
