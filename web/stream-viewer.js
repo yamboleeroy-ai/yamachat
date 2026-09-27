@@ -174,7 +174,7 @@ const ycStreamViewer=(()=>{
       session.mode=session.fullscreenReturnMode||'floating';layout(session);return;
     }
     session.fullscreenReturnMode=session.mode==='mini'?'floating':session.mode;
-    session.mode='fullscreen';layout(session);
+    session.mode='fullscreen';layout(session);showFullscreenControls(session);
     try{
       if(session.panel.requestFullscreen){await session.panel.requestFullscreen();return}
       if(session.panel.webkitRequestFullscreen){session.panel.webkitRequestFullscreen();return}
