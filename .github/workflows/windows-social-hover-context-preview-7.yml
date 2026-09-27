@@ -1,0 +1,77 @@
+name: Yamachat Windows social hover/context preview 7
+
+on:
+  push:
+    branches:
+      - preview/social-hover-context-7
+
+permissions:
+  contents: read
+
+jobs:
+  build-preview:
+    runs-on: windows-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Verify social hover/context and desktop regressions
+        shell: pwsh
+        run: |
+          node scripts/verify-stream-preview.cjs
+          if ($LASTEXITCODE -ne 0) { throw 'Regression verification failed' }
+
+      - name: Build native process audio helper
+        shell: pwsh
+        run: ./scripts/build-windows-process-audio.ps1
+
+      - name: Prepare isolated preview runtime
+        shell: pwsh
+        run: |
+          Copy-Item -Recurse -Force build desktop/build
+          Copy-Item -Recurse -Force audio desktop/audio
+          if (Test-Path boot-guard.js) { Copy-Item -Force boot-guard.js desktop/boot-guard.js }
+
+      - name: Install desktop dependencies
+        working-directory: desktop
+        run: npm ci
+
+      - name: Build unpacked Windows preview
+        working-directory: desktop
+        run: npx electron-builder --win --x64 --dir --publish never
+
+      - name: Isolate preview profile and verify packaged sources
+        shell: pwsh
+        run: |
+          $appRoot = 'desktop/dist/win-unpacked/resources/app'
+          Set-Content -Path "$appRoot/preview.json" -Value '{"preview":"social-hover-context-7"}' -Encoding utf8
+          foreach ($file in @('main.js','preload.js','desktop.html','desktop-client.html')) {
+            if ((Get-FileHash "$appRoot/$file").Hash -ne (Get-FileHash "desktop/$file").Hash) {
+              throw "Packaged source mismatch: $file"
+            }
+          }
+          if (-not (Test-Path "$appRoot/process-audio/Yamachat.ProcessAudioCapture.exe")) {
+            throw 'Missing packaged native process-audio helper'
+          }
+
+      - name: Pack portable preview
+        shell: pwsh
+        run: |
+          Compress-Archive -Path desktop/dist/win-unpacked/* -DestinationPath yamachat-windows-social-hover-context-preview-7.zip -CompressionLevel Optimal
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: yamachat-windows-social-hover-context-preview-7
+          path: yamachat-windows-social-hover-context-preview-7.zip
+          if-no-files-found: error
+          retention-days: 7
