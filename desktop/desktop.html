@@ -661,11 +661,31 @@
 
     window.addEventListener('online', () => window.yamachatDesktop?.resumeUpdateCheck?.());
     document.addEventListener('visibilitychange', () => { if (!document.hidden) window.yamachatDesktop?.resumeUpdateCheck?.(); });
-    function forwardWindowState(state = {}) { updateMaximizeButton(state); }
+    let ycDesktopStreamFullscreenActive = false;
+    function forwardWindowState(state = {}) {
+      updateMaximizeButton(state);
+      if (ycDesktopStreamFullscreenActive && !state.fullscreen) {
+        ycDesktopStreamFullscreenActive = false;
+        document.body.classList.remove('yc-stream-fullscreen');
+        try {
+          iframe.contentWindow?.postMessage({
+            type: 'yamachat:desktop-stream-fullscreen-state',
+            fullscreen: false
+          }, '*');
+        } catch {}
+      }
+    }
     window.YamachatDesktopStreamFullscreen = Object.freeze({
       set: async (active) => {
-        document.body.classList.toggle('yc-stream-fullscreen', !!active);
-        return { fullscreen: !!active };
+        const target = !!active;
+        let state = { fullscreen: false };
+        try {
+          state = await window.yamachatDesktop?.setStreamFullscreen?.(target) || state;
+        } catch {}
+        const fullscreen = !!state.fullscreen;
+        ycDesktopStreamFullscreenActive = fullscreen;
+        document.body.classList.toggle('yc-stream-fullscreen', fullscreen);
+        return { fullscreen };
       }
     });
 
