@@ -1,6 +1,6 @@
 const fs=require('node:fs'),assert=require('node:assert/strict');
 const client=fs.readFileSync('desktop/desktop-client.html','utf8');
-const pkg=require('../yamachat/desktop/package.json');
+const pkg=require('../desktop/package.json');
 
 assert.equal(pkg.version,'1.0.98','Windows preview must stay on released 1.0.98 lineage');
 
