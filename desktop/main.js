@@ -430,6 +430,36 @@ let desktopState = {
   screenShareActive: false
 };
 
+function applyDesktopStateUpdate(next) {
+  if (!next || typeof next !== 'object') return false;
+
+  const nextVoiceConnected = !!next.voiceConnected;
+  const nextVoiceMuted = !!next.voiceMuted;
+  const nextVoiceChannelId = String(next.voiceChannelId || '');
+
+  if (!nextVoiceConnected || nextVoiceMuted ||
+      !desktopState.voiceConnected ||
+      nextVoiceChannelId !== desktopState.voiceChannelId) {
+    traySpeakingHoldUntil = 0;
+  }
+
+  desktopState = {
+    ...desktopState,
+    voiceConnected: nextVoiceConnected,
+    voiceChannelId: nextVoiceChannelId,
+    voiceChannelName: String(next.voiceChannelName || ''),
+    voiceMuted: nextVoiceMuted,
+    voiceDeafened: !!next.voiceDeafened,
+    voiceSpeaking: !!next.voiceSpeaking,
+    presenceMode: normalizePresenceMode(next.presenceMode),
+    notificationUnreadCount: Math.max(0, Number(next.notificationUnreadCount || 0)),
+    screenShareActive: !!next.screenShareActive
+  };
+
+  refreshTray();
+  return true;
+}
+
 app.commandLine.appendSwitch('disable-renderer-backgrounding');
 app.commandLine.appendSwitch('disable-background-timer-throttling');
 app.commandLine.appendSwitch('disable-backgrounding-occluded-windows');
@@ -1142,46 +1172,6 @@ function restoreMainWindowInteractivity(win, reason = 'activate') {
   return true;
 }
 
-function repairVoiceTaskbarActivation(win, reason = 'taskbar-focus') {
-  if (!win || win.isDestroyed() || !desktopState.voiceConnected) return false;
-
-  // A normal taskbar activation can deliver BrowserWindow 'focus' before Windows
-  // has completely rebound native mouse input to the frameless Chromium surface.
-  // Tray -> Open Yamachat works because showMainWindow() performs a later native
-  // show/focus pass. Mirror that path after the activation turn has settled.
-  setTimeout(() => {
-    if (!win || win.isDestroyed() || !desktopState.voiceConnected || !win.isFocused()) return;
-
-    try {
-      if (typeof win.setEnabled === 'function') win.setEnabled(true);
-    } catch (error) {
-      console.warn('Yamachat taskbar enable:', reason, error);
-    }
-
-    try {
-      if (win.isMinimized()) win.restore();
-      win.show();
-      win.focus();
-    } catch (error) {
-      console.warn('Yamachat taskbar native reactivate:', reason, error);
-    }
-
-    restoreMainWindowInteractivity(win, reason + '-settled');
-
-    // One final pass catches the Windows compositor/input hand-off that can lag
-    // behind focus while voice keeps the renderer/audio context continuously alive.
-    setTimeout(() => {
-      if (!win || win.isDestroyed() || !desktopState.voiceConnected || !win.isFocused()) return;
-      try {
-        if (typeof win.setEnabled === 'function') win.setEnabled(true);
-      } catch {}
-      restoreMainWindowInteractivity(win, reason + '-final');
-    }, 120);
-  }, 0);
-
-  return true;
-}
-
 function showMainWindow() {
   if (!mainWindow || mainWindow.isDestroyed()) {
     createWindow();
@@ -1314,74 +1304,11 @@ function createTray() {
   return tray;
 }
 
-async function readDesktopState() {
-  const win = mainWindow;
-  if (!win || win.isDestroyed() || win.webContents.isDestroyed()) return;
-
-  try {
-    const next = await win.webContents.executeJavaScript(`
-      (() => {
-        try {
-          const frame = document.getElementById('yamachat');
-          const getter = frame?.contentWindow?.__ycDesktopState;
-          if (typeof getter !== 'function') return null;
-          const state = getter();
-          if (state?.voiceConnected) {
-            const now = Date.now();
-            if (!window.__ycLastDesktopVoiceWake || now - window.__ycLastDesktopVoiceWake >= 900) {
-              window.__ycLastDesktopVoiceWake = now;
-              try { frame.contentWindow.postMessage({ type: 'yamachat:desktop-voice-wake', ts: now }, '*'); } catch {}
-            }
-          }
-          return state;
-        } catch {
-          return null;
-        }
-      })();
-    `, true);
-
-    if (!next || typeof next !== 'object') return;
-
-    if (!next.voiceConnected || next.voiceMuted ||
-        !desktopState.voiceConnected ||
-        String(next.voiceChannelId || '') !== desktopState.voiceChannelId) {
-      traySpeakingHoldUntil = 0;
-    }
-
-    desktopState = {
-      ...desktopState,
-      ...next,
-      voiceConnected: !!next.voiceConnected,
-      voiceChannelId: String(next.voiceChannelId || ''),
-      voiceChannelName: String(next.voiceChannelName || ''),
-      voiceMuted: !!next.voiceMuted,
-      voiceDeafened: !!next.voiceDeafened,
-      voiceSpeaking: !!next.voiceSpeaking,
-      presenceMode: normalizePresenceMode(next.presenceMode),
-      notificationUnreadCount: Math.max(0, Number(next.notificationUnreadCount || 0)),
-      screenShareActive: !!next.screenShareActive
-    };
-
-    refreshTray();
-  } catch {
-    // Renderer can briefly be unavailable while starting/reloading.
-  }
-}
-
 function startTrayVoicePolling() {
-  if (trayPollTimer) return;
-
-  const generation = ++trayPollGeneration;
-  const tick = async () => {
-    if (generation !== trayPollGeneration) return;
-    await readDesktopState();
-    if (generation !== trayPollGeneration) return;
-    // Fast enough for the tray speaking indicator while voice is active,
-    // but avoid crossing the Electron main/renderer boundary 6+ times/sec forever.
-    const delay = desktopState.voiceConnected ? 250 : 900;
-    trayPollTimer = setTimeout(tick, delay);
-  };
-  trayPollTimer = setTimeout(tick, 0);
+  // State is pushed from desktop.html through preload IPC. Deliberately avoid
+  // periodic webContents.executeJavaScript() while voice is active: repeated
+  // main->renderer script injection can race Windows taskbar activation.
+  return false;
 }
 
 function stopTrayVoicePolling() {
@@ -1520,7 +1447,6 @@ function createWindow() {
 
   win.on('focus', () => {
     restoreMainWindowInteractivity(win, 'focus');
-    repairVoiceTaskbarActivation(win, 'taskbar-focus');
     void yamachatUpdater?.check?.(false);
   });
 
@@ -1564,7 +1490,7 @@ function createWindow() {
       keepRendererAwake(win);
       void installAudioKeepAlive(win);
       startTrayVoicePolling();
-      console.log('Yamachat loaded · status + notification + voice speaking tray active');
+      console.log('Yamachat loaded · push-based status + notification + voice tray active');
       if (pendingProtocolTarget) {
         const target = { ...pendingProtocolTarget };
         setTimeout(() => deliverDesktopNotificationTarget(target), 500);
@@ -1625,6 +1551,7 @@ app.whenReady().then(async () => {
   handleClientIpc('yamachat:update-renderer-ready', () => yamachatUpdater?.markRendererReady?.() || true);
 
   handleClientIpc('yamachat:get-app-settings', () => ({ ...appSettings }));
+  handleClientIpc('yamachat:desktop-state-update', (_event, next) => applyDesktopStateUpdate(next));
   handleClientIpc('yamachat:show-notification', (_event, payload) => showYamachatNotification(payload || {}));
   handleClientIpc('yamachat:wns-get-channel', async () => requestWindowsWnsChannel());
   handleClientIpc('yamachat:notification-open', () => openYamachatNotificationTarget());
