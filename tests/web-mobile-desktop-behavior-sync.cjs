@@ -91,7 +91,9 @@ assert(!/body\s*\{[^}]*user-select\s*:\s*none/i.test(interaction),'Text selectio
 for(const marker of [
  '[data-controls="hidden"] .yc-sv-footer',
  "for(const type of ['pointermove','pointerdown','touchstart'])panel.addEventListener",
- "if(voiceChannel?.id)wanted.add(voiceChannel.id)",
+ "if(voiceChannel?.id&&!defs.some(c=>String(c.id)===String(voiceChannel.id)))defs.push(voiceChannel)",
+ "const voiceBelongsHere=!!hadVoice&&!!voiceCommunityId&&voiceCommunityId===cid",
+ "if(pc?.connectionState==='connected'){voiceMissingSince.delete(id);continue}",
  "const ycVoiceCid=ycVoiceCommunityId()",
  "community_id:ycVoiceCommunity"
 ]) assert(client.includes(marker),'Existing cross-platform behavior regressed: '+marker);
