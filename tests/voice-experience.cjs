@@ -18,6 +18,11 @@ assert(html.includes("const ycVoiceCid=ycVoiceCommunityId();"),'Soundboard must 
 assert(html.includes("String(currentCommunity.id)===ycVoiceCommunityId()"),'Soundboard admin actions must stay on the joined voice server');
 assert(!html.includes("speechSynthesis.cancel();speechSynthesis.speak(u);"),'Rapid voice announcements must not cancel the previous username');
 assert(html.includes("community_id:ycVoiceCommunity"),'Stream presence must remain on the joined voice community');
+assert(html.includes("if(voiceChannel?.id&&!defs.some(c=>String(c.id)===String(voiceChannel.id)))defs.push(voiceChannel)"),'Joined voice room must remain subscribed while browsing other channels/servers');
+assert(html.includes("void trackVoicePresence().catch(e=>console.warn('voice presence keepalive',e))"),'Voice heartbeat must renew Realtime presence');
+assert(html.includes("uid!==user.id&&String(voiceChannel?.id||'')===String(id||'')"),'Participant DELETE must not close the active peer because of another channel');
+assert(html.includes("Promise.allSettled([\n    sb.functions.invoke('yamachat-turn-cloudflare'"),'TURN providers must be loaded in parallel');
+assert(html.includes("providers.join('+')||'stun'"),'TURN provider fallback state missing');
 
 // Presence: manual status wins. In voice, AFK may appear only after prolonged microphone/UI inactivity,
  // and real microphone activity must wake the presence immediately.
