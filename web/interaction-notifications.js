@@ -14,6 +14,19 @@ function ycCancelContextLongPress(){
  if(ycContextLongPress?.timer)clearTimeout(ycContextLongPress.timer);
  ycContextLongPress=null;
 }
+function ycOpenLongPressContext(target,x,y){
+ const text=target.matches?.('#channelList [data-channel]')?target:null;
+ if(text){void ycOpenChannelContextMenu(text.dataset.channel,'text',x,y);return true}
+ const voice=target.matches?.('#voiceChannelList .voice-channel[data-voice]')?target:null;
+ if(voice){void ycOpenChannelContextMenu(voice.dataset.voice,'voice',x,y);return true}
+ const voiceUser=target.matches?.('.voice-user[data-user-id]')?target:null;
+ if(voiceUser){const uid=voiceUser.dataset.userId;if(uid&&String(uid)!==String(user?.id))openVoiceUserMenu(uid,voiceUser.dataset.userName||'Uživatel',x,y);return true}
+ const member=target.matches?.('#rightContent .steam-member-row[data-member-id]')?target:null;
+ if(member){void ycOpenMemberMenu(member,{clientX:x,clientY:y});return true}
+ const social=target.matches?.('#rightContent .steam-friend-row[data-profile-user],.yc-dm-social-row[data-profile-user]')?target:null;
+ if(social){void ycOpenFriendUserMenu(social,{clientX:x,clientY:y});return true}
+ return false;
+}
 document.addEventListener('pointerdown',event=>{
  if(event.pointerType==='mouse'||event.button!==0||event.isPrimary===false)return;
  const target=event.target.closest?.(YC_CONTEXT_LONGPRESS_SELECTOR);if(!target)return;
@@ -23,7 +36,7 @@ document.addEventListener('pointerdown',event=>{
   if(ycContextLongPress!==state||!target.isConnected)return;
   state.opened=true;ycContextLongPressSuppressUntil=Date.now()+900;
   try{navigator.vibrate?.(10)}catch{}
-  target.dispatchEvent(new MouseEvent('contextmenu',{bubbles:true,cancelable:true,clientX:state.x,clientY:state.y,button:2,buttons:0,view:window}));
+  ycOpenLongPressContext(target,state.x,state.y);
  },520);
  ycContextLongPress=state;
 },true);
