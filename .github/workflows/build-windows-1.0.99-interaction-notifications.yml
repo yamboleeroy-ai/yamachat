@@ -225,7 +225,7 @@ jobs:
           if($LASTEXITCODE -ne 0){throw "Packaged process-audio helper probe failed"}
 
           $latest=Get-Content desktop/dist/latest.yml -Raw
-          if($latest -notmatch "version:\s*1\.0\.98"){throw "latest.yml is not 1.0.99"}
+          if($latest -notmatch "version:\s*1\.0\.99"){throw "latest.yml is not 1.0.99"}
 
           $main=Get-Content "$appRoot/main.js" -Raw
           $shell=Get-Content "$appRoot/desktop.html" -Raw
