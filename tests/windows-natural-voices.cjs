@@ -27,8 +27,9 @@ for(const marker of [
   "/cognitiveservices/v1",
   "audio-24khz-96kbitrate-mono-mp3",
   "if(!text||text.length>220)",
-  "if(!userId)return json({error:'unauthorized'},401)",
-  "if(!allowSynthesis(userId))return json({error:'rate-limit'},429)"
+  "const user=await requestUser(req);if(!user)return json({error:'unauthorized'},401);",
+  "if(!ycTtsAllow(user.id))return json({error:'rate-limit'},429);",
+  "if(req.method==='POST'&&incoming.pathname.endsWith('/yamachat-source'))return ttsHandler(req)"
 ]) assert(edge.includes(marker),'Secure yamachat-source TTS marker missing: '+marker);
 
 assert(!/Ocp-Apim-Subscription-Key['"]?\s*:\s*['"][^'"]{8,}/.test(edge),'Azure Speech key must come only from server environment');
