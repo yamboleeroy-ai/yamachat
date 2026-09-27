@@ -52,7 +52,7 @@ async function boot(browser,width,height){
   await page.route('**/*',route=>{
     const u=new URL(route.request().url());
     if(u.hostname!=='127.0.0.1')return route.abort();
-    if(u.pathname==='/vendor/supabase.js')return route.fulfill({contentType:'application/javascript',body:mock});
+    if(u.pathname==='/vendor/supabase.js'||u.pathname==='/desktop/node_modules/@supabase/supabase-js/dist/umd/supabase.js')return route.fulfill({contentType:'application/javascript',body:mock});
     const decoded=decodeURIComponent(u.pathname);
     const rel=decoded==='/desktop/desktop-client.html'?'desktop/desktop-client.html':decoded.replace(/^\//,'');
     const file=path.join(root,rel);
