@@ -3,6 +3,11 @@ const {chromium}=require('playwright');
 const {execFileSync}=require('node:child_process');
 const root=path.resolve(__dirname,'..');
 const baseMock=fs.readFileSync(path.join(__dirname,'supabase-fixture.js'),'utf8');
+const interactionSource=fs.readFileSync(path.join(root,'scripts/interaction-notifications.mjs'),'utf8');
+const serverCardSource=fs.readFileSync(path.join(root,'scripts/server-card-context.mjs'),'utf8');
+assert(interactionSource.includes('-webkit-user-select:none;user-select:none'),'Long-press targets must disable text selection');
+assert(serverCardSource.includes('#ycMobileServerMenuBtn{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}'),'Server-card long press must disable text selection');
+assert(fs.readFileSync(path.join(root,'web/interaction-notifications.js'),'utf8').includes("window.getSelection?.()?.removeAllRanges?.()"),'Long-press runtime must clear an already-started selection');
 // Exercise the reviewed current client without regenerating it.
 
 function interactionMock(){
