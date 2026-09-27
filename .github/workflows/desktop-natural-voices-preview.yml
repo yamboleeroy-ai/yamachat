@@ -3,7 +3,7 @@ on:
   pull_request:
     paths:
       - 'desktop/**'
-      - 'supabase/functions/yamachat-tts/**'
+      - 'supabase/functions/yamachat-source/**'
       - 'tests/windows-natural-voices.cjs'
       - '.github/workflows/desktop-natural-voices-preview.yml'
   workflow_dispatch:
