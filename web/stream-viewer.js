@@ -157,6 +157,7 @@ const ycStreamViewer=(()=>{
     toast('Systémový fullscreen není dostupný. Stream je zvětšený v aplikaci.');
   }
   function remove(session){
+    if(session.mode==='fullscreen'&&YC_STREAM_DESKTOP)void window.parent?.YamachatDesktopStreamFullscreen?.set?.(false).catch?.(()=>{});
     session.abort.abort();session.trackAbort?.abort();session.video.pause();session.video.srcObject=null;session.panel.remove();sessions.delete(session.id);
     // Receiver tracks belong to RTC, so closing a viewer must never stop them.
     if(!sessions.size){layer?.remove();layer=null;safe=null}
