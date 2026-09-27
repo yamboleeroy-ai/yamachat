@@ -5725,6 +5725,140 @@ ycRegisterAppSettingsSection({
  bind:ycBindVoiceExperienceSettings
 });
 
+/* DESKTOP MICROSOFT NATURAL VOICES v1
+   Online voices use the authenticated yamachat-tts Supabase Edge Function.
+   Local Windows/Electron speech (normally Microsoft Jakub on Czech Windows)
+   remains the fallback whenever the online provider is unavailable. */
+const YC_DESKTOP_NATURAL_PREFIX='azure:';
+let ycDesktopNaturalVoices=[],ycDesktopNaturalState='idle',ycDesktopNaturalPromise=null;
+const ycDesktopNaturalPlayers=new Set();
+
+function ycDesktopNaturalValue(voice){return YC_DESKTOP_NATURAL_PREFIX+String(voice?.shortName||'')}
+function ycDesktopNaturalGender(voice){
+ const g=String(voice?.gender||'').toLowerCase();
+ return g==='female'?'female':g==='male'?'male':'';
+}
+function ycDesktopNaturalLabel(voice){
+ const name=String(voice?.displayName||voice?.localName||voice?.shortName||'Microsoft Natural');
+ const locale=String(voice?.locale||''),localeName=String(voice?.localeName||locale);
+ const g=ycDesktopNaturalGender(voice),gender=g==='female'?' · ženský':g==='male'?' · mužský':'';
+ return 'Microsoft '+name+' Online (Natural) - '+localeName+' · '+locale+gender;
+}
+function ycDesktopNaturalOptionsHtml(voices){
+ const sorted=[...(voices||[])].sort((a,b)=>{
+  const ac=String(a.locale||'').toLowerCase()==='cs-cz'?0:1,bc=String(b.locale||'').toLowerCase()==='cs-cz'?0:1;
+  return ac-bc||String(a.localeName||a.locale||'').localeCompare(String(b.localeName||b.locale||''),'cs')||String(a.displayName||'').localeCompare(String(b.displayName||''),'cs');
+ });
+ const cs=sorted.filter(v=>String(v.locale||'').toLowerCase()==='cs-cz'),rest=sorted.filter(v=>String(v.locale||'').toLowerCase()!=='cs-cz');
+ const group=(label,list)=>list.length?'<optgroup label="'+esc(label)+'">'+list.map(v=>'<option value="'+esc(ycDesktopNaturalValue(v))+'">'+esc(ycDesktopNaturalLabel(v))+'</option>').join('')+'</optgroup>':'';
+ return group('Microsoft Natural · čeština',cs)+group('Microsoft Natural · další jazyky',rest);
+}
+async function ycDesktopNaturalVoiceLoad(force=false){
+ if(!force&&ycDesktopNaturalState==='ready')return ycDesktopNaturalVoices;
+ if(!force&&ycDesktopNaturalPromise)return ycDesktopNaturalPromise;
+ ycDesktopNaturalState='loading';
+ ycDesktopNaturalPromise=(async()=>{
+  try{
+   const {data,error}=await sb.functions.invoke('yamachat-source',{body:{action:'tts-voices'}});
+   if(error)throw error;
+   const list=Array.isArray(data?.voices)?data.voices:[];
+   ycDesktopNaturalVoices=list.filter(v=>v&&v.shortName&&v.locale);
+   ycDesktopNaturalState=ycDesktopNaturalVoices.length?'ready':'unavailable';
+   return ycDesktopNaturalVoices;
+  }catch(e){
+   console.warn('Microsoft Natural voices unavailable',e);
+   ycDesktopNaturalVoices=[];ycDesktopNaturalState='unavailable';return[];
+  }finally{ycDesktopNaturalPromise=null}
+ })();
+ return ycDesktopNaturalPromise;
+}
+function ycDesktopNaturalVoiceForPreference(){
+ const voices=ycDesktopNaturalVoices,gender=ycVoiceGender(),wanted=localStorage.getItem(YC_VOICE_ANNOUNCE_VOICE_KEY)||'';
+ if(wanted.startsWith(YC_DESKTOP_NATURAL_PREFIX)){
+  const shortName=wanted.slice(YC_DESKTOP_NATURAL_PREFIX.length);
+  const exact=voices.find(v=>String(v.shortName)===shortName);if(exact)return exact;
+ }
+ if(gender==='female')return voices.find(v=>String(v.shortName||'')==='cs-CZ-VlastaNeural')
+   ||voices.find(v=>String(v.locale||'').toLowerCase()==='cs-cz'&&ycDesktopNaturalGender(v)==='female')
+   ||voices.find(v=>ycDesktopNaturalGender(v)==='female')||null;
+ if(gender==='male')return voices.find(v=>String(v.shortName||'')==='cs-CZ-AntoninNeural')
+   ||voices.find(v=>String(v.locale||'').toLowerCase()==='cs-cz'&&ycDesktopNaturalGender(v)==='male')
+   ||voices.find(v=>ycDesktopNaturalGender(v)==='male')||null;
+ return null;
+}
+const ycDesktopLocalVoiceSpeakEnhanced=ycVoiceSpeakEnhanced;
+async function ycDesktopNaturalSpeak(text,voice,onDone){
+ let audio=null,finished=false;
+ const finish=()=>{if(finished)return;finished=true;if(audio)ycDesktopNaturalPlayers.delete(audio);try{onDone?.()}catch{}};
+ try{
+  const {data,error}=await sb.functions.invoke('yamachat-source',{body:{action:'tts-synthesize',voice:String(voice.shortName||''),text:String(text||'').slice(0,220)}});
+  if(error||!data?.audioBase64)throw error||new Error('Natural voice audio missing');
+  audio=new Audio('data:'+(data.mimeType||'audio/mpeg')+';base64,'+data.audioBase64);
+  audio.preload='auto';audio.volume=.94;ycDesktopNaturalPlayers.add(audio);
+  audio.onended=finish;audio.onerror=()=>{finish()};
+  if(voiceOutputId&&typeof audio.setSinkId==='function')try{await audio.setSinkId(voiceOutputId)}catch{}
+  await audio.play();return audio;
+ }catch(e){
+  console.warn('Microsoft Natural TTS fallback to local Windows voice',e);
+  return ycDesktopLocalVoiceSpeakEnhanced(text,onDone);
+ }
+}
+ycVoiceSpeakEnhanced=function(text,onDone){
+ if(!text||ycVoiceAnnounceMode()!=='speech'){try{onDone?.()}catch{};return null}
+ const wanted=localStorage.getItem(YC_VOICE_ANNOUNCE_VOICE_KEY)||'',gender=ycVoiceGender();
+ const wantsNatural=wanted.startsWith(YC_DESKTOP_NATURAL_PREFIX)||gender==='female'||gender==='male';
+ if(!wantsNatural)return ycDesktopLocalVoiceSpeakEnhanced(text,onDone);
+ void (async()=>{
+  if(ycDesktopNaturalState!=='ready')await ycDesktopNaturalVoiceLoad();
+  const voice=ycDesktopNaturalVoiceForPreference();
+  if(voice)await ycDesktopNaturalSpeak(text,voice,onDone);
+  else ycDesktopLocalVoiceSpeakEnhanced(text,onDone);
+ })();
+ return {natural:true};
+};
+
+function ycBindDesktopNaturalVoiceSettings(root){
+ if(!root)return;
+ const mode=root.querySelector('#ycVoiceAnnounceMode'),voiceSelect=root.querySelector('#ycVoiceAnnounceVoice'),genderSelect=root.querySelector('#ycVoiceGender');
+ const syncVisibility=()=>{const speech=mode?.value==='speech',cue=mode?.value==='cue';root.querySelector('[data-yc-voice-select-wrap]')?.toggleAttribute('hidden',!speech);root.querySelector('#ycVoiceAnnounceTest')?.toggleAttribute('hidden',!speech);root.querySelector('#ycVoiceJoinTest')?.toggleAttribute('hidden',!cue);root.querySelector('#ycVoiceLeaveTest')?.toggleAttribute('hidden',!cue)};
+ genderSelect.value=ycVoiceGender();
+ const fillVoices=()=>{
+  if(!voiceSelect)return;
+  const chosen=localStorage.getItem(YC_VOICE_ANNOUNCE_VOICE_KEY)||'',local=ycVoiceAvailableVoices();
+  voiceSelect.innerHTML='<option value="">Automaticky · lokální hlas (Jakub jako fallback)</option>'+ycDesktopNaturalOptionsHtml(ycDesktopNaturalVoices)+ycVoiceOptionsHtml(local);
+  voiceSelect.value=[...voiceSelect.options].some(o=>o.value===chosen)?chosen:'';
+  const note=root.querySelector('[data-yc-real-voice-note]'),natural=ycDesktopNaturalVoiceForPreference(),localSelected=ycVoiceSelectedVoice(local),gender=ycVoiceGender();
+  if(note){
+   if(natural)note.textContent='Použitý hlas: '+ycDesktopNaturalLabel(natural)+' · online Microsoft Natural. Při výpadku se automaticky použije '+(localSelected?ycVoiceOptionLabel(localSelected):'lokální hlas Windows')+'.';
+   else if(ycDesktopNaturalState==='loading')note.textContent='Načítám Microsoft Natural hlasy… Lokální Microsoft Jakub zůstává připravený jako fallback.';
+   else if(ycDesktopNaturalState==='unavailable')note.textContent='Microsoft Natural služba není dostupná nebo ještě není nakonfigurovaná. Používá se '+(localSelected?ycVoiceOptionLabel(localSelected):'výchozí hlas Windows')+'.';
+   else note.textContent=localSelected?'Použitý lokální hlas: '+ycVoiceOptionLabel(localSelected)+(gender!=='auto'&&ycVoiceGenderHint(localSelected)!==gender?' — odpovídající Natural hlas se ještě načítá.':''):'Hlasy se ještě načítají.';
+  }
+ };
+ const loadNatural=async()=>{ycDesktopNaturalState='loading';fillVoices();await ycDesktopNaturalVoiceLoad();if(root.isConnected)fillVoices()};
+ fillVoices();void loadNatural();try{speechSynthesis?.addEventListener?.('voiceschanged',fillVoices,{once:true})}catch{}
+ genderSelect.onchange=()=>{localStorage.setItem(YC_VOICE_GENDER_KEY,genderSelect.value);fillVoices()};
+ mode.onchange=()=>{localStorage.setItem(YC_VOICE_ANNOUNCE_MODE_KEY,mode.value);syncVisibility()};
+ voiceSelect.onchange=()=>{localStorage.setItem(YC_VOICE_ANNOUNCE_VOICE_KEY,voiceSelect.value);fillVoices()};
+ const sbRange=root.querySelector('#ycSoundboardVolumeRange'),sbv=root.querySelector('#ycSoundboardVolumeValue');
+ sbRange.oninput=()=>{const v=Math.max(0,Math.min(100,Number(sbRange.value)||0));localStorage.setItem(YC_SOUNDBOARD_VOLUME_KEY,String(v));sbv.textContent=v+' %'};
+ const previewButtons=[...root.querySelectorAll('#ycVoiceAnnounceTest,#ycVoiceJoinTest,#ycVoiceLeaveTest')];let previewBusy=false,previewTimer=0;
+ const previewUnlock=()=>{previewBusy=false;clearTimeout(previewTimer);previewButtons.forEach(b=>b.disabled=false)};
+ const previewRun=(runner,minLock=2600)=>{if(previewBusy)return;previewBusy=true;previewButtons.forEach(b=>b.disabled=true);const started=Date.now(),done=()=>{const rest=Math.max(0,minLock-(Date.now()-started));clearTimeout(previewTimer);previewTimer=setTimeout(previewUnlock,rest)};previewTimer=setTimeout(previewUnlock,Math.max(minLock,7000));try{runner(done)}catch(e){done();console.warn('voice preview',e)}};
+ root.querySelector('#ycVoiceAnnounceTest').onclick=()=>previewRun(done=>{try{speechSynthesis.cancel()}catch{};ycVoiceSpeakEnhanced((profile?.display_name||profile?.username||'Yamachat')+' se připojil do místnosti',done)},3600);
+ root.querySelector('#ycVoiceJoinTest').onclick=()=>previewRun(done=>void ycPlayVoiceFileCue('join',done),2600);
+ root.querySelector('#ycVoiceLeaveTest').onclick=()=>previewRun(done=>void ycPlayVoiceFileCue('leave',done),2600);
+ syncVisibility();
+}
+ycRegisterAppSettingsSection({
+ id:'voice-experience',
+ title:'Voice a zvuky',
+ description:'Oznámení lidí ve voice, Microsoft Natural hlas čtení a osobní hlasitost soundboardu.',
+ render:ycVoiceExperienceSettingsHtml,
+ bind:ycBindDesktopNaturalVoiceSettings
+});
+
+
 
 // Mobile long-press + notification preferences.
 const YC_CONTEXT_LONGPRESS_SELECTOR=[

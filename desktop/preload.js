@@ -2,6 +2,7 @@ const { contextBridge, ipcRenderer } = require('electron');
 
 contextBridge.exposeInMainWorld('yamachatDesktop', {
   getAppSettings: () => ipcRenderer.invoke('yamachat:get-app-settings'),
+  updateDesktopState: (state) => ipcRenderer.invoke('yamachat:desktop-state-update', state || {}),
   setAppSetting: (key, value) => ipcRenderer.invoke('yamachat:set-app-setting', key, value),
   minimizeWindow: () => ipcRenderer.invoke('yamachat:window-minimize'),
   toggleMaximizeWindow: () => ipcRenderer.invoke('yamachat:window-toggle-maximize'),

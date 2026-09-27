@@ -247,6 +247,46 @@
   <script>
     const iframe = document.getElementById("yamachat");
 
+    // Push desktop/tray state out of the renderer only when the state actually
+    // changes. Keep this in the renderer process instead of having Electron main
+    // inject executeJavaScript() four times per second while voice is active.
+    let ycDesktopStatePushTimer = null;
+    let ycDesktopStatePushBusy = false;
+    let ycDesktopStateLast = '';
+    async function ycPushDesktopState(force = false) {
+      if (ycDesktopStatePushBusy) return false;
+      let next = null;
+      try {
+        const getter = iframe.contentWindow?.__ycDesktopState;
+        if (typeof getter !== 'function') return false;
+        next = getter();
+      } catch {
+        return false;
+      }
+      if (!next || typeof next !== 'object') return false;
+      let signature = '';
+      try { signature = JSON.stringify(next); } catch { return false; }
+      if (!force && signature === ycDesktopStateLast) return false;
+      ycDesktopStateLast = signature;
+      ycDesktopStatePushBusy = true;
+      try {
+        await window.yamachatDesktop?.updateDesktopState?.(next);
+        return true;
+      } catch (error) {
+        console.warn('Yamachat desktop state push failed', error);
+        return false;
+      } finally {
+        ycDesktopStatePushBusy = false;
+      }
+    }
+    function ycStartDesktopStatePush() {
+      if (ycDesktopStatePushTimer) clearInterval(ycDesktopStatePushTimer);
+      void ycPushDesktopState(true);
+      ycDesktopStatePushTimer = setInterval(() => void ycPushDesktopState(false), 350);
+    }
+    window.addEventListener('focus', () => void ycPushDesktopState(true));
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) void ycPushDesktopState(true); });
+
     let desktopUpdateState = null;
     function forwardUpdateState(state) {
       desktopUpdateState = state || null;
@@ -1739,6 +1779,7 @@
       installDesktopHistoryCapture();
       installYamachatBranding();
       setTimeout(rememberDesktopView, 450);
+      ycStartDesktopStatePush();
 
     });
 

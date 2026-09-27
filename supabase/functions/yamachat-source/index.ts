@@ -63,12 +63,20 @@ async function fcmPush(row:any,c:any,cfg:any){
   }catch(error:any){console.error('fcm exception',error?.message||error);return{ok:false,error:String(error?.message||error)}}
 }
 
+function wnsCredentials(cfg:any){
+  return {
+    tenant:String(Deno.env.get('WNS_TENANT_ID')||cfg?.wns_tenant_id||'').trim(),
+    clientId:String(Deno.env.get('WNS_CLIENT_ID')||cfg?.wns_app_id||'').trim(),
+    secret:String(Deno.env.get('WNS_CLIENT_SECRET')||cfg?.wns_client_secret||''),
+    objectId:String(Deno.env.get('WNS_OBJECT_ID')||'').trim()
+  }
+}
 async function wnsAccessToken(cfg:any){
-  const tenant=String(cfg?.wns_tenant_id||''),clientId=String(cfg?.wns_app_id||''),secret=String(cfg?.wns_client_secret||'')
+  const {tenant,clientId,secret}=wnsCredentials(cfg)
   if(!tenant||!clientId||!secret)return null
   const body=new URLSearchParams({grant_type:'client_credentials',client_id:clientId,client_secret:secret,scope:'https://wns.windows.com/.default'})
   const response=await fetch('https://login.microsoftonline.com/'+encodeURIComponent(tenant)+'/oauth2/v2.0/token',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body})
-  if(!response.ok){console.error('wns oauth',response.status,(await response.text()).slice(0,400));return null}
+  if(!response.ok){console.error('wns oauth',response.status);return null}
   const data=await response.json().catch(()=>({}))
   return String(data?.access_token||'')||null
 }
@@ -85,10 +93,62 @@ async function wnsPush(row:any,c:any,cfg:any){
     console.error('wns',status,(await response.text()).slice(0,400));return{ok:false,status}
   }catch(error:any){console.error('wns exception',error?.message||error);return{ok:false,error:String(error?.message||error)}}
 }
+
+let ycTtsVoices:any[]=[],ycTtsVoicesAt=0;
+const ycTtsRate=new Map<string,number[]>();
+function ycSpeechConfig(){
+  const key=(Deno.env.get('AZURE_SPEECH_KEY')||'').trim();
+  const region=(Deno.env.get('AZURE_SPEECH_REGION')||'').trim().toLowerCase();
+  return key&&/^[a-z0-9-]{2,40}$/.test(region)?{key,region}:null;
+}
+function ycTtsAllow(userId:string){
+  const now=Date.now(),recent=(ycTtsRate.get(userId)||[]).filter(ts=>now-ts<60000);
+  if(recent.length>=40){ycTtsRate.set(userId,recent);return false}
+  recent.push(now);ycTtsRate.set(userId,recent);return true;
+}
+function ycTtsXml(value:any){return String(value??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&apos;'}[ch]||ch))}
+function ycTtsBase64(bytes:Uint8Array){let out='';for(let i=0;i<bytes.length;i+=32768)out+=String.fromCharCode(...bytes.subarray(i,Math.min(bytes.length,i+32768)));return btoa(out)}
+async function ycAzureVoices(cfg:{key:string,region:string}){
+  if(ycTtsVoices.length&&Date.now()-ycTtsVoicesAt<900000)return ycTtsVoices;
+  const r=await fetch('https://'+cfg.region+'.tts.speech.microsoft.com/cognitiveservices/voices/list',{headers:{'Ocp-Apim-Subscription-Key':cfg.key}});
+  if(!r.ok)throw new Error('azure-voices-http-'+r.status);
+  const raw=await r.json();
+  ycTtsVoices=(Array.isArray(raw)?raw:[]).filter((v:any)=>String(v?.VoiceType||'').toLowerCase()==='neural').map((v:any)=>({
+    shortName:String(v.ShortName||''),displayName:String(v.DisplayName||v.LocalName||v.ShortName||''),localName:String(v.LocalName||v.DisplayName||v.ShortName||''),
+    gender:String(v.Gender||''),locale:String(v.Locale||''),localeName:String(v.LocaleName||''),voiceType:String(v.VoiceType||''),status:String(v.Status||'')
+  })).filter((v:any)=>v.shortName&&v.locale);
+  ycTtsVoicesAt=Date.now();return ycTtsVoices;
+}
+async function ttsHandler(req:Request){
+  try{
+    const user=await requestUser(req);if(!user)return json({error:'unauthorized'},401);
+    const cfg=ycSpeechConfig();if(!cfg)return json({configured:false,error:'azure-speech-not-configured'},503);
+    const body=await req.json().catch(()=>({})),action=String(body?.action||'');
+    if(action==='tts-voices'){
+      return json({configured:true,provider:'microsoft-azure-speech',voices:await ycAzureVoices(cfg)});
+    }
+    if(action==='tts-synthesize'){
+      if(!ycTtsAllow(user.id))return json({error:'rate-limit'},429);
+      const text=String(body?.text||'').trim(),voice=String(body?.voice||'').trim();
+      if(!text||text.length>220)return json({error:'invalid-text'},400);
+      if(!/^[a-z]{2}-[A-Z]{2}-[A-Za-z0-9:-]{3,100}$/.test(voice))return json({error:'invalid-voice'},400);
+      const locale=/^[a-z]{2}-[A-Z]{2}/.exec(voice)?.[0]||'cs-CZ';
+      const ssml='<speak version="1.0" xml:lang="'+ycTtsXml(locale)+'"><voice name="'+ycTtsXml(voice)+'">'+ycTtsXml(text)+'</voice></speak>';
+      const r=await fetch('https://'+cfg.region+'.tts.speech.microsoft.com/cognitiveservices/v1',{method:'POST',headers:{
+        'Ocp-Apim-Subscription-Key':cfg.key,'Content-Type':'application/ssml+xml','X-Microsoft-OutputFormat':'audio-24khz-96kbitrate-mono-mp3','User-Agent':'Yamachat'
+      },body:ssml});
+      if(!r.ok){console.error('azure tts',r.status,(await r.text()).slice(0,300));return json({error:'azure-synthesis-failed',status:r.status},502)}
+      const bytes=new Uint8Array(await r.arrayBuffer());
+      return json({configured:true,provider:'microsoft-azure-speech',voice,mimeType:'audio/mpeg',audioBase64:ycTtsBase64(bytes)});
+    }
+    return json({error:'unknown-tts-action'},400);
+  }catch(e){console.error('yamachat tts',e);return json({error:'tts-failed',detail:e instanceof Error?e.message:String(e)},500)}
+}
+
 async function pushHandler(req:Request){
   if(req.method==='OPTIONS')return new Response(null,{status:204,headers:CORS})
   try{
-    if(req.method==='GET'){const cfg=await runtimeConfig();return json({ok:true,vapidPublicKey:cfg.vapid_public,androidFcmConfigured:!!(Deno.env.get('YAMACHAT_FCM_SERVICE_ACCOUNT_JSON')||cfg.fcm_service_account),windowsWnsConfigured:!!(cfg.wns_tenant_id&&cfg.wns_app_id&&cfg.wns_client_secret)})}
+    if(req.method==='GET'){const cfg=await runtimeConfig(),wns=wnsCredentials(cfg);return json({ok:true,vapidPublicKey:cfg.vapid_public,androidFcmConfigured:!!(Deno.env.get('YAMACHAT_FCM_SERVICE_ACCOUNT_JSON')||cfg.fcm_service_account),windowsWnsConfigured:!!(wns.tenant&&wns.clientId&&wns.secret),windowsWnsObjectConfigured:!!wns.objectId})}
     if(req.method!=='POST')return json({error:'method-not-allowed'},405)
     const body=await req.json().catch(()=>({})),action=String(body?.action||'')
     if(action==='register'){
@@ -138,6 +198,7 @@ async function pushHandler(req:Request){
 Deno.serve(async(req:Request)=>{
   const incoming=new URL(req.url)
   if(incoming.pathname.endsWith(PUSH_ROUTE)||incoming.pathname.endsWith('/push'))return pushHandler(req)
+  if(req.method==='POST'&&incoming.pathname.endsWith('/yamachat-source'))return ttsHandler(req)
   const headers={...CORS,'Access-Control-Allow-Methods':'GET, OPTIONS'}
   if(req.method==='OPTIONS')return new Response(null,{status:204,headers})
   try{

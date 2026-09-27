@@ -430,6 +430,36 @@ let desktopState = {
   screenShareActive: false
 };
 
+function applyDesktopStateUpdate(next) {
+  if (!next || typeof next !== 'object') return false;
+
+  const nextVoiceConnected = !!next.voiceConnected;
+  const nextVoiceMuted = !!next.voiceMuted;
+  const nextVoiceChannelId = String(next.voiceChannelId || '');
+
+  if (!nextVoiceConnected || nextVoiceMuted ||
+      !desktopState.voiceConnected ||
+      nextVoiceChannelId !== desktopState.voiceChannelId) {
+    traySpeakingHoldUntil = 0;
+  }
+
+  desktopState = {
+    ...desktopState,
+    voiceConnected: nextVoiceConnected,
+    voiceChannelId: nextVoiceChannelId,
+    voiceChannelName: String(next.voiceChannelName || ''),
+    voiceMuted: nextVoiceMuted,
+    voiceDeafened: !!next.voiceDeafened,
+    voiceSpeaking: !!next.voiceSpeaking,
+    presenceMode: normalizePresenceMode(next.presenceMode),
+    notificationUnreadCount: Math.max(0, Number(next.notificationUnreadCount || 0)),
+    screenShareActive: !!next.screenShareActive
+  };
+
+  refreshTray();
+  return true;
+}
+
 app.commandLine.appendSwitch('disable-renderer-backgrounding');
 app.commandLine.appendSwitch('disable-background-timer-throttling');
 app.commandLine.appendSwitch('disable-backgrounding-occluded-windows');
@@ -1274,74 +1304,11 @@ function createTray() {
   return tray;
 }
 
-async function readDesktopState() {
-  const win = mainWindow;
-  if (!win || win.isDestroyed() || win.webContents.isDestroyed()) return;
-
-  try {
-    const next = await win.webContents.executeJavaScript(`
-      (() => {
-        try {
-          const frame = document.getElementById('yamachat');
-          const getter = frame?.contentWindow?.__ycDesktopState;
-          if (typeof getter !== 'function') return null;
-          const state = getter();
-          if (state?.voiceConnected) {
-            const now = Date.now();
-            if (!window.__ycLastDesktopVoiceWake || now - window.__ycLastDesktopVoiceWake >= 900) {
-              window.__ycLastDesktopVoiceWake = now;
-              try { frame.contentWindow.postMessage({ type: 'yamachat:desktop-voice-wake', ts: now }, '*'); } catch {}
-            }
-          }
-          return state;
-        } catch {
-          return null;
-        }
-      })();
-    `, true);
-
-    if (!next || typeof next !== 'object') return;
-
-    if (!next.voiceConnected || next.voiceMuted ||
-        !desktopState.voiceConnected ||
-        String(next.voiceChannelId || '') !== desktopState.voiceChannelId) {
-      traySpeakingHoldUntil = 0;
-    }
-
-    desktopState = {
-      ...desktopState,
-      ...next,
-      voiceConnected: !!next.voiceConnected,
-      voiceChannelId: String(next.voiceChannelId || ''),
-      voiceChannelName: String(next.voiceChannelName || ''),
-      voiceMuted: !!next.voiceMuted,
-      voiceDeafened: !!next.voiceDeafened,
-      voiceSpeaking: !!next.voiceSpeaking,
-      presenceMode: normalizePresenceMode(next.presenceMode),
-      notificationUnreadCount: Math.max(0, Number(next.notificationUnreadCount || 0)),
-      screenShareActive: !!next.screenShareActive
-    };
-
-    refreshTray();
-  } catch {
-    // Renderer can briefly be unavailable while starting/reloading.
-  }
-}
-
 function startTrayVoicePolling() {
-  if (trayPollTimer) return;
-
-  const generation = ++trayPollGeneration;
-  const tick = async () => {
-    if (generation !== trayPollGeneration) return;
-    await readDesktopState();
-    if (generation !== trayPollGeneration) return;
-    // Fast enough for the tray speaking indicator while voice is active,
-    // but avoid crossing the Electron main/renderer boundary 6+ times/sec forever.
-    const delay = desktopState.voiceConnected ? 250 : 900;
-    trayPollTimer = setTimeout(tick, delay);
-  };
-  trayPollTimer = setTimeout(tick, 0);
+  // State is pushed from desktop.html through preload IPC. Deliberately avoid
+  // periodic webContents.executeJavaScript() while voice is active: repeated
+  // main->renderer script injection can race Windows taskbar activation.
+  return false;
 }
 
 function stopTrayVoicePolling() {
@@ -1523,7 +1490,7 @@ function createWindow() {
       keepRendererAwake(win);
       void installAudioKeepAlive(win);
       startTrayVoicePolling();
-      console.log('Yamachat loaded · status + notification + voice speaking tray active');
+      console.log('Yamachat loaded · push-based status + notification + voice tray active');
       if (pendingProtocolTarget) {
         const target = { ...pendingProtocolTarget };
         setTimeout(() => deliverDesktopNotificationTarget(target), 500);
@@ -1584,6 +1551,7 @@ app.whenReady().then(async () => {
   handleClientIpc('yamachat:update-renderer-ready', () => yamachatUpdater?.markRendererReady?.() || true);
 
   handleClientIpc('yamachat:get-app-settings', () => ({ ...appSettings }));
+  handleClientIpc('yamachat:desktop-state-update', (_event, next) => applyDesktopStateUpdate(next));
   handleClientIpc('yamachat:show-notification', (_event, payload) => showYamachatNotification(payload || {}));
   handleClientIpc('yamachat:wns-get-channel', async () => requestWindowsWnsChannel());
   handleClientIpc('yamachat:notification-open', () => openYamachatNotificationTarget());

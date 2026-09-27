@@ -50,6 +50,8 @@ jobs:
       - run: node tests/voice-experience.cjs
         env:
           YC_CLIENT: desktop/desktop-client.html
+      - name: Windows Microsoft Natural voice integration
+        run: node tests/windows-natural-voices.cjs
       - name: Prepare web deployment
         run: |
           mkdir -p web-dist
