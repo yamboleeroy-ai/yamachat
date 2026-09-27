@@ -122,7 +122,7 @@ document.addEventListener('pointerdown',event=>{
  const card=event.target.closest?.('#rail [data-community],#ycMobileServerMenuBtn');if(!card)return;
  ycServerCardCancelPress();
  const state={card,pointerId:event.pointerId,x:event.clientX,y:event.clientY,opened:false,timer:null};
- state.timer=setTimeout(()=>{if(ycServerCardPress!==state||!card.isConnected)return;state.opened=true;ycServerCardSuppressClickUntil=Date.now()+850;try{navigator.vibrate?.(10)}catch{};void ycOpenServerCardMenu(card,state.x,state.y)},520);
+ state.timer=setTimeout(()=>{if(ycServerCardPress!==state||!card.isConnected)return;state.opened=true;ycServerCardSuppressClickUntil=Date.now()+850;try{window.getSelection?.()?.removeAllRanges?.()}catch{};try{navigator.vibrate?.(10)}catch{};void ycOpenServerCardMenu(card,state.x,state.y)},520);
  ycServerCardPress=state;
 },true);
 document.addEventListener('pointermove',event=>{
@@ -149,7 +149,7 @@ ycOnLifecycle('beforeAuth',()=>{ycServerCardCancelPress();ycServerCardPermission
 `;
 const style=String.raw`
 <style id="ycServerCardContextStyle">
-#rail [data-community][data-yc-server-context="1"]{-webkit-touch-callout:none}
+#rail [data-community][data-yc-server-context="1"],#ycMobileServerMenuBtn{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
 #ycUiMenuRoot[data-yc-server-card-menu="desktop"]{min-width:250px}
 #ycUiMenuRoot[data-yc-server-card-menu] .yc-ui-menu-title{color:#a8ddea}
 #ycUiMenuRoot[data-yc-server-card-menu] .yc-ui-menu-item{min-height:42px}
