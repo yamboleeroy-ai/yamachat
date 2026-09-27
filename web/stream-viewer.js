@@ -54,6 +54,7 @@ const ycStreamViewer=(()=>{
     session.panel.dataset.mobile=String(isMobile);session.panel.dataset.mode=session.mode;
     let r;
     if(session.mode==='mini')r=miniRect(session,a);
+    else if(session.mode==='fullscreen'&&YC_STREAM_DESKTOP)r={x:0,y:0,width:window.innerWidth,height:window.innerHeight};
     else if(session.mode==='maximized'||session.mode==='fullscreen'||isMobile)r={x:a.left,y:a.top,width:a.width,height:a.height};
     else{
       const original=session.rect||{x:a.right-Math.min(760,a.width),y:a.top+48,width:Math.min(760,a.width),height:Math.min(510,a.height)};
@@ -132,13 +133,17 @@ const ycStreamViewer=(()=>{
       const bridge=window.parent?.YamachatDesktopStreamFullscreen;
       if(bridge?.set){
         const entering=session.mode!=='fullscreen';
+        const returnMode=session.fullscreenReturnMode||session.mode;
         if(entering)session.fullscreenReturnMode=session.mode==='mini'?'floating':session.mode;
+        session.mode=entering?'fullscreen':(session.fullscreenReturnMode||'floating');
+        session.nativeFullscreenPending=entering;layout(session);
         try{
           const state=await bridge.set(entering);
-          if(!!state?.fullscreen===entering){
-            session.mode=entering?'fullscreen':(session.fullscreenReturnMode||'floating');layout(session);return;
-          }
+          session.nativeFullscreenPending=false;
+          if(!!state?.fullscreen===entering)return;
         }catch{}
+        session.nativeFullscreenPending=false;
+        session.mode=entering?returnMode:'fullscreen';layout(session);
       }
     }
     if(iosPwa()){
@@ -266,8 +271,12 @@ const ycStreamViewer=(()=>{
   document.addEventListener('fullscreenchange',()=>{scheduleLayout();for(const s of sessions.values())if(s.video.srcObject)void play(s)});
   document.addEventListener('keydown',event=>{if(event.key==='Escape'&&!document.fullscreenElement)for(const s of sessions.values())if(s.mode==='maximized')setMode(s,'floating')});
   window.addEventListener('message',event=>{
-    if(!YC_STREAM_DESKTOP||event.source!==window.parent||event.data?.type!=='yamachat:stream-native-fullscreen'||event.data.fullscreen)return;
-    for(const session of sessions.values())if(session.mode==='fullscreen'){session.mode=session.fullscreenReturnMode||'floating';layout(session)}
+    if(!YC_STREAM_DESKTOP||event.source!==window.parent||event.data?.type!=='yamachat:stream-native-fullscreen')return;
+    const active=!!event.data.fullscreen;
+    for(const session of sessions.values()){
+      if(active&&session.nativeFullscreenPending){session.mode='fullscreen';layout(session)}
+      else if(!active&&session.mode==='fullscreen'){session.nativeFullscreenPending=false;session.mode=session.fullscreenReturnMode||'floating';layout(session)}
+    }
   });
   // Only layout is sampled; no DOM reconstruction and no RTC mutations.
   setInterval(()=>{if(!sessions.size||document.hidden)return;scheduleLayout();for(const s of sessions.values())update(s)},500);
