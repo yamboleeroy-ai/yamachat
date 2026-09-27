@@ -29,6 +29,8 @@ for(const marker of [
   'window.__ycScreenAudioTracks=window.__ycScreenAudioTracks||new Map()',
   "session.mode==='fullscreen'",
   "session.mode==='fullscreen'&&YC_STREAM_DESKTOP",
+  "r={x:0,y:0,width:window.innerWidth,height:window.innerHeight}",
+  "session.nativeFullscreenPending=entering",
   "audio:{restrictOwnAudio:true},systemAudio:'include'"
 ]) assert(client.includes(marker),'generated desktop stream client missing: '+marker);
 
