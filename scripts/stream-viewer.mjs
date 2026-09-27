@@ -84,6 +84,39 @@ export function withStreamViewer(input,{desktop=false}={}) {
   );
   if(!html.includes("audio:{restrictOwnAudio:true},systemAudio:'include'"))throw Error('Own-audio exclusion constraint missing');
 
+  if(desktop){
+    const toggleAnchor='async function toggleScreenShare(){';
+    if(!html.includes(toggleAnchor))throw Error('Desktop screen-share start boundary missing');
+    const bridge=[
+      "async function ycPrepareDesktopProcessAudio(stream){",
+      " try{",
+      "  const bridge=window.parent?.YamachatDesktopProcessAudio;if(!bridge?.start)return{mode:'unavailable',reason:'desktop-process-audio-bridge-missing'};",
+      "  const result=await bridge.start();",
+      "  if(result?.mode==='process'&&result.track){",
+      "   for(const track of stream.getAudioTracks())try{stream.removeTrack(track);track.stop()}catch{};",
+      "   stream.addTrack(result.track);window.__ycDesktopProcessAudioMode='process';return result;",
+      "  }",
+      "  window.__ycDesktopProcessAudioMode=result?.mode||'none';return result||{mode:'none'};",
+      " }catch(e){console.warn('desktop process audio start',e);window.__ycDesktopProcessAudioMode='unavailable';return{mode:'unavailable',reason:e?.message||String(e)}}",
+      "}",
+      "async function ycStopDesktopProcessAudio(){window.__ycDesktopProcessAudioMode='none';try{await window.parent?.YamachatDesktopProcessAudio?.stop?.()}catch(e){console.warn('desktop process audio stop',e)}}",
+      ""
+    ].join('\n');
+    html=html.replace(toggleAnchor,bridge+toggleAnchor);
+
+    const trackAnchor="const track=stream.getVideoTracks()[0];if(!track){stream.getTracks().forEach(t=>t.stop());toast('Nebyl vybrán žádný obraz.',true);return}";
+    if(!html.includes(trackAnchor))throw Error('Desktop process-audio attach boundary missing');
+    html=html.replace(trackAnchor,
+      "await ycPrepareDesktopProcessAudio(stream);"+trackAnchor);
+
+    const stopAnchor="await broadcastScreenState(false);await disableScreenShareAudio(true);if(stream)for(const t of stream.getTracks()){t.onended=null;try{t.stop()}catch{}}";
+    if(!html.includes(stopAnchor))throw Error('Desktop process-audio stop boundary missing');
+    html=html.replace(stopAnchor,
+      "await broadcastScreenState(false);await disableScreenShareAudio(true);await ycStopDesktopProcessAudio();if(stream)for(const t of stream.getTracks()){t.onended=null;try{t.stop()}catch{}}");
+
+    if(!html.includes("window.__ycDesktopProcessAudioMode='process'"))throw Error('Desktop process-audio bridge missing');
+  }
+
   // A stream track can briefly mute during network recovery. Keep the same
   // MediaStream/video binding; the pending state owns retry/timeout instead.
   html=html.replace('remoteScreenStreams.delete(peerId);if(screenWatchingByUser.has(peerId)&&(voiceScreenActiveByUser.has(peerId)||ycStreamInfo(peerId)))',
