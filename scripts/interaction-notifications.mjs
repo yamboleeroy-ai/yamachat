@@ -3,7 +3,7 @@ import fs from 'node:fs';
 const runtime=fs.readFileSync(new URL('../web/interaction-notifications.js',import.meta.url),'utf8');
 const style=String.raw`
 <style id="ycInteractionNotificationStyle">
-#channelList [data-channel],#voiceChannelList .voice-channel[data-voice],.voice-user[data-user-id],#rightContent .steam-member-row[data-member-id],#rightContent .steam-friend-row[data-profile-user],.yc-dm-social-row[data-profile-user]{-webkit-touch-callout:none}
+#channelList [data-channel],#voiceChannelList .voice-channel[data-voice],.voice-user[data-user-id],#rightContent .steam-member-row[data-member-id],#rightContent .steam-friend-row[data-profile-user],.yc-dm-social-row[data-profile-user]{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
 @media(pointer:coarse){
  #channelList [data-channel],#voiceChannelList .voice-channel[data-voice],.voice-user[data-user-id],#rightContent .steam-member-row[data-member-id],#rightContent .steam-friend-row[data-profile-user],.yc-dm-social-row[data-profile-user]{touch-action:pan-y}
 }
