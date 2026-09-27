@@ -2,6 +2,8 @@ const assert=require('node:assert/strict'),fs=require('node:fs');
 const main=fs.readFileSync('desktop/main.js','utf8'),shell=fs.readFileSync('desktop/desktop.html','utf8'),client=fs.readFileSync('desktop/desktop-client.html','utf8'),preload=fs.readFileSync('desktop/preload.js','utf8');
 assert(main.includes("handleClientIpc('yamachat:window-set-stream-fullscreen'"),'native stream fullscreen IPC missing');
 assert(main.includes('mainWindow.setFullScreen(target)'),'native stream fullscreen must use BrowserWindow fullscreen');
+assert(main.includes('app.disableHardwareAcceleration()'),'Windows compositor must use stable software rendering after GPU crash reports');
+assert(!main.includes("appendSwitch('disable-direct-composition')"),'obsolete DirectComposition-only workaround must not remain');
 assert(preload.includes('setStreamFullscreen: (active)'),'preload fullscreen bridge missing');
 assert(shell.includes("window.yamachatDesktop?.setStreamFullscreen?.(target)"),'desktop shell must call native fullscreen bridge');
 assert(shell.includes('yamachat:desktop-stream-fullscreen-state'),'native fullscreen exit must be forwarded to the viewer');
@@ -10,4 +12,4 @@ const hideAt=main.indexOf('win.hide();',minimizeAt),restoreAt=main.indexOf('win.
 assert(minimizeAt>=0&&hideAt>minimizeAt&&restoreAt>hideAt,'voice-safe taskbar minimize must hide before restoring');
 for(const marker of ['const YC_STREAM_DESKTOP=true;','ycAttachExistingScreenAudioReceiver','ycPrepareDesktopProcessAudio','session.fullscreenReturnMode','async function ycResetScreenAudioSenders','tx.stop()'])assert(client.includes(marker),marker);
 assert(!client.includes('id="screenShareStage"'));
-console.log('PASS Windows viewer lifecycle: true native fullscreen, no visible restore flash, fresh screen-audio transceiver after stream restart.');
+console.log('PASS Windows viewer lifecycle: native fullscreen, stable software compositor, no visible restore flash, fresh screen-audio transceiver after stream restart.');
