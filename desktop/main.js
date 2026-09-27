@@ -1441,21 +1441,11 @@ app.whenReady().then(async () => {
     if (!mainWindow || mainWindow.isDestroyed()) return { fullscreen: false, maximized: false };
     const wanted = !!active;
     if (mainWindow.isFullScreen() !== wanted) {
-      await new Promise((resolve) => {
-        const eventName = wanted ? 'enter-full-screen' : 'leave-full-screen';
-        let settled = false;
-        let timer = null;
-        const finish = () => {
-          if (settled) return;
-          settled = true;
-          if (timer) clearTimeout(timer);
-          try { if (mainWindow && !mainWindow.isDestroyed()) mainWindow.removeListener(eventName, finish); } catch {}
-          resolve();
-        };
-        mainWindow.once(eventName, finish);
-        mainWindow.setFullScreen(wanted);
-        timer = setTimeout(finish, 900);
-      });
+      mainWindow.setFullScreen(wanted);
+      const deadline = Date.now() + 1600;
+      while (mainWindow && !mainWindow.isDestroyed() && mainWindow.isFullScreen() !== wanted && Date.now() < deadline) {
+        await new Promise(resolve => setTimeout(resolve, 25));
+      }
     }
     return {
       fullscreen: !!(mainWindow && !mainWindow.isDestroyed() && mainWindow.isFullScreen()),
