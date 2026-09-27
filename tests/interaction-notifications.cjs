@@ -22,7 +22,7 @@ function interactionMock(){
  return mock;
 }
 async function longPress(page,selector){
- const box=await page.locator(selector).boundingBox();assert(box,'Missing long-press target '+selector);
+ const box=await page.locator(selector).first().boundingBox();assert(box,'Missing long-press target '+selector);
  const x=box.x+Math.min(24,Math.max(4,box.width/2)),y=box.y+Math.min(24,Math.max(4,box.height/2));
  const cdp=await page.context().newCDPSession(page);
  try{
