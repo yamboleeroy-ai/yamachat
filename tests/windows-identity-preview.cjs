@@ -18,7 +18,7 @@ for(const kept of ["provider==='discord'","discord_avatar_url","use_discord_avat
 for(const term of ['Nastavení komunity','Opustit komunitu','Veřejná komunita','Soukromá komunita','Miniatura komunity']){
   assert(html.includes(term),'Community terminology missing: '+term);
 }
-for(const term of ['Nastavení serveru','Opustit server','Veřejný server','Soukromý server','Miniatura serveru']){
+for(const term of ['Nastavení serveru','Opustit server','Veřejný server','Soukromý server','Miniatura serveru','Info o serveru','Nabídka serveru','Servery','Nový server','Vytvořit server','Přejmenovat server','Zrušit server','Barva serveru','Viditelnost serveru','Správa serveru']){
   assert(!html.includes(term),'Old user-visible server terminology remains in Windows runtime: '+term);
 }
 assert(main.includes("app.setName('Yamachat Identity Preview')"),'Identity preview app name missing');
@@ -91,7 +91,7 @@ async function boot(browser,width,height){
     await page.waitForSelector('#ycUiMenuRoot:not(.hidden)');
     assert.equal(await page.locator('#ycUiMenuRoot').getAttribute('data-yc-server-card-menu'),'desktop');
     const menuText=await page.locator('#ycUiMenuRoot').innerText();
-    assert.match(menuText,/Info o serveru/);
+    assert.match(menuText,/Info o komunitě/);
     assert.match(menuText,/Nastavení komunity/);
     await page.locator('[data-yc-menu-item="server-info"]').click();
     await page.waitForSelector('.yc-server-info-modal');
