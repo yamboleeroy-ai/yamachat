@@ -23,7 +23,7 @@ try{
   }
   for(const marker of [
    "if(voiceChannel?.id&&!defs.some(c=>String(c.id)===String(voiceChannel.id)))defs.push(voiceChannel)",
-   "void trackVoicePresence().catch(e=>console.warn('voice presence keepalive',e))",
+   "void syncVoiceParticipantRow().catch(e=>console.warn('voice participant keepalive',e))",
    "const voiceBelongsHere=!!hadVoice&&!!voiceCommunityId&&voiceCommunityId===cid",
    "function ycIosVoiceCommunityId(channel=voiceChannel)"
   ]) assert(html.includes(marker),`${file} missing cross-community voice continuity marker: ${marker}`);
