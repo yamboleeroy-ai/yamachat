@@ -22,14 +22,17 @@ function interactionMock(){
  return mock;
 }
 async function longPress(page,selector){
- const box=await page.locator(selector).first().boundingBox();assert(box,'Missing long-press target '+selector);
- const x=box.x+Math.min(24,Math.max(4,box.width/2)),y=box.y+Math.min(24,Math.max(4,box.height/2));
- const cdp=await page.context().newCDPSession(page);
- try{
-  await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x,y,id:71,radiusX:2,radiusY:2,force:1}]} );
-  await page.waitForTimeout(620);
-  await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
- }finally{await cdp.detach().catch(()=>{})}
+ await page.evaluate(selector=>{
+  const el=document.querySelector(selector);if(!el)throw Error('Missing long-press target '+selector);
+  const r=el.getBoundingClientRect(),x=r.left+Math.min(24,Math.max(4,r.width/2)),y=r.top+Math.min(24,Math.max(4,r.height/2));
+  el.dispatchEvent(new PointerEvent('pointerdown',{bubbles:true,cancelable:true,pointerId:71,pointerType:'touch',isPrimary:true,button:0,buttons:1,clientX:x,clientY:y}));
+ },selector);
+ await page.waitForTimeout(620);
+ await page.evaluate(selector=>{
+  const el=document.querySelector(selector);if(!el)return;
+  const r=el.getBoundingClientRect(),x=r.left+Math.min(24,Math.max(4,r.width/2)),y=r.top+Math.min(24,Math.max(4,r.height/2));
+  el.dispatchEvent(new PointerEvent('pointerup',{bubbles:true,cancelable:true,pointerId:71,pointerType:'touch',isPrimary:true,button:0,buttons:0,clientX:x,clientY:y}));
+ },selector);
 }
 (async()=>{
  const browser=await chromium.launch({headless:true});
