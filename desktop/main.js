@@ -1142,6 +1142,46 @@ function restoreMainWindowInteractivity(win, reason = 'activate') {
   return true;
 }
 
+function repairVoiceTaskbarActivation(win, reason = 'taskbar-focus') {
+  if (!win || win.isDestroyed() || !desktopState.voiceConnected) return false;
+
+  // A normal taskbar activation can deliver BrowserWindow 'focus' before Windows
+  // has completely rebound native mouse input to the frameless Chromium surface.
+  // Tray -> Open Yamachat works because showMainWindow() performs a later native
+  // show/focus pass. Mirror that path after the activation turn has settled.
+  setTimeout(() => {
+    if (!win || win.isDestroyed() || !desktopState.voiceConnected || !win.isFocused()) return;
+
+    try {
+      if (typeof win.setEnabled === 'function') win.setEnabled(true);
+    } catch (error) {
+      console.warn('Yamachat taskbar enable:', reason, error);
+    }
+
+    try {
+      if (win.isMinimized()) win.restore();
+      win.show();
+      win.focus();
+    } catch (error) {
+      console.warn('Yamachat taskbar native reactivate:', reason, error);
+    }
+
+    restoreMainWindowInteractivity(win, reason + '-settled');
+
+    // One final pass catches the Windows compositor/input hand-off that can lag
+    // behind focus while voice keeps the renderer/audio context continuously alive.
+    setTimeout(() => {
+      if (!win || win.isDestroyed() || !desktopState.voiceConnected || !win.isFocused()) return;
+      try {
+        if (typeof win.setEnabled === 'function') win.setEnabled(true);
+      } catch {}
+      restoreMainWindowInteractivity(win, reason + '-final');
+    }, 120);
+  }, 0);
+
+  return true;
+}
+
 function showMainWindow() {
   if (!mainWindow || mainWindow.isDestroyed()) {
     createWindow();
@@ -1480,6 +1520,7 @@ function createWindow() {
 
   win.on('focus', () => {
     restoreMainWindowInteractivity(win, 'focus');
+    repairVoiceTaskbarActivation(win, 'taskbar-focus');
     void yamachatUpdater?.check?.(false);
   });
 
