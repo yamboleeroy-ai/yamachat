@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
-  "publishedAt": "2026-09-26T23:22:45Z",
+  "publishedAt": "2026-09-27T01:06:52Z",
   "windows": {
-    "latestVersion": "1.0.97",
+    "latestVersion": "1.0.98",
     "required": true,
-    "releaseUrl": "https://github.com/yamboleeroy-ai/yamachat/releases/tag/v1.0.97",
-    "notes": "Yamachat 1.0.97\n\nStreaming no longer lives inside the chat. Streams now open in an independent Yamachat viewer that remains usable while navigating between channels, servers, Friends, DMs and settings.\nThe viewer supports floating, resize, maximize, fullscreen with an in-app fallback, and a mini-player. Mobile layouts keep the viewer outside the chat geometry and protect the composer, voice controls and navigation.\nExisting voice/WebRTC transport, tray, updater, WNS notification infrastructure, authentication and desktop UI are preserved from the verified Windows 1.0.96 release.\nPFN remains yamachat.eu-7E03B8AF_m02xq2dqtpa7p.\nBackground notifications while Yamachat is fully closed still depend on Microsoft completing the submitted PFN mapping."
+    "releaseUrl": "https://github.com/yamboleeroy-ai/yamachat/releases/tag/v1.0.98",
+    "notes": "Yamachat 1.0.98\n\nStream fullscreen se na Windows otevírá na jeden klik přes celý monitor bez viditelného okraje.\nZavření a znovuotevření sledovaného streamu obnoví obraz i vyhrazený streamový zvuk bez restartu voice peeru.\nPři sdílení konkrétního okna na podporovaných Windows Yamachat zachytává zvuk pouze z vybrané aplikace a jejích child procesů; voice chat ani ostatní systémový zvuk se do streamu nemíchají.\nPři nedostupném app-only zachytávání se sdílení okna z bezpečnostních důvodů vrátí na video bez zvuku, ne na celý systémový loopback.\nUpdater, tray, WNS identita, přihlášení a voice/mikrofon transport zůstávají zachované."
   },
   "android": {
     "latestVersion": "1.1.0.511",
@@ -14,10 +14,10 @@
     "apkUrl": "https://yamachat.eu/download/Yamachat-Android.apk?v=200511",
     "sha256": "c108593f5e5880d27e06c79a0737f771f7c40947d8266568641993d5dff7351c",
     "notes": [
-      "Yamachat oznámení mají vlastní logo, ikonu a vlastní zvuk zprávy na Androidu.",
-      "Kliknutí na oznámení otevře přímo správnou DM, kanál a konkrétní zprávu.",
-      "FCM push při úplně ukončené APK je aktivní.",
-      "Současné mobilní rozložení, voice, Real Voices a ostatní funkce zůstávají beze změny."
+      "Opravený nezávislý stream viewer a stabilnější přechody mini/fullscreen.",
+      "Po zavření a znovuotevření sledovaného streamu se znovu připojí vyhrazený streamový zvuk bez restartu voice spojení.",
+      "Voice/mikrofon transport, mobilní rozložení, notifikace a ostatní funkce zůstávají zachované.",
+      "Zachytávání zvuku pouze z konkrétní Windows aplikace je Windows-only funkce streamera; Android ji umí normálně sledovat."
     ]
   }
 }
