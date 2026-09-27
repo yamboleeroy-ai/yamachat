@@ -1096,6 +1096,52 @@ function wakeBackgroundAudio(win) {
 // WINDOWS TRAY + DESKTOP VOICE STATUS
 // ----------------------------------------------------
 
+function restoreMainWindowInteractivity(win, reason = 'activate') {
+  if (!win || win.isDestroyed()) return false;
+
+  // Native Windows taskbar restore does not pass through showMainWindow().
+  // Re-assert the input/focus state here so a restored frameless window cannot
+  // remain visually alive (video/stream repainting) while mouse/keyboard input
+  // is still attached to the old hidden/minimized activation state.
+  try {
+    if (typeof win.setIgnoreMouseEvents === 'function') win.setIgnoreMouseEvents(false);
+  } catch (error) {
+    console.warn('Yamachat restore mouse input:', reason, error);
+  }
+  try {
+    if (typeof win.setFocusable === 'function') win.setFocusable(true);
+  } catch (error) {
+    console.warn('Yamachat restore focusable:', reason, error);
+  }
+  try {
+    if (!win.webContents.isDestroyed()) {
+      win.webContents.focus();
+      void win.webContents.executeJavaScript(`
+        (() => {
+          try {
+            const frame = document.getElementById('yamachat');
+            window.focus?.();
+            frame?.focus?.();
+            frame?.contentWindow?.focus?.();
+            try {
+              frame?.contentWindow?.postMessage({
+                type: 'yamachat:desktop-window-reactivated',
+                reason: ${JSON.stringify(reason)},
+                ts: Date.now()
+              }, '*');
+            } catch {}
+          } catch {}
+        })();
+      `, true).catch(() => {});
+    }
+  } catch (error) {
+    console.warn('Yamachat restore renderer focus:', reason, error);
+  }
+
+  wakeBackgroundAudio(win);
+  return true;
+}
+
 function showMainWindow() {
   if (!mainWindow || mainWindow.isDestroyed()) {
     createWindow();
@@ -1108,7 +1154,7 @@ function showMainWindow() {
 
   mainWindow.show();
   mainWindow.focus();
-  wakeBackgroundAudio(mainWindow);
+  restoreMainWindowInteractivity(mainWindow, 'show-main-window');
 }
 
 function normalizePresenceMode(value) {
@@ -1425,15 +1471,15 @@ function createWindow() {
   });
 
   win.on('restore', () => {
-    wakeBackgroundAudio(win);
+    restoreMainWindowInteractivity(win, 'restore');
   });
 
   win.on('show', () => {
-    wakeBackgroundAudio(win);
+    restoreMainWindowInteractivity(win, 'show');
   });
 
   win.on('focus', () => {
-    wakeBackgroundAudio(win);
+    restoreMainWindowInteractivity(win, 'focus');
     void yamachatUpdater?.check?.(false);
   });
 
@@ -1733,6 +1779,8 @@ app.whenReady().then(async () => {
         .length === 0
     ) {
       createWindow();
+    } else {
+      showMainWindow();
     }
   });
 });

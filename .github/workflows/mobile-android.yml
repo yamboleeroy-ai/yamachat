@@ -39,6 +39,9 @@ jobs:
           distribution: temurin
           java-version: "21"
 
+      - name: Generate shared Web/PWA client from reviewed sources
+        run: node scripts/build-web.mjs
+
       - name: Install mobile dependencies
         working-directory: mobile
         run: npm ci

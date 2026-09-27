@@ -57,6 +57,13 @@ function section(s,start,end){const a=s.indexOf(start),b=s.indexOf(end,a);assert
   await page.locator('[data-action="fullscreen"]').click();
   assert.equal(await page.locator('.yc-stream-viewer').getAttribute('data-mode'),'fullscreen');
   assert(await page.locator('.yc-sv-footer input').isVisible());
+  await page.waitForTimeout(2700);
+  assert.equal(await page.locator('.yc-stream-viewer').getAttribute('data-controls'),'hidden','Fullscreen controls should hide after inactivity');
+  const panelBox=await page.locator('.yc-stream-viewer').boundingBox();
+  await page.mouse.move(Math.max(8,panelBox.x+panelBox.width/2),Math.max(8,panelBox.y+panelBox.height/2));
+  await page.waitForTimeout(80);
+  assert.equal(await page.locator('.yc-stream-viewer').getAttribute('data-controls'),'visible','Pointer movement should reveal fullscreen controls');
+  assert(await page.locator('.yc-sv-footer input').isVisible());
   assert(read('web/stream-viewer.css').includes('[data-controls="hidden"] .yc-sv-footer'));
   assert(read('web/stream-viewer.css').includes('[data-mode="fullscreen"][data-desktop="true"] .yc-sv-media video{object-fit:fill'));
   assert(!read('web/stream-viewer.js').includes("session.panel.matches(':focus-within')"));
@@ -86,6 +93,11 @@ function section(s,start,end){const a=s.indexOf(start),b=s.indexOf(end,a);assert
   assert.equal(await page.locator('.yc-stream-viewer').getAttribute('data-mode'),'fullscreen');
   assert(await page.locator('.yc-sv-footer input').isVisible());
   assert.equal(Math.round((await page.locator('.yc-stream-viewer').boundingBox()).width),390);
+  await page.waitForTimeout(2700);
+  assert.equal(await page.locator('.yc-stream-viewer').getAttribute('data-controls'),'hidden','iOS/PWA fullscreen controls should hide after inactivity');
+  await page.locator('.yc-stream-viewer').dispatchEvent('pointerdown',{pointerType:'touch',pointerId:91,isPrimary:true,button:0,buttons:1,clientX:120,clientY:220});
+  await page.waitForTimeout(80);
+  assert.equal(await page.locator('.yc-stream-viewer').getAttribute('data-controls'),'visible','Touch should reveal fullscreen controls');
   await page.locator('[data-action="fullscreen"]').click();
   assert.equal(await page.locator('.yc-stream-viewer').getAttribute('data-mode'),'floating');
   assert(await page.evaluate(()=>window.originalVideo===document.querySelector('.yc-stream-viewer video')));

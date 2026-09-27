@@ -15,6 +15,7 @@ import {withVoiceExperience} from './voice-experience.mjs';
 import {withMessageNotificationSound} from './message-notification-sound.mjs';
 import {withInteractionNotifications} from './interaction-notifications.mjs';
 import {withStreamViewer} from './stream-viewer.mjs';
+import {withVerifiedDesktopBehaviorSync} from './verified-desktop-behavior-sync.mjs';
 
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
 const read=p=>fs.readFileSync(path.join(root,p),'utf8');
@@ -76,7 +77,7 @@ window.YamachatDesktopAppearance=Object.freeze({
 })();`;
 
 buildPasswordRecovery(read(ref+'desktop-client.html'),root);
-let html=withFriendsPanelRefresh(withServerCardContext(withServerNavigation(withServerThumbnails(withActiveServerGlow(withAccountMessages(withPasswordRecovery(withProfileActions(read(ref+'desktop-client.html')))))))));
+let html=withFriendsPanelRefresh(withServerCardContext(withServerNavigation(withServerThumbnails(withActiveServerGlow(withAccountMessages(withPasswordRecovery(withProfileActions(withVerifiedDesktopBehaviorSync(read(ref+'desktop-client.html'))))))))));
 
 // Desktop remains the source of truth. Only generated web/mobile output receives
 // browser/native adapters; the files under reference/desktop-1.0.78 are never patched here.

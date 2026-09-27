@@ -17,6 +17,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+      - name: Generate shared Web/PWA client from reviewed sources
+        run: node scripts/build-web.mjs
       - run: node scripts/check.mjs
       - run: node scripts/verify-stream-preview.cjs
       - name: Install browser test runtime
@@ -37,6 +39,8 @@ jobs:
         run: node tests/mobile-friends-drawer.cjs
       - name: Mobile long-press, mic-test and notification preferences
         run: node tests/interaction-notifications.cjs
+      - name: Current desktop behavior sync on shared web/mobile client
+        run: node tests/web-mobile-desktop-behavior-sync.cjs
       - name: Independent stream viewer and WebRTC lifecycle
         run: |
           node tests/stream-transport.mjs
