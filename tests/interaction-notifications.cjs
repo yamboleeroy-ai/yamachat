@@ -6,6 +6,10 @@ const baseMock=fs.readFileSync(path.join(__dirname,'supabase-fixture.js'),'utf8'
 const interactionSource=fs.readFileSync(path.join(root,'scripts/interaction-notifications.mjs'),'utf8');
 const serverCardSource=fs.readFileSync(path.join(root,'scripts/server-card-context.mjs'),'utf8');
 assert(interactionSource.includes('-webkit-user-select:none;user-select:none'),'Long-press targets must disable text selection');
+assert(interactionSource.includes('.yc-ui-menu,.yc-ui-menu *'),'Touch context-menu labels must not start native text selection');
+assert(interactionSource.includes('.message,.message *'),'Chat message selection exception is missing');
+assert(interactionSource.includes('-webkit-user-select:text;user-select:text'),'Copyable content must explicitly remain selectable on coarse pointers');
+assert(!/body\\s*\\{[^}]*user-select\\s*:\\s*none/i.test(interactionSource),'Do not disable text selection globally on body');
 assert(serverCardSource.includes('#ycMobileServerMenuBtn{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}'),'Server-card long press must disable text selection');
 assert(fs.readFileSync(path.join(root,'web/interaction-notifications.js'),'utf8').includes("window.getSelection?.()?.removeAllRanges?.()"),'Long-press runtime must clear an already-started selection');
 // Exercise the reviewed current client without regenerating it.
@@ -86,6 +90,24 @@ async function longPress(page,selector){
   assert.match(userState.menu,/oznámen/i,JSON.stringify(userState));
   const userMenu=await page.locator('#ycUiMenuRoot').innerText();
   assert.match(userMenu,/Vypnout oznámení od uživatele|Zapnout oznámení od uživatele/);
+
+  // Interactive controls must not summon native text selection on touch, but real
+  // message/input content stays copyable/editable.
+  const selectionStyles=await page.evaluate(()=>{
+   const menuItem=document.querySelector('#ycUiMenuRoot .yc-ui-menu-item');
+   const message=document.createElement('div');message.className='message';
+   const body=document.createElement('div');body.className='m-body';body.textContent='Text zprávy musí jít označit a kopírovat.';message.appendChild(body);document.body.appendChild(message);
+   const input=document.createElement('input');input.value='editovatelný text';document.body.appendChild(input);
+   const result={
+    menu:menuItem?getComputedStyle(menuItem).userSelect:'',
+    message:getComputedStyle(body).userSelect,
+    input:getComputedStyle(input).userSelect
+   };
+   message.remove();input.remove();return result;
+  });
+  assert.equal(selectionStyles.menu,'none',JSON.stringify(selectionStyles));
+  assert.equal(selectionStyles.message,'text',JSON.stringify(selectionStyles));
+  assert.equal(selectionStyles.input,'text',JSON.stringify(selectionStyles));
 
   // The generated mic-test path must preserve an active-test intent and physically
   // hold the outbound voice track disabled until the test finishes.
