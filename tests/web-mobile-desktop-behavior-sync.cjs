@@ -90,9 +90,7 @@ assert(!/body\s*\{[^}]*user-select\s*:\s*none/i.test(interaction),'Text selectio
 // Existing shared fixes must remain present: stream fullscreen controls and voice continuity.
 for(const marker of [
  '[data-controls="hidden"] .yc-sv-footer',
- "panel.addEventListener('pointermove'",
- "panel.addEventListener('pointerdown'",
- "panel.addEventListener('touchstart'",
+ "for(const type of ['pointermove','pointerdown','touchstart'])panel.addEventListener",
  "if(voiceChannel?.id)wanted.add(voiceChannel.id)",
  "const ycVoiceCid=ycVoiceCommunityId()",
  "community_id:ycVoiceCommunity"
