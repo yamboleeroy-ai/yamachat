@@ -42,7 +42,8 @@
       "desktop-client.html",
       "audio/**/*",
       "build/**/*",
-      "wns/**/*"
+      "wns/**/*",
+      "process-audio/**/*"
     ],
     "win": {
       "target": [
