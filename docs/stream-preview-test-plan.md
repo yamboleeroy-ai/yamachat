@@ -53,3 +53,10 @@ excluded process tree is a likely cause, not yet a proven complete diagnosis.
 Screen audio now refuses known virtual default outputs (or unknown endpoints),
 with a direct-device/app-share explanation. App-only include-tree is preserved.
 Physical-output exclusion, elevated capture and real iOS remain release gates.
+
+Actual desktop capture was also exercised through the same parent-window
+mediaDevices path used by getScreenMediaDevices: source selection returned a
+live video track independently of system audio. A direct iframe call is rejected
+by Chromium permissions policy; the existing parent-window path is retained.
+The old shell wrapper discarded audio constraints (including restrictOwnAudio)
+by replacing the object with true. It now preserves the requested constraints.
