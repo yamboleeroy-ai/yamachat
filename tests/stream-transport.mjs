@@ -7,6 +7,7 @@ const baseline=gitFile('fc669b3','index.html');
 const desktop=gitFile('fc669b3','desktop/desktop-client.html');
 const functions=['voicePeer','sendVoiceSignal','ycRenegotiateScreenPeer','ycSendScreenWatchOrdered','toggleScreenShare','stopScreenShare','ycEnsureScreenAudio','attachVoiceAudio','getScreenMediaDevices'];
 function section(source,name){
+ source=source.replaceAll('\r\n','\n');
  const re=new RegExp('^(?:async )?function '+name+'\\(','m'),start=source.search(re);assert(start>=0,name+' exists');
  const rest=source.slice(start),next=rest.slice(1).search(/^(?:async )?function /m);
  return (next<0?rest:rest.slice(0,next+1)).replaceAll('ycSyncStreamViewer','renderScreenShareStage').trim();

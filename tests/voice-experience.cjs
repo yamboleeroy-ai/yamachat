@@ -150,6 +150,12 @@ for(const marker of [
   assert.equal(mix.volume,100);
   assert.equal(mix.muted,false);
 
+  if(target.startsWith('desktop/')){
+   await page.evaluate(()=>window.dispatchEvent(new MessageEvent('message',{data:{type:'yamachat:update-state',state:{status:'available',currentVersion:'1.0.99',availableVersion:'1.1.0'}}})));
+   assert.equal(await page.locator('#appSettingsBtn [data-yc-update-badge]').count(),1);
+   await page.evaluate(()=>window.dispatchEvent(new MessageEvent('message',{data:{type:'yamachat:update-state',state:{status:'up-to-date',availableVersion:''}}})));
+   assert.equal(await page.locator('#appSettingsBtn [data-yc-update-badge]').count(),0);
+  }
   assert.deepEqual(errors,[]);
   await page.close();
   console.log('PASS voice experience: single-source join/leave announcements, exact uploaded MP3 cues, preview cooldown, real voiceURI TTS selection, backdrop-close settings, continuity, AFK and soundboard controls.');
