@@ -45,6 +45,91 @@ for(const [from,to] of [
   html=html.split(from).join(to);
 }
 
+
+// Continue the user-visible Czech terminology cleanup on Windows only.
+// Exact phrases are used deliberately so backend/API/internal server identifiers stay untouched.
+for(const [from,to] of [
+  ['Nabídka serveru','Nabídka komunity'],
+  ['Správa serveru / přejmenování','Správa komunity / přejmenování'],
+  ['Správa serverových emoji','Správa komunitních emoji'],
+  ['← Servery','← Komunity'],
+  ['Platform Admin · servery','Platform Admin · komunity'],
+  ['Hledat server, popis nebo vlastníka…','Hledat komunitu, popis nebo vlastníka…'],
+  ['Žádné servery.','Žádné komunity.'],
+  ['Server nemá členy.','Komunita nemá členy.'],
+  ['Viditelnost serveru změněna.','Viditelnost komunity změněna.'],
+  ['SMAZÁNÍ PLATFORM ADMIN: napiš přesně název serveru ','SMAZÁNÍ PLATFORM ADMIN: napiš přesně název komunity '],
+  ['Server byl smazán Platform Adminem.','Komunita byla smazána Platform Adminem.'],
+  [' ze serveru?',' z komunity?'],
+  ['Porušení pravidel serveru','Porušení pravidel komunity'],
+  ['Otevřít server','Otevřít komunitu'],
+  ['Server už neexistuje.','Komunita už neexistuje.'],
+  ['Barvu serveru může měnit jen vlastník.','Barvu komunity může měnit jen vlastník.'],
+  ['🎨 Barva serveru · ','🎨 Barva komunity · '],
+  ['Tato barva patří serveru. Uvidí ji všichni členové na hlavičce serveru a na jeho ikoně. Osobní barva Yamachatu každého uživatele zůstává beze změny.','Tato barva patří komunitě. Uvidí ji všichni členové na hlavičce komunity a na její ikoně. Osobní barva Yamachatu každého uživatele zůstává beze změny.'],
+  ['Vlastní barva serveru','Vlastní barva komunity'],
+  ['Uložit barvu serveru','Uložit barvu komunity'],
+  ['Barva serveru byla uložena.','Barva komunity byla uložena.'],
+  ['Na přejmenování serveru nemáš oprávnění.','Na přejmenování komunity nemáš oprávnění.'],
+  ['Přejmenovat server','Přejmenovat komunitu'],
+  ['Emoji serveru','Emoji komunity'],
+  ['Server zatím nemá vlastní emoji.','Komunita zatím nemá vlastní emoji.'],
+  ['Správa serveru','Správa komunity'],
+  ['Vytváření pozvánek na server.','Vytváření pozvánek do komunity.'],
+  ['Kick členů ze serveru.','Kick členů z komunity.'],
+  ['Správa zvuků serveru.','Správa zvuků komunity.'],
+  ['Vzhled serverové karty','Vzhled komunitní karty'],
+  ['Přehled serveru','Přehled komunity'],
+  ['Profil serveru','Profil komunity'],
+  ['Název serveru','Název komunity'],
+  ['Nastavení serveru uloženo.','Nastavení komunity uloženo.'],
+  ['Pozadí hlavičky serveru','Pozadí hlavičky komunity'],
+  ['Ke změně pozadí potřebuješ oprávnění Správa serveru.','Ke změně pozadí potřebuješ oprávnění Správa komunity.'],
+  ['Viditelnost serveru','Viditelnost komunity'],
+  ['Veřejný server lze najít v procházení. Soukromý server je dostupný pouze přes pozvánku.','Veřejnou komunitu lze najít v procházení. Soukromá komunita je dostupná pouze přes pozvánku.'],
+  ['Server je viditelný v katalogu komunit.','Komunita je viditelná v katalogu komunit.'],
+  ['Server je skrytý a vstup je pouze přes pozvánku.','Komunita je skrytá a vstup je pouze přes pozvánku.'],
+  ['Server je nyní veřejný.','Komunita je nyní veřejná.'],
+  ['Server je nyní soukromý.','Komunita je nyní soukromá.'],
+  ['Barvy, oprávnění a pořadí členů serveru','Barvy, oprávnění a pořadí členů komunity'],
+  ['Moderace členů a ochrana serveru','Moderace členů a ochrana komunity'],
+  ['Serverová role nikdy nepřebírá vlastnictví serveru. Owner zůstává oddělený a nelze ho přepsat běžnou rolí.','Komunitní role nikdy nepřebírá vlastnictví komunity. Owner zůstává oddělený a nelze ho přepsat běžnou rolí.'],
+  ['Textové a hlasové místnosti tohoto serveru','Textové a hlasové místnosti této komunity'],
+  ['Správa obsahu tohoto serveru','Správa obsahu této komunity'],
+  ['Odkaz pro připojení k serveru','Odkaz pro připojení ke komunitě'],
+  ['Odkaz umožní připojení i k soukromému serveru.','Odkaz umožní připojení i k soukromé komunitě.'],
+  ['Neobnovitelné odstranění serveru','Neobnovitelné odstranění komunity'],
+  ['Zrušit server','Zrušit komunitu'],
+  ['Odstraní server a jeho obsah. Tuto akci může provést pouze vlastník.','Odstraní komunitu a její obsah. Tuto akci může provést pouze vlastník.'],
+  ['Pouze vlastník může zrušit server.','Pouze vlastník může zrušit komunitu.'],
+  ['Nový server','Nová komunita'],
+  ['Vytvořit server','Vytvořit komunitu'],
+  ['Server vytvořen.','Komunita vytvořena.'],
+  ['Nejdřív vyber server.','Nejdřív vyber komunitu.'],
+  ['Nemáš oprávnění spravovat tento server.','Nemáš oprávnění spravovat tuto komunitu.'],
+  ['Komunity / servery','Komunity'],
+  ['Nemáš oprávnění měnit vzhled tohoto serveru.','Nemáš oprávnění měnit vzhled této komunity.'],
+  ['Server zatím nemá žádné běžné role.','Komunita zatím nemá žádné běžné role.'],
+  ['Načítám serverové role…','Načítám komunitní role…'],
+  ['vlastník nebo administrátor serveru','vlastník nebo administrátor komunity'],
+  ['serverovým rolím','komunitním rolím'],
+  ['Server se mezitím změnil.','Komunita se mezitím změnila.'],
+  ['všem členům serveru.','všem členům komunity.'],
+  ['serveroví administrátoři','komunitní administrátoři'],
+  ['členům serveru.','členům komunity.'],
+  ['Přidat server nebo uživatele','Přidat komunitu nebo uživatele'],
+  ['Přidat server','Přidat komunitu'],
+  ['Servery','Komunity'],
+  ['Info o serveru','Info o komunitě'],
+  ['Použít nastavení serveru','Použít nastavení komunity']
+]){
+  html=html.split(from).join(to);
+}
+html=html.replace(
+  "const privacy=typeof c.is_public==='boolean'?(c.is_public?'Veřejná komunita':'Soukromá komunita'):'Server';",
+  "const privacy=typeof c.is_public==='boolean'?(c.is_public?'Veřejná komunita':'Soukromá komunita'):'Komunita';"
+);
+
 const style=`
 <style id="ycWindowsIdentityPreviewStyle">
 /* Windows-only identity preview. Shared Web/PWA/mobile sources are intentionally untouched. */
