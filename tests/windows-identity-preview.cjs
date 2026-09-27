@@ -92,8 +92,13 @@ async function boot(browser,width,height){
 
     const chatBox=await page.locator('.yc-v3-content-grid>.chat').boundingBox();
     const rightBox=await page.locator('.yc-v3-content-grid>.right').boundingBox();
+    const voiceBox=await page.locator('.yc-v3-voice-host').boundingBox();
     assert(chatBox&&chatBox.width>350,'Chat panel collapsed after rail change');
+    assert(chatBox&&chatBox.height>500,'Chat panel height collapsed after ribbon change: '+chatBox?.height);
     assert(rightBox&&rightBox.width>250,'Right panel collapsed after rail change');
+    assert(rightBox&&rightBox.height>500,'Right panel height collapsed after ribbon change: '+rightBox?.height);
+    assert(voiceBox&&voiceBox.height>=80,'Voice dock height collapsed after ribbon change: '+voiceBox?.height);
+    assert(voiceBox&&voiceBox.y>700,'Voice dock moved into the top of the workspace: '+voiceBox?.y);
     assert(chatBox.x+chatBox.width<=rightBox.x+1,'Chat overlaps the right panel');
 
     await card.click({button:'right'});
