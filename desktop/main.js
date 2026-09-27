@@ -17,7 +17,7 @@ const path = require('path');
 const fs = require('fs');
 const { pathToFileURL } = require('url');
 const crypto = require('crypto');
-const { execFile } = require('child_process');
+const { execFile, spawn } = require('child_process');
 const { YamachatUpdater } = require('./updater');
 
 let mainWindow = null;
@@ -36,6 +36,117 @@ let traySpeakingHoldUntil = 0;
 const TRAY_SPEAKING_HOLD_MS = 480;
 const DEFAULT_APP_SETTINGS = { closeBehavior: 'ask', uiThemeColor: '#e056fd', uiThemeColors: {}, sidebarCollapsed: false, serverCardBackgrounds: {} };
 let appSettings = { ...DEFAULT_APP_SETTINGS };
+let lastDisplayCaptureSelection = null;
+let processAudioChild = null;
+let processAudioGeneration = 0;
+
+function parseDesktopWindowHandle(sourceId) {
+  const match = /^window:(\d+):\d+$/.exec(String(sourceId || ''));
+  return match ? match[1] : '';
+}
+
+function processAudioExecutablePath() {
+  return path.join(__dirname, 'process-audio', 'Yamachat.ProcessAudioCapture.exe');
+}
+
+function sendProcessAudioStatus(status = {}) {
+  try {
+    if (!mainWindow || mainWindow.isDestroyed()) return;
+    mainWindow.webContents.send('yamachat:process-audio-status', status);
+  } catch {}
+}
+
+function stopProcessAudioCapture(reason = 'stopped') {
+  const child = processAudioChild;
+  processAudioChild = null;
+  processAudioGeneration += 1;
+  if (child) {
+    try { child.stdout?.removeAllListeners(); } catch {}
+    try { child.stderr?.removeAllListeners(); } catch {}
+    try { child.kill(); } catch {}
+  }
+  sendProcessAudioStatus({ state: 'stopped', reason, generation: processAudioGeneration });
+}
+
+function startProcessAudioCapture() {
+  stopProcessAudioCapture('restart');
+  const selection = lastDisplayCaptureSelection;
+  if (!selection?.audioRequested) return Promise.resolve({ mode: 'none', reason: 'audio-not-requested' });
+  if (selection.kind !== 'window') return Promise.resolve({ mode: 'system', reason: 'entire-screen-source' });
+  if (!selection.windowHandle) return Promise.resolve({ mode: 'unavailable', reason: 'window-handle-unavailable' });
+
+  const executable = processAudioExecutablePath();
+  if (!fs.existsSync(executable)) {
+    return Promise.resolve({ mode: 'unavailable', reason: 'process-audio-helper-missing' });
+  }
+
+  const generation = ++processAudioGeneration;
+  const child = spawn(executable, ['--hwnd', selection.windowHandle], {
+    windowsHide: true,
+    stdio: ['ignore', 'pipe', 'pipe']
+  });
+  processAudioChild = child;
+
+  return new Promise((resolve) => {
+    let settled = false;
+    let stderr = '';
+    const finish = (result) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      resolve(result);
+    };
+    const fail = (reason, detail = '') => {
+      if (processAudioChild === child) processAudioChild = null;
+      try { child.kill(); } catch {}
+      sendProcessAudioStatus({ state: 'error', reason, detail, generation });
+      finish({ mode: 'unavailable', reason, detail });
+    };
+    const timer = setTimeout(() => fail('process-audio-start-timeout', stderr.slice(-500)), 4500);
+
+    child.stdout.on('data', (chunk) => {
+      if (processAudioChild !== child || generation !== processAudioGeneration || !chunk?.length) return;
+      try {
+        mainWindow?.webContents?.send('yamachat:process-audio-chunk', {
+          generation,
+          sampleRate: 48000,
+          channels: 2,
+          bitsPerSample: 16,
+          pcm: Buffer.from(chunk)
+        });
+      } catch {}
+    });
+
+    child.stderr.on('data', (chunk) => {
+      stderr += String(chunk || '');
+      const ready = /YAMACHAT_PROCESS_AUDIO_READY\s+pid=(\d+)\s+rate=(\d+)\s+channels=(\d+)\s+bits=(\d+)/.exec(stderr);
+      if (!ready || settled) return;
+      const result = {
+        mode: 'process',
+        generation,
+        targetName: selection.name || '',
+        pid: Number(ready[1]),
+        sampleRate: Number(ready[2]),
+        channels: Number(ready[3]),
+        bitsPerSample: Number(ready[4])
+      };
+      sendProcessAudioStatus({ state: 'ready', ...result });
+      finish(result);
+    });
+
+    child.once('error', (error) => fail('process-audio-spawn-failed', error?.message || String(error)));
+    child.once('exit', (code, signal) => {
+      if (processAudioChild === child) processAudioChild = null;
+      if (!settled) {
+        fail('process-audio-exited-before-ready', (stderr || ('code=' + code + ' signal=' + signal)).slice(-500));
+        return;
+      }
+      if (generation === processAudioGeneration) {
+        sendProcessAudioStatus({ state: 'ended', code, signal, generation });
+      }
+    });
+  });
+}
 
 const desktopUrl = pathToFileURL(path.join(__dirname, 'desktop.html')).href;
 function isClientFrame(frame) {
@@ -1452,6 +1563,21 @@ app.whenReady().then(async () => {
       maximized: !!(mainWindow && !mainWindow.isDestroyed() && mainWindow.isMaximized())
     };
   });
+  handleClientIpc('yamachat:process-audio-start', async () => startProcessAudioCapture());
+  handleClientIpc('yamachat:process-audio-stop', async () => {
+    stopProcessAudioCapture('renderer-stop');
+    return true;
+  });
+  handleClientIpc('yamachat:process-audio-selection', async () => {
+    const selection = lastDisplayCaptureSelection;
+    if (!selection) return null;
+    return {
+      kind: selection.kind,
+      name: selection.name,
+      audioRequested: !!selection.audioRequested,
+      processAudioAvailable: selection.kind === 'window' && !!selection.windowHandle && fs.existsSync(processAudioExecutablePath())
+    };
+  });
 
   powerSaveId = powerSaveBlocker.start('prevent-app-suspension');
 
@@ -1528,15 +1654,27 @@ app.whenReady().then(async () => {
           );
 
           const shareSystemAudio = !!request?.audioRequested;
+          const isWindowSource = String(source.id || '').startsWith('window:');
+          const windowHandle = isWindowSource ? parseDesktopWindowHandle(source.id) : '';
+
+          lastDisplayCaptureSelection = {
+            sourceId: String(source.id || ''),
+            name: String(source.name || ''),
+            kind: isWindowSource ? 'window' : 'screen',
+            windowHandle,
+            audioRequested: shareSystemAudio,
+            selectedAt: Date.now()
+          };
 
           console.log(
-            'System audio requested:',
-            shareSystemAudio
+            'Stream audio requested:',
+            shareSystemAudio,
+            isWindowSource ? 'process-only' : 'system-loopback'
           );
 
           callback({
             video: source,
-            ...(shareSystemAudio ? { audio: 'loopback' } : {})
+            ...(shareSystemAudio && !isWindowSource ? { audio: 'loopback' } : {})
           });
 
         } catch (error) {
@@ -1574,6 +1712,7 @@ app.whenReady().then(async () => {
 
 app.on('before-quit', () => {
   isQuitting = true;
+  stopProcessAudioCapture('app-quit');
   try { yamachatUpdater?.shutdown?.(); } catch {}
   stopTrayVoicePolling();
 
