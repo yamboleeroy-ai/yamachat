@@ -24,3 +24,9 @@ Lokálně ověřeno: syntaxe webu i mobilního balíčku, otisky desktopu a shod
 ## Omezení
 
 Živý hovor dvou zařízení, skutečný login, upload, background audio a push po ukončení aplikace vyžadují ověření na reálném telefonu. Nativní lokální oznámení fungují pro zprávy přijaté běžícím klientem po povolení. Serverové FCM/APNs push a foreground call service nejsou implementované. Sdílení obrazovky závisí na platformě. Desktopové systémové funkce (tray, autostart, globální zkratky) nelze převést na web. APK z CI je testovací debug build; stabilní release podpis vyžaduje trvalý signing key.
+
+## Licence a vlastnictví
+
+Yamachat je proprietární projekt Lukáše Hubáčka. Zdrojový kód projektu není jako celek vydán pod ISC ani jinou open-source licencí. Podrobnosti jsou v souborech [LICENSE](LICENSE), [BRAND-NOTICE.md](BRAND-NOTICE.md), [PROVENANCE.md](PROVENANCE.md), [LEGAL-BASELINE.md](LEGAL-BASELINE.md) a [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+
+Licence třetích stran zůstávají beze změny a vztahují se pouze na příslušné komponenty. Historické package metadata s hodnotou ISC nepředstavují aktuální zamýšlený licenční model Yamachatu.

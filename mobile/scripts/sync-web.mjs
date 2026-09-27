@@ -7,6 +7,10 @@ const out=path.join(root,'mobile/www');
 fs.mkdirSync(out,{recursive:true});
 // Do not package previous APKs or source archives.
 for(const asset of ['icons','audio','vendor','build','boot-guard.js','favicon.ico'])fs.cpSync(path.join(root,asset),path.join(out,asset),{recursive:true});
+const legalFiles=["LICENSE","BRAND-NOTICE.md","PROVENANCE.md","THIRD_PARTY_NOTICES.md","LEGAL-BASELINE.md","ASSET-MANIFEST.md"];
+const legalOut=path.join(out,'legal');
+fs.mkdirSync(legalOut,{recursive:true});
+for(const file of legalFiles)fs.copyFileSync(path.join(root,file),path.join(legalOut,file));
 let html=fs.readFileSync(path.join(root,'index.html'),'utf8');
 html=html.replace('<script src="./vendor/supabase.js"></script>','<script src="./native-bridge.js"></script>\n<script src="./vendor/supabase.js"></script>');
 html=html.replace('<link rel="manifest" href="./manifest.webmanifest">','');
