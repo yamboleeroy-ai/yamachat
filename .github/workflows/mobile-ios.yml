@@ -1,9 +1,11 @@
 name: Yamachat Mobile iOS Check
 
 on:
+  workflow_call:
   workflow_dispatch:
   pull_request:
   push:
+    branches: [main]
     paths:
       - "mobile/**"
       - "index.html"

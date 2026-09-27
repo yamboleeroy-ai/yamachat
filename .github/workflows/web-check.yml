@@ -1,5 +1,10 @@
 name: Desktop-derived web checks
-on: [push, pull_request, workflow_dispatch]
+on:
+  workflow_call:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
 permissions:
   contents: read
 jobs:
@@ -13,7 +18,7 @@ jobs:
         with:
           node-version: '22'
       - run: node scripts/check.mjs
-      - run: node scripts/build-desktop-client.mjs
+      - run: node scripts/verify-stream-preview.cjs
       - name: Install browser test runtime
         run: |
           npm install --no-save --package-lock=false playwright@1.62.1
@@ -36,6 +41,11 @@ jobs:
         run: |
           node tests/stream-transport.mjs
           node tests/stream-viewer.cjs
+      - run: node tests/stream-preview.cjs
+      - run: node tests/voice-experience.cjs
+      - run: node tests/voice-experience.cjs
+        env:
+          YC_CLIENT: desktop/desktop-client.html
       - name: Prepare web deployment
         run: |
           mkdir -p web-dist

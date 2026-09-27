@@ -1,4 +1,4 @@
-const CACHE='yamachat-web-push-20260926-1';
+const CACHE='yamachat-web-stream-20260927-100';
 const SHELL=['./','./index.html','./boot-guard.js','./vendor/supabase.js','./build/yamachat-logo-symbol.png','./manifest.webmanifest','./offline.html','./icons/icon-192.png','./icons/icon-512.png','./audio/mic-gate.worklet.js','./audio/rnnoise.worklet.js','./audio/rnnoise.mjs','./audio/rnnoise.wasm','./audio/yamachat_join_voice.mp3','./audio/yamachat_leave_voice.mp3'];
 self.addEventListener('install',event=>event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(SHELL))));
 self.addEventListener('activate',event=>event.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k.startsWith('yamachat-web-')&&k!==CACHE).map(k=>caches.delete(k)))).then(()=>self.clients.claim())));

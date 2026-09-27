@@ -3,7 +3,7 @@ const {chromium}=require('playwright');
 const {execFileSync}=require('node:child_process');
 const root=path.resolve(__dirname,'..');
 const baseMock=fs.readFileSync(path.join(__dirname,'supabase-fixture.js'),'utf8');
-execFileSync(process.execPath,[path.join(root,'scripts/build-web.mjs')],{cwd:root,stdio:'inherit'});
+// Exercise the reviewed current client without regenerating it.
 
 function interactionMock(){
  let mock=baseMock;

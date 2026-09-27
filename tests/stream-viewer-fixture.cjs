@@ -48,7 +48,7 @@ window.streamTest={
 };
 `;
 function html(desktop=false){
- const file=desktop?'desktop-client-dist/desktop-client.html':'index.html';
+ const file=desktop?'desktop/desktop-client.html':'index.html';
  return fs.readFileSync(path.join(root,file),'utf8').replace('// Register every feature before restoring a cached session.',bridge+'\n// Register every feature before restoring a cached session.');
 }
 function mock(){

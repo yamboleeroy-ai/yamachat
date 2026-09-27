@@ -54,6 +54,7 @@ const ycStreamViewer=(()=>{
     session.panel.dataset.mobile=String(isMobile);session.panel.dataset.mode=session.mode;
     let r;
     if(session.mode==='mini')r=miniRect(session,a);
+    else if(session.mode==='fullscreen')r={x:window.visualViewport?.offsetLeft||0,y:window.visualViewport?.offsetTop||0,width:window.visualViewport?.width||window.innerWidth,height:window.visualViewport?.height||window.innerHeight};
     else if(session.mode==='maximized'||session.mode==='fullscreen'||isMobile)r={x:a.left,y:a.top,width:a.width,height:a.height};
     else{
       const original=session.rect||{x:a.right-Math.min(760,a.width),y:a.top+48,width:Math.min(760,a.width),height:Math.min(510,a.height)};
@@ -99,6 +100,7 @@ const ycStreamViewer=(()=>{
   function setMode(session,mode){
     const previous=session.mode,video=session.video,stream=video.srcObject;
     if(document.fullscreenElement===session.panel)void document.exitFullscreen().catch(()=>{});
+    if(previous==='fullscreen'&&YC_STREAM_DESKTOP)void window.parent?.YamachatDesktopStreamFullscreen?.set?.(false);
     session.mode=mode;layout(session);
     if((mode==='mini'||previous==='mini'||mode==='fullscreen'||previous==='fullscreen')&&iosPwa())resumeIosPwaPlaybackAfterLayout(session,video,stream);
   }
@@ -106,7 +108,7 @@ const ycStreamViewer=(()=>{
     let drag=null;
     handle.addEventListener('pointerdown',event=>{
       if(event.button!==0||(!resize&&event.target.closest('button,input')))return;
-      if(session.mode==='maximized'||(mobile()&&session.mode!=='mini'))return;
+      if(session.mode==='fullscreen'||session.mode==='maximized'||(mobile()&&session.mode!=='mini'))return;
       const r=session.panel.getBoundingClientRect();
       drag={x:event.clientX,y:event.clientY,left:r.left,top:r.top,width:r.width,height:r.height};
       handle.setPointerCapture(event.pointerId);event.preventDefault();
@@ -132,30 +134,36 @@ const ycStreamViewer=(()=>{
       const bridge=window.parent?.YamachatDesktopStreamFullscreen;
       if(bridge?.set){
         const entering=session.mode!=='fullscreen';
+        const returnMode=session.fullscreenReturnMode||session.mode;
         if(entering)session.fullscreenReturnMode=session.mode==='mini'?'floating':session.mode;
+        session.mode=entering?'fullscreen':(session.fullscreenReturnMode||'floating');
+        session.nativeFullscreenPending=entering;layout(session);
         try{
           const state=await bridge.set(entering);
-          if(!!state?.fullscreen===entering){
-            session.mode=entering?'fullscreen':(session.fullscreenReturnMode||'floating');layout(session);return;
-          }
+          session.nativeFullscreenPending=false;
+          if(!!state?.fullscreen===entering){layout(session);return;}
         }catch{}
+        session.nativeFullscreenPending=false;
+        session.mode=entering?returnMode:'fullscreen';layout(session);
       }
     }
-    if(iosPwa()){
-      const entering=session.mode!=='fullscreen';
-      if(entering)session.fullscreenReturnMode=session.mode==='mini'?'floating':session.mode;
-      session.mode=entering?'fullscreen':(session.fullscreenReturnMode||'floating');layout(session);
-      resumeIosPwaPlaybackAfterLayout(session,video,stream);
-      return;
+    const entering=session.mode!=='fullscreen';
+    if(!entering){
+      if(document.fullscreenElement===session.panel)await document.exitFullscreen().catch(()=>{});
+      else if(document.webkitFullscreenElement===session.panel)document.webkitExitFullscreen?.();
+      session.mode=session.fullscreenReturnMode||'floating';layout(session);return;
     }
-    if(document.fullscreenElement){await document.exitFullscreen().catch(()=>{});return}
+    session.fullscreenReturnMode=session.mode==='mini'?'floating':session.mode;
+    session.mode='fullscreen';layout(session);
     try{
       if(session.panel.requestFullscreen){await session.panel.requestFullscreen();return}
-      if(session.video.webkitEnterFullscreen){session.video.webkitEnterFullscreen();return}
+      if(session.panel.webkitRequestFullscreen){session.panel.webkitRequestFullscreen();return}
     }catch{}
-    setMode(session,'maximized');
-    toast('Systémový fullscreen není dostupný. Stream je zvětšený v aplikaci.');
+    // Keep the same video and separate audio receiver; native video fullscreen loses our volume controls.
+    resumeIosPwaPlaybackAfterLayout(session,video,stream);
+    toast('Stream vyplňuje aplikaci. Zpět se vrátíš tlačítkem celé obrazovky.');
   }
+
   function remove(session){
     if(session.mode==='fullscreen'&&YC_STREAM_DESKTOP)void window.parent?.YamachatDesktopStreamFullscreen?.set?.(false).catch?.(()=>{});
     session.abort.abort();session.trackAbort?.abort();session.video.pause();session.video.srcObject=null;session.panel.remove();sessions.delete(session.id);
@@ -263,11 +271,24 @@ const ycStreamViewer=(()=>{
   window.visualViewport?.addEventListener('resize',scheduleLayout);window.visualViewport?.addEventListener('scroll',scheduleLayout);
   window.addEventListener('online',()=>void resume());window.addEventListener('offline',()=>{for(const s of sessions.values())update(s)});
   document.addEventListener('visibilitychange',()=>void resume());
-  document.addEventListener('fullscreenchange',()=>{scheduleLayout();for(const s of sessions.values())if(s.video.srcObject)void play(s)});
-  document.addEventListener('keydown',event=>{if(event.key==='Escape'&&!document.fullscreenElement)for(const s of sessions.values())if(s.mode==='maximized')setMode(s,'floating')});
+  const onFullscreenChange=()=>{
+    for(const s of sessions.values()){
+      if(s.elementFullscreen&&!document.fullscreenElement&&!document.webkitFullscreenElement){s.mode=s.fullscreenReturnMode||'floating';s.elementFullscreen=false}
+      if(document.fullscreenElement===s.panel||document.webkitFullscreenElement===s.panel)s.elementFullscreen=true;
+      if(s.video.srcObject)void play(s);
+    }
+    scheduleLayout();
+  };
+  document.addEventListener('fullscreenchange',onFullscreenChange);
+  document.addEventListener('webkitfullscreenchange',onFullscreenChange);
+  document.addEventListener('keydown',event=>{if(event.key==='Escape'&&!document.fullscreenElement)for(const s of sessions.values())if(s.mode==='maximized'||s.mode==='fullscreen')setMode(s,s.fullscreenReturnMode||'floating')});
   window.addEventListener('message',event=>{
-    if(!YC_STREAM_DESKTOP||event.source!==window.parent||event.data?.type!=='yamachat:stream-native-fullscreen'||event.data.fullscreen)return;
-    for(const session of sessions.values())if(session.mode==='fullscreen'){session.mode=session.fullscreenReturnMode||'floating';layout(session)}
+    if(!YC_STREAM_DESKTOP||event.source!==window.parent||event.data?.type!=='yamachat:stream-native-fullscreen')return;
+    const active=!!event.data.fullscreen;
+    for(const session of sessions.values()){
+      if(active&&session.nativeFullscreenPending){session.mode='fullscreen';layout(session)}
+      else if(!active&&session.mode==='fullscreen'){session.nativeFullscreenPending=false;session.mode=session.fullscreenReturnMode||'floating';layout(session)}
+    }
   });
   // Only layout is sampled; no DOM reconstruction and no RTC mutations.
   setInterval(()=>{if(!sessions.size||document.hidden)return;scheduleLayout();for(const s of sessions.values())update(s)},500);

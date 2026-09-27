@@ -3,7 +3,7 @@ import os from 'node:os';
 import path from 'node:path';
 import {spawnSync} from 'node:child_process';
 import assert from 'node:assert/strict';
-import './build-web.mjs';
+// Check the reviewed committed client without changing it.
 const root=path.resolve(import.meta.dirname,'..');
 const tmp=fs.mkdtempSync(path.join(os.tmpdir(),'yamachat-check-'));
 let count=0;
@@ -18,7 +18,7 @@ try{
   for(const match of html.matchAll(/<script[^>]+src="\.\/([^"]+)"/g))assert(fs.existsSync(path.join(path.dirname(path.join(root,file)),match[1])),`Missing script ${match[1]}`);
   assert(!html.includes('https://esm.sh/'),'Remote runtime dependency');
   for(const marker of ['SUPABASE_URL','SUPABASE_KEY']){
-   const ref=fs.readFileSync(path.join(root,'reference/desktop-1.0.78/desktop-client.html'),'utf8');
+   const ref=fs.readFileSync(path.join(root,'reference/desktop-1.0.78/desktop-client.html'),'utf8').replaceAll('\r\n','\n');
    const re=new RegExp('const '+marker+'=([^\\n]+)');assert(ref.match(re),`Missing ${marker}`);assert.deepEqual(html.match(re)?.[1],ref.match(re)?.[1]);
   }
  }

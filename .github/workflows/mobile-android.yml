@@ -1,9 +1,11 @@
 name: Yamachat Android APK
 
 on:
+  workflow_call:
   workflow_dispatch:
   pull_request:
   push:
+    branches: [main]
     paths:
       - "mobile/**"
       - "index.html"
@@ -129,7 +131,7 @@ jobs:
               raise SystemExit('ANDROID_KEYSTORE_B64 must contain only the base64 file contents, not a path or label')
           Path(os.environ['ANDROID_KEYSTORE_PATH']).write_bytes(key)
           PY
-          export ANDROID_VERSION_CODE="$((200000 + GITHUB_RUN_NUMBER))"
+          export ANDROID_VERSION_CODE="$(node -p 'Math.max(200000+Number(process.env.GITHUB_RUN_NUMBER),require("../../update-manifest.json").android.latestVersionCode+1)')"
           chmod +x gradlew
           ./gradlew assembleRelease
           cp app/build/outputs/apk/release/app-release.apk ../../Yamachat-Android.apk

@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
-import '../../scripts/build-web.mjs';
+// Package the reviewed current client; never regenerate from historical references.
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'../..');
 const out=path.join(root,'mobile/www');
 fs.mkdirSync(out,{recursive:true});

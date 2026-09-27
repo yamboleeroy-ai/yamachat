@@ -1,2 +1,13 @@
 desktop-client-dist/
 tests/profile-actions-*.png
+
+node_modules/
+tests/stream-preview.png
+preview-dist/
+preview-web/
+tests/ui-*.png
+tests/ui-results.json
+
+test-results/
+web-dist/
+release-assets/

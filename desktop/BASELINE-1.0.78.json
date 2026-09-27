@@ -1,0 +1,10 @@
+{
+  "source": "Yamachat-Setup-Build-Source-v1.0.78-CHAT-FLICKER-FIX.zip",
+  "note": "Files below must stay byte-identical while updater UI is added.",
+  "sha256": {
+    "main.js": "258c5236f45d815da1bacddd206a17bce554549092d20d08e90342740d254011",
+    "preload.js": "2434e49f382f696315802943b4904c8e996ceeeae0f9ad525a489ac929206f04",
+    "notification-preload.js": "7bbbba0b059a01018e75185e31b7992e89c070e4e97726d31a12cd2a5f38c2f2",
+    "desktop-client.html": "d7ba7d308a8bcf24403b3e68e411f5e55592459d9b2965a2cc284c4b95550846"
+  }
+}

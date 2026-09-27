@@ -2,6 +2,7 @@ const runtime=String.raw`
 // Voice experience preferences: local per-user choices, no new backend schema.
 window.__ycVoiceParticipantAnnouncements=true;
 const YC_VOICE_ANNOUNCE_MODE_KEY='yc_voice_announce_mode';
+const YC_VOICE_GENDER_KEY='yc_voice_gender_v1';
 const YC_VOICE_ANNOUNCE_VOICE_KEY='yc_voice_announce_voice';
 const YC_VOICE_ANNOUNCE_CHARACTER_KEY='yc_voice_announce_character'; // legacy only
 const YC_SOUNDBOARD_VOLUME_KEY='yc_soundboard_volume_v1';
@@ -33,7 +34,14 @@ function ycVoiceGenderHint(v){
  const male=/(^|\b)(jakub|david|mark|george|james|richard|pavel|michal|daniel|filip|jan|adam|anton[ií]n|ondřej|ondrej|matěj|matej|male|man)(\b|$)/i;
  return female.test(n)?'female':male.test(n)?'male':'';
 }
+function ycVoiceGender(){const v=localStorage.getItem(YC_VOICE_GENDER_KEY);return ['male','female'].includes(v)?v:'auto'}
 function ycVoiceSelectedVoice(voices){
+ const gender=ycVoiceGender();
+ if(gender!=='auto'){
+  const matches=voices.filter(v=>ycVoiceGenderHint(v)===gender);
+  return matches.find(v=>String(v.lang||'').toLowerCase().startsWith('cs'))||matches[0]
+   ||voices.find(v=>String(v.lang||'').toLowerCase().startsWith('cs'))||voices.find(v=>v.default)||voices[0]||null;
+ }
  const wanted=localStorage.getItem(YC_VOICE_ANNOUNCE_VOICE_KEY)||'';
  const exact=voices.find(v=>v.voiceURI===wanted||v.name===wanted);if(exact)return exact;
  return voices.find(v=>String(v.lang||'').toLowerCase().startsWith('cs'))||voices.find(v=>v.default)||voices[0]||null;
@@ -85,7 +93,7 @@ function ycVoiceParticipantAnnouncement(row,action){
   const mode=ycVoiceAnnounceMode();if(mode==='off')return;
   if(mode==='cue'){void ycPlayVoiceFileCue(action);return}
   const name=String(row.username||cached?.username||cached?.display_name||'Uživatel').trim()||'Uživatel';
-  ycVoiceSpeakEnhanced(action==='join'?name+' se připojil do místnosti':name+' opustil místnost');
+  ycVoiceSpeakEnhanced(action==='join'?name+' se připojil do místnosti':name+' se odpojil');
  }catch(e){console.warn('voice participant announcement',e)}
 }
 function ycVoiceAnnounceOnce(row,action){
@@ -143,7 +151,7 @@ function ycVoiceExperienceSettingsHtml(){
  const opt=(v,label)=>'<option value="'+v+'" '+(mode===v?'selected':'')+'>'+label+'</option>';
  return '<div class="yc-voice-experience-settings">'+
   '<div class="field"><label>Oznámení vstupu a odchodu z voice</label><select id="ycVoiceAnnounceMode">'+opt('speech','Přečíst jméno hlasem')+opt('cue','Jen krátký zvuk')+opt('off','Vypnuto')+'</select></div>'+
-  '<div class="field" data-yc-voice-select-wrap><label>Skutečný hlas pro čtení jmen</label><select id="ycVoiceAnnounceVoice"><option value="">Automaticky · preferovat češtinu</option></select><small data-yc-real-voice-note>Seznam obsahuje skutečné hlasy, které poskytuje Windows/Electron. Mužský/ženský štítek se zobrazí jen u hlasů, které lze bezpečně rozpoznat podle názvu.</small></div>'+
+  '<div class="field" data-yc-voice-select-wrap><label>Hlas pro čtení jmen</label><select id="ycVoiceGender"><option value="auto">Auto · současné nastavení</option><option value="female">Ženský</option><option value="male">Mužský</option></select><label>Konkrétní hlas tohoto zařízení (pro Auto)</label><select id="ycVoiceAnnounceVoice"><option value="">Automaticky · preferovat češtinu</option></select><small data-yc-real-voice-note>Seznam obsahuje skutečné hlasy, které poskytuje Windows/Electron. Mužský/ženský štítek se zobrazí jen u hlasů, které lze bezpečně rozpoznat podle názvu.</small></div>'+
   '<div class="yc-voice-preview-row"><button type="button" id="ycVoiceAnnounceTest">▶ Vyzkoušet hlas</button><button type="button" id="ycVoiceJoinTest" hidden>▶ JOIN zvuk</button><button type="button" id="ycVoiceLeaveTest" hidden>▶ LEAVE zvuk</button></div>'+
   '<div class="field"><label>Hlasitost soundboardu · <span id="ycSoundboardVolumeValue">'+volume+' %</span></label><input id="ycSoundboardVolumeRange" type="range" min="0" max="100" step="5" value="'+volume+'"></div>'+
   '<p class="yc-settings-note">Hlasitost lidí a lokální mute zůstávají zvlášť pro každého uživatele. Pravým kliknutím na člověka ve voice můžeš navíc ztlumit jen jeho soundboard.</p>'+
@@ -153,18 +161,23 @@ function ycBindVoiceExperienceSettings(root){
  if(!root)return;
  const mode=root.querySelector('#ycVoiceAnnounceMode'),voiceSelect=root.querySelector('#ycVoiceAnnounceVoice');
  const syncVisibility=()=>{const speech=mode?.value==='speech',cue=mode?.value==='cue';root.querySelector('[data-yc-voice-select-wrap]')?.toggleAttribute('hidden',!speech);root.querySelector('#ycVoiceAnnounceTest')?.toggleAttribute('hidden',!speech);root.querySelector('#ycVoiceJoinTest')?.toggleAttribute('hidden',!cue);root.querySelector('#ycVoiceLeaveTest')?.toggleAttribute('hidden',!cue)};
+ const genderSelect=root.querySelector('#ycVoiceGender');
+ genderSelect.value=ycVoiceGender();
  const fillVoices=()=>{
   if(!voiceSelect)return;const chosen=localStorage.getItem(YC_VOICE_ANNOUNCE_VOICE_KEY)||'',voices=ycVoiceAvailableVoices();
   voiceSelect.innerHTML='<option value="">Automaticky · preferovat češtinu</option>'+ycVoiceOptionsHtml(voices);
   voiceSelect.value=[...voiceSelect.options].some(o=>o.value===chosen)?chosen:'';
   const note=root.querySelector('[data-yc-real-voice-note]');
-  if(note)note.textContent=voices.length
-   ?'Nalezeno '+voices.length+' skutečných systémových hlasů. Výběr mění voiceURI, ne rychlost nebo výšku jednoho hlasu.'
-   :'Windows/Electron zatím nevrátil žádný systémový hlas. Pokud se hlasy načtou později, seznam se automaticky obnoví.';
+  const selected=ycVoiceSelectedVoice(voices),gender=ycVoiceGender();
+  if(note)note.textContent=selected
+   ?'Použitý hlas: '+ycVoiceOptionLabel(selected)+(gender!=='auto'&&ycVoiceGenderHint(selected)!==gender?' — odpovídající hlas není na zařízení dostupný; používá se náhradní hlas.':'')
+   :'Hlasy se ještě načítají; použije se výchozí hlas zařízení.';
+
  };
+ genderSelect.onchange=()=>{localStorage.setItem(YC_VOICE_GENDER_KEY,genderSelect.value);fillVoices()};
  fillVoices();try{speechSynthesis?.addEventListener?.('voiceschanged',fillVoices,{once:true})}catch{}
  mode.onchange=()=>{localStorage.setItem(YC_VOICE_ANNOUNCE_MODE_KEY,mode.value);syncVisibility()};
- voiceSelect.onchange=()=>{localStorage.setItem(YC_VOICE_ANNOUNCE_VOICE_KEY,voiceSelect.value);try{speechSynthesis.cancel()}catch{}};
+ voiceSelect.onchange=()=>{localStorage.setItem(YC_VOICE_ANNOUNCE_VOICE_KEY,voiceSelect.value);fillVoices()};
  const sb=root.querySelector('#ycSoundboardVolumeRange'),sbv=root.querySelector('#ycSoundboardVolumeValue');
  sb.oninput=()=>{const v=Math.max(0,Math.min(100,Number(sb.value)||0));localStorage.setItem(YC_SOUNDBOARD_VOLUME_KEY,String(v));sbv.textContent=v+' %'};
  const previewButtons=[...root.querySelectorAll('#ycVoiceAnnounceTest,#ycVoiceJoinTest,#ycVoiceLeaveTest')];let previewBusy=false,previewTimer=0;

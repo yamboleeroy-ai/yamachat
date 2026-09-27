@@ -93,7 +93,7 @@ const results=[];
    await page.evaluate(()=>streamTest.recovery());assert(await page.evaluate(()=>streamTest.same()),'recovery preserves node');
    const recoveredTime=await video.evaluate(v=>v.currentTime);await page.waitForFunction(t=>document.querySelector('.yc-stream-viewer video').currentTime>t+.2,recoveredTime);
    if(iosPwa){
-    await page.evaluate(()=>Object.defineProperty(navigator,'standalone',{value:true,configurable:true}));
+    await page.evaluate(()=>{Object.defineProperty(navigator,'standalone',{value:true,configurable:true});document.querySelector('.yc-stream-viewer').requestFullscreen=()=>Promise.reject(new Error('WebKit mode does not allow element fullscreen'));});
     const fsBefore=await video.evaluate(v=>v.currentTime);
     await page.locator('[data-action="fullscreen"]').click();
     await page.waitForFunction(()=>document.querySelector('.yc-stream-viewer')?.dataset.mode==='fullscreen');
@@ -108,9 +108,9 @@ const results=[];
     await page.evaluate(()=>Object.defineProperty(navigator,'standalone',{value:false,configurable:true}));
    }else{
     await page.locator('[data-action="fullscreen"]').click();
-    await page.waitForFunction(()=>!!document.fullscreenElement||document.querySelector('.yc-stream-viewer')?.dataset.mode==='maximized');
-    assert(await page.evaluate(()=>!!document.fullscreenElement||document.querySelector('.yc-stream-viewer').dataset.mode==='maximized'),'fullscreen or app fallback');
-    await page.evaluate(async()=>{if(document.fullscreenElement)await document.exitFullscreen()});
+    await page.waitForFunction(()=>!!document.fullscreenElement||document.querySelector('.yc-stream-viewer')?.dataset.mode==='fullscreen');
+    assert(await page.evaluate(()=>!!document.fullscreenElement||document.querySelector('.yc-stream-viewer').dataset.mode==='fullscreen'),'fullscreen or viewport fallback');
+    await page.locator('[data-action="fullscreen"]').click();
    }
    await page.screenshot({path:path.join(out,platform+'-viewer.png')});
    await page.locator('[data-action="close"]').click();assert.equal(await page.locator('.yc-stream-viewer').count(),0);assert.equal(await page.evaluate(()=>streamTest.watched()),false);
