@@ -1408,8 +1408,10 @@ function createWindow() {
     setTimeout(() => {
       try {
         if (!win.isDestroyed()) {
-          if (win.isMinimized()) win.restore();
+          // Hide first, then restore while hidden. Restoring a visible minimized
+          // voice window can repaint the entire frameless surface for one frame.
           win.hide();
+          if (win.isMinimized()) win.restore();
           wakeBackgroundAudio(win);
           refreshTray();
         }
@@ -1550,6 +1552,31 @@ app.whenReady().then(async () => {
     else mainWindow.maximize();
     return { maximized: mainWindow.isMaximized() };
   });
+  handleClientIpc('yamachat:window-set-stream-fullscreen', async (_event, active) => {
+    if (!mainWindow || mainWindow.isDestroyed()) return { fullscreen: false };
+    const target = !!active;
+    if (mainWindow.isFullScreen() === target) return { fullscreen: target };
+
+    await new Promise((resolve) => {
+      let settled = false;
+      let timer = null;
+      const eventName = target ? 'enter-full-screen' : 'leave-full-screen';
+      const finish = () => {
+        if (settled) return;
+        settled = true;
+        if (timer) clearTimeout(timer);
+        try { mainWindow?.removeListener(eventName, finish); } catch {}
+        resolve();
+      };
+      mainWindow.once(eventName, finish);
+      try { mainWindow.setFullScreen(target); } catch { finish(); return; }
+      timer = setTimeout(finish, 1200);
+    });
+
+    return {
+      fullscreen: !!(mainWindow && !mainWindow.isDestroyed() && mainWindow.isFullScreen())
+    };
+  });
   handleClientIpc('yamachat:window-close', () => {
     if (mainWindow && !mainWindow.isDestroyed()) mainWindow.close();
     return true;
@@ -1558,7 +1585,7 @@ app.whenReady().then(async () => {
     maximized: !!(mainWindow && !mainWindow.isDestroyed() && mainWindow.isMaximized()),
     fullscreen: !!(mainWindow && !mainWindow.isDestroyed() && mainWindow.isFullScreen())
   }));
-  // Viewer fullscreen is confined to the renderer; native window bounds never change.
+  // Stream fullscreen uses the native BrowserWindow so Windows taskbar/title chrome are truly hidden.
   handleClientIpc('yamachat:process-audio-start', async () => startProcessAudioCapture());
   handleClientIpc('yamachat:process-audio-stop', async () => {
     stopProcessAudioCapture('renderer-stop');
