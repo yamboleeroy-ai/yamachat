@@ -1,0 +1,279 @@
+name: Publish Yamachat Windows 1.0.98 Stream Audio Hotfix
+
+on:
+  push:
+    branches:
+      - release/windows-1.0.98-app-audio
+    paths:
+      - ".github/workflows/build-windows-1.0.98-app-audio.yml"
+      - "desktop/**"
+      - "windows/wns/**"
+      - "windows/process-audio/**"
+      - "scripts/build-windows-wns.ps1"
+      - "scripts/build-windows-process-audio.ps1"
+      - "scripts/windows-wns-client.mjs"
+      - "scripts/prepare-desktop-1.0.92.mjs"
+      - "scripts/stream-viewer.mjs"
+      - "scripts/apply-stream-viewer-desktop.mjs"
+      - "scripts/build-stream-desktop.mjs"
+      - "web/stream-viewer.js"
+      - "web/stream-viewer.css"
+      - "tests/windows-wns-desktop.cjs"
+      - "tests/windows-stream-lifecycle.cjs"
+      - "tests/windows-process-audio.cjs"
+      - "tests/stream-transport.mjs"
+      - "build/installer.nsh"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-test-publish:
+    runs-on: windows-latest
+    timeout-minutes: 65
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: release/windows-1.0.98-app-audio
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: desktop/package-lock.json
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Install WinApp CLI
+        shell: pwsh
+        run: |
+          npm install --no-save @microsoft/winappcli
+          npx --no-install winapp --version
+
+      - name: Verify release version and runtime syntax
+        shell: pwsh
+        run: |
+          node -e "const p=require('./desktop/package.json'); const l=require('./desktop/package-lock.json'); if(p.version!=='1.0.98'||l.version!=='1.0.98'||l.packages[''].version!=='1.0.98') process.exit(1); console.log('PASS release version 1.0.98')"
+          node --check desktop/main.js
+          node --check desktop/preload.js
+
+      - name: Build native app-only audio helper
+        shell: pwsh
+        run: ./scripts/build-windows-process-audio.ps1
+
+      - name: Restore verified Yamachat desktop assets
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: ./scripts/restore-desktop-brand-assets.ps1 -Destination build
+
+      - name: Regenerate approved desktop client with WNS
+        run: |
+          node scripts/prepare-desktop-1.0.92.mjs
+          node scripts/apply-stream-viewer-desktop.mjs
+          node scripts/build-stream-desktop.mjs
+
+      - name: Verify protected stream and voice transport
+        run: |
+          node tests/stream-transport.mjs
+          node tests/windows-stream-lifecycle.cjs
+          node tests/windows-process-audio.cjs
+          node tests/windows-wns-desktop.cjs
+
+      - name: Verify app-only audio and fullscreen integration
+        shell: pwsh
+        run: |
+          $main=Get-Content desktop/main.js -Raw
+          $preload=Get-Content desktop/preload.js -Raw
+          $shell=Get-Content desktop/desktop.html -Raw
+          $client=Get-Content desktop/desktop-client.html -Raw
+
+          foreach($marker in @(
+            "shareSystemAudio && !isWindowSource",
+            "spawn(executable, ['--hwnd', selection.windowHandle]",
+            "yamachat:process-audio-start",
+            "yamachat:process-audio-chunk",
+            "yamachat:stream-fullscreen",
+            "setFullScreen(wanted)"
+          )){
+            if(-not $main.Contains($marker)){throw "Desktop main marker missing: $marker"}
+          }
+
+          foreach($marker in @(
+            "startProcessAudioCapture",
+            "onProcessAudioChunk",
+            "setStreamFullscreen"
+          )){
+            if(-not $preload.Contains($marker)){throw "Preload marker missing: $marker"}
+          }
+
+          foreach($marker in @(
+            "YamachatDesktopProcessAudio",
+            "createMediaStreamDestination()",
+            "YamachatDesktopStreamFullscreen",
+            "yc-stream-fullscreen"
+          )){
+            if(-not $shell.Contains($marker)){throw "Desktop shell marker missing: $marker"}
+          }
+
+          foreach($marker in @(
+            "const YC_STREAM_DESKTOP=true;",
+            "ycPrepareDesktopProcessAudio",
+            "window.__ycDesktopProcessAudioMode='process'",
+            "stream.addTrack(result.track)",
+            "await ycStopDesktopProcessAudio()",
+            "ycAttachExistingScreenAudioReceiver"
+          )){
+            if(-not $client.Contains($marker)){throw "Generated client marker missing: $marker"}
+          }
+
+          foreach($oldMarker in @(
+            'id="screenShareStage"',
+            'ycShareOverlay',
+            '__ycMultiStreamViewerInstalled',
+            '__ycStreamResizeInstalled'
+          )){
+            if($client.Contains($oldMarker)){throw "Old stream viewer UI remains: $oldMarker"}
+          }
+
+          if(-not(Test-Path "desktop/process-audio/Yamachat.ProcessAudioCapture.exe")){throw "Process-audio helper missing before package"}
+          Write-Host "PASS Windows stream fullscreen + app-only audio integration"
+
+      - name: Build production WNS bridge and identity
+        shell: pwsh
+        env:
+          YAMACHAT_WNS_PACKAGE_VERSION: "1.0.98.0"
+        run: ./scripts/build-windows-wns.ps1
+
+      - name: Verify production WNS identity
+        shell: pwsh
+        run: |
+          & desktop/wns/WindowsAppRuntimeInstall-x64.exe --quiet
+          if($LASTEXITCODE -ne 0){throw "Windows App Runtime install failed: $LASTEXITCODE"}
+
+          Add-AppxPackage -Path (Resolve-Path desktop/wns/Yamachat.PushIdentity.msix) -ExternalLocation (Resolve-Path desktop) -AllowUnsigned -ForceApplicationShutdown
+
+          $pkg=Get-AppxPackage -Name "yamachat.eu-7E03B8AF"
+          if(-not $pkg){throw "Production WNS package identity was not registered"}
+          if($pkg.PackageFamilyName -ne "yamachat.eu-7E03B8AF_m02xq2dqtpa7p"){throw "Unexpected PFN: $($pkg.PackageFamilyName)"}
+          if($pkg.SignatureKind -ne "None"){throw "Expected existing unsigned production sparse identity"}
+
+          Get-AppxPackage -Name "yamachat.eu-7E03B8AF" -ErrorAction SilentlyContinue | Remove-AppxPackage -ErrorAction SilentlyContinue
+          Write-Host "PASS production WNS identity remains unchanged"
+
+      - name: Verify WNS output
+        shell: pwsh
+        run: |
+          $required=@(
+            "desktop/wns/Yamachat.WnsBridge.exe",
+            "desktop/wns/Yamachat.PushIdentity.msix",
+            "desktop/wns/WindowsAppRuntimeInstall-x64.exe",
+            "desktop/wns/wns-config.json"
+          )
+          foreach($file in $required){if(-not(Test-Path $file)){throw "Missing WNS output: $file"}}
+          $manifest=Get-Content desktop/wns/sparse/appxmanifest.xml -Raw
+          foreach($marker in @(
+            'Name="yamachat.eu-7E03B8AF"',
+            'Version="1.0.98.0"',
+            'Yamachat.WnsBridge.exe'
+          )){
+            if(-not $manifest.Contains($marker)){throw "Sparse manifest missing: $marker"}
+          }
+
+      - name: Prepare runtime assets
+        shell: pwsh
+        run: |
+          Copy-Item -Recurse -Force build desktop\build
+          Copy-Item -Recurse -Force audio desktop\audio
+          Copy-Item -Force boot-guard.js desktop\boot-guard.js
+          if(-not(Test-Path "desktop/process-audio/Yamachat.ProcessAudioCapture.exe")){throw "Process-audio helper missing before package"}
+
+      - name: Install desktop dependencies
+        working-directory: desktop
+        run: npm ci
+
+      - name: Build Windows 1.0.98
+        working-directory: desktop
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: npm run release:win
+
+      - name: Verify packaged Windows 1.0.98
+        shell: pwsh
+        run: |
+          $appRoot="desktop/dist/win-unpacked/resources/app"
+          foreach($file in @(
+            "$appRoot/main.js",
+            "$appRoot/preload.js",
+            "$appRoot/desktop.html",
+            "$appRoot/desktop-client.html",
+            "$appRoot/process-audio/Yamachat.ProcessAudioCapture.exe",
+            "$appRoot/wns/Yamachat.WnsBridge.exe",
+            "$appRoot/wns/Yamachat.PushIdentity.msix",
+            "$appRoot/build/icon.ico",
+            "desktop/dist/Yamachat-Setup-1.0.98.exe",
+            "desktop/dist/Yamachat-Setup-1.0.98.exe.blockmap",
+            "desktop/dist/latest.yml"
+          )){if(-not(Test-Path $file)){throw "Packaged release file missing: $file"}}
+
+          & "$appRoot/process-audio/Yamachat.ProcessAudioCapture.exe" --version
+          if($LASTEXITCODE -ne 0){throw "Packaged process-audio helper probe failed"}
+
+          $latest=Get-Content desktop/dist/latest.yml -Raw
+          if($latest -notmatch "version:\s*1\.0\.98"){throw "latest.yml is not 1.0.98"}
+
+          $main=Get-Content "$appRoot/main.js" -Raw
+          $shell=Get-Content "$appRoot/desktop.html" -Raw
+          $client=Get-Content "$appRoot/desktop-client.html" -Raw
+          if(-not $main.Contains("shareSystemAudio && !isWindowSource")){throw "Packaged window source can fall back to system loopback"}
+          if(-not $shell.Contains("YamachatDesktopProcessAudio")){throw "Packaged process-audio Web Audio bridge missing"}
+          if(-not $client.Contains("ycPrepareDesktopProcessAudio")){throw "Packaged client process-audio hook missing"}
+
+          Write-Host "PASS Windows 1.0.98 package contains app-only window audio, stream lifecycle fixes, WNS runtime and updater assets"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: yamachat-windows-1.0.98-app-audio
+          path: |
+            desktop/dist/Yamachat-Setup-1.0.98.exe
+            desktop/dist/Yamachat-Setup-1.0.98.exe.blockmap
+            desktop/dist/latest.yml
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Publish v1.0.98
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p release-assets
+          cp desktop/dist/Yamachat-Setup-1.0.98.exe release-assets/
+          cp desktop/dist/Yamachat-Setup-1.0.98.exe.blockmap release-assets/
+          cp desktop/dist/latest.yml release-assets/
+          cat > release-notes.md <<'EOF'
+          Yamachat 1.0.98
+
+          Stream viewer lifecycle hotfix:
+          - Windows stream fullscreen now enters true monitor fullscreen on the first click and fills the screen edge-to-edge.
+          - iOS/PWA-compatible stream lifecycle work is preserved without restarting the WebRTC peer.
+          - Closing and reopening a stream restores its dedicated stream audio correctly.
+          - When sharing a specific application window on supported Windows versions, Yamachat captures audio only from that selected application's process tree instead of the whole system.
+          - Yamachat voice chat and unrelated application audio are kept out of window-stream audio.
+          - Full-screen sharing keeps the existing system-audio path with Yamachat own-audio exclusion.
+          - If app-only process audio is unavailable, window sharing fails closed to video-only instead of leaking whole-system audio.
+
+          Existing voice/microphone transport, updater, tray, WNS identity, authentication and unrelated desktop UI remain unchanged.
+          PFN remains yamachat.eu-7E03B8AF_m02xq2dqtpa7p.
+          EOF
+
+          if gh release view v1.0.98 --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release upload v1.0.98 release-assets/* --repo "$GITHUB_REPOSITORY" --clobber
+            gh release edit v1.0.98 --repo "$GITHUB_REPOSITORY" --title "Yamachat 1.0.98" --notes-file release-notes.md --latest
+          else
+            gh release create v1.0.98 release-assets/* --repo "$GITHUB_REPOSITORY" --target release/windows-1.0.98-app-audio --title "Yamachat 1.0.98" --notes-file release-notes.md --latest
+          fi
