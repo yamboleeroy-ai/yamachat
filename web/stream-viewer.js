@@ -74,6 +74,17 @@ const ycStreamViewer=(()=>{
     if(layoutFrame||!sessions.size)return;
     layoutFrame=requestAnimationFrame(()=>{layoutFrame=0;for(const session of sessions.values())layout(session)});
   }
+  function showFullscreenControls(session,hold=2400){
+    if(!session?.panel)return;
+    clearTimeout(session.controlsTimer);session.controlsTimer=null;
+    session.panel.dataset.controls='visible';
+    if(session.mode!=='fullscreen')return;
+    session.controlsTimer=setTimeout(()=>{
+      if(sessions.get(session.id)!==session||session.mode!=='fullscreen')return;
+      if(session.panel.matches(':focus-within')){showFullscreenControls(session,1400);return}
+      session.panel.dataset.controls='hidden';
+    },hold);
+  }
   function resumeScreenAudio(session){
     if(session.local)return;
     try{ycAttachExistingScreenAudioReceiver?.(session.id)}catch{}
@@ -102,6 +113,7 @@ const ycStreamViewer=(()=>{
     if(document.fullscreenElement===session.panel)void document.exitFullscreen().catch(()=>{});
     if(previous==='fullscreen'&&YC_STREAM_DESKTOP)void window.parent?.YamachatDesktopStreamFullscreen?.set?.(false);
     session.mode=mode;layout(session);
+    if(mode==='fullscreen')showFullscreenControls(session);else{clearTimeout(session.controlsTimer);session.controlsTimer=null;session.panel.dataset.controls='visible'}
     if((mode==='mini'||previous==='mini'||mode==='fullscreen'||previous==='fullscreen')&&iosPwa())resumeIosPwaPlaybackAfterLayout(session,video,stream);
   }
   function bindMove(session,handle,resize=false){
@@ -142,7 +154,7 @@ const ycStreamViewer=(()=>{
           session.nativeFullscreenPending=false;
           if(!!state?.fullscreen===entering){
             session.mode=entering?'fullscreen':returnMode;
-            layout(session);resumeScreenAudio(session);
+            layout(session);if(entering)showFullscreenControls(session);else{clearTimeout(session.controlsTimer);session.controlsTimer=null;session.panel.dataset.controls='visible'}resumeScreenAudio(session);
             if(session.video.srcObject)void play(session);
             return;
           }
@@ -175,6 +187,7 @@ const ycStreamViewer=(()=>{
 
   function remove(session){
     if(session.mode==='fullscreen'&&YC_STREAM_DESKTOP)void window.parent?.YamachatDesktopStreamFullscreen?.set?.(false).catch?.(()=>{});
+    clearTimeout(session.controlsTimer);session.controlsTimer=null;
     session.abort.abort();session.trackAbort?.abort();session.video.pause();session.video.srcObject=null;session.panel.remove();sessions.delete(session.id);
     // Receiver tracks belong to RTC, so closing a viewer must never stop them.
     if(!sessions.size){layer?.remove();layer=null;safe=null}
@@ -187,7 +200,8 @@ const ycStreamViewer=(()=>{
     ensureLayer();
     const panel=document.createElement('section');panel.className='yc-stream-viewer';panel.dataset.peer=id;panel.setAttribute('role','region');
     panel.innerHTML='<header class="yc-sv-header" tabindex="0" aria-label="Přesunout stream šipkami nebo tažením"><span class="yc-sv-avatar" aria-hidden="true"></span><strong class="yc-sv-title"></strong><button type="button" data-action="maximize" aria-label="Maximalizovat stream" title="Maximalizovat stream">□</button><button type="button" data-action="fullscreen" aria-label="Celá obrazovka" title="Celá obrazovka">⛶</button><button type="button" data-action="minimize" aria-label="Minimalizovat stream" title="Minimalizovat stream">−</button><button type="button" data-action="close" aria-label="Zavřít sledování" title="Zavřít sledování">×</button></header><div class="yc-sv-media"><video autoplay playsinline muted></video><div class="yc-sv-status" role="status"><span></span><button type="button" hidden>Přehrát</button></div></div><footer class="yc-sv-footer"><label>Zvuk <input type="range" min="0" max="100" step="1" aria-label="Hlasitost streamu"></label><span class="yc-sv-quality"></span></footer><button type="button" class="yc-sv-resize" aria-label="Změnit velikost streamu šipkami nebo tažením" title="Změnit velikost">◢</button>';
-    const session={id,local,panel,mode:'floating',rect:null,stream:null,abort:new AbortController(),name:local?'Tvůj stream':screenShareName(id),blocked:false};
+    const session={id,local,panel,mode:'floating',rect:null,stream:null,abort:new AbortController(),name:local?'Tvůj stream':screenShareName(id),blocked:false,controlsTimer:null};
+    panel.dataset.controls='visible';
     session.video=panel.querySelector('video');session.video.muted=true;
     session.status=panel.querySelector('.yc-sv-status');session.statusText=session.status.querySelector('span');
     session.playButton=session.status.querySelector('button');
@@ -196,8 +210,11 @@ const ycStreamViewer=(()=>{
     panel.querySelector('.yc-sv-avatar').textContent=session.name.slice(0,1).toUpperCase();
     session.minimize.onclick=()=>setMode(session,session.mode==='mini'?'floating':'mini');
     session.maximize.onclick=()=>setMode(session,session.mode==='maximized'?'floating':'maximized');
-    session.fullscreen.onclick=()=>void fullscreen(session);
+    session.fullscreen.onclick=()=>{showFullscreenControls(session);void fullscreen(session)};
     panel.querySelector('[data-action="close"]').onclick=()=>close(session);
+    for(const type of ['pointermove','pointerdown','touchstart'])panel.addEventListener(type,()=>{if(session.mode==='fullscreen')showFullscreenControls(session)},{passive:true,signal:session.abort.signal});
+    panel.addEventListener('keydown',()=>{if(session.mode==='fullscreen')showFullscreenControls(session)},{signal:session.abort.signal});
+    panel.addEventListener('focusin',()=>{if(session.mode==='fullscreen')showFullscreenControls(session,3200)},{signal:session.abort.signal});
     panel.querySelector('.yc-sv-media').onclick=event=>{if(session.mode==='mini'&&!event.target.closest('button'))setMode(session,'floating')};
     session.playButton.onclick=()=>{
       session.blocked=false;void play(session);
