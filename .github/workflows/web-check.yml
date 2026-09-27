@@ -20,6 +20,8 @@ jobs:
       - name: Generate shared Web/PWA client from reviewed sources
         run: node scripts/build-web.mjs
       - run: node scripts/check.mjs
+      - name: Verify proprietary legal baseline packaging
+        run: node scripts/check-legal-baseline.mjs
       - run: node scripts/verify-stream-preview.cjs
       - name: Install browser test runtime
         run: |
@@ -54,9 +56,10 @@ jobs:
         run: node tests/windows-natural-voices.cjs
       - name: Prepare web deployment
         run: |
-          mkdir -p web-dist
+          mkdir -p web-dist web-dist/legal
           cp index.html reset-password.html sw.js boot-guard.js favicon.ico manifest.webmanifest offline.html CNAME .nojekyll web-dist/
           cp -r icons audio vendor build download web-dist/
+          cp LICENSE BRAND-NOTICE.md PROVENANCE.md THIRD_PARTY_NOTICES.md LEGAL-BASELINE.md ASSET-MANIFEST.md web-dist/legal/
       - uses: actions/upload-artifact@v4
         with:
           name: Yamachat-Web

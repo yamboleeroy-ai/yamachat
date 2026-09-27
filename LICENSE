@@ -1,0 +1,119 @@
+YAMACHAT PROPRIETARY LICENSE
+Version 1.0
+
+Copyright (c) 2026 Lukáš Hubáček.
+All rights reserved.
+
+Project: Yamachat
+Official domain: https://yamachat.eu
+Contact: hubygo@gmail.com
+
+1. PROPRIETARY MATERIAL
+
+Except for Third-Party Material described below, all rights held or lawfully
+controlled by Lukáš Hubáček in the Yamachat project are reserved.
+
+This includes, to the extent protected by applicable law, original Yamachat
+source code, executable components, documentation, graphical assets, interface
+elements, visual compositions, layouts, icons, logos, audio assets, branding
+materials and other original project materials.
+
+No open-source licence is granted for Yamachat itself.
+
+2. PUBLIC REPOSITORY DOES NOT CREATE A GENERAL LICENCE
+
+Availability of Yamachat source code in a public repository does not by itself
+grant permission to copy, modify, redistribute, rebrand, sublicense, sell or
+commercially exploit proprietary Yamachat material.
+
+Permissions that necessarily arise from the terms and technical operation of
+the repository hosting service, and rights that applicable law cannot exclude,
+remain unaffected.
+
+3. END-USER PERMISSION
+
+Users may run and use official Yamachat builds and officially hosted Yamachat
+services for their intended purpose, subject to the applicable Yamachat Terms
+of Use.
+
+Permission to use an official application or service does not grant a licence
+to redistribute Yamachat source code, proprietary assets or Yamachat branding.
+
+4. RESTRICTIONS
+
+Unless prior written permission has been granted by Lukáš Hubáček, and except
+where applicable law expressly permits otherwise, no person may:
+
+- redistribute substantial proprietary portions of Yamachat source code;
+- publish a modified or derivative Yamachat build as another product;
+- sell, sublicense or commercially redistribute proprietary Yamachat material;
+- remove or falsify ownership, copyright or provenance notices;
+- use the Yamachat name, wordmark, logo or application icon in a way that
+  falsely suggests that another product or service is official Yamachat;
+- copy Yamachat proprietary graphical assets for another application or
+  service; or
+- deliberately reproduce protected, distinctive Yamachat visual expression by
+  copying Yamachat design elements.
+
+This licence does not claim ownership of general ideas, methods, functions or
+software concepts that are not protected by applicable law.
+
+5. THIRD-PARTY MATERIAL
+
+Yamachat incorporates or depends on third-party software and services.
+
+Third-party software remains governed exclusively by its own licences and
+terms. Nothing in this licence restricts rights granted by a third-party
+licence.
+
+See THIRD_PARTY_NOTICES.md and the licence files distributed with relevant
+third-party components.
+
+6. AI-ASSISTED MATERIAL
+
+Some Yamachat assets and project materials were created with the assistance of
+generative artificial-intelligence tools at the direction of the project
+owner.
+
+Any rights assigned or granted to the project owner by the relevant service
+provider are reserved to the extent permitted by applicable law. This clause
+does not assert that every purely AI-generated element independently qualifies
+for copyright protection in every jurisdiction.
+
+Human-authored code, human selection and arrangement, modifications,
+integration, documentation and other human creative contributions remain
+subject to whatever protection applicable law provides.
+
+7. BRAND RIGHTS
+
+No permission is granted to use Yamachat source-identifying branding for
+another product or service in a manner likely to cause confusion or falsely
+suggest affiliation, sponsorship or official status.
+
+This document does not state or imply that Yamachat is a registered trademark.
+
+8. NO RETROACTIVE REVOCATION OF VALID THIRD-PARTY RIGHTS
+
+This licence states the licensing position for proprietary Yamachat material
+distributed with or after this version. It does not purport to revoke any
+rights that may already have been validly and irrevocably granted under an
+earlier licence or by applicable law.
+
+9. NO WARRANTY
+
+To the maximum extent permitted by applicable law, no additional warranty is
+created merely by this licence document.
+
+10. GOVERNING LAW
+
+This licence is intended to be interpreted under the law applicable in the
+Czech Republic, subject to mandatory Czech and European Union law and any
+mandatory law applicable to the recipient.
+
+11. EFFECTIVE DATE
+
+Version 1.0 becomes effective when first published in the official Yamachat
+repository.
+
+Lukáš Hubáček
+hubygo@gmail.com

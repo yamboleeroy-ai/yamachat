@@ -4,8 +4,8 @@
   "description": "Yamachat desktop — stream audio, viewer and voice announcements",
   "main": "main.js",
   "productName": "Yamachat",
-  "author": "Yamachat",
-  "license": "ISC",
+  "author": "Lukáš Hubáček <hubygo@gmail.com>",
+  "license": "UNLICENSED",
   "type": "commonjs",
   "repository": {
     "type": "git",
@@ -83,6 +83,21 @@
           "yamachat"
         ]
       }
+    ],
+    "extraResources": [
+      {
+        "from": "..",
+        "to": "legal",
+        "filter": [
+          "LICENSE",
+          "BRAND-NOTICE.md",
+          "PROVENANCE.md",
+          "THIRD_PARTY_NOTICES.md",
+          "LEGAL-BASELINE.md",
+          "ASSET-MANIFEST.md"
+        ]
+      }
     ]
-  }
+  },
+  "private": true
 }

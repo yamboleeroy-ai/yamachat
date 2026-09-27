@@ -27,5 +27,7 @@
   "devDependencies": {
     "@capacitor/cli": "^8.0.0",
     "esbuild": "^0.25.0"
-  }
+  },
+  "author": "Lukáš Hubáček <hubygo@gmail.com>",
+  "license": "UNLICENSED"
 }
