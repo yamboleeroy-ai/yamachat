@@ -973,6 +973,14 @@ html body .yc-ss-note{
 }
 </style>
 
+
+<style id="ycInteractionNotificationStyle">
+#channelList [data-channel],#voiceChannelList .voice-channel[data-voice],.voice-user[data-user-id],#rightContent .steam-member-row[data-member-id],#rightContent .steam-friend-row[data-profile-user],.yc-dm-social-row[data-profile-user]{-webkit-touch-callout:none}
+@media(pointer:coarse){
+ #channelList [data-channel],#voiceChannelList .voice-channel[data-voice],.voice-user[data-user-id],#rightContent .steam-member-row[data-member-id],#rightContent .steam-friend-row[data-profile-user],.yc-dm-social-row[data-profile-user]{touch-action:pan-y}
+}
+</style>
+
 <style id="ycStreamViewerStyleV2">#ycStreamLayer{position:fixed;inset:0;z-index:100100;pointer-events:none}
 .yc-stream-viewer{position:absolute;display:flex;flex-direction:column;pointer-events:auto;overflow:hidden;background:var(--yc-window-bg,linear-gradient(145deg,#0b1721,#071019));color:var(--yc-window-text,#e9f4f7);border:1px solid var(--yc-window-edge,#365364);border-radius:16px;box-shadow:0 24px 70px #0009,inset 0 1px 0 #ffffff08;min-width:0;isolation:isolate}
 .yc-stream-viewer:focus-within{border-color:var(--yc-window-accent,#70e4e8)}
@@ -2419,10 +2427,10 @@ function ycMountMicOptions(){
     const input='<input '+(k==='threshold'?'class="yc-threshold-slider" aria-describedby="ycThresholdHelp ycThresholdReading"':'style="width:100%"')+' type="range" id="ycMic_'+k+'" min="'+min+'" max="'+max+'" step="'+step+'" value="'+o[k]+'">';
     return '<div class="field"><label for="ycMic_'+k+'">'+label+' · <span id="ycMicValue_'+k+'">'+o[k]+' '+unit+'</span></label>'+(k==='threshold'?'<div class="yc-threshold-meter" id="ycThresholdMeter"><div class="yc-threshold-track" aria-hidden="true"><div id="ycThresholdFill"></div></div>'+input+'</div><div class="yc-threshold-scale"><span>−65 dBFS</span><span>−20 dBFS</span></div><div id="ycThresholdReading" class="yc-threshold-reading">Spusť test mikrofonu pro živé měření.</div><div id="ycThresholdHelp" class="yc-threshold-help">Výplň ukazuje zvuk před branou, i když je zavřená. Jezdec označuje práh. Nastav ho nad klávesnici, ale pod běžnou řeč.</div>':input)+'</div>';
   }).join('')+'<button type="button" id="ycMicCalibrate">Změřit hluk v tichu (3 s)</button><div id="ycMicStatus" class="sub" role="status">Spusť test se sluchátky. Vyšší práh blokuje více ruchů, ale může ořezat tichý hlas.</div>';
-  $('ycMic_gate').checked=o.gate;$('ycVoiceFocus').value=o.focus;$('ycVoiceFocus').onchange=()=>{if($('ycVoiceFocus').value!=='off'&&ycNoiseModeFromUi()!=='ai'){$('ycNoiseModeSelect').value='ai';ycStopMicTest();ycRenderNoiseModeHint();toast('Zapnuto YamaClean AI. Spusť znovu test mikrofonu.')}else ycMicUpdateTest()};
+  $('ycMic_gate').checked=o.gate;$('ycVoiceFocus').value=o.focus;$('ycVoiceFocus').onchange=()=>{if($('ycVoiceFocus').value!=='off'&&ycNoiseModeFromUi()!=='ai'){$('ycNoiseModeSelect').value='ai';ycRenderNoiseModeHint();ycRestartMicTest();toast('Zapnuto YamaClean AI. Test mikrofonu pokračuje s novým režimem.')}else ycMicUpdateTest()};
   for(const k of ['gain','threshold','hold'])$('ycMic_'+k).oninput=()=>{$('ycMicValue_'+k).textContent=$('ycMic_'+k).value+' '+(k==='hold'?'ms':k==='gain'?'dB':'dBFS');ycMicUpdateTest();if(k==='threshold')ycPaintThresholdMeter()};
   $('ycMic_gate').onchange=ycMicUpdateTest;$('ycMicCalibrate').onclick=ycMicCalibrate;
-  for(const id of ['voiceMicSelect','voiceOutputSelect','voiceEchoCheck','voiceAgcCheck'])$(id)?.addEventListener('change',ycStopMicTest);
+  for(const id of ['voiceMicSelect','voiceOutputSelect','voiceEchoCheck','voiceAgcCheck'])$(id)?.addEventListener('change',ycMicTestSettingChanged);
   ycResetThresholdMeter();
 }
 let ycThresholdDb=null;
@@ -2800,7 +2808,7 @@ async function joinVoiceChannel(ch){
         try{stream=await acquireVoiceStream()}catch(e){toast((e?.name==='NotAllowedError'?'Povol Yamachatu přístup k mikrofonu. ':'Mikrofon se nepodařilo spustit. ')+(e?.message||e),true);return}
       }
       if(actionId!==voiceActionSeq){if(stream!==reusableStream)await ycStopManagedMicStream(stream);return}
-      voiceStream=stream;voiceChannel=ch;voiceSessionId=crypto.randomUUID();voiceSpeaking=false;try{voiceStream.getAudioTracks().forEach(t=>t.enabled=!voiceMuted&&!voiceDeafened)}catch{};voiceSignalError='';voicePeerStates.clear();voicePeerSessions.clear();voiceIceRestarted.clear();voiceRelayCandidates.clear();voiceIceGatherDone.clear();
+      voiceStream=stream;voiceChannel=ch;voiceSessionId=crypto.randomUUID();voiceSpeaking=false;try{voiceStream.getAudioTracks().forEach(t=>t.enabled=!voiceMuted&&!voiceDeafened&&!ycMicTestVoiceHold)}catch{};voiceSignalError='';voicePeerStates.clear();voicePeerSessions.clear();voiceIceRestarted.clear();voiceRelayCandidates.clear();voiceIceGatherDone.clear();
       ensureVoiceRooms(voiceChannelDefs.some(x=>x.id===ch.id)?voiceChannelDefs:[...voiceChannelDefs,ch]);
       await subscribeVoiceSignals();await subscribeSoundboardEvents();void loadSoundboardSounds();
       if(actionId!==voiceActionSeq){await leaveVoiceChannel(true);return}
@@ -2812,10 +2820,10 @@ async function joinVoiceChannel(ch){
     }
 // VOICE PRESENCE CLEANUP v2.0.2
 let ycVoiceParticipantSyncQueue=Promise.resolve()
-function syncVoiceParticipantRow(){if(!voiceChannel||!voiceSessionId||!user)return Promise.resolve();const channelId=voiceChannel.id,sid=voiceSessionId,username=profile.display_name||profile.username||'Uživatel',muted=voiceMuted,deafened=voiceDeafened,speaking=voiceSpeaking;const run=async()=>{if(!voiceChannel||voiceSessionId!==sid||String(voiceChannel.id)!==String(channelId))return;const {error}=await sb.rpc('set_voice_participant',{p_channel_id:channelId,p_session_id:sid,p_username:username,p_muted:muted,p_deafened:deafened,p_speaking:speaking});if(error)console.warn('voice heartbeat',error)};ycVoiceParticipantSyncQueue=ycVoiceParticipantSyncQueue.catch(()=>{}).then(run);return ycVoiceParticipantSyncQueue}
+function syncVoiceParticipantRow(){if(!voiceChannel||!voiceSessionId||!user)return Promise.resolve();const channelId=voiceChannel.id,sid=voiceSessionId,username=profile.display_name||profile.username||'Uživatel',muted=voiceMuted||ycMicTestVoiceHold,deafened=voiceDeafened,speaking=voiceSpeaking;const run=async()=>{if(!voiceChannel||voiceSessionId!==sid||String(voiceChannel.id)!==String(channelId))return;const {error}=await sb.rpc('set_voice_participant',{p_channel_id:channelId,p_session_id:sid,p_username:username,p_muted:muted,p_deafened:deafened,p_speaking:speaking});if(error)console.warn('voice heartbeat',error)};ycVoiceParticipantSyncQueue=ycVoiceParticipantSyncQueue.catch(()=>{}).then(run);return ycVoiceParticipantSyncQueue}
 function startVoiceHeartbeat(){stopVoiceHeartbeat();syncVoiceParticipantRow();voiceHeartbeatTimer=setInterval(()=>{if(voiceChannel){syncVoiceParticipantRow();refreshVoiceParticipants(voiceChannel.id)}},5000)}
 function stopVoiceHeartbeat(){if(voiceHeartbeatTimer){clearInterval(voiceHeartbeatTimer);voiceHeartbeatTimer=null}}
-async function trackVoicePresence(attempt=0){if(!voiceChannel)return;const room=voiceRooms.get(voiceChannel.id);if(room){try{const pending=room.track({user_id:user.id,username:profile.display_name||profile.username,muted:voiceMuted,deafened:voiceDeafened,speaking:voiceSpeaking,session_id:voiceSessionId,joined_at:new Date().toISOString()});if(pending&&typeof pending.catch==='function')pending.catch(()=>{if(attempt<8)setTimeout(()=>trackVoicePresence(attempt+1),400)})}catch{}}await syncVoiceParticipantRow()}
+async function trackVoicePresence(attempt=0){if(!voiceChannel)return;const room=voiceRooms.get(voiceChannel.id);if(room){try{const pending=room.track({user_id:user.id,username:profile.display_name||profile.username,muted:voiceMuted||ycMicTestVoiceHold,deafened:voiceDeafened,speaking:voiceSpeaking,session_id:voiceSessionId,joined_at:new Date().toISOString()});if(pending&&typeof pending.catch==='function')pending.catch(()=>{if(attempt<8)setTimeout(()=>trackVoicePresence(attempt+1),400)})}catch{}}await syncVoiceParticipantRow()}
 function renderVoiceControls(){const box=$('voiceControls');if(!box)return;const switching=!!window.__ycVoiceSwitchBusy,connected=!!voiceChannel;box.classList.remove('hidden');box.classList.toggle('is-idle',!connected&&!switching);box.classList.toggle('is-connected',connected);box.classList.toggle('is-switching',switching);const voicePresence=(typeof ycAutoPresenceState==='function'?ycAutoPresenceState():String(profile?.status||'online').toLowerCase());box.dataset.presence=voicePresence==='busy'?'dnd':voicePresence==='away'?'afk':voicePresence;const panel=$('voiceConnectionPanel');panel?.classList.toggle('hidden',!connected&&!switching);const selfName=profile?.display_name||profile?.username||'Uživatel',selfState=$('voiceSelfState'),selfAvatar=$('voiceSelfAvatar');if($('voiceSelfName'))$('voiceSelfName').textContent=selfName;if(selfState)selfState.textContent=switching?'Připojuji…':connected?(voiceDeafened?'Zvuk i mikrofon vypnutý':voiceMuted?'Mikrofon ztlumený':'Připojen k hlasu'):(voiceDeafened?'Zvuk vypnutý pro další připojení':voiceMuted?'Mikrofon ztlumený pro další připojení':'Hlas připraven');if(selfAvatar){const selfPresenceState=(voicePresence==='dnd'?'dnd':voicePresence==='afk'?'afk':voicePresence==='online'?'online':'offline');if(profile)selfAvatar.innerHTML=rankAvatarHtml(profile,myStats,'avatar',selfPresenceState);else selfAvatar.textContent=initials(selfName)}if($('voiceMuteBtn')){$('voiceMuteBtn').classList.toggle('active',voiceMuted);$('voiceMuteBtn').innerHTML=voiceMuted?'<span>🔇</span>':'<span>🎙</span>';$('voiceMuteBtn').title=voiceMuted?'Zapnout mikrofon':'Ztlumit mikrofon'}if($('voiceDeafenBtn')){$('voiceDeafenBtn').classList.toggle('active',voiceDeafened);$('voiceDeafenBtn').innerHTML=voiceDeafened?'<span>🔕</span>':'<span>🎧</span>';$('voiceDeafenBtn').title=voiceDeafened?'Zapnout zvuk':'Ztlumit zvuk'}if(switching){$('soundboardPanel')?.classList.add('hidden');if($('voiceStatusName'))$('voiceStatusName').textContent='Přepínám hlas';if($('voiceRoomName'))$('voiceRoomName').textContent=window.__ycVoiceSwitchTargetName||'Hlasový kanál';const sub=$('voiceStatusSub');if(sub)sub.textContent=(voiceChannel?.id&&String(voiceChannel.id)===String(window.__ycVoiceSwitchTargetId))?'Dokončuji připojení…':'Připojuji…';renderVoiceChannels(voiceChannelDefs);return}if(!voiceChannel){$('soundboardPanel')?.classList.add('hidden');if($('voiceScreenBtn')){$('voiceScreenBtn').classList.remove('screen-active');$('voiceScreenBtn').innerHTML='<span>🖥️</span>'}renderVoiceChannels(voiceChannelDefs);return}if($('voiceStatusName'))$('voiceStatusName').textContent='Hlas připojen';if($('voiceRoomName'))$('voiceRoomName').textContent=voiceChannel.name;updateVoiceConnectionStatus();if($('voiceScreenBtn')){$('voiceScreenBtn').classList.toggle('screen-active',screenShareActive);$('voiceScreenBtn').innerHTML=screenShareActive?'<span>⏹️</span>':'<span>🖥️</span>';$('voiceScreenBtn').title=screenShareActive?'Přestat sdílet':'Sdílet obrazovku'}renderVoiceChannels(voiceChannelDefs)}
 async function leaveVoiceChannel(silent=false){
       const leavingUserId=user?.id;
@@ -2943,13 +2951,13 @@ async function stopScreenShare(silent=false){
 }
 
 function attachVoiceAudio(peerId,stream){unlockVoiceAudio();const old=voiceAudioNodes.get(peerId);if(old){try{old.src?.disconnect()}catch{}try{old.compressor?.disconnect()}catch{}try{old.gain?.disconnect()}catch{}}let usingContext=false;try{if(voiceAudioContext){const src=voiceAudioContext.createMediaStreamSource(stream),compressor=voiceAudioContext.createDynamicsCompressor(),gain=voiceAudioContext.createGain();compressor.threshold.value=-18;compressor.knee.value=16;compressor.ratio.value=4;compressor.attack.value=.004;compressor.release.value=.22;src.connect(compressor).connect(gain).connect(voiceAudioContext.destination);voiceAudioNodes.set(peerId,{src,compressor,gain});usingContext=true}}catch{}let a=$('voice-audio-'+peerId);if(!a){a=document.createElement('audio');a.id='voice-audio-'+peerId;a.autoplay=true;a.playsInline=true;document.body.appendChild(a)}a.srcObject=stream;if(voiceOutputId&&typeof a.setSinkId==='function')a.setSinkId(voiceOutputId).catch(()=>{});applyVoiceUserMix(peerId);if(!usingContext)a.play().catch(()=>{const sub=$('voiceStatusSub');if(sub)sub.textContent='Klikni znovu na voice – prohlížeč blokuje zvuk'})}
-async function toggleVoiceMute(){voiceMuted=!voiceMuted;localStorage.setItem('yc_voice_muted',voiceMuted?'1':'0');if(voiceStream)voiceStream.getAudioTracks().forEach(t=>t.enabled=!voiceMuted&&!voiceDeafened);if(voiceChannel)void trackVoicePresence();renderVoiceControls()}
+async function toggleVoiceMute(){voiceMuted=!voiceMuted;localStorage.setItem('yc_voice_muted',voiceMuted?'1':'0');if(voiceStream)voiceStream.getAudioTracks().forEach(t=>t.enabled=!voiceMuted&&!voiceDeafened&&!ycMicTestVoiceHold);if(voiceChannel)void trackVoicePresence();renderVoiceControls()}
 async function toggleVoiceDeafen(){voiceDeafened=!voiceDeafened;localStorage.setItem('yc_voice_deafened',voiceDeafened?'1':'0');applyAllVoiceUserMix();if(voiceStream)voiceStream.getAudioTracks().forEach(t=>t.enabled=!voiceDeafened&&!voiceMuted);if(voiceChannel)void trackVoicePresence();renderVoiceControls()}
 let ycInputSwitch=Promise.resolve();
 function restartVoiceInput(){const operation=ycInputSwitch.catch(()=>{}).then(ycSwitchVoiceInput);ycInputSwitch=operation;return operation}
 async function ycSwitchVoiceInput(){
   if(!voiceChannel)return;const channel=voiceChannel,old=voiceStream,oldTrack=old?.getAudioTracks()[0];let next;const changed=[];
-  try{next=await acquireVoiceStream();if(voiceChannel!==channel||voiceStream!==old){await ycStopManagedMicStream(next);return}const track=next.getAudioTracks()[0];if(!track)throw Error('Mikrofon nemá zvukovou stopu');track.enabled=!voiceMuted&&!voiceDeafened;
+  try{next=await acquireVoiceStream();if(voiceChannel!==channel||voiceStream!==old){await ycStopManagedMicStream(next);return}const track=next.getAudioTracks()[0];if(!track)throw Error('Mikrofon nemá zvukovou stopu');track.enabled=!voiceMuted&&!voiceDeafened&&!ycMicTestVoiceHold;
     for(const [,pc] of voicePeers){const sender=pc.getSenders().find(s=>s.track?.id===oldTrack?.id);if(!sender||pc.connectionState==='closed')continue;await sender.replaceTrack(track);changed.push(sender);if(voiceChannel!==channel)throw Error('Hlasový kanál se během přepnutí změnil')}
     voiceStream=next;if(old)await ycStopManagedMicStream(old);await ycApplyVoiceQuality(channel.id);startVoiceActivityDetector();startVoiceMeter();
   }catch(e){if(voiceStream===old){for(const sender of changed)try{await sender.replaceTrack(oldTrack)}catch{};if(next)await ycStopManagedMicStream(next)}throw e}
@@ -2957,14 +2965,60 @@ async function ycSwitchVoiceInput(){
 async function applyVoiceOutput(){if(voiceAudioContext&&typeof voiceAudioContext.setSinkId==='function')try{await voiceAudioContext.setSinkId(voiceOutputId||'default')}catch{}for(const a of document.querySelectorAll('audio[id^="voice-audio-"]')){if(typeof a.setSinkId==='function')try{await a.setSinkId(voiceOutputId||'default')}catch{}}}
 function playVoiceCue(type){try{unlockVoiceAudio();const ctx=voiceAudioContext;if(!ctx)return;const now=ctx.currentTime;const pattern=type==='self-join'?[[523,.00,.08],[659,.09,.10]]:type==='self-leave'?[[659,.00,.07],[440,.08,.11]]:type==='other-join'?[[740,.00,.06],[880,.07,.07]]:[[440,.00,.06],[330,.07,.08]];for(const [freq,delay,dur] of pattern){const o=ctx.createOscillator(),g=ctx.createGain();o.type='sine';o.frequency.setValueAtTime(freq,now+delay);g.gain.setValueAtTime(0,now+delay);g.gain.linearRampToValueAtTime(type.startsWith('other')?.035:.055,now+delay+.01);g.gain.exponentialRampToValueAtTime(.001,now+delay+dur);o.connect(g).connect(ctx.destination);o.start(now+delay);o.stop(now+delay+dur+.02)}}catch{}}
 function stopVoiceActivityDetector(){if(voiceVadStop){voiceVadStop();voiceVadStop=null}}
-function startVoiceActivityDetector(){stopVoiceActivityDetector();if(!voiceStream)return;window.__ycVoiceLastMicActivityAt=Date.now();try{const C=window.AudioContext||window.webkitAudioContext,ctx=new C(),an=ctx.createAnalyser(),src=ctx.createMediaStreamSource(voiceStream);ctx.resume().catch(()=>{});an.fftSize=256;an.smoothingTimeConstant=.35;src.connect(an);const arr=new Uint8Array(an.fftSize);let raf=0,lastState=false,lastSend=0,lastSample=0,noiseFloor=.004,speakingUntil=0;const tick=ts=>{if(!lastSample||ts-lastSample>=32){lastSample=ts;an.getByteTimeDomainData(arr);let sum=0;for(const v of arr){const x=(v-128)/128;sum+=x*x}const rms=Math.sqrt(sum/arr.length),now=performance.now();if(!lastState&&rms<.04)noiseFloor=noiseFloor*.97+rms*.03;const threshold=Math.max(.009,noiseFloor*2.15);if(!voiceMuted&&!voiceDeafened&&rms>threshold){speakingUntil=now+420;window.__ycVoiceLastMicActivityAt=Date.now()}const next=!voiceMuted&&!voiceDeafened&&now<speakingUntil;if(next!==lastState&&now-lastSend>80){lastState=next;lastSend=now;voiceSpeaking=next;if(next&&ycLastPresenceSig.startsWith('afk|'))void ycTouchPresence(true);trackVoicePresence().catch(()=>{});renderVoiceChannels(voiceChannelDefs)}}raf=requestAnimationFrame(tick)};raf=requestAnimationFrame(tick);voiceVadStop=()=>{cancelAnimationFrame(raf);try{src.disconnect()}catch{}ctx.close().catch(()=>{})}}catch{}}
+function startVoiceActivityDetector(){stopVoiceActivityDetector();if(!voiceStream)return;window.__ycVoiceLastMicActivityAt=Date.now();try{const C=window.AudioContext||window.webkitAudioContext,ctx=new C(),an=ctx.createAnalyser(),src=ctx.createMediaStreamSource(voiceStream);ctx.resume().catch(()=>{});an.fftSize=256;an.smoothingTimeConstant=.35;src.connect(an);const arr=new Uint8Array(an.fftSize);let raf=0,lastState=false,lastSend=0,lastSample=0,noiseFloor=.004,speakingUntil=0;const tick=ts=>{if(!lastSample||ts-lastSample>=32){lastSample=ts;an.getByteTimeDomainData(arr);let sum=0;for(const v of arr){const x=(v-128)/128;sum+=x*x}const rms=Math.sqrt(sum/arr.length),now=performance.now();if(!lastState&&rms<.04)noiseFloor=noiseFloor*.97+rms*.03;const threshold=Math.max(.009,noiseFloor*2.15);if(!voiceMuted&&!voiceDeafened&&!ycMicTestVoiceHold&&rms>threshold){speakingUntil=now+420;window.__ycVoiceLastMicActivityAt=Date.now()}const next=!voiceMuted&&!voiceDeafened&&!ycMicTestVoiceHold&&now<speakingUntil;if(next!==lastState&&now-lastSend>80){lastState=next;lastSend=now;voiceSpeaking=next;if(next&&ycLastPresenceSig.startsWith('afk|'))void ycTouchPresence(true);trackVoicePresence().catch(()=>{});renderVoiceChannels(voiceChannelDefs)}}raf=requestAnimationFrame(tick)};raf=requestAnimationFrame(tick);voiceVadStop=()=>{cancelAnimationFrame(raf);try{src.disconnect()}catch{}ctx.close().catch(()=>{})}}catch{}}
 function stopVoiceMeter(){if(voiceMeterStop){voiceMeterStop();voiceMeterStop=null}}
 function startVoiceMeter(){stopVoiceMeter();const bar=$('voiceMeterBar');if(!bar||!voiceStream)return;try{const ctx=new (window.AudioContext||window.webkitAudioContext)(),an=ctx.createAnalyser(),src=ctx.createMediaStreamSource(voiceStream);an.fftSize=256;src.connect(an);const arr=new Uint8Array(an.fftSize);let raf=0,last=0;const tick=ts=>{if(!last||ts-last>=32){last=ts;an.getByteTimeDomainData(arr);let sum=0;for(const v of arr){const x=(v-128)/128;sum+=x*x}const rms=Math.sqrt(sum/arr.length);bar.style.width=Math.min(100,Math.round(rms*260))+'%'}raf=requestAnimationFrame(tick)};raf=requestAnimationFrame(tick);voiceMeterStop=()=>{cancelAnimationFrame(raf);try{src.disconnect()}catch{}ctx.close().catch(()=>{})}}catch{}}
-let ycMicTestStream=null,ycMicTestAudio=null,ycMicTestMeterStop=null
-function ycStopMicTest(){++ycMicTestGeneration;ycResetThresholdMeter();if(ycMicTestMeterStop){try{ycMicTestMeterStop()}catch{}ycMicTestMeterStop=null}if(ycMicTestAudio){try{ycMicTestAudio.pause();ycMicTestAudio.srcObject=null;ycMicTestAudio.remove()}catch{}ycMicTestAudio=null}if(ycMicTestStream){const old=ycMicTestStream;ycMicTestStream=null;void ycStopManagedMicStream(old)}const b=$('voiceMicTestBtn');if(b){b.classList.remove('active');b.textContent='🎙 Spustit test mikrofonu'}}
+let ycMicTestStream=null,ycMicTestAudio=null,ycMicTestMeterStop=null,ycMicTestWanted=false,ycMicTestStarting=false,ycMicTestRestartTimer=null,ycMicTestVoiceHold=false
+function ycApplyMicTestVoiceHold(){
+ try{if(voiceStream)voiceStream.getAudioTracks().forEach(t=>t.enabled=ycMicTestVoiceHold?false:!voiceMuted&&!voiceDeafened&&!ycMicTestVoiceHold)}catch{}
+ if(ycMicTestVoiceHold){voiceSpeaking=false;if(voiceChannel)void trackVoicePresence().catch(()=>{})}
+ else if(voiceChannel){void trackVoicePresence().catch(()=>{});renderVoiceControls()}
+}
+function ycSetMicTestVoiceHold(active){ycMicTestVoiceHold=!!active;ycApplyMicTestVoiceHold()}
+function ycCleanupMicTest({restoreVoice=false,clearWanted=false}={}){
+ ++ycMicTestGeneration;if(clearWanted)ycMicTestWanted=false;
+ ycResetThresholdMeter();
+ if(ycMicTestMeterStop){try{ycMicTestMeterStop()}catch{}ycMicTestMeterStop=null}
+ if(ycMicTestAudio){try{ycMicTestAudio.pause();ycMicTestAudio.srcObject=null;ycMicTestAudio.remove()}catch{}ycMicTestAudio=null}
+ if(ycMicTestStream){const old=ycMicTestStream;ycMicTestStream=null;void ycStopManagedMicStream(old)}
+ ycMicTestStarting=false;
+ const b=$('voiceMicTestBtn');if(b){b.classList.remove('active');b.disabled=false;b.textContent='🎙 Spustit test mikrofonu'}
+ if(restoreVoice)ycSetMicTestVoiceHold(false);
+}
+function ycStopMicTest(){clearTimeout(ycMicTestRestartTimer);ycMicTestRestartTimer=null;ycCleanupMicTest({restoreVoice:true,clearWanted:true})}
 function ycStartMicTestMeter(stream){if(ycMicTestMeterStop){try{ycMicTestMeterStop()}catch{}}stopVoiceMeter();const bar=$('voiceMeterBar');if(!bar||!stream)return;try{const ctx=new (window.AudioContext||window.webkitAudioContext)(),an=ctx.createAnalyser(),src=ctx.createMediaStreamSource(stream);an.fftSize=256;src.connect(an);const arr=new Uint8Array(an.fftSize);let raf=0,last=0;const tick=ts=>{if(!last||ts-last>=32){last=ts;an.getByteTimeDomainData(arr);let sum=0;for(const v of arr){const x=(v-128)/128;sum+=x*x}bar.style.width=Math.min(100,Math.round(Math.sqrt(sum/arr.length)*280))+'%'}raf=requestAnimationFrame(tick)};raf=requestAnimationFrame(tick);ycMicTestMeterStop=()=>{cancelAnimationFrame(raf);try{src.disconnect()}catch{}ctx.close().catch(()=>{});if(bar)bar.style.width='0%';if($('voiceMicTestBtn')&&voiceStream)startVoiceMeter()}}catch(e){console.warn('mic test meter',e)}}
-async function ycToggleMicTest(){const generation=++ycMicTestGeneration;if(ycMicTestStream){ycStopMicTest();return}const btn=$('voiceMicTestBtn');if(btn){btn.disabled=true;btn.textContent='Spouštím test…'}try{const media=getVoiceMediaDevices();if(!media?.getUserMedia)throw new Error('Mikrofon není dostupný');const device=$('voiceMicSelect')?.value||voiceDeviceId||'';const mode=ycNoiseModeFromUi(),audio=ycNoiseConstraints(mode,device,$('voiceEchoCheck')?.checked??voiceEcho,$('voiceAgcCheck')?.checked??voiceAgc),raw=await media.getUserMedia({audio});const processed=await ycPrepareMicStream(raw,mode,ycMicDraft());if(generation!==ycMicTestGeneration||!$('voiceMicTestBtn')){await ycStopManagedMicStream(processed);return}ycMicTestStream=processed;ycMicTestAudio=document.createElement('audio');ycMicTestAudio.autoplay=true;ycMicTestAudio.playsInline=true;ycMicTestAudio.volume=.85;ycMicTestAudio.srcObject=ycMicTestStream;ycMicTestAudio.style.display='none';document.body.appendChild(ycMicTestAudio);const sink=$('voiceOutputSelect')?.value||voiceOutputId||'default';if(typeof ycMicTestAudio.setSinkId==='function')try{await ycMicTestAudio.setSinkId(sink)}catch{}await ycMicTestAudio.play().catch(()=>{});ycStartMicTestMeter(ycMicTestStream);if(btn){btn.classList.add('active');btn.textContent='⏹ Zastavit test mikrofonu'}}catch(e){ycStopMicTest();toast('Test mikrofonu se nepodařilo spustit: '+(e?.message||e),true)}finally{if(btn)btn.disabled=false}}
-async function openVoiceSettings(){if(!getVoiceMediaDevices()){toast('Nastavení mikrofonu není v tomto prohlížeči dostupné.',true);return}let devices=[];try{devices=await getVoiceMediaDevices().enumerateDevices()}catch{}const inputs=devices.filter(d=>d.kind==='audioinput'),outputs=devices.filter(d=>d.kind==='audiooutput');$('modalRoot').innerHTML='<div class="modal-back"><div class="modal"><div class="modal-head"><h3>Nastavení hlasu</h3><button class="x" id="closeModal">×</button></div><div class="voice-settings-grid" style="max-height:70vh;overflow-y:auto;padding-right:8px"><div class="field"><label>Mikrofon</label><select id="voiceMicSelect" style="width:100%;padding:11px;border-radius:8px;background:#101820;color:#fff;border:1px solid #344b61">'+inputs.map((d,i)=>'<option value="'+esc(d.deviceId)+'">'+esc(d.label||('Mikrofon '+(i+1)))+'</option>').join('')+'</select></div>'+(outputs.length&&typeof HTMLMediaElement.prototype.setSinkId==='function'?'<div class="field"><label>Výstup zvuku</label><select id="voiceOutputSelect" style="width:100%;padding:11px;border-radius:8px;background:#101820;color:#fff;border:1px solid #344b61">'+outputs.map((d,i)=>'<option value="'+esc(d.deviceId)+'">'+esc(d.label||('Výstup '+(i+1)))+'</option>').join('')+'</select></div>':'')+'<label class="voice-check"><input id="voiceEchoCheck" type="checkbox"> Potlačení ozvěny</label><div class="yc-noise-setting"><div class="yc-noise-copy"><strong>Potlačení šumu</strong><small>YamaClean · vlastní hlasové čištění</small></div><select id="ycNoiseModeSelect" class="yc-noise-select"><option value="off">Vypnuto</option><option value="standard">Standard</option><option value="strong">Silné · YamaClean</option><option value="ai">YamaClean AI · Klávesnice</option></select></div><div id="ycNoiseModeHint" class="yc-noise-hint"></div><label class="voice-check"><input id="voiceAgcCheck" type="checkbox"> Automatické zesílení mikrofonu</label><div><div class="sub" style="margin-bottom:6px">Test mikrofonu</div><div class="voice-meter"><div id="voiceMeterBar"></div></div><div class="yc-mic-test-actions"><button id="voiceMicTestBtn" type="button" class="yc-mic-test-btn">🎙 Spustit test mikrofonu</button></div><div class="yc-mic-test-note">Při testu uslyšíš vlastní mikrofon ve zvoleném výstupu. Použij sluchátka, aby se omezila zpětná vazba.</div></div><div id="ycAdvancedMic"></div><div class="voice-help">Nastavení se uloží v tomto prohlížeči. Při změně mikrofonu se hovor krátce přepne na nové zařízení.</div><button id="saveVoiceSettings" class="primary" style="width:100%">Uložit nastavení</button></div></div></div>';ycMountMicOptions();$('voiceEchoCheck').checked=voiceEcho;$('voiceAgcCheck').checked=voiceAgc;if($('ycNoiseModeSelect')){$('ycNoiseModeSelect').value=ycNoiseMode;$('ycNoiseModeSelect').onchange=()=>{ycStopMicTest();ycRenderNoiseModeHint()}};ycRenderNoiseModeHint();if($('voiceMicSelect')&&voiceDeviceId)$('voiceMicSelect').value=voiceDeviceId;if($('voiceOutputSelect')&&voiceOutputId)$('voiceOutputSelect').value=voiceOutputId;$('closeModal').onclick=()=>{ycStopMicTest();stopVoiceMeter();closeModal()};$('saveVoiceSettings').onclick=async()=>{ycSaveMicOptions();voiceDeviceId=$('voiceMicSelect')?.value||'';voiceOutputId=$('voiceOutputSelect')?.value||'';voiceEcho=$('voiceEchoCheck').checked;ycNoiseMode=ycNoiseModeFromUi();voiceNoise=ycNoiseMode!=='off';voiceAgc=$('voiceAgcCheck').checked;localStorage.setItem('yc_voice_mic',voiceDeviceId);localStorage.setItem('yc_voice_output',voiceOutputId);localStorage.setItem('yc_voice_echo',voiceEcho?'1':'0');localStorage.setItem('yc_voice_noise_mode',ycNoiseMode);localStorage.setItem('yc_voice_noise',voiceNoise?'1':'0');localStorage.setItem('yc_voice_agc',voiceAgc?'1':'0');try{ycStopMicTest();if(voiceChannel)await restartVoiceInput();await applyVoiceOutput();stopVoiceMeter();closeModal();toast('Nastavení hlasu uloženo.')}catch(e){toast('Mikrofon se nepodařilo přepnout: '+(e.message||e),true)}};$('voiceMicTestBtn').onclick=()=>void ycToggleMicTest();startVoiceMeter()}
+async function ycStartMicTestInternal(){
+ if(!ycMicTestWanted)return;
+ const generation=++ycMicTestGeneration,btn=$('voiceMicTestBtn');ycMicTestStarting=true;ycSetMicTestVoiceHold(true);
+ if(btn){btn.disabled=true;btn.textContent='Spouštím test…'}
+ try{
+  const media=getVoiceMediaDevices();if(!media?.getUserMedia)throw new Error('Mikrofon není dostupný');
+  const device=$('voiceMicSelect')?.value||voiceDeviceId||'',mode=ycNoiseModeFromUi(),audio=ycNoiseConstraints(mode,device,$('voiceEchoCheck')?.checked??voiceEcho,$('voiceAgcCheck')?.checked??voiceAgc),raw=await media.getUserMedia({audio});
+  const processed=await ycPrepareMicStream(raw,mode,ycMicDraft());
+  if(generation!==ycMicTestGeneration||!ycMicTestWanted||!$('voiceMicTestBtn')){await ycStopManagedMicStream(processed);return}
+  ycMicTestStream=processed;ycMicTestAudio=document.createElement('audio');ycMicTestAudio.autoplay=true;ycMicTestAudio.playsInline=true;ycMicTestAudio.volume=.85;ycMicTestAudio.srcObject=ycMicTestStream;ycMicTestAudio.style.display='none';document.body.appendChild(ycMicTestAudio);
+  const sink=$('voiceOutputSelect')?.value||voiceOutputId||'default';if(typeof ycMicTestAudio.setSinkId==='function')try{await ycMicTestAudio.setSinkId(sink)}catch{}
+  await ycMicTestAudio.play().catch(()=>{});ycStartMicTestMeter(ycMicTestStream);ycApplyMicTestVoiceHold();
+  if(btn){btn.classList.add('active');btn.textContent='⏹ Zastavit test mikrofonu'}
+ }catch(e){
+  if(generation===ycMicTestGeneration){ycMicTestWanted=false;ycCleanupMicTest({restoreVoice:true});toast('Test mikrofonu se nepodařilo spustit: '+(e?.message||e),true)}
+ }finally{ycMicTestStarting=false;if(btn?.isConnected)btn.disabled=false}
+}
+async function ycToggleMicTest(){if(ycMicTestWanted){ycStopMicTest();return}ycMicTestWanted=true;ycSetMicTestVoiceHold(true);await ycStartMicTestInternal()}
+function ycRestartMicTest(){
+ if(!ycMicTestWanted)return;
+ clearTimeout(ycMicTestRestartTimer);ycCleanupMicTest({restoreVoice:false,clearWanted:false});ycSetMicTestVoiceHold(true);
+ const b=$('voiceMicTestBtn');if(b){b.disabled=true;b.textContent='Aktualizuji test…'}
+ ycMicTestRestartTimer=setTimeout(()=>{ycMicTestRestartTimer=null;void ycStartMicTestInternal()},90);
+}
+function ycMicTestSettingChanged(event){
+ if(!ycMicTestWanted)return;
+ if(event?.target?.id==='voiceOutputSelect'){
+  const sink=event.target.value||'default';if(ycMicTestAudio&&typeof ycMicTestAudio.setSinkId==='function')void ycMicTestAudio.setSinkId(sink).catch(()=>{});return;
+ }
+ ycRestartMicTest();
+}
+async function openVoiceSettings(){if(!getVoiceMediaDevices()){toast('Nastavení mikrofonu není v tomto prohlížeči dostupné.',true);return}let devices=[];try{devices=await getVoiceMediaDevices().enumerateDevices()}catch{}const inputs=devices.filter(d=>d.kind==='audioinput'),outputs=devices.filter(d=>d.kind==='audiooutput');$('modalRoot').innerHTML='<div class="modal-back"><div class="modal"><div class="modal-head"><h3>Nastavení hlasu</h3><button class="x" id="closeModal">×</button></div><div class="voice-settings-grid" style="max-height:70vh;overflow-y:auto;padding-right:8px"><div class="field"><label>Mikrofon</label><select id="voiceMicSelect" style="width:100%;padding:11px;border-radius:8px;background:#101820;color:#fff;border:1px solid #344b61">'+inputs.map((d,i)=>'<option value="'+esc(d.deviceId)+'">'+esc(d.label||('Mikrofon '+(i+1)))+'</option>').join('')+'</select></div>'+(outputs.length&&typeof HTMLMediaElement.prototype.setSinkId==='function'?'<div class="field"><label>Výstup zvuku</label><select id="voiceOutputSelect" style="width:100%;padding:11px;border-radius:8px;background:#101820;color:#fff;border:1px solid #344b61">'+outputs.map((d,i)=>'<option value="'+esc(d.deviceId)+'">'+esc(d.label||('Výstup '+(i+1)))+'</option>').join('')+'</select></div>':'')+'<label class="voice-check"><input id="voiceEchoCheck" type="checkbox"> Potlačení ozvěny</label><div class="yc-noise-setting"><div class="yc-noise-copy"><strong>Potlačení šumu</strong><small>YamaClean · vlastní hlasové čištění</small></div><select id="ycNoiseModeSelect" class="yc-noise-select"><option value="off">Vypnuto</option><option value="standard">Standard</option><option value="strong">Silné · YamaClean</option><option value="ai">YamaClean AI · Klávesnice</option></select></div><div id="ycNoiseModeHint" class="yc-noise-hint"></div><label class="voice-check"><input id="voiceAgcCheck" type="checkbox"> Automatické zesílení mikrofonu</label><div><div class="sub" style="margin-bottom:6px">Test mikrofonu</div><div class="voice-meter"><div id="voiceMeterBar"></div></div><div class="yc-mic-test-actions"><button id="voiceMicTestBtn" type="button" class="yc-mic-test-btn">🎙 Spustit test mikrofonu</button></div><div class="yc-mic-test-note">Při testu uslyšíš vlastní mikrofon ve zvoleném výstupu. Použij sluchátka, aby se omezila zpětná vazba.</div></div><div id="ycAdvancedMic"></div><div class="voice-help">Nastavení se uloží v tomto prohlížeči. Při změně mikrofonu se hovor krátce přepne na nové zařízení.</div><button id="saveVoiceSettings" class="primary" style="width:100%">Uložit nastavení</button></div></div></div>';ycMountMicOptions();$('voiceEchoCheck').checked=voiceEcho;$('voiceAgcCheck').checked=voiceAgc;if($('ycNoiseModeSelect')){$('ycNoiseModeSelect').value=ycNoiseMode;$('ycNoiseModeSelect').onchange=()=>{ycRenderNoiseModeHint();ycRestartMicTest()}};ycRenderNoiseModeHint();if($('voiceMicSelect')&&voiceDeviceId)$('voiceMicSelect').value=voiceDeviceId;if($('voiceOutputSelect')&&voiceOutputId)$('voiceOutputSelect').value=voiceOutputId;$('closeModal').onclick=()=>{ycStopMicTest();stopVoiceMeter();closeModal()};$('saveVoiceSettings').onclick=async()=>{ycSaveMicOptions();voiceDeviceId=$('voiceMicSelect')?.value||'';voiceOutputId=$('voiceOutputSelect')?.value||'';voiceEcho=$('voiceEchoCheck').checked;ycNoiseMode=ycNoiseModeFromUi();voiceNoise=ycNoiseMode!=='off';voiceAgc=$('voiceAgcCheck').checked;localStorage.setItem('yc_voice_mic',voiceDeviceId);localStorage.setItem('yc_voice_output',voiceOutputId);localStorage.setItem('yc_voice_echo',voiceEcho?'1':'0');localStorage.setItem('yc_voice_noise_mode',ycNoiseMode);localStorage.setItem('yc_voice_noise',voiceNoise?'1':'0');localStorage.setItem('yc_voice_agc',voiceAgc?'1':'0');try{ycStopMicTest();if(voiceChannel)await restartVoiceInput();await applyVoiceOutput();stopVoiceMeter();closeModal();toast('Nastavení hlasu uloženo.')}catch(e){toast('Mikrofon se nepodařilo přepnout: '+(e.message||e),true)}};$('voiceMicTestBtn').onclick=()=>void ycToggleMicTest();startVoiceMeter()}
 
 const SOUND_PRESETS=[
   {key:'airhorn',icon:'📣',name:'Airhorn'},
@@ -3206,8 +3260,8 @@ function ycMemberMenuItems(row,blockedByMe=false){
     {id:'copy',icon:'ID',label:'Kopírovat ID uživatele',action:async()=>{try{await navigator.clipboard.writeText(uid);toast('ID uživatele zkopírováno.')}catch{toast(uid)}}}
   ]
 }
-async function ycOpenMemberMenu(row,e){if(!row)return;ycHoverHide?.();const uid=row.dataset.memberId||row.dataset.profileUser,blockedByMe=await ycIsBlockedByMe(uid);ycOpenUiMenu({kind:'member',title:row.dataset.memberName||'Uživatel',x:e.clientX,y:e.clientY,items:ycMemberMenuItems(row,blockedByMe),context:{row}})}
-async function ycOpenFriendUserMenu(row,e){if(!row)return;ycHoverHide?.();const uid=row.dataset.profileUser,name=row.dataset.userName||'Uživatel';if(!uid||uid===user?.id)return;const [rel,blockedByMe]=await Promise.all([ycFriendRelation(uid).catch(()=>null),ycIsBlockedByMe(uid)]),items=[{id:'profile',icon:'👤',label:'Profil',action:()=>openUserProfile(uid)}];if(!blockedByMe)items.push({id:'message',icon:'💬',label:'Napsat zprávu',action:()=>ycMessageMember(uid)});if(rel?.status==='accepted')items.push({id:'remove-friend',icon:'✕',label:'Odebrat přítele',action:()=>removeFriend(uid)});else if(rel?.status==='pending'&&rel.addressee_id===user.id){items.push({id:'accept-friend',icon:'✓',label:'Přijmout žádost',action:()=>acceptFriend(rel.requester_id)},{id:'reject-friend',icon:'✕',label:'Odmítnout žádost',action:()=>rejectFriend(rel.requester_id)})}else if(rel?.status==='pending'&&rel.requester_id===user.id)items.push({id:'cancel-friend',icon:'✕',label:'Zrušit žádost',action:()=>ycCancelFriendRequest(uid)});else if(!blockedByMe)items.push({id:'add-friend',icon:'＋',label:'Přidat do přátel',action:async()=>{const {error}=await sb.from('friendships').insert({requester_id:user.id,addressee_id:uid,status:'pending'});if(error)toast(error.message,true);else{toast('Žádost o přátelství odeslána.');await ycRefreshSocialAfterRelationChange()}}});items.push({separator:true},{id:'block-user',icon:blockedByMe?'✓':'⛔',label:blockedByMe?'Odblokovat uživatele':'Zablokovat uživatele',danger:!blockedByMe,action:()=>blockedByMe?ycUnblockUser(uid,name):ycBlockUser(uid,name)});ycOpenUiMenu({kind:'friend-user',title:name,x:e.clientX,y:e.clientY,items,context:{row}})}
+async function ycOpenMemberMenu(row,e){if(!row)return;ycHoverHide?.();const uid=row.dataset.memberId||row.dataset.profileUser,blockedByMe=await ycIsBlockedByMe(uid),items=ycMemberMenuItems(row,blockedByMe),notifyItems=await ycNotificationMenuItems('user',uid,'od uživatele');items.push({separator:true},...notifyItems);ycOpenUiMenu({kind:'member',title:row.dataset.memberName||'Uživatel',x:e.clientX,y:e.clientY,items,context:{row}})}
+async function ycOpenFriendUserMenu(row,e){if(!row)return;ycHoverHide?.();const uid=row.dataset.profileUser,name=row.dataset.userName||'Uživatel';if(!uid||uid===user?.id)return;const [rel,blockedByMe,notifyItems]=await Promise.all([ycFriendRelation(uid).catch(()=>null),ycIsBlockedByMe(uid),ycNotificationMenuItems('user',uid,'od uživatele')]),items=[{id:'profile',icon:'👤',label:'Profil',action:()=>openUserProfile(uid)}];if(!blockedByMe)items.push({id:'message',icon:'💬',label:'Napsat zprávu',action:()=>ycMessageMember(uid)});if(rel?.status==='accepted')items.push({id:'remove-friend',icon:'✕',label:'Odebrat přítele',action:()=>removeFriend(uid)});else if(rel?.status==='pending'&&rel.addressee_id===user.id){items.push({id:'accept-friend',icon:'✓',label:'Přijmout žádost',action:()=>acceptFriend(rel.requester_id)},{id:'reject-friend',icon:'✕',label:'Odmítnout žádost',action:()=>rejectFriend(rel.requester_id)})}else if(rel?.status==='pending'&&rel.requester_id===user.id)items.push({id:'cancel-friend',icon:'✕',label:'Zrušit žádost',action:()=>ycCancelFriendRequest(uid)});else if(!blockedByMe)items.push({id:'add-friend',icon:'＋',label:'Přidat do přátel',action:async()=>{const {error}=await sb.from('friendships').insert({requester_id:user.id,addressee_id:uid,status:'pending'});if(error)toast(error.message,true);else{toast('Žádost o přátelství odeslána.');await ycRefreshSocialAfterRelationChange()}}});items.push({separator:true},...notifyItems,{separator:true},{id:'block-user',icon:blockedByMe?'✓':'⛔',label:blockedByMe?'Odblokovat uživatele':'Zablokovat uživatele',danger:!blockedByMe,action:()=>blockedByMe?ycUnblockUser(uid,name):ycBlockUser(uid,name)});ycOpenUiMenu({kind:'friend-user',title:name,x:e.clientX,y:e.clientY,items,context:{row}})}
 if(!window.__ycRightContentDelegatedInstalled){window.__ycRightContentDelegatedInstalled=true;const rc=$('rightContent');rc?.addEventListener('click',e=>{const row=e.target.closest('.steam-member-row[data-member-id]');if(!row||e.target.closest('button,a,input'))return;ycCloseUiMenu();openUserProfile(row.dataset.profileUser||row.dataset.memberId)});document.addEventListener('contextmenu',e=>{const member=e.target.closest?.('#rightContent .steam-member-row[data-member-id]');const friend=e.target.closest?.('#rightContent .steam-friend-row[data-profile-user]');if(!member&&!friend)return;e.preventDefault();e.stopPropagation();e.stopImmediatePropagation();if(member){void ycOpenMemberMenu(member,e);return}void ycOpenFriendUserMenu(friend,e)},true)}
 if(!window.__ycDmUserContextBound){window.__ycDmUserContextBound=true;document.addEventListener('contextmenu',e=>{const row=e.target.closest?.('.yc-dm-social-row[data-profile-user]');if(!row)return;e.preventDefault();e.stopPropagation();void ycOpenFriendUserMenu(row,e)},true)}
 /* SOCIAL UI v1.0.56 — single in-module renderer */
@@ -3902,7 +3956,7 @@ async function ycOpenChannelContextMenu(channelId,kind,x,y){
   if(isVoice){
     items.push({id:'voice-join',icon:isJoined?'☎':'🔊',label:isJoined?'Odpojit z hlasu':'Připojit se',action:()=>isJoined?ycRequestVoiceDisconnect():ycRequestVoiceChannel(ch)})
     items.push({id:'voice-quality',icon:'🎧',label:'Kvalita zvuku',hint:YC_VOICE_QUALITY[ycVoiceQualityFor(ch.id)]?.label||'',action:()=>ycOpenVoiceQuality(ch.id)})
-  }else items.push({id:'text-open',icon:'#',label:'Otevřít chat',action:async()=>{const all=await getChannels();await selectChannel(ch.id,all)}})
+  }else{items.push({id:'text-open',icon:'#',label:'Otevřít chat',action:async()=>{const all=await getChannels();await selectChannel(ch.id,all)}});const notifyItems=await ycNotificationMenuItems('channel',ch.id,'z kanálu',{serverId:ch.community_id});items.push({separator:true},...notifyItems)}
   items.push({separator:true},{id:'channel-copy-id',icon:'ID',label:'Kopírovat ID kanálu',action:()=>ycCopyChannelId(ch)})
   if(canManage){
     items.push({separator:true})
@@ -3929,7 +3983,7 @@ window.YamachatChannelMenu={open:ycOpenChannelContextMenu,rename:ycRenameChannel
 // Microphone capture hardening
 const ycBridgeAcquireVoiceStream=acquireVoiceStream
 window.__ycBackgroundMicInstalled=true
-acquireVoiceStream=async function(...args){const stream=await ycBridgeAcquireVoiceStream.apply(this,args);const track=stream?.getAudioTracks?.()[0];if(track){track.contentHint='speech';track.enabled=!voiceMuted&&!voiceDeafened}return stream}
+acquireVoiceStream=async function(...args){const stream=await ycBridgeAcquireVoiceStream.apply(this,args);const track=stream?.getAudioTracks?.()[0];if(track){track.contentHint='speech';track.enabled=!voiceMuted&&!voiceDeafened&&!ycMicTestVoiceHold}return stream}
 // Voice switch transport: non-blocking join/leave announcements + short TURN credential cache.
 // per-channel Opus bitrate presets
 const YC_VOICE_QUALITY={economy:{bitrate:32000,label:'Úsporná',desc:'32 kb/s · max 14,4 MB/h na příjemce'},standard:{bitrate:64000,label:'Doporučená',desc:'64 kb/s · max 28,8 MB/h na příjemce'},high:{bitrate:128000,label:'Vysoká',desc:'128 kb/s · max 57,6 MB/h na příjemce'},ultra:{bitrate:256000,label:'Maximum',desc:'256 kb/s · max 115,2 MB/h na příjemce'}}
@@ -4165,7 +4219,7 @@ async function ycMarkDmRead(threadId){
 }
 async function ycStartDmNotifications(){
  if(!user?.id)return;ycArmDmAudio();if(ycDmNotifySub){try{await sb.removeChannel(ycDmNotifySub)}catch{}ycDmNotifySub=null}
- ycDmNotifySub=sb.channel('yc-dm-global-'+user.id+'-'+Date.now()).on('postgres_changes',{event:'INSERT',schema:'public',table:'messages'},async payload=>{const m=payload.new||{};if(!m.direct_thread_id||m.author_id===user.id)return;const tid=m.direct_thread_id;if(currentThread?.id===tid){await ycMarkDmRead(tid);return}if(!(dmThreads||[]).some(t=>t.id===tid)){try{await loadDmThreads()}catch{}}ycDmUnreadByThread[tid]=(ycDmUnreadByThread[tid]||0)+1;ycUpdateDmBadge();ycDecorateDmRows();ycPlayDmSound()}).subscribe()
+ ycDmNotifySub=sb.channel('yc-dm-global-'+user.id+'-'+Date.now()).on('postgres_changes',{event:'INSERT',schema:'public',table:'messages'},async payload=>{const m=payload.new||{};if(!m.direct_thread_id||m.author_id===user.id)return;const tid=m.direct_thread_id;if(currentThread?.id===tid){await ycMarkDmRead(tid);return}if(!(dmThreads||[]).some(t=>t.id===tid)){try{await loadDmThreads()}catch{}}ycDmUnreadByThread[tid]=(ycDmUnreadByThread[tid]||0)+1;ycUpdateDmBadge();ycDecorateDmRows();if(await ycShouldNotifyMessage(m))ycPlayDmSound()}).subscribe()
 }
 async function ycStopDmNotifications(){const ch=ycDmNotifySub;ycDmNotifySub=null;if(ch)try{await sb.removeChannel(ch)}catch{};ycDmUnreadByThread={};ycUpdateDmBadge()}
 const ycBridgeRenderDmListUnread=renderDmList
@@ -4604,6 +4658,7 @@ window.ycOpenDesktopNotificationTarget=async function(target){
 async function ycWinShowMessage(m){
  try{
   if(!m||!user?.id||m.author_id===user.id)return
+  if(!await ycShouldNotifyMessage(m))return
   if(typeof ycPresencePreference==='function'&&ycPresencePreference()==='dnd')return
   const mentioned=ycWinMentioned(m.body)
   if(ycWinHasFocus()&&!mentioned)return
@@ -4922,7 +4977,7 @@ saveProfile=async function(...args){
     if(!ycVoiceActive())return
     try{
       const t=ycVoiceTrack()
-      if(t&&t.readyState==='live')t.enabled=!voiceMuted&&!voiceDeafened
+      if(t&&t.readyState==='live')t.enabled=!voiceMuted&&!voiceDeafened&&!ycMicTestVoiceHold
     }catch{}
   }
   async function ycRepairMic(reason){
@@ -5321,7 +5376,7 @@ if(!window.__ycDesktopVoiceWake1032){
       try{if(voiceChannel?.id)void refreshVoiceParticipants(voiceChannel.id)}catch{}
       const t=voiceStream?.getAudioTracks?.()[0]||null;
       if(t&&t.readyState==='live'){
-        t.enabled=!voiceMuted&&!voiceDeafened;
+        t.enabled=!voiceMuted&&!voiceDeafened&&!ycMicTestVoiceHold;
         if(!t.muted){window.__ycDesktopVoiceMutedSince1032=0;return}
         if(!window.__ycDesktopVoiceMutedSince1032)window.__ycDesktopVoiceMutedSince1032=Date.now();
         if(Date.now()-window.__ycDesktopVoiceMutedSince1032<1800)return;
@@ -5685,7 +5740,7 @@ ycOpenChannelContextMenu=async function(channelId,kind,x,y){
   const ch=await ycChannelRowById(channelId);if(!ch)return;
   const isVoice=kind==='voice'||ch.kind==='voice',ownerAdmin=ycIsServerOwnerAdmin(),canManage=canCommunityPermission('manage_channels')&&(!ch.is_hidden||ownerAdmin),isJoined=isVoice&&voiceChannel&&String(voiceChannel.id)===String(ch.id),items=[];
   if(isVoice){items.push({id:'voice-join',icon:isJoined?'☎':'🔊',label:isJoined?'Odpojit z hlasu':'Připojit se',action:()=>isJoined?ycRequestVoiceDisconnect():ycRequestVoiceChannel(ch)});items.push({id:'voice-quality',icon:'🎧',label:'Kvalita zvuku',hint:YC_VOICE_QUALITY[ycVoiceQualityFor(ch.id)]?.label||'',action:()=>ycOpenVoiceQuality(ch.id)})}
-  else items.push({id:'text-open',icon:'#',label:'Otevřít chat',action:async()=>{const all=await getChannels();await selectChannel(ch.id,all)}});
+  else{items.push({id:'text-open',icon:'#',label:'Otevřít chat',action:async()=>{const all=await getChannels();await selectChannel(ch.id,all)}});const notifyItems=await ycNotificationMenuItems('channel',ch.id,'z kanálu',{serverId:ch.community_id});items.push({separator:true},...notifyItems)}
   items.push({separator:true},{id:'channel-copy-id',icon:'ID',label:'Kopírovat ID kanálu',action:()=>ycCopyChannelId(ch)});
   if(ownerAdmin){items.push({id:'channel-visibility',icon:'👁',label:ch.is_hidden?'Upravit neviditelný kanál':'Nastavit viditelnost',hint:ch.is_hidden?'SKRYTÝ':'',action:()=>ycOpenChannelVisibility(ch)});items.push({id:'channel-password',icon:'🔒',label:ch.is_password_protected?'Změnit / odstranit heslo':'Nastavit heslo kanálu',hint:ch.is_password_protected?'ZAMČENO':'',action:()=>ycOpenChannelPassword(ch)})}
   if(canManage){items.push({separator:true});items.push({id:'channel-rename',icon:'✎',label:'Upravit / přejmenovat kanál',action:()=>ycRenameChannel(ch)});items.push({id:'channel-duplicate',icon:'⧉',label:'Duplikovat kanál',action:()=>ycDuplicateChannel(ch)});items.push({id:'channel-new-text',icon:'#+',label:'Vytvořit textový kanál',action:()=>ycOpenChannelCreate('text')});items.push({id:'channel-new-voice',icon:'🔊+',label:'Vytvořit hlasový kanál',action:()=>ycOpenChannelCreate('voice')});items.push({separator:true},{id:'channel-delete',icon:'🗑',label:'Odstranit kanál',danger:true,action:()=>ycDeleteChannel(ch)})}
@@ -6318,11 +6373,13 @@ function ycServerCardSyncMenuSkin(){
 }
 async function ycOpenServerCardMenu(card,x,y){
  const c=card?.id==='ycMobileServerMenuBtn'?currentCommunity:ycServerCardCommunity(card?.dataset?.community);if(!c)return;
- const seq=++ycServerCardMenuSeq,canManage=await ycServerCardCanManage(c);if(seq!==ycServerCardMenuSeq)return;
+ const seq=++ycServerCardMenuSeq,[canManage,notifyItems]=await Promise.all([ycServerCardCanManage(c),ycNotificationMenuItems('server',c.id,'ze serveru')]);if(seq!==ycServerCardMenuSeq)return;
  const rect=card.getBoundingClientRect(),px=Number.isFinite(x)&&x>0?x:rect.left+Math.min(rect.width-8,32),py=Number.isFinite(y)&&y>0?y:rect.top+Math.min(rect.height-8,32);
  const items=[
   {id:'server-info',icon:'ⓘ',label:'Info o serveru',action:()=>ycOpenServerCardInfo(c.id)},
   {id:'server-settings',icon:'⚙',label:'Nastavení serveru',visible:canManage,action:()=>ycServerCardOpenSettings(c.id)},
+  {separator:true},
+  ...notifyItems,
   {separator:true},
   {id:'server-leave',icon:'↩',label:'Opustit server',danger:true,visible:c.role!=='owner',action:()=>ycServerCardLeave(c.id)}
  ];
@@ -6607,6 +6664,176 @@ ycRegisterAppSettingsSection({
  render:ycVoiceExperienceSettingsHtml,
  bind:ycBindVoiceExperienceSettings
 });
+
+
+// Mobile long-press + notification preferences.
+const YC_CONTEXT_LONGPRESS_SELECTOR=[
+ '#channelList [data-channel]',
+ '#voiceChannelList .voice-channel[data-voice]',
+ '.voice-user[data-user-id]',
+ '#rightContent .steam-member-row[data-member-id]',
+ '#rightContent .steam-friend-row[data-profile-user]',
+ '.yc-dm-social-row[data-profile-user]'
+].join(',');
+let ycContextLongPress=null,ycContextLongPressSuppressUntil=0;
+
+function ycCancelContextLongPress(){
+ if(ycContextLongPress?.timer)clearTimeout(ycContextLongPress.timer);
+ ycContextLongPress=null;
+}
+function ycOpenLongPressContext(target,x,y){
+ const text=target.matches?.('#channelList [data-channel]')?target:null;
+ if(text){window.__ycLongPressLastOpen={kind:'text-channel',id:text.dataset.channel,at:Date.now()};void ycOpenChannelContextMenu(text.dataset.channel,'text',x,y);return true}
+ const voice=target.matches?.('#voiceChannelList .voice-channel[data-voice]')?target:null;
+ if(voice){window.__ycLongPressLastOpen={kind:'voice-channel',id:voice.dataset.voice,at:Date.now()};void ycOpenChannelContextMenu(voice.dataset.voice,'voice',x,y);return true}
+ const voiceUser=target.matches?.('.voice-user[data-user-id]')?target:null;
+ if(voiceUser){const uid=voiceUser.dataset.userId;if(uid&&String(uid)!==String(user?.id)){window.__ycLongPressLastOpen={kind:'voice-user',id:uid,at:Date.now()};openVoiceUserMenu(uid,voiceUser.dataset.userName||'Uživatel',x,y)}return true}
+ const member=target.matches?.('#rightContent .steam-member-row[data-member-id]')?target:null;
+ if(member){window.__ycLongPressLastOpen={kind:'member',id:member.dataset.memberId,at:Date.now()};void ycOpenMemberMenu(member,{clientX:x,clientY:y});return true}
+ const social=target.matches?.('#rightContent .steam-friend-row[data-profile-user],.yc-dm-social-row[data-profile-user]')?target:null;
+ if(social){window.__ycLongPressLastOpen={kind:'social-user',id:social.dataset.profileUser,at:Date.now()};void ycOpenFriendUserMenu(social,{clientX:x,clientY:y});return true}
+ return false;
+}
+window.YamachatLongPressContext=Object.freeze({open:ycOpenLongPressContext});
+document.addEventListener('pointerdown',event=>{
+ if(event.pointerType==='mouse'||event.button!==0||event.isPrimary===false)return;
+ const target=event.target.closest?.(YC_CONTEXT_LONGPRESS_SELECTOR);if(!target)return;
+ ycCancelContextLongPress();
+ const state={target,pointerId:event.pointerId,x:event.clientX,y:event.clientY,opened:false,timer:null};
+ state.timer=setTimeout(()=>{
+  if(ycContextLongPress!==state||!target.isConnected)return;
+  state.opened=true;ycContextLongPressSuppressUntil=Date.now()+900;
+  try{navigator.vibrate?.(10)}catch{}
+  ycOpenLongPressContext(target,state.x,state.y);
+ },520);
+ ycContextLongPress=state;
+},true);
+document.addEventListener('pointermove',event=>{
+ const p=ycContextLongPress;if(!p||event.pointerId!==p.pointerId||p.opened)return;
+ if(Math.hypot(event.clientX-p.x,event.clientY-p.y)>12)ycCancelContextLongPress();
+},true);
+for(const type of ['pointerup','pointercancel'])document.addEventListener(type,event=>{
+ if(ycContextLongPress&&event.pointerId===ycContextLongPress.pointerId)ycCancelContextLongPress();
+},true);
+document.addEventListener('scroll',ycCancelContextLongPress,true);
+document.addEventListener('click',event=>{
+ if(Date.now()>ycContextLongPressSuppressUntil||!event.target.closest?.(YC_CONTEXT_LONGPRESS_SELECTOR))return;
+ event.preventDefault();event.stopImmediatePropagation();ycContextLongPressSuppressUntil=0;
+},true);
+
+const ycNotificationPrefCache=new Map();
+let ycNotificationPrefsUser='',ycNotificationPrefsLoading=null;
+function ycNotificationPrefKey(scopeType,scopeId){return String(scopeType)+'|'+String(scopeId||'')}
+function ycNotificationCacheReset(){ycNotificationPrefCache.clear();ycNotificationPrefsUser='';ycNotificationPrefsLoading=null}
+async function ycLoadNotificationPreferences(force=false){
+ const uid=user?.id;if(!uid){ycNotificationCacheReset();return ycNotificationPrefCache}
+ if(!force&&ycNotificationPrefsUser===uid)return ycNotificationPrefCache;
+ if(ycNotificationPrefsLoading)return ycNotificationPrefsLoading;
+ ycNotificationPrefsLoading=(async()=>{
+  const {data,error}=await sb.from('notification_preferences').select('scope_type,scope_id,enabled').eq('user_id',uid);
+  if(error)throw error;
+  ycNotificationPrefCache.clear();
+  for(const row of data||[])ycNotificationPrefCache.set(ycNotificationPrefKey(row.scope_type,row.scope_id),!!row.enabled);
+  ycNotificationPrefsUser=uid;return ycNotificationPrefCache;
+ })().catch(error=>{console.warn('notification preferences',error);return ycNotificationPrefCache}).finally(()=>{ycNotificationPrefsLoading=null});
+ return ycNotificationPrefsLoading;
+}
+function ycNotificationDirect(scopeType,scopeId){
+ const key=ycNotificationPrefKey(scopeType,scopeId);
+ return ycNotificationPrefCache.has(key)?ycNotificationPrefCache.get(key):null;
+}
+async function ycNotificationEffective(scopeType,scopeId,{serverId=''}={}){
+ await ycLoadNotificationPreferences();
+ if(scopeType==='user'){
+  const direct=ycNotificationDirect('user',scopeId);return direct===null?true:direct;
+ }
+ if(scopeType==='channel'){
+  const direct=ycNotificationDirect('channel',scopeId);if(direct!==null)return direct;
+  if(serverId){const server=ycNotificationDirect('server',serverId);if(server!==null)return server}
+  return true;
+ }
+ if(scopeType==='server'){
+  const direct=ycNotificationDirect('server',scopeId);return direct===null?true:direct;
+ }
+ return true;
+}
+async function ycSetNotificationPreference(scopeType,scopeId,enabled){
+ if(!user?.id||!scopeId)return false;
+ const row={user_id:user.id,scope_type:String(scopeType),scope_id:String(scopeId),enabled:!!enabled,updated_at:new Date().toISOString()};
+ const {error}=await sb.from('notification_preferences').upsert(row,{onConflict:'user_id,scope_type,scope_id'});
+ if(error){toast('Nastavení oznámení: '+error.message,true);return false}
+ ycNotificationPrefCache.set(ycNotificationPrefKey(scopeType,scopeId),!!enabled);ycNotificationPrefsUser=user.id;
+ toast(enabled?'Oznámení zapnuta.':'Oznámení vypnuta.');return true;
+}
+async function ycResetNotificationPreference(scopeType,scopeId){
+ if(!user?.id||!scopeId)return false;
+ const {error}=await sb.from('notification_preferences').delete().eq('user_id',user.id).eq('scope_type',scopeType).eq('scope_id',scopeId);
+ if(error){toast('Nastavení oznámení: '+error.message,true);return false}
+ ycNotificationPrefCache.delete(ycNotificationPrefKey(scopeType,scopeId));ycNotificationPrefsUser=user.id;
+ toast('Obnoveno výchozí nastavení oznámení.');return true;
+}
+async function ycNotificationMenuItems(scopeType,scopeId,label,{serverId=''}={}){
+ if(!scopeId||!user?.id)return[];
+ await ycLoadNotificationPreferences();
+ const direct=ycNotificationDirect(scopeType,scopeId),effective=await ycNotificationEffective(scopeType,scopeId,{serverId});
+ const items=[{
+  id:'notification-'+scopeType,
+  icon:effective?'🔕':'🔔',
+  label:effective?'Vypnout oznámení '+label:'Zapnout oznámení '+label,
+  hint:direct===null?(scopeType==='channel'&&serverId?'Dědí ze serveru':'Výchozí'):direct?'Zapnuto':'Vypnuto',
+  action:()=>ycSetNotificationPreference(scopeType,scopeId,!effective)
+ }];
+ if(direct!==null&&scopeType!=='server')items.push({
+  id:'notification-'+scopeType+'-reset',icon:'↺',
+  label:scopeType==='channel'?'Použít nastavení serveru':'Použít výchozí nastavení',
+  action:()=>ycResetNotificationPreference(scopeType,scopeId)
+ });
+ return items;
+}
+async function ycShouldNotifyMessage(message,channel=null){
+ const m=message||{};if(!user?.id||!m.author_id||String(m.author_id)===String(user.id))return false;
+ await ycLoadNotificationPreferences();
+ const userPref=ycNotificationDirect('user',m.author_id);if(userPref!==null)return userPref;
+ if(m.channel_id){
+  let ch=channel;
+  if(!ch||String(ch.id)!==String(m.channel_id)){
+   try{const {data}=await sb.from('channels').select('id,community_id').eq('id',m.channel_id).maybeSingle();ch=data||null}catch{}
+  }
+  const channelPref=ycNotificationDirect('channel',m.channel_id);if(channelPref!==null)return channelPref;
+  if(ch?.community_id){const serverPref=ycNotificationDirect('server',ch.community_id);if(serverPref!==null)return serverPref}
+ }
+ return true;
+}
+async function ycBindVoiceNotificationButton(uid,name,x,y){
+ const menu=$('voiceUserContextMenu');if(!menu||!uid||String(uid)===String(user?.id))return;
+ const items=await ycNotificationMenuItems('user',uid,'od uživatele');if(!menu.isConnected||voiceContextUser!==uid||!items.length)return;
+ let btn=menu.querySelector('[data-yc-notification-user]');
+ if(!btn){btn=document.createElement('button');btn.type='button';btn.className='voice-user-menu-row';btn.dataset.ycNotificationUser=uid;menu.appendChild(btn)}
+ const primary=items[0];btn.textContent=primary.icon+' '+primary.label;
+ btn.onclick=async()=>{closeVoiceUserMenu();if(await ycSetNotificationPreference('user',uid,!await ycNotificationEffective('user',uid)))openVoiceUserMenu(uid,name,x,y)};
+ const resetExisting=menu.querySelector('[data-yc-notification-user-reset]');resetExisting?.remove();
+ if(items.length>1){
+  const reset=document.createElement('button');reset.type='button';reset.className='voice-user-menu-row secondary';reset.dataset.ycNotificationUserReset=uid;reset.textContent='↺ Použít výchozí nastavení';
+  reset.onclick=async()=>{closeVoiceUserMenu();if(await ycResetNotificationPreference('user',uid))openVoiceUserMenu(uid,name,x,y)};
+  menu.appendChild(reset);
+ }
+ menu.style.top=Math.max(8,Math.min(parseFloat(menu.style.top)||8,innerHeight-menu.offsetHeight-8))+'px';
+}
+const ycNotificationBaseVoiceUserMenu=openVoiceUserMenu;
+openVoiceUserMenu=function(uid,name,x,y){
+ const out=ycNotificationBaseVoiceUserMenu.call(this,uid,name,x,y);
+ void ycBindVoiceNotificationButton(uid,name,x,y);
+ return out;
+};
+
+ycOnLifecycle('init',()=>{void ycLoadNotificationPreferences(true)});
+ycOnLifecycle('beforeAuth',ycNotificationCacheReset);
+window.YamachatNotificationPreferences={
+ reload:()=>ycLoadNotificationPreferences(true),
+ effective:ycNotificationEffective,
+ set:ycSetNotificationPreference,
+ reset:ycResetNotificationPreference
+};
 
 // One app-owned layer and stable video element per viewing session. Navigation
 // never mounts/unmounts this layer and never owns its MediaStream or RTC peer.
