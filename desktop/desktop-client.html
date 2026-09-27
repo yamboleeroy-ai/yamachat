@@ -5759,7 +5759,7 @@ async function ycDesktopNaturalVoiceLoad(force=false){
  ycDesktopNaturalState='loading';
  ycDesktopNaturalPromise=(async()=>{
   try{
-   const {data,error}=await sb.functions.invoke('yamachat-tts',{body:{action:'voices'}});
+   const {data,error}=await sb.functions.invoke('yamachat-source',{body:{action:'tts-voices'}});
    if(error)throw error;
    const list=Array.isArray(data?.voices)?data.voices:[];
    ycDesktopNaturalVoices=list.filter(v=>v&&v.shortName&&v.locale);
@@ -5791,7 +5791,7 @@ async function ycDesktopNaturalSpeak(text,voice,onDone){
  let audio=null,finished=false;
  const finish=()=>{if(finished)return;finished=true;if(audio)ycDesktopNaturalPlayers.delete(audio);try{onDone?.()}catch{}};
  try{
-  const {data,error}=await sb.functions.invoke('yamachat-tts',{body:{action:'synthesize',voice:String(voice.shortName||''),text:String(text||'').slice(0,220)}});
+  const {data,error}=await sb.functions.invoke('yamachat-source',{body:{action:'tts-synthesize',voice:String(voice.shortName||''),text:String(text||'').slice(0,220)}});
   if(error||!data?.audioBase64)throw error||new Error('Natural voice audio missing');
   audio=new Audio('data:'+(data.mimeType||'audio/mpeg')+';base64,'+data.audioBase64);
   audio.preload='auto';audio.volume=.94;ycDesktopNaturalPlayers.add(audio);
