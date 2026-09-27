@@ -25,6 +25,7 @@ if(isDesktop){
  assert(html.includes("uid!==user.id&&String(voiceChannel?.id||'')===String(id||'')"),'Participant DELETE must not close the active peer because of another channel');
  assert(html.includes("Promise.allSettled([\n    sb.functions.invoke('yamachat-turn-cloudflare'"),'TURN providers must be loaded in parallel');
  assert(html.includes("providers.join('+')||'stun'"),'TURN provider fallback state missing');
+ assert(html.includes("if(pc?.connectionState==='connected'){voiceMissingSince.delete(id);continue}"),'Connected peers must survive transient participant metadata loss while browsing another server');
 }
 
 // Presence: manual status wins. In voice, AFK may appear only after prolonged microphone/UI inactivity,
