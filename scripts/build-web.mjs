@@ -13,6 +13,7 @@ import {withFriendsPanelRefresh} from './friends-panel-refresh.mjs';
 import {withVoiceThemePolish} from './voice-theme-polish.mjs';
 import {withVoiceExperience} from './voice-experience.mjs';
 import {withMessageNotificationSound} from './message-notification-sound.mjs';
+import {withInteractionNotifications} from './interaction-notifications.mjs';
 import {withStreamViewer} from './stream-viewer.mjs';
 
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
@@ -152,6 +153,7 @@ html=html.replace(
 // Apply the verified Real Voices desktop behaviour only after responsive/mobile CSS.
  // This keeps current Android/iOS/PWA navigation and geometry authoritative.
  html=withVoiceThemePolish(withMessageNotificationSound(withVoiceExperience(html)));
+ html=withInteractionNotifications(html);
 
 html=withStreamViewer(html);
 fs.writeFileSync(path.join(root,'index.html'),html);
