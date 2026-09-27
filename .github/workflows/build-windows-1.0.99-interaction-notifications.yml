@@ -3,9 +3,9 @@ name: Publish Yamachat Windows 1.0.99 Interaction Notification Hotfix
 on:
   push:
     branches:
-      - release/windows-1.0.99-app-audio
+      - release/windows-1.0.99-interaction-notifications
     paths:
-      - ".github/workflows/build-windows-1.0.99-app-audio.yml"
+      - ".github/workflows/build-windows-1.0.99-interaction-notifications.yml"
       - "desktop/**"
       - "windows/wns/**"
       - "windows/process-audio/**"
@@ -35,7 +35,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: release/windows-1.0.99-app-audio
+          ref: release/windows-1.0.99-interaction-notifications
           fetch-depth: 0
 
       - uses: actions/setup-node@v4
@@ -275,5 +275,5 @@ jobs:
             gh release upload v1.0.99 release-assets/* --repo "$GITHUB_REPOSITORY" --clobber
             gh release edit v1.0.99 --repo "$GITHUB_REPOSITORY" --title "Yamachat 1.0.99" --notes-file release-notes.md --latest
           else
-            gh release create v1.0.99 release-assets/* --repo "$GITHUB_REPOSITORY" --target release/windows-1.0.99-app-audio --title "Yamachat 1.0.99" --notes-file release-notes.md --latest
+            gh release create v1.0.99 release-assets/* --repo "$GITHUB_REPOSITORY" --target release/windows-1.0.99-interaction-notifications --title "Yamachat 1.0.99" --notes-file release-notes.md --latest
           fi
