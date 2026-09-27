@@ -530,6 +530,133 @@
       }
     }
 
+    let ycProcessAudioContext = null;
+    let ycProcessAudioDestination = null;
+    let ycProcessAudioTrack = null;
+    let ycProcessAudioGeneration = 0;
+    let ycProcessAudioNextTime = 0;
+    const ycProcessAudioSources = new Set();
+
+    function ycProcessAudioBytes(value) {
+      if (!value) return null;
+      if (value instanceof Uint8Array) return value;
+      if (value instanceof ArrayBuffer) return new Uint8Array(value);
+      if (value.buffer instanceof ArrayBuffer) {
+        return new Uint8Array(value.buffer, value.byteOffset || 0, value.byteLength || value.length || 0);
+      }
+      if (Array.isArray(value.data)) return Uint8Array.from(value.data);
+      if (Array.isArray(value)) return Uint8Array.from(value);
+      return null;
+    }
+
+    function ycResetProcessAudioGraph() {
+      for (const source of [...ycProcessAudioSources]) {
+        try { source.stop(); } catch {}
+        try { source.disconnect(); } catch {}
+      }
+      ycProcessAudioSources.clear();
+      if (ycProcessAudioTrack) {
+        try { ycProcessAudioTrack.stop(); } catch {}
+      }
+      ycProcessAudioTrack = null;
+      ycProcessAudioDestination = null;
+      ycProcessAudioNextTime = 0;
+      const context = ycProcessAudioContext;
+      ycProcessAudioContext = null;
+      if (context) void context.close().catch(() => {});
+    }
+
+    async function ycStopDesktopProcessAudio(stopNative = true) {
+      const generation = ycProcessAudioGeneration;
+      ycProcessAudioGeneration = 0;
+      ycResetProcessAudioGraph();
+      if (stopNative) {
+        try { await window.yamachatDesktop?.stopProcessAudioCapture?.(); } catch {}
+      }
+      return generation;
+    }
+
+    function ycScheduleProcessAudioChunk(payload = {}) {
+      if (!ycProcessAudioContext || !ycProcessAudioDestination) return;
+      if (!ycProcessAudioGeneration || Number(payload.generation) !== ycProcessAudioGeneration) return;
+      const bytes = ycProcessAudioBytes(payload.pcm);
+      const channels = Math.max(1, Math.min(2, Number(payload.channels) || 2));
+      const sampleRate = Number(payload.sampleRate) || 48000;
+      if (!bytes || bytes.byteLength < channels * 2) return;
+
+      const alignedLength = bytes.byteLength - (bytes.byteLength % 2);
+      const copy = bytes.byteOffset % 2 === 0
+        ? new Uint8Array(bytes.buffer, bytes.byteOffset, alignedLength)
+        : Uint8Array.from(bytes.subarray(0, alignedLength));
+      const samples = new Int16Array(copy.buffer, copy.byteOffset, Math.floor(copy.byteLength / 2));
+      const frames = Math.floor(samples.length / channels);
+      if (!frames) return;
+
+      const buffer = ycProcessAudioContext.createBuffer(2, frames, sampleRate);
+      const left = buffer.getChannelData(0);
+      const right = buffer.getChannelData(1);
+      for (let i = 0; i < frames; i += 1) {
+        const l = samples[i * channels] / 32768;
+        const r = channels > 1 ? samples[i * channels + 1] / 32768 : l;
+        left[i] = l;
+        right[i] = r;
+      }
+
+      const source = ycProcessAudioContext.createBufferSource();
+      source.buffer = buffer;
+      source.connect(ycProcessAudioDestination);
+      ycProcessAudioSources.add(source);
+      source.onended = () => {
+        ycProcessAudioSources.delete(source);
+        try { source.disconnect(); } catch {}
+      };
+
+      const now = ycProcessAudioContext.currentTime;
+      if (!ycProcessAudioNextTime || ycProcessAudioNextTime < now + .025 || ycProcessAudioNextTime > now + .6) {
+        ycProcessAudioNextTime = now + .08;
+      }
+      source.start(ycProcessAudioNextTime);
+      ycProcessAudioNextTime += frames / sampleRate;
+    }
+
+    window.yamachatDesktop?.onProcessAudioChunk?.(ycScheduleProcessAudioChunk);
+    window.yamachatDesktop?.onProcessAudioStatus?.((status = {}) => {
+      try { iframe.contentWindow?.postMessage({ type: 'yamachat:process-audio-status', status }, '*'); } catch {}
+      if ((status.state === 'error' || status.state === 'ended') && Number(status.generation) === ycProcessAudioGeneration) {
+        ycProcessAudioGeneration = 0;
+        ycResetProcessAudioGraph();
+      }
+    });
+
+    window.YamachatDesktopProcessAudio = Object.freeze({
+      selection: () => window.yamachatDesktop?.getProcessAudioSelection?.(),
+      start: async () => {
+        await ycStopDesktopProcessAudio(true);
+        const selection = await window.yamachatDesktop?.getProcessAudioSelection?.();
+        if (!selection?.audioRequested) return { mode: 'none', track: null, reason: 'audio-not-requested' };
+        if (selection.kind !== 'window') return { mode: 'system', track: null, reason: 'entire-screen-source' };
+
+        const AudioContextCtor = window.AudioContext || window.webkitAudioContext;
+        if (!AudioContextCtor) return { mode: 'unavailable', track: null, reason: 'web-audio-unavailable' };
+
+        ycProcessAudioContext = new AudioContextCtor({ latencyHint: 'interactive', sampleRate: 48000 });
+        try { await ycProcessAudioContext.resume(); } catch {}
+        ycProcessAudioDestination = ycProcessAudioContext.createMediaStreamDestination();
+        ycProcessAudioTrack = ycProcessAudioDestination.stream.getAudioTracks()[0] || null;
+
+        const result = await window.yamachatDesktop?.startProcessAudioCapture?.();
+        if (result?.mode !== 'process' || !ycProcessAudioTrack) {
+          ycResetProcessAudioGraph();
+          return { ...(result || { mode: 'unavailable', reason: 'process-audio-start-failed' }), track: null };
+        }
+
+        ycProcessAudioGeneration = Number(result.generation) || 0;
+        ycProcessAudioNextTime = ycProcessAudioContext.currentTime + .08;
+        return { ...result, track: ycProcessAudioTrack };
+      },
+      stop: () => ycStopDesktopProcessAudio(true)
+    });
+
     let ycStreamFullscreenRequested = false;
     function forwardWindowState(state = {}) {
       const fullscreen = !!state.fullscreen;
