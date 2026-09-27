@@ -1543,7 +1543,15 @@ app.whenReady().then(async () => {
   handleClientIpc('yamachat:notification-close', () => { closeYamachatNotification(); return true; });
   handleClientIpc('yamachat:set-app-setting', (_event, key, value) => setAppSetting(key, value));
   handleClientIpc('yamachat:window-minimize', () => {
-    if (mainWindow && !mainWindow.isDestroyed()) mainWindow.minimize();
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      if (desktopState.voiceConnected) {
+        mainWindow.hide();
+        wakeBackgroundAudio(mainWindow);
+        refreshTray();
+      } else {
+        mainWindow.minimize();
+      }
+    }
     return true;
   });
   handleClientIpc('yamachat:window-toggle-maximize', () => {
