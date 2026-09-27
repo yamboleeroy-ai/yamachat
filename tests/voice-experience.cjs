@@ -39,36 +39,39 @@ assert(!html.includes("if(hadVoice&&!activeVoice){try{await ycRequestVoiceDiscon
 
 // Execute the 15-second secure refresh decision with voice in community A while the UI is in B.
 // This reproduces the reported delayed disconnect path instead of only checking source markers.
+let crossCommunityRuntimeTest=Promise.resolve();
 if(!isDesktop){
- const vm=require('node:vm');
- const start=html.indexOf('async function ycRefreshChannelsSecure(){');
- assert(start>=0,'ycRefreshChannelsSecure missing');
- let depth=0,end=-1,opened=false;
- for(let i=start;i<html.length;i++){
-  if(html[i]==='{'){depth++;opened=true}
-  else if(html[i]==='}'&&opened){depth--;if(depth===0){end=i+1;break}}
- }
- assert(end>start,'ycRefreshChannelsSecure extraction failed');
- const secureFn=html.slice(start,end);
- const baseContext={
-  currentCommunity:{id:'community-b'},
-  currentChannel:null,
-  voiceChannel:{id:'voice-a',community_id:'community-a'},
-  getChannels:async()=>[{id:'text-b',community_id:'community-b',kind:'text',is_password_protected:false}],
-  renderChannels:()=>{},
-  unsubscribe:()=>{},
-  selectChannel:async()=>{},
-  clearChat:()=>{},
-  ycEnsurePasswordChannelAccess:async()=>true,
-  ycRequestVoiceDisconnect:async()=>{baseContext.disconnects++},
-  disconnects:0
- };
- await vm.runInNewContext('('+secureFn+')()',baseContext);
- assert.equal(baseContext.disconnects,0,'15-second secure refresh disconnected voice only because another community was being browsed');
- baseContext.currentCommunity={id:'community-a'};
- baseContext.getChannels=async()=>[{id:'text-a',community_id:'community-a',kind:'text',is_password_protected:false}];
- await vm.runInNewContext('('+secureFn+')()',baseContext);
- assert.equal(baseContext.disconnects,1,'Voice should still disconnect when its actual joined channel disappears from its own community');
+ crossCommunityRuntimeTest=(async()=>{
+  const vm=require('node:vm');
+  const start=html.indexOf('async function ycRefreshChannelsSecure(){');
+  assert(start>=0,'ycRefreshChannelsSecure missing');
+  let depth=0,end=-1,opened=false;
+  for(let i=start;i<html.length;i++){
+   if(html[i]==='{'){depth++;opened=true}
+   else if(html[i]==='}'&&opened){depth--;if(depth===0){end=i+1;break}}
+  }
+  assert(end>start,'ycRefreshChannelsSecure extraction failed');
+  const secureFn=html.slice(start,end);
+  const baseContext={
+   currentCommunity:{id:'community-b'},
+   currentChannel:null,
+   voiceChannel:{id:'voice-a',community_id:'community-a'},
+   getChannels:async()=>[{id:'text-b',community_id:'community-b',kind:'text',is_password_protected:false}],
+   renderChannels:()=>{},
+   unsubscribe:()=>{},
+   selectChannel:async()=>{},
+   clearChat:()=>{},
+   ycEnsurePasswordChannelAccess:async()=>true,
+   ycRequestVoiceDisconnect:async()=>{baseContext.disconnects++},
+   disconnects:0
+  };
+  await vm.runInNewContext('('+secureFn+')()',baseContext);
+  assert.equal(baseContext.disconnects,0,'15-second secure refresh disconnected voice only because another community was being browsed');
+  baseContext.currentCommunity={id:'community-a'};
+  baseContext.getChannels=async()=>[{id:'text-a',community_id:'community-a',kind:'text',is_password_protected:false}];
+  await vm.runInNewContext('('+secureFn+')()',baseContext);
+  assert.equal(baseContext.disconnects,1,'Voice should still disconnect when its actual joined channel disappears from its own community');
+ })();
 }
 if(isDesktop){
  assert(html.includes("Promise.allSettled([\n    sb.functions.invoke('yamachat-turn-cloudflare'"),'TURN providers must be loaded in parallel');
@@ -147,6 +150,7 @@ for(const marker of [
 ]) assert(html.includes(marker),'Theme/voice visual marker missing: '+marker);
 
 (async()=>{
+ await crossCommunityRuntimeTest;
  const browser=await chromium.launch({headless:true,...(process.env.BROWSER_EXECUTABLE?{executablePath:process.env.BROWSER_EXECUTABLE}:{})});
  try{
   const page=await browser.newPage({viewport:{width:1280,height:820},serviceWorkers:'block'});
