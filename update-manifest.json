@@ -8,11 +8,11 @@
     "notes": "Yamachat 1.0.100\n\n- Opravený přenos zvuku vybrané aplikace přes nativní process loopback, bez automatického přepnutí na zvuk celého systému.\n- Sdílení celé obrazovky vylučuje zvuk procesů Yamachatu. Známé virtuální výstupy (např. FxSound) bezpečně odmítne s vysvětlením; obraz lze dál sdílet.\n- Fullscreen přehrávače zachovává stav desktopového okna a dostupné ovládání hlasitosti. iOS/PWA má bezpečný režim přes celý viewport.\n- Kontrola aktualizací po 20 minutách v aktivní online aplikaci, kontrola při návratu a značka Update v Nastavení.\n- Volba Auto / Mužský / Ženský hlas podle dostupných hlasů zařízení, se zachováním testu, čtení jmen a join/leave zvuků.\n- Android zachovává permanentní podpis, Firebase oznámení a aktuální mobilní klient. Web/PWA používá aktuální ověřený zdroj, bez regenerace ze staré reference.\n\nOmezení: kompletní kombinace spuštění Windows jako správce a zvýšených práv cílových aplikací ještě nebyla ověřena na reálném zařízení. Dostupnost mužského/ženského hlasu závisí na hlasech nainstalovaných v zařízení. iOS fullscreen byl ověřen simulací fallbacku, nikoli na fyzickém iPhonu.\n\nPředchozí vydání v1.0.99 zůstává dostupné pro návrat."
   },
   "android": {
-    "latestVersion": "1.1.0.531",
-    "latestVersionCode": 200531,
+    "latestVersion": "1.1.0.555",
+    "latestVersionCode": 200555,
     "required": true,
-    "apkUrl": "https://yamachat.eu/download/Yamachat-Android.apk?v=200531",
-    "sha256": "62e577c0a79b69d4583358fddf081b81e241a71e30c544eebcc5828209f84e51",
+    "apkUrl": "https://yamachat.eu/download/Yamachat-Android.apk?v=200555",
+    "sha256": "2f1c6b31ac4348cbc6d8c0329f5c84539a0b30ad099cbeb39110d85783349369",
     "notes": [
       "Yamachat oznámení mají vlastní logo, ikonu a vlastní zvuk zprávy na Androidu.",
       "Kliknutí na oznámení otevře přímo správnou DM, kanál a konkrétní zprávu.",
