@@ -1,0 +1,152 @@
+name: Yamachat Windows Identity Preview
+
+on:
+  push:
+    branches:
+      - preview/windows-identity-1.0.105
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: yamachat-windows-identity-preview
+  cancel-in-progress: true
+
+jobs:
+  build-preview:
+    runs-on: windows-latest
+    timeout-minutes: 70
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Verify exact 1.0.105 baseline and Windows-only scope
+        shell: pwsh
+        run: |
+          git fetch origin tag v1.0.105 --force
+          $baseline = git rev-parse 'v1.0.105^{commit}'
+          if ($baseline -ne '366eb4366a7596c5dd6deeb65acb6a94a693fe21') {
+            throw "Unexpected v1.0.105 baseline: $baseline"
+          }
+          $allowed = @(
+            '.github/workflows/windows-identity-preview.yml',
+            'scripts/windows-identity-preview.mjs',
+            'tests/windows-identity-preview.cjs'
+          )
+          $changed = @(git diff --name-only v1.0.105...HEAD)
+          foreach ($file in $changed) {
+            if ($allowed -notcontains $file) {
+              throw "Identity preview contains unexpected committed change: $file"
+            }
+          }
+          $forbidden = @(git diff --name-only v1.0.105...HEAD -- index.html web mobile android ios capacitor.config.ts LICENSE BRAND-NOTICE.md PROVENANCE.md LEGAL-BASELINE.md ASSET-MANIFEST.md THIRD_PARTY_NOTICES.md)
+          if ($forbidden.Count -gt 0) {
+            throw "Web/mobile/legal source changed: $($forbidden -join ', ')"
+          }
+
+      - name: Verify untouched 1.0.105 regressions
+        run: node scripts/verify-stream-preview.cjs
+
+      - name: Apply Windows-only identity preview
+        run: node scripts/windows-identity-preview.mjs
+
+      - name: Verify patched runtime syntax and regressions
+        run: node scripts/verify-stream-preview.cjs
+
+      - name: Install browser test runtime
+        run: |
+          npm install --no-save --package-lock=false playwright@1.62.1
+          npx playwright install chromium
+
+      - name: Windows identity UI smoke and screenshot
+        run: node tests/windows-identity-preview.cjs
+
+      - name: Profile actions regression
+        run: node tests/profile-actions.cjs
+
+      - name: Voice UI regression on patched desktop client
+        shell: pwsh
+        run: |
+          $env:YC_CLIENT='desktop/desktop-client.html'
+          node tests/voice-experience.cjs
+          if ($LASTEXITCODE -ne 0) { throw 'Desktop voice regression failed' }
+          Remove-Item Env:YC_CLIENT -ErrorAction SilentlyContinue
+
+      - name: Build native process audio helper
+        shell: pwsh
+        run: ./scripts/build-windows-process-audio.ps1
+
+      - name: Prepare reviewed desktop runtime
+        shell: pwsh
+        run: |
+          Copy-Item -Recurse -Force build desktop/build
+          Copy-Item -Recurse -Force audio desktop/audio
+          Copy-Item boot-guard.js desktop/boot-guard.js
+
+      - name: Install desktop dependencies
+        run: npm ci
+        working-directory: desktop
+
+      - name: Build unpacked Windows preview
+        run: npx electron-builder --win dir --x64 --publish never
+        working-directory: desktop
+
+      - name: Isolate preview profile and verify packaged runtime
+        shell: pwsh
+        run: |
+          $appRoot='desktop/dist/win-unpacked/resources/app'
+          Set-Content -Path "$appRoot/preview.json" -Value '{"kind":"windows-identity-preview","baseline":"1.0.105","isolated":true}' -Encoding UTF8
+          foreach ($file in @('main.js','preload.js','desktop.html','desktop-client.html','preview.json')) {
+            if (-not (Test-Path "$appRoot/$file")) { throw "Missing preview runtime: $file" }
+          }
+          foreach ($file in @('main.js','preload.js','desktop.html','desktop-client.html')) {
+            if ((Get-FileHash "$appRoot/$file").Hash -ne (Get-FileHash "desktop/$file").Hash) {
+              throw "Packaged source mismatch: $file"
+            }
+          }
+          $client = Get-Content "$appRoot/desktop-client.html" -Raw
+          if ($client -notmatch 'ycWindowsIdentityPreviewStyle') { throw 'Identity preview style missing from package' }
+          if ($client -match 'discord-voice-buttons|class="discord-link"|yc-discord-avatar-|ycDiscordAvatarChoice|ycGetDiscordIdentity') {
+            throw 'Legacy Discord-shaped Yamachat UI name leaked into packaged Windows runtime'
+          }
+          $main = Get-Content "$appRoot/main.js" -Raw
+          if ($main -notmatch 'Yamachat-Identity-Preview') { throw 'Preview userData isolation missing from package' }
+          if ($main -notmatch 'Yamachat Identity Preview') { throw 'Preview app identity missing from package' }
+
+      - name: Launch unpacked desktop smoke
+        shell: pwsh
+        run: |
+          $exe = Resolve-Path 'desktop/dist/win-unpacked/Yamachat.exe'
+          $p = Start-Process -FilePath $exe -PassThru
+          Start-Sleep -Seconds 8
+          if ($p.HasExited -and $p.ExitCode -ne 0) {
+            throw "Preview exited with code $($p.ExitCode)"
+          }
+          Get-Process -Name 'Yamachat' -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+
+      - name: Upload portable preview
+        uses: actions/upload-artifact@v4
+        with:
+          name: yamachat-windows-identity-preview
+          path: desktop/dist/win-unpacked/**
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Upload preview screenshot
+        uses: actions/upload-artifact@v4
+        with:
+          name: yamachat-windows-identity-preview-screenshot
+          path: artifacts/yamachat-windows-identity-preview.png
+          if-no-files-found: error
+          retention-days: 7
