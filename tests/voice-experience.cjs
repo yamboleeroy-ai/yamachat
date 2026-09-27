@@ -37,8 +37,9 @@ assert(html.includes("const voiceBelongsHere=!!hadVoice&&!!voiceCommunityId&&voi
 assert(html.includes("if(voiceBelongsHere&&!activeVoice){try{await ycRequestVoiceDisconnect()}catch{}}"),'Voice disconnect on channel removal must be gated by the joined voice community');
 assert(!html.includes("if(hadVoice&&!activeVoice){try{await ycRequestVoiceDisconnect()}catch{}}"),'Browsing another community must not be treated as a removed voice channel');
 
-// Execute the 15-second secure refresh decision with voice in community A while the UI is in B.
-// This reproduces the reported delayed disconnect path instead of only checking source markers.
+// Exercise the delayed secure refresh repeatedly for a full 30-second window with
+// voice in community A while the UI stays in B. This catches regressions that pass
+// a single refresh but disconnect on a later 15-second poll.
 let crossCommunityRuntimeTest=Promise.resolve();
 if(!isDesktop){
  crossCommunityRuntimeTest=(async()=>{
@@ -65,8 +66,13 @@ if(!isDesktop){
    ycRequestVoiceDisconnect:async()=>{baseContext.disconnects++},
    disconnects:0
   };
-  await vm.runInNewContext('('+secureFn+')()',baseContext);
-  assert.equal(baseContext.disconnects,0,'15-second secure refresh disconnected voice only because another community was being browsed');
+  for(const [tick,elapsedMs] of [0,15000,30000].entries()){
+   if(tick>0)await new Promise(resolve=>setTimeout(resolve,15000));
+   await vm.runInNewContext('('+secureFn+')()',baseContext);
+   assert.equal(baseContext.disconnects,0,'Cross-community voice disconnected during secure refresh at '+elapsedMs+'ms');
+   assert.equal(baseContext.currentCommunity.id,'community-b','30-second continuity test must keep browsing the other community');
+   assert.equal(baseContext.voiceChannel.community_id,'community-a','30-second continuity test must keep voice anchored to its joined community');
+  }
   baseContext.currentCommunity={id:'community-a'};
   baseContext.getChannels=async()=>[{id:'text-a',community_id:'community-a',kind:'text',is_password_protected:false}];
   await vm.runInNewContext('('+secureFn+')()',baseContext);

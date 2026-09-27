@@ -21,6 +21,12 @@ try{
    const ref=fs.readFileSync(path.join(root,'reference/desktop-1.0.78/desktop-client.html'),'utf8').replaceAll('\r\n','\n');
    const re=new RegExp('const '+marker+'=([^\\n]+)');assert(ref.match(re),`Missing ${marker}`);assert.deepEqual(html.match(re)?.[1],ref.match(re)?.[1]);
   }
+  for(const marker of [
+   "if(voiceChannel?.id&&!defs.some(c=>String(c.id)===String(voiceChannel.id)))defs.push(voiceChannel)",
+   "void trackVoicePresence().catch(e=>console.warn('voice presence keepalive',e))",
+   "const voiceBelongsHere=!!hadVoice&&!!voiceCommunityId&&voiceCommunityId===cid",
+   "function ycIosVoiceCommunityId(channel=voiceChannel)"
+  ]) assert(html.includes(marker),`${file} missing cross-community voice continuity marker: ${marker}`);
  }
  const nativePatchSource=fs.readFileSync(path.join(root,'mobile/scripts/patch-native.mjs'),'utf8');
  const registerAt=nativePatchSource.indexOf('registerPlugin(YamachatUpdatePlugin.class);');
