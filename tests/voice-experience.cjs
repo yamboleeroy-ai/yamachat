@@ -66,7 +66,8 @@ if(!isDesktop){
    ycRequestVoiceDisconnect:async()=>{baseContext.disconnects++},
    disconnects:0
   };
-  for(const elapsedMs of [0,15000,30000]){
+  for(const [tick,elapsedMs] of [0,15000,30000].entries()){
+   if(tick>0)await new Promise(resolve=>setTimeout(resolve,15000));
    await vm.runInNewContext('('+secureFn+')()',baseContext);
    assert.equal(baseContext.disconnects,0,'Cross-community voice disconnected during secure refresh at '+elapsedMs+'ms');
    assert.equal(baseContext.currentCommunity.id,'community-b','30-second continuity test must keep browsing the other community');
