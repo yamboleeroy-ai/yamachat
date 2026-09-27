@@ -180,10 +180,11 @@ function openSafeExternal(url) {
   } catch {}
 }
 
-// Windows-only compositor compatibility: keep hardware acceleration available, but avoid the
-// DirectComposition path that can flash the whole frameless window when Chromium restarts its GPU process.
+// Windows frameless-window stability. A GPU-process restart repaints the whole Yamachat
+// surface for one frame, which is visible as a full-window flash. Use Electron's supported
+// software-rendering path on Windows instead of repeatedly recovering the crashed compositor.
 if (process.platform === 'win32') {
-  app.commandLine.appendSwitch('disable-direct-composition');
+  app.disableHardwareAcceleration();
 }
 
 app.on('child-process-gone', (_event, details) => {
