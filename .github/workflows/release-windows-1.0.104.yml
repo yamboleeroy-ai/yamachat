@@ -1,0 +1,177 @@
+name: Yamachat Windows 1.0.104 release
+on:
+  push:
+    branches: [release/windows-1.0.104-taskbar-input]
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: yamachat-windows-1.0.104-release
+  cancel-in-progress: false
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 65
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Verify hotfix scope
+        shell: pwsh
+        run: |
+          git fetch origin tag v1.0.103 --force
+          $allowed = @(
+            '.github/workflows/release-windows-1.0.104.yml',
+            'desktop/main.js',
+            'desktop/package.json',
+            'desktop/package-lock.json',
+            'docs/release-1.0.104.md',
+            'scripts/verify-stream-preview.cjs',
+            'tests/windows-interaction-notifications.cjs',
+            'tests/windows-taskbar-restore.cjs'
+          )
+          $changed = @(git diff --name-only v1.0.103...HEAD)
+          foreach ($file in $changed) {
+            if ($allowed -notcontains $file) {
+              throw "Windows-only release contains unexpected change: $file"
+            }
+          }
+          if (-not ($changed -contains 'desktop/main.js')) { throw 'Missing desktop/main.js hotfix' }
+          if (git diff --name-only v1.0.103...HEAD -- index.html web mobile | Select-Object -First 1) {
+            throw 'Web/PWA/Android source must remain unchanged'
+          }
+
+      - name: Verify current source and regressions
+        run: node scripts/verify-stream-preview.cjs
+
+      - name: Build native process audio
+        shell: pwsh
+        run: ./scripts/build-windows-process-audio.ps1
+
+      - name: Build WNS with unchanged production identity
+        shell: pwsh
+        env:
+          YAMACHAT_WNS_PACKAGE_VERSION: '1.0.104.0'
+        run: |
+          npm install --no-save --package-lock=false @microsoft/winappcli
+          if ($LASTEXITCODE -ne 0) { throw 'WinApp CLI install failed' }
+          ./scripts/build-windows-wns.ps1
+
+      - name: Verify WNS production identity on runner
+        shell: pwsh
+        run: |
+          & desktop/wns/WindowsAppRuntimeInstall-x64.exe --quiet
+          if ($LASTEXITCODE -ne 0) { throw 'Windows App Runtime install failed' }
+          Add-AppxPackage -Path (Resolve-Path desktop/wns/Yamachat.PushIdentity.msix) -ExternalLocation (Resolve-Path desktop) -AllowUnsigned -ForceApplicationShutdown
+          $pkg = Get-AppxPackage -Name 'yamachat.eu-7E03B8AF'
+          if ($pkg.PackageFamilyName -ne 'yamachat.eu-7E03B8AF_m02xq2dqtpa7p' -or $pkg.Version -ne '1.0.104.0') {
+            throw 'WNS identity/version mismatch'
+          }
+          $pkg | Remove-AppxPackage
+
+      - name: Prepare reviewed runtime
+        shell: pwsh
+        run: |
+          Copy-Item -Recurse -Force build desktop/build
+          Copy-Item -Recurse -Force audio desktop/audio
+          Copy-Item boot-guard.js desktop/boot-guard.js
+          if (Test-Path desktop/preview.json) { throw 'Preview configuration must not enter production' }
+
+      - run: npm ci
+        working-directory: desktop
+
+      - run: npm run release:win
+        working-directory: desktop
+
+      - name: Verify installer and exact packaged source
+        shell: pwsh
+        run: |
+          $appRoot = 'desktop/dist/win-unpacked/resources/app'
+          foreach ($file in @('main.js','preload.js','updater.js','desktop.html','desktop-client.html')) {
+            if ((Get-FileHash "$appRoot/$file").Hash -ne (Get-FileHash "desktop/$file").Hash) {
+              throw "Packaged source mismatch: $file"
+            }
+          }
+          foreach ($file in @(
+            'process-audio/Yamachat.ProcessAudioCapture.exe',
+            'wns/Yamachat.WnsBridge.exe',
+            'wns/Yamachat.PushIdentity.msix',
+            'wns/WindowsAppRuntimeInstall-x64.exe',
+            'build/icon.ico'
+          )) {
+            if (-not (Test-Path "$appRoot/$file")) { throw "Missing packaged runtime: $file" }
+          }
+          if (Test-Path "$appRoot/preview.json") { throw 'Preview isolation leaked into release' }
+          & "$appRoot/process-audio/Yamachat.ProcessAudioCapture.exe" --version
+          if ($LASTEXITCODE -ne 0) { throw 'Native audio helper failed' }
+          if ((Get-Content desktop/dist/latest.yml -Raw) -notmatch 'version:\s*1\.0\.104') {
+            throw 'Wrong updater version'
+          }
+          foreach ($file in @(
+            'Yamachat-Setup-1.0.104.exe',
+            'Yamachat-Setup-1.0.104.exe.blockmap',
+            'latest.yml'
+          )) {
+            if (-not (Test-Path "desktop/dist/$file")) { throw "Missing updater asset: $file" }
+          }
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Yamachat-Windows-1.0.104
+          path: |
+            desktop/dist/Yamachat-Setup-1.0.104.exe
+            desktop/dist/Yamachat-Setup-1.0.104.exe.blockmap
+            desktop/dist/latest.yml
+          if-no-files-found: error
+          retention-days: 30
+
+  publish:
+    needs: [windows]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: Yamachat-Windows-1.0.104
+          path: release-assets
+
+      - name: Validate Windows-only release assets
+        run: |
+          set -euo pipefail
+          git fetch origin tag v1.0.103 --force
+          git merge-base --is-ancestor v1.0.103 HEAD
+          test "$(node -p "require('./desktop/package.json').version")" = "1.0.104"
+          grep -Eq '^version:[[:space:]]*1\.0\.104([[:space:]]|$)' release-assets/latest.yml
+          test -f release-assets/Yamachat-Setup-1.0.104.exe
+          test -f release-assets/Yamachat-Setup-1.0.104.exe.blockmap
+          cd release-assets
+          sha256sum Yamachat-Setup-1.0.104.exe Yamachat-Setup-1.0.104.exe.blockmap latest.yml > SHA256SUMS.txt
+
+      - name: Publish Windows 1.0.104
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if gh release view v1.0.104 --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo 'Refusing to overwrite an existing release'
+            exit 1
+          fi
+          gh release create v1.0.104 release-assets/* \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$GITHUB_SHA" \
+            --title "Yamachat 1.0.104" \
+            --notes-file docs/release-1.0.104.md \
+            --latest
