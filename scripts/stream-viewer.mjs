@@ -42,15 +42,15 @@ export function withStreamViewer(input,{desktop=false}={}) {
   // replacing the peer or touching voice audio.
   html=html.replace(
     'window.__ycScreenAudioEls=window.__ycScreenAudioEls||new Map()',
-    'window.__ycScreenAudioEls=window.__ycScreenAudioEls||new Map()\\nwindow.__ycScreenAudioTracks=window.__ycScreenAudioTracks||new Map()'
+    'window.__ycScreenAudioEls=window.__ycScreenAudioEls||new Map()\nwindow.__ycScreenAudioTracks=window.__ycScreenAudioTracks||new Map()'
   );
   html=html.replace(
     "function ycRemoveScreenAudioElement(peerId){try{const a=window.__ycScreenAudioEls.get(peerId);if(a){a.pause();a.srcObject=null;a.remove()}window.__ycScreenAudioEls.delete(peerId)}catch{}}",
-    "function ycRemoveScreenAudioElement(peerId){try{const a=window.__ycScreenAudioEls.get(peerId);if(a){a.pause();a.srcObject=null;a.remove()}window.__ycScreenAudioEls.delete(peerId)}catch{}}\\nfunction ycForgetScreenAudioTrack(peerId){ycRemoveScreenAudioElement(peerId);try{window.__ycScreenAudioTracks.delete(peerId)}catch{}}\\nfunction ycAttachExistingScreenAudioReceiver(peerId){try{const track=window.__ycScreenAudioTracks.get(peerId);if(track&&track.readyState==='live')ycAttachRemoteScreenAudio(peerId,track)}catch{}}"
+    "function ycRemoveScreenAudioElement(peerId){try{const a=window.__ycScreenAudioEls.get(peerId);if(a){a.pause();a.srcObject=null;a.remove()}window.__ycScreenAudioEls.delete(peerId)}catch{}}\nfunction ycForgetScreenAudioTrack(peerId){ycRemoveScreenAudioElement(peerId);try{window.__ycScreenAudioTracks.delete(peerId)}catch{}}\nfunction ycAttachExistingScreenAudioReceiver(peerId){try{const track=window.__ycScreenAudioTracks.get(peerId);if(track&&track.readyState==='live')ycAttachRemoteScreenAudio(peerId,track)}catch{}}"
   );
   html=html.replace(
-    "function ycAttachRemoteScreenAudio(peerId,track){\\n if(!track)return",
-    "function ycAttachRemoteScreenAudio(peerId,track){\\n if(!track)return\\n try{window.__ycScreenAudioTracks.set(peerId,track)}catch{}"
+    "function ycAttachRemoteScreenAudio(peerId,track){\n if(!track)return",
+    "function ycAttachRemoteScreenAudio(peerId,track){\n if(!track)return\n try{window.__ycScreenAudioTracks.set(peerId,track)}catch{}"
   );
   html=html.replace(
     "track.addEventListener('ended',()=>ycRemoveScreenAudioElement(peerId),{once:true})",
