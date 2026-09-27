@@ -997,6 +997,10 @@ html body .yc-ss-note{
 .yc-stream-viewer[data-mode="mini"] .yc-sv-header button{width:32px;height:32px}
 .yc-stream-viewer[data-mode="mini"] .yc-sv-avatar,.yc-stream-viewer[data-mode="mini"] .yc-sv-footer,.yc-stream-viewer[data-mode="mini"] [data-action="maximize"],.yc-stream-viewer[data-mode="mini"] [data-action="fullscreen"],.yc-stream-viewer[data-mode="mini"] .yc-sv-resize{display:none}
 .yc-stream-viewer[data-mode="mini"] .yc-sv-media{cursor:pointer}
+.yc-stream-viewer[data-mode="fullscreen"]{border:0;border-radius:0}
+.yc-stream-viewer[data-mode="fullscreen"] .yc-sv-header{position:absolute;top:max(8px,env(safe-area-inset-top));right:max(8px,env(safe-area-inset-right));z-index:5;flex-basis:auto;padding:0;background:transparent;cursor:default}
+.yc-stream-viewer[data-mode="fullscreen"] .yc-sv-avatar,.yc-stream-viewer[data-mode="fullscreen"] .yc-sv-title,.yc-stream-viewer[data-mode="fullscreen"] [data-action="maximize"],.yc-stream-viewer[data-mode="fullscreen"] [data-action="minimize"],.yc-stream-viewer[data-mode="fullscreen"] [data-action="close"],.yc-stream-viewer[data-mode="fullscreen"] .yc-sv-footer,.yc-stream-viewer[data-mode="fullscreen"] .yc-sv-resize{display:none}
+.yc-stream-viewer[data-mode="fullscreen"] [data-action="fullscreen"]{background:#071019cc;backdrop-filter:blur(8px)}
 .yc-stream-viewer[data-mobile="true"] .yc-sv-header{cursor:default;flex-basis:52px}
 .yc-stream-viewer[data-mobile="true"]:not([data-mode="mini"]) [data-action="maximize"],.yc-stream-viewer[data-mobile="true"] .yc-sv-resize,.yc-stream-viewer[data-mode="maximized"] .yc-sv-resize{display:none}
 .yc-stream-viewer:fullscreen{width:100%!important;height:100%!important;inset:0!important;border:0;border-radius:0;padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)}
@@ -2920,7 +2924,7 @@ async function startScreenShare(){
   if(!voiceChannel){toast('Nejdřív se připoj do hlasového kanálu.',true);return}
   const media=getScreenMediaDevices();if(!media?.getDisplayMedia){toast('Tento prohlížeč nepodporuje sdílení obrazovky.',true);return}
   let stream
-  try{stream=await media.getDisplayMedia({video:{width:{ideal:ycScreenShareProfile().width,max:ycScreenShareProfile().width},height:{ideal:ycScreenShareProfile().height,max:ycScreenShareProfile().height},frameRate:{ideal:ycScreenShareProfile().fps,max:ycScreenShareProfile().fps}},audio:true,systemAudio:'include',surfaceSwitching:'include'})}catch(e){if(e?.name!=='NotAllowedError')toast('Sdílení obrazovky se nepodařilo spustit: '+(e?.message||e),true);return}
+  try{stream=await media.getDisplayMedia({video:{width:{ideal:ycScreenShareProfile().width,max:ycScreenShareProfile().width},height:{ideal:ycScreenShareProfile().height,max:ycScreenShareProfile().height},frameRate:{ideal:ycScreenShareProfile().fps,max:ycScreenShareProfile().fps}},audio:{restrictOwnAudio:true},systemAudio:'include',surfaceSwitching:'include'})}catch(e){if(e?.name!=='NotAllowedError')toast('Sdílení obrazovky se nepodařilo spustit: '+(e?.message||e),true);return}
   const track=stream.getVideoTracks()[0];if(!track){stream.getTracks().forEach(t=>t.stop());toast('Nebyl vybrán žádný obraz.',true);return}
   screenShareStream=stream;screenShareActive=true;screenShareViewers.clear()
   await enableScreenShareAudio(stream)
@@ -3024,7 +3028,7 @@ function ycRequestVoiceDisconnect(){
   if(wasShare){try{void broadcastScreenState(false)}catch{};try{void disableScreenShareAudio(true)}catch{};try{void ycStopGlobalStreamPresence()}catch{}}
   try{for(const [id,pc] of voicePeers){pc.close();$('voice-audio-'+id)?.remove()}}catch{}
   try{for(const [,nodes] of voiceAudioNodes){nodes.src?.disconnect();nodes.compressor?.disconnect();nodes.gain?.disconnect()}}catch{}
-  try{for(const t of screenWatchTimers.values())clearTimeout(t);screenWatchTimers.clear();voiceAudioNodes.clear();voiceScreenSenders.clear();remoteScreenStreams.clear();voiceScreenActiveByUser.clear();screenShareViewers.clear();screenWatchingByUser.clear();screenWatchPendingByUser.clear();for(const id of [...(window.__ycScreenAudioEls?.keys?.()||[])])ycRemoveScreenAudioElement(id);voicePeers.clear();voicePeerStates.clear();voicePeerSessions.clear();voiceRelayCandidates.clear();voiceIceGatherDone.clear();voiceIceRestarted.clear();voiceIceQueues.clear()}catch{}
+  try{for(const t of screenWatchTimers.values())clearTimeout(t);screenWatchTimers.clear();voiceAudioNodes.clear();voiceScreenSenders.clear();remoteScreenStreams.clear();voiceScreenActiveByUser.clear();screenShareViewers.clear();screenWatchingByUser.clear();screenWatchPendingByUser.clear();for(const id of [...(window.__ycScreenAudioEls?.keys?.()||[])])ycRemoveScreenAudioElement(id);window.__ycScreenAudioTracks?.clear?.();voicePeers.clear();voicePeerStates.clear();voicePeerSessions.clear();voiceRelayCandidates.clear();voiceIceGatherDone.clear();voiceIceRestarted.clear();voiceIceQueues.clear()}catch{}
   {const oldMic=voiceStream;voiceStream=null;if(oldMic)void ycStopManagedMicStream(oldMic)}
   voiceSessionId='';voiceChannel=null;voiceMuted=false;voiceDeafened=false;voiceRouteMode='checking';
   try{if(old)for(const id of Object.keys(voicePresenceByChannel))voicePresenceByChannel[id]=(voicePresenceByChannel[id]||[]).filter(p=>p.user_id!==user.id)}catch{}
@@ -4197,13 +4201,17 @@ let ycScreenAudioNegotiationTimer=null
 const ycScreenAudioNegotiationPeers=new Set()
 let ycScreenAudioBusy=false
 window.__ycScreenAudioEls=window.__ycScreenAudioEls||new Map()
+window.__ycScreenAudioTracks=window.__ycScreenAudioTracks||new Map()
 function ycScreenAudioWanted(){return localStorage.getItem('yc_screen_audio')!=='0'}
 function ycCurrentScreenAudioTrack(){try{return screenShareActive&&ycScreenAudioWanted()?screenShareStream?.getAudioTracks?.().find(t=>t.readyState==='live')||null:null}catch{return null}}
 function ycScreenAudioStoredVolume(peerId){try{const map=JSON.parse(localStorage.getItem('yc_stream_volume_by_user_safe_v1')||'{}')||{},n=Number(map[String(peerId)]);return Number.isFinite(n)?Math.max(0,Math.min(1,n)):1}catch{return 1}}
 function ycScheduleScreenAudioNegotiation(peerId){if(peerId)ycScreenAudioNegotiationPeers.add(peerId);clearTimeout(ycScreenAudioNegotiationTimer);ycScreenAudioNegotiationTimer=setTimeout(async()=>{const ids=[...ycScreenAudioNegotiationPeers];ycScreenAudioNegotiationPeers.clear();for(const id of ids){try{if(typeof ycRenegotiateScreenPeer==='function')await ycRenegotiateScreenPeer(id)}catch(e){console.warn('screen audio renegotiate',id,e)}}},140)}
 function ycRemoveScreenAudioElement(peerId){try{const a=window.__ycScreenAudioEls.get(peerId);if(a){a.pause();a.srcObject=null;a.remove()}window.__ycScreenAudioEls.delete(peerId)}catch{}}
+function ycForgetScreenAudioTrack(peerId){ycRemoveScreenAudioElement(peerId);try{window.__ycScreenAudioTracks.delete(peerId)}catch{}}
+function ycAttachExistingScreenAudioReceiver(peerId){try{const track=window.__ycScreenAudioTracks.get(peerId);if(track&&track.readyState==='live')ycAttachRemoteScreenAudio(peerId,track)}catch{}}
 function ycAttachRemoteScreenAudio(peerId,track){
  if(!track)return
+ try{window.__ycScreenAudioTracks.set(peerId,track)}catch{}
  try{
   let a=window.__ycScreenAudioEls.get(peerId)
   if(!a||!a.isConnected){a=document.createElement('audio');a.id='yc-screen-audio-'+String(peerId);a.autoplay=true;a.playsInline=true;a.dataset.ycScreenPeer=String(peerId);a.style.display='none';document.body.appendChild(a);window.__ycScreenAudioEls.set(peerId,a)}
@@ -4211,7 +4219,7 @@ function ycAttachRemoteScreenAudio(peerId,track){
   const v=ycScreenAudioStoredVolume(peerId);a.volume=v;a.muted=v<=0
   try{if(voiceOutputId&&typeof a.setSinkId==='function')a.setSinkId(voiceOutputId).catch(()=>{})}catch{}
   a.play().catch(()=>{})
-  track.addEventListener('ended',()=>ycRemoveScreenAudioElement(peerId),{once:true})
+  track.addEventListener('ended',()=>ycForgetScreenAudioTrack(peerId),{once:true})
   track.addEventListener('mute',()=>setTimeout(()=>{try{const active=(typeof voiceScreenActiveByUser!=='undefined'&&voiceScreenActiveByUser?.has?.(peerId))||remoteScreenStreams?.has?.(peerId);if(!active)ycRemoveScreenAudioElement(peerId)}catch{}},700))
  }catch(e){console.warn('screen audio receiver',e)}
 }
@@ -4360,12 +4368,12 @@ async function ycWatchScreenShare(peerId) {
   const current=()=>ycWatchContextCurrent(peerId,epoch,channelId,sessionId)&&screenWatchingByUser.has(peerId);
   ycClearScreenWatchTimer(peerId);
   screenWatchingByUser.add(peerId);screenWatchPendingByUser.add(peerId);remoteScreenStreams.delete(peerId);
-  ycAttachExistingScreenReceiver(peerId);
+  ycAttachExistingScreenReceiver(peerId);ycAttachExistingScreenAudioReceiver(peerId);
   ycSyncStreamViewer();renderVoiceChannels(voiceChannelDefs);
   try { await ycSendScreenWatchOrdered(peerId,true); }
   catch(e){if(current()){screenWatchingByUser.delete(peerId);screenWatchPendingByUser.delete(peerId);remoteScreenStreams.delete(peerId);toast('Nepodařilo se požádat o stream. Zkus to znovu.',true);ycSyncStreamViewer();renderVoiceChannels(voiceChannelDefs);}return;}
   if(!current())return;
-  ycAttachExistingScreenReceiver(peerId);
+  ycAttachExistingScreenReceiver(peerId);ycAttachExistingScreenAudioReceiver(peerId);
   if(!ycRemoteScreenReady(peerId))ycArmScreenWatch(peerId);
 }
 async function ycStopWatchingScreenShare(peerId) {
@@ -4385,7 +4393,7 @@ function ycArmScreenWatch(peerId) {
     if(!voiceScreenActiveByUser.has(peerId)&&!ycStreamInfo(peerId)){void ycFailScreenWatch(peerId,'Stream už není dostupný.');return;}
     try{await ycSendScreenWatchOrdered(peerId,true,{retry:true})}catch{}
     if(!pending())return;
-    ycAttachExistingScreenReceiver(peerId);
+    ycAttachExistingScreenReceiver(peerId);ycAttachExistingScreenAudioReceiver(peerId);
     if(!pending())return;
     renderVoiceChannels(voiceChannelDefs);
     screenWatchTimers.set(peerId,setTimeout(()=>{if(pending())void ycFailScreenWatch(peerId)},6500));
@@ -4501,7 +4509,7 @@ handleVoiceSignal=async function(msg){
   }
   if(msg?.signal_type==='screen-state'&&msg.from){
     const peerId=msg.from
-    if(!msg.active){ycClearScreenWatchTimer(peerId);screenWatchingByUser.delete(peerId);screenWatchPendingByUser.delete(peerId);remoteScreenStreams.delete(peerId);try{ycRemoveScreenAudioElement(peerId)}catch{}}
+    if(!msg.active){ycClearScreenWatchTimer(peerId);screenWatchingByUser.delete(peerId);screenWatchPendingByUser.delete(peerId);remoteScreenStreams.delete(peerId);try{ycForgetScreenAudioTrack(peerId)}catch{}}
     const out=await ycViewerHandleVoiceSignal(msg);renderVoiceChannels(voiceChannelDefs);return out
   }
   return ycViewerHandleVoiceSignal(msg)
@@ -6607,6 +6615,7 @@ const ycStreamViewer=(()=>{
   const sessions=new Map();
   let layer=null,safe=null,layoutFrame=0,recovering=false,localDismissed=null;
   const mobile=()=>!YC_STREAM_DESKTOP&&matchMedia('(pointer: coarse)').matches;
+  const iosPwa=()=>!YC_STREAM_DESKTOP&&(/iP(?:hone|ad|od)/i.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1))&&(navigator.standalone===true||matchMedia('(display-mode: standalone)').matches);
   const clamp=(n,a,b)=>Math.max(a,Math.min(b,n));
   function ensureLayer(){
     if(layer)return;
@@ -6655,7 +6664,7 @@ const ycStreamViewer=(()=>{
     session.panel.dataset.mobile=String(isMobile);session.panel.dataset.mode=session.mode;
     let r;
     if(session.mode==='mini')r=miniRect(session,a);
-    else if(session.mode==='maximized'||isMobile)r={x:a.left,y:a.top,width:a.width,height:a.height};
+    else if(session.mode==='maximized'||session.mode==='fullscreen'||isMobile)r={x:a.left,y:a.top,width:a.width,height:a.height};
     else{
       const original=session.rect||{x:a.right-Math.min(760,a.width),y:a.top+48,width:Math.min(760,a.width),height:Math.min(510,a.height)};
       const width=clamp(original.width,Math.min(300,a.width),a.width),height=clamp(original.height,Math.min(210,a.height),a.height);
@@ -6667,14 +6676,41 @@ const ycStreamViewer=(()=>{
     session.minimize.setAttribute('aria-label',session.minimize.title);
     session.maximize.title=session.mode==='maximized'?'Obnovit velikost':'Maximalizovat stream';
     session.maximize.setAttribute('aria-label',session.maximize.title);
+    session.fullscreen.title=session.mode==='fullscreen'?'Ukončit celou obrazovku':'Celá obrazovka';
+    session.fullscreen.setAttribute('aria-label',session.fullscreen.title);
   }
   function scheduleLayout(){
     if(layoutFrame||!sessions.size)return;
     layoutFrame=requestAnimationFrame(()=>{layoutFrame=0;for(const session of sessions.values())layout(session)});
   }
+  function resumeScreenAudio(session){
+    if(session.local)return;
+    try{ycAttachExistingScreenAudioReceiver?.(session.id)}catch{}
+    const audio=window.__ycScreenAudioEls?.get(session.id);
+    if(!audio||audio.muted)return;
+    void audio.play().then(()=>{if(sessions.get(session.id)===session){session.blocked=false;update(session)}}).catch(error=>{
+      if(error?.name!=='AbortError'&&sessions.get(session.id)===session){session.blocked=true;update(session)}
+    });
+  }
+  function resumeIosPwaPlaybackAfterLayout(session,video,stream){
+    if(!iosPwa()||!stream)return;
+    resumeScreenAudio(session);
+    requestAnimationFrame(()=>requestAnimationFrame(()=>{
+      if(sessions.get(session.id)!==session||session.video!==video||video.srcObject!==stream)return;
+      video.setAttribute('playsinline','');video.setAttribute('webkit-playsinline','');
+      void video.play().then(()=>{
+        if(sessions.get(session.id)!==session||session.video!==video||video.srcObject!==stream)return;
+        session.blocked=false;resumeScreenAudio(session);update(session);
+      }).catch(error=>{
+        if(error?.name!=='AbortError'&&sessions.get(session.id)===session&&session.video===video&&video.srcObject===stream){session.blocked=true;update(session)}
+      });
+    }));
+  }
   function setMode(session,mode){
+    const previous=session.mode,video=session.video,stream=video.srcObject;
     if(document.fullscreenElement===session.panel)void document.exitFullscreen().catch(()=>{});
     session.mode=mode;layout(session);
+    if((mode==='mini'||previous==='mini'||mode==='fullscreen'||previous==='fullscreen')&&iosPwa())resumeIosPwaPlaybackAfterLayout(session,video,stream);
   }
   function bindMove(session,handle,resize=false){
     let drag=null;
@@ -6701,6 +6737,27 @@ const ycStreamViewer=(()=>{
     });
   }
   async function fullscreen(session){
+    const video=session.video,stream=video.srcObject;
+    if(YC_STREAM_DESKTOP){
+      const bridge=window.parent?.YamachatDesktopStreamFullscreen;
+      if(bridge?.set){
+        const entering=session.mode!=='fullscreen';
+        if(entering)session.fullscreenReturnMode=session.mode==='mini'?'floating':session.mode;
+        try{
+          const state=await bridge.set(entering);
+          if(!!state?.fullscreen===entering){
+            session.mode=entering?'fullscreen':(session.fullscreenReturnMode||'floating');layout(session);return;
+          }
+        }catch{}
+      }
+    }
+    if(iosPwa()){
+      const entering=session.mode!=='fullscreen';
+      if(entering)session.fullscreenReturnMode=session.mode==='mini'?'floating':session.mode;
+      session.mode=entering?'fullscreen':(session.fullscreenReturnMode||'floating');layout(session);
+      resumeIosPwaPlaybackAfterLayout(session,video,stream);
+      return;
+    }
     if(document.fullscreenElement){await document.exitFullscreen().catch(()=>{});return}
     try{
       if(session.panel.requestFullscreen){await session.panel.requestFullscreen();return}
@@ -6710,6 +6767,7 @@ const ycStreamViewer=(()=>{
     toast('Systémový fullscreen není dostupný. Stream je zvětšený v aplikaci.');
   }
   function remove(session){
+    if(session.mode==='fullscreen'&&YC_STREAM_DESKTOP)void window.parent?.YamachatDesktopStreamFullscreen?.set?.(false).catch?.(()=>{});
     session.abort.abort();session.trackAbort?.abort();session.video.pause();session.video.srcObject=null;session.panel.remove();sessions.delete(session.id);
     // Receiver tracks belong to RTC, so closing a viewer must never stop them.
     if(!sessions.size){layer?.remove();layer=null;safe=null}
@@ -6726,12 +6784,12 @@ const ycStreamViewer=(()=>{
     session.video=panel.querySelector('video');session.video.muted=true;
     session.status=panel.querySelector('.yc-sv-status');session.statusText=session.status.querySelector('span');
     session.playButton=session.status.querySelector('button');
-    session.minimize=panel.querySelector('[data-action="minimize"]');session.maximize=panel.querySelector('[data-action="maximize"]');
+    session.minimize=panel.querySelector('[data-action="minimize"]');session.maximize=panel.querySelector('[data-action="maximize"]');session.fullscreen=panel.querySelector('[data-action="fullscreen"]');
     panel.querySelector('.yc-sv-title').textContent=session.name;panel.setAttribute('aria-label','Stream: '+session.name);
     panel.querySelector('.yc-sv-avatar').textContent=session.name.slice(0,1).toUpperCase();
     session.minimize.onclick=()=>setMode(session,session.mode==='mini'?'floating':'mini');
     session.maximize.onclick=()=>setMode(session,session.mode==='maximized'?'floating':'maximized');
-    panel.querySelector('[data-action="fullscreen"]').onclick=()=>void fullscreen(session);
+    session.fullscreen.onclick=()=>void fullscreen(session);
     panel.querySelector('[data-action="close"]').onclick=()=>close(session);
     panel.querySelector('.yc-sv-media').onclick=event=>{if(session.mode==='mini'&&!event.target.closest('button'))setMode(session,'floating')};
     session.playButton.onclick=()=>{
@@ -6815,8 +6873,12 @@ const ycStreamViewer=(()=>{
   window.visualViewport?.addEventListener('resize',scheduleLayout);window.visualViewport?.addEventListener('scroll',scheduleLayout);
   window.addEventListener('online',()=>void resume());window.addEventListener('offline',()=>{for(const s of sessions.values())update(s)});
   document.addEventListener('visibilitychange',()=>void resume());
-  document.addEventListener('fullscreenchange',scheduleLayout);
+  document.addEventListener('fullscreenchange',()=>{scheduleLayout();for(const s of sessions.values())if(s.video.srcObject)void play(s)});
   document.addEventListener('keydown',event=>{if(event.key==='Escape'&&!document.fullscreenElement)for(const s of sessions.values())if(s.mode==='maximized')setMode(s,'floating')});
+  window.addEventListener('message',event=>{
+    if(!YC_STREAM_DESKTOP||event.source!==window.parent||event.data?.type!=='yamachat:stream-native-fullscreen'||event.data.fullscreen)return;
+    for(const session of sessions.values())if(session.mode==='fullscreen'){session.mode=session.fullscreenReturnMode||'floating';layout(session)}
+  });
   // Only layout is sampled; no DOM reconstruction and no RTC mutations.
   setInterval(()=>{if(!sessions.size||document.hidden)return;scheduleLayout();for(const s of sessions.values())update(s)},500);
   ycOnLifecycle('beforeAuth',()=>{recovering=false;for(const s of [...sessions.values()]){if(!s.local)void ycStopWatchingScreenShare(s.id);remove(s)}});
