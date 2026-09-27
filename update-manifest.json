@@ -8,11 +8,11 @@
     "notes": "Yamachat 1.0.97\n\nStreaming no longer lives inside the chat. Streams now open in an independent Yamachat viewer that remains usable while navigating between channels, servers, Friends, DMs and settings.\nThe viewer supports floating, resize, maximize, fullscreen with an in-app fallback, and a mini-player. Mobile layouts keep the viewer outside the chat geometry and protect the composer, voice controls and navigation.\nExisting voice/WebRTC transport, tray, updater, WNS notification infrastructure, authentication and desktop UI are preserved from the verified Windows 1.0.96 release.\nPFN remains yamachat.eu-7E03B8AF_m02xq2dqtpa7p.\nBackground notifications while Yamachat is fully closed still depend on Microsoft completing the submitted PFN mapping."
   },
   "android": {
-    "latestVersion": "1.1.0.468",
-    "latestVersionCode": 200468,
+    "latestVersion": "1.1.0.511",
+    "latestVersionCode": 200511,
     "required": true,
-    "apkUrl": "https://yamachat.eu/download/Yamachat-Android.apk?v=200468",
-    "sha256": "322735e04bad971aa2c1d2acb41056326dd5a52b7119d064569bef969cb3e2fa",
+    "apkUrl": "https://yamachat.eu/download/Yamachat-Android.apk?v=200511",
+    "sha256": "c108593f5e5880d27e06c79a0737f771f7c40947d8266568641993d5dff7351c",
     "notes": [
       "Yamachat oznámení mají vlastní logo, ikonu a vlastní zvuk zprávy na Androidu.",
       "Kliknutí na oznámení otevře přímo správnou DM, kanál a konkrétní zprávu.",
