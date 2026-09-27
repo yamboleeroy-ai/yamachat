@@ -16,17 +16,18 @@ function ycCancelContextLongPress(){
 }
 function ycOpenLongPressContext(target,x,y){
  const text=target.matches?.('#channelList [data-channel]')?target:null;
- if(text){void ycOpenChannelContextMenu(text.dataset.channel,'text',x,y);return true}
+ if(text){window.__ycLongPressLastOpen={kind:'text-channel',id:text.dataset.channel,at:Date.now()};void ycOpenChannelContextMenu(text.dataset.channel,'text',x,y);return true}
  const voice=target.matches?.('#voiceChannelList .voice-channel[data-voice]')?target:null;
- if(voice){void ycOpenChannelContextMenu(voice.dataset.voice,'voice',x,y);return true}
+ if(voice){window.__ycLongPressLastOpen={kind:'voice-channel',id:voice.dataset.voice,at:Date.now()};void ycOpenChannelContextMenu(voice.dataset.voice,'voice',x,y);return true}
  const voiceUser=target.matches?.('.voice-user[data-user-id]')?target:null;
- if(voiceUser){const uid=voiceUser.dataset.userId;if(uid&&String(uid)!==String(user?.id))openVoiceUserMenu(uid,voiceUser.dataset.userName||'Uživatel',x,y);return true}
+ if(voiceUser){const uid=voiceUser.dataset.userId;if(uid&&String(uid)!==String(user?.id)){window.__ycLongPressLastOpen={kind:'voice-user',id:uid,at:Date.now()};openVoiceUserMenu(uid,voiceUser.dataset.userName||'Uživatel',x,y)}return true}
  const member=target.matches?.('#rightContent .steam-member-row[data-member-id]')?target:null;
- if(member){void ycOpenMemberMenu(member,{clientX:x,clientY:y});return true}
+ if(member){window.__ycLongPressLastOpen={kind:'member',id:member.dataset.memberId,at:Date.now()};void ycOpenMemberMenu(member,{clientX:x,clientY:y});return true}
  const social=target.matches?.('#rightContent .steam-friend-row[data-profile-user],.yc-dm-social-row[data-profile-user]')?target:null;
- if(social){void ycOpenFriendUserMenu(social,{clientX:x,clientY:y});return true}
+ if(social){window.__ycLongPressLastOpen={kind:'social-user',id:social.dataset.profileUser,at:Date.now()};void ycOpenFriendUserMenu(social,{clientX:x,clientY:y});return true}
  return false;
 }
+window.YamachatLongPressContext=Object.freeze({open:ycOpenLongPressContext});
 document.addEventListener('pointerdown',event=>{
  if(event.pointerType==='mouse'||event.button!==0||event.isPrimary===false)return;
  const target=event.target.closest?.(YC_CONTEXT_LONGPRESS_SELECTOR);if(!target)return;
