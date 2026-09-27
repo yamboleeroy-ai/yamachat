@@ -4649,9 +4649,13 @@ async function ycRefreshChannelsSecure(){
   const activeText=hadText?all.find(c=>String(c.id)===hadText):null;
   if(hadText&&!activeText){currentChannel=null;unsubscribe();const next=all.find(c=>c.kind!=='voice'&&!c.is_password_protected);if(next)await selectChannel(next.id,all);else clearChat('Nemáš přístup k žádnému textovému kanálu.')}
   else if(activeText?.is_password_protected&&!(await ycEnsurePasswordChannelAccess(activeText,{prompt:false}))){currentChannel=null;unsubscribe();clearChat('🔒 Tento kanál je zaheslovaný. Klikni na něj a zadej heslo.');renderChannels(all)}
-  const activeVoice=hadVoice?all.find(c=>String(c.id)===hadVoice):null;
-  if(hadVoice&&!activeVoice){try{await ycRequestVoiceDisconnect()}catch{}}
-  else if(activeVoice?.is_password_protected&&!(await ycEnsurePasswordChannelAccess(activeVoice,{prompt:false}))){try{await ycRequestVoiceDisconnect()}catch{}}
+  const voiceCommunityId=String(voiceChannel?.community_id||voiceChannel?.communityId||'');
+  const voiceBelongsHere=!!hadVoice&&!!voiceCommunityId&&voiceCommunityId===cid;
+  const activeVoice=voiceBelongsHere?all.find(c=>String(c.id)===hadVoice):null;
+  // Browsing another community must never tear down the still-connected voice room.
+  // Only validate/disconnect voice when this refresh is for the community that owns it.
+  if(voiceBelongsHere&&!activeVoice){try{await ycRequestVoiceDisconnect()}catch{}}
+  else if(voiceBelongsHere&&activeVoice?.is_password_protected&&!(await ycEnsurePasswordChannelAccess(activeVoice,{prompt:false}))){try{await ycRequestVoiceDisconnect()}catch{}}
   return all;
 }
 const ycHiddenBaseSubscribeCommunityRealtime=subscribeCommunityRealtime;
