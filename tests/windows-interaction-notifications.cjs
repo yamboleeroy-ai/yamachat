@@ -2,7 +2,7 @@ const fs=require('node:fs'),assert=require('node:assert/strict');
 const client=fs.readFileSync('desktop/desktop-client.html','utf8');
 const pkg=require('../desktop/package.json');
 
-assert.equal(pkg.version,'1.0.100','Windows release version');
+assert.equal(pkg.version,'1.0.101','Windows release version');
 
 for(const marker of [
   'YC_CONTEXT_LONGPRESS_SELECTOR',
