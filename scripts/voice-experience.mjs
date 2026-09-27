@@ -274,6 +274,14 @@ export function withVoiceExperience(html){
  if(!html.includes(oldSyncVoicePeers))throw Error('Voice peer continuity boundary missing');
  html=html.replace(oldSyncVoicePeers,newSyncVoicePeers);
 
+ // Keep both the participant row and the active Realtime presence alive every heartbeat.
+ // This is the current desktop behaviour and prevents a cross-community view from letting
+ // the joined room's presence subscription silently go stale.
+ const oldVoiceHeartbeat="function startVoiceHeartbeat(){stopVoiceHeartbeat();syncVoiceParticipantRow();voiceHeartbeatTimer=setInterval(()=>{if(voiceChannel){syncVoiceParticipantRow();refreshVoiceParticipants(voiceChannel.id)}},5000)}\n";
+ const newVoiceHeartbeat="function startVoiceHeartbeat(){stopVoiceHeartbeat();const beat=()=>{if(!voiceChannel)return;ensureVoiceRooms(voiceChannelDefs);void trackVoicePresence().catch(e=>console.warn('voice presence keepalive',e));refreshVoiceParticipants(voiceChannel.id)};beat();voiceHeartbeatTimer=setInterval(beat,5000)}\n";
+ if(!html.includes(oldVoiceHeartbeat))throw Error('Voice heartbeat continuity boundary missing');
+ html=html.replace(oldVoiceHeartbeat,newVoiceHeartbeat);
+
  // The hidden/password-channel poll runs every 15 seconds. It must validate voice only against
  // the community that owns the joined voice channel, not whichever community is being browsed.
  const oldSecureVoiceRefresh="async function ycRefreshChannelsSecure(){\n  if(!currentCommunity)return[];const cid=String(currentCommunity.id);const all=await getChannels();if(String(currentCommunity?.id)!==cid)return all;\n  const hadText=currentChannel?.id?String(currentChannel.id):null,hadVoice=voiceChannel?.id?String(voiceChannel.id):null;\n  renderChannels(all);\n  const activeText=hadText?all.find(c=>String(c.id)===hadText):null;\n  if(hadText&&!activeText){currentChannel=null;unsubscribe();const next=all.find(c=>c.kind!=='voice'&&!c.is_password_protected);if(next)await selectChannel(next.id,all);else clearChat('Nemáš přístup k žádnému textovému kanálu.')}\n  else if(activeText?.is_password_protected&&!(await ycEnsurePasswordChannelAccess(activeText,{prompt:false}))){currentChannel=null;unsubscribe();clearChat('🔒 Tento kanál je zaheslovaný. Klikni na něj a zadej heslo.');renderChannels(all)}\n  const activeVoice=hadVoice?all.find(c=>String(c.id)===hadVoice):null;\n  if(hadVoice&&!activeVoice){try{await ycRequestVoiceDisconnect()}catch{}}\n  else if(activeVoice?.is_password_protected&&!(await ycEnsurePasswordChannelAccess(activeVoice,{prompt:false}))){try{await ycRequestVoiceDisconnect()}catch{}}\n  return all;\n}\n";
