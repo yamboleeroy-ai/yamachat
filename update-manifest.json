@@ -8,16 +8,16 @@
     "notes": "Yamachat 1.0.98\n\nStream fullscreen se na Windows otevírá na jeden klik přes celý monitor bez viditelného okraje.\nZavření a znovuotevření sledovaného streamu obnoví obraz i vyhrazený streamový zvuk bez restartu voice peeru.\nPři sdílení konkrétního okna na podporovaných Windows Yamachat zachytává zvuk pouze z vybrané aplikace a jejích child procesů; voice chat ani ostatní systémový zvuk se do streamu nemíchají.\nPři nedostupném app-only zachytávání se sdílení okna z bezpečnostních důvodů vrátí na video bez zvuku, ne na celý systémový loopback.\nUpdater, tray, WNS identita, přihlášení a voice/mikrofon transport zůstávají zachované."
   },
   "android": {
-    "latestVersion": "1.1.0.511",
-    "latestVersionCode": 200511,
+    "latestVersion": "1.1.0.530",
+    "latestVersionCode": 200530,
     "required": true,
-    "apkUrl": "https://yamachat.eu/download/Yamachat-Android.apk?v=200511",
-    "sha256": "c108593f5e5880d27e06c79a0737f771f7c40947d8266568641993d5dff7351c",
+    "apkUrl": "https://yamachat.eu/download/Yamachat-Android.apk?v=200530",
+    "sha256": "31ea740457287563552612e65bbfbdd8798400c707c8fc71c33e1d4b86311c80",
     "notes": [
-      "Opravený nezávislý stream viewer a stabilnější přechody mini/fullscreen.",
-      "Po zavření a znovuotevření sledovaného streamu se znovu připojí vyhrazený streamový zvuk bez restartu voice spojení.",
-      "Voice/mikrofon transport, mobilní rozložení, notifikace a ostatní funkce zůstávají zachované.",
-      "Zachytávání zvuku pouze z konkrétní Windows aplikace je Windows-only funkce streamera; Android ji umí normálně sledovat."
+      "Yamachat oznámení mají vlastní logo, ikonu a vlastní zvuk zprávy na Androidu.",
+      "Kliknutí na oznámení otevře přímo správnou DM, kanál a konkrétní zprávu.",
+      "FCM push při úplně ukončené APK je aktivní.",
+      "Současné mobilní rozložení, voice, Real Voices a ostatní funkce zůstávají beze změny."
     ]
   }
 }
