@@ -65,5 +65,25 @@ function section(s,start,end){const a=s.indexOf(start),b=s.indexOf(end,a);assert
   await page.screenshot({path:'tests/stream-preview.png'});
   assert.deepEqual(errors,[]);
   console.log('PASS viewer: first click fills viewport, volume changes receiver, Escape restores layout, no native resize or system-loopback fallback');
+  await page.goto('http://127.0.0.1');
+  await page.setViewportSize({width:390,height:844});
+  await page.addStyleTag({content:read('web/stream-viewer.css')});
+  await page.evaluate(()=>{
+   Object.defineProperty(navigator,'userAgent',{value:'iPhone'});Object.defineProperty(navigator,'standalone',{value:true});
+   Element.prototype.requestFullscreen=()=>Promise.reject(new Error('WebKit fullscreen unavailable'));
+   window.screenWatchingByUser=new Set(['viewer']);window.remoteScreenStreams=new Map();window.screenWatchPendingByUser=new Set();window.screenWatchTimers=new Map();window.screenShareActive=false;window.screenShareStream=null;
+   window.screenShareName=()=> 'Stream';window.ycScreenAudioStoredVolume=()=>.7;window.ycOnLifecycle=()=>{};window.toast=()=>{};window.ycStopWatchingScreenShare=()=>{};
+   window.__ycScreenAudioEls=new Map([['viewer',{volume:.7,paused:false,muted:false,play:()=>Promise.resolve()}]]);
+  });
+  await page.addScriptTag({content:read('web/stream-viewer.js')+'\nycStreamViewer.sync();'});
+  await page.evaluate(()=>window.originalVideo=document.querySelector('.yc-stream-viewer video'));
+  await page.locator('[data-action="fullscreen"]').click();
+  assert.equal(await page.locator('.yc-stream-viewer').getAttribute('data-mode'),'fullscreen');
+  assert(await page.locator('.yc-sv-footer input').isVisible());
+  assert.equal(Math.round((await page.locator('.yc-stream-viewer').boundingBox()).width),390);
+  await page.locator('[data-action="fullscreen"]').click();
+  assert.equal(await page.locator('.yc-stream-viewer').getAttribute('data-mode'),'floating');
+  assert(await page.evaluate(()=>window.originalVideo===document.querySelector('.yc-stream-viewer video')));
+  console.log('PASS simulated iOS PWA: denied element fullscreen falls back to full viewport with volume, return and same video element');
  }finally{await browser.close()}
 })().catch(e=>{console.error(e);process.exitCode=1});

@@ -54,7 +54,7 @@ const ycStreamViewer=(()=>{
     session.panel.dataset.mobile=String(isMobile);session.panel.dataset.mode=session.mode;
     let r;
     if(session.mode==='mini')r=miniRect(session,a);
-    else if(session.mode==='fullscreen'&&YC_STREAM_DESKTOP)r={x:0,y:0,width:window.innerWidth,height:window.innerHeight};
+    else if(session.mode==='fullscreen')r={x:window.visualViewport?.offsetLeft||0,y:window.visualViewport?.offsetTop||0,width:window.visualViewport?.width||window.innerWidth,height:window.visualViewport?.height||window.innerHeight};
     else if(session.mode==='maximized'||session.mode==='fullscreen'||isMobile)r={x:a.left,y:a.top,width:a.width,height:a.height};
     else{
       const original=session.rect||{x:a.right-Math.min(760,a.width),y:a.top+48,width:Math.min(760,a.width),height:Math.min(510,a.height)};
@@ -141,7 +141,7 @@ const ycStreamViewer=(()=>{
         try{
           const state=await bridge.set(entering);
           session.nativeFullscreenPending=false;
-          if(!!state?.fullscreen===entering)return;
+          if(!!state?.fullscreen===entering){layout(session);return;}
         }catch{}
         session.nativeFullscreenPending=false;
         session.mode=entering?returnMode:'fullscreen';layout(session);
