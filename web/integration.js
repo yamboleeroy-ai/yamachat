@@ -78,9 +78,12 @@ const YC_IOS_VOICE_RESUME_TTL=15*60*1000;
 const ycWebIsIosDevice=()=>/iP(?:hone|ad|od)/i.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
 const ycWebIsIosPwa=()=>ycWebIsIosDevice()&&(navigator.standalone===true||matchMedia('(display-mode: standalone)').matches);
 let ycIosVoiceHiddenAt=0,ycIosVoiceReconnectBusy=false,ycIosVoiceReconnectPromise=null,ycIosVoiceReconnectLastAt=0;
+function ycIosVoiceCommunityId(channel=voiceChannel){
+  return String(channel?.community_id||channel?.communityId||currentCommunity?.id||'');
+}
 function ycIosVoiceSaveTarget(channel=voiceChannel){
   if(!ycWebIsIosPwa()||!channel?.id||!user?.id)return;
-  try{localStorage.setItem(YC_IOS_VOICE_RESUME_KEY,JSON.stringify({userId:String(user.id),communityId:String(currentCommunity?.id||''),channelId:String(channel.id),name:String(channel.name||'Hlasový kanál'),savedAt:Date.now()}))}catch{}
+  try{localStorage.setItem(YC_IOS_VOICE_RESUME_KEY,JSON.stringify({userId:String(user.id),communityId:ycIosVoiceCommunityId(channel),channelId:String(channel.id),name:String(channel.name||'Hlasový kanál'),savedAt:Date.now()}))}catch{}
 }
 function ycIosVoiceReadTarget(){
   if(!ycWebIsIosPwa()||!user?.id)return null;
@@ -94,8 +97,9 @@ function ycIosVoiceReadTarget(){
 function ycIosVoiceClearTarget(){try{localStorage.removeItem(YC_IOS_VOICE_RESUME_KEY)}catch{}}
 function ycIosVoiceFindChannel(target){
   if(!target)return null;
-  if(target.communityId&&currentCommunity?.id&&String(target.communityId)!==String(currentCommunity.id))return null;
+  // A live joined room remains authoritative even when the user is browsing another community.
   if(voiceChannel&&String(voiceChannel.id)===String(target.channelId))return voiceChannel;
+  if(target.communityId&&currentCommunity?.id&&String(target.communityId)!==String(currentCommunity.id))return null;
   return (voiceChannelDefs||[]).find(ch=>String(ch.id)===String(target.channelId))||null;
 }
 async function ycIosVoiceReconnect(reason='resume'){
@@ -105,7 +109,7 @@ async function ycIosVoiceReconnect(reason='resume'){
   if(now-ycIosVoiceReconnectLastAt<2500)return false;
   const stored=ycIosVoiceReadTarget();
   const live=voiceChannel;
-  const target=live?{userId:String(user.id),communityId:String(currentCommunity?.id||''),channelId:String(live.id),name:String(live.name||'Hlasový kanál'),savedAt:now}:stored;
+  const target=live?{userId:String(user.id),communityId:ycIosVoiceCommunityId(live),channelId:String(live.id),name:String(live.name||'Hlasový kanál'),savedAt:now}:stored;
   if(!target)return false;
   const hiddenFor=ycIosVoiceHiddenAt?now-ycIosVoiceHiddenAt:0;
   const track=voiceStream?.getAudioTracks?.()[0]||null;
