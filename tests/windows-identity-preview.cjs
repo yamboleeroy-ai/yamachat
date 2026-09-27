@@ -81,6 +81,15 @@ async function boot(browser,width,height){
     assert.equal(await card.locator('.yc-v3-community-copy strong').innerText(),'Testovací komunita');
     assert(await card.evaluate(el=>el.classList.contains('active')),'Current community card is not active');
 
+    const ribbonBox=await page.locator('.yc-v3-ribbon').boundingBox();
+    const railBox=await page.locator('.yc-v3-ribbon .rail').boundingBox();
+    assert(ribbonBox&&ribbonBox.height<=80,'Community ribbon container is still too tall: '+ribbonBox?.height);
+    assert(railBox&&railBox.height<=78,'Community rail is still too tall: '+railBox?.height);
+    assert(railBox.width<700,'Community rail keeps excessive empty desktop width: '+railBox.width);
+    const railOverflow=await page.locator('.yc-v3-ribbon .rail').evaluate(el=>({x:getComputedStyle(el).overflowX,y:getComputedStyle(el).overflowY}));
+    assert.equal(railOverflow.x,'auto','Horizontal community scroll must stay enabled');
+    assert.equal(railOverflow.y,'hidden','Community rail must not gain vertical scrolling');
+
     const chatBox=await page.locator('.yc-v3-content-grid>.chat').boundingBox();
     const rightBox=await page.locator('.yc-v3-content-grid>.right').boundingBox();
     assert(chatBox&&chatBox.width>350,'Chat panel collapsed after rail change');
