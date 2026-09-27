@@ -1,6 +1,6 @@
 const fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict');
 const root=path.resolve(__dirname,'..');
-for(const target of ['index.html','desktop-client-dist/desktop-client.html']){
+for(const target of ['index.html','desktop/desktop-client.html']){
   const html=fs.readFileSync(path.join(root,target),'utf8');
   for(const marker of [
     "from('account_messages')",

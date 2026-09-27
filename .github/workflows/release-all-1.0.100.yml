@@ -16,6 +16,30 @@ jobs:
     secrets: inherit
   ios:
     uses: ./.github/workflows/mobile-ios.yml
+  apple:
+    runs-on: ubuntu-latest
+    outputs:
+      configured: ${{ steps.check.outputs.configured }}
+    steps:
+      - id: check
+        env:
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APP_STORE_CONNECT_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+          APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+          APP_STORE_CONNECT_API_KEY_BASE64: ${{ secrets.APP_STORE_CONNECT_API_KEY_BASE64 }}
+        run: |
+          ready=true
+          for key in APPLE_TEAM_ID APP_STORE_CONNECT_KEY_ID APP_STORE_CONNECT_ISSUER_ID APP_STORE_CONNECT_API_KEY_BASE64; do
+            if [ -z "${!key:-}" ]; then ready=false; echo "::notice::Apple distribution is not configured: $key"; fi
+          done
+          echo "configured=$ready" >> "$GITHUB_OUTPUT"
+  testflight:
+    needs: [ios, apple]
+    if: needs.apple.outputs.configured == 'true'
+    uses: ./.github/workflows/mobile-ios-testflight.yml
+    with:
+      marketing_version: '1.0.100'
+    secrets: inherit
   windows:
     runs-on: windows-latest
     timeout-minutes: 65
@@ -88,7 +112,8 @@ jobs:
           if-no-files-found: error
           retention-days: 30
   publish:
-    needs: [web, android, ios, windows]
+    needs: [web, android, ios, windows, apple, testflight]
+    if: ${{ always() && needs.web.result == 'success' && needs.android.result == 'success' && needs.ios.result == 'success' && needs.windows.result == 'success' && needs.apple.result == 'success' && (needs.testflight.result == 'success' || needs.testflight.result == 'skipped') }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
