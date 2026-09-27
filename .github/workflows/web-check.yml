@@ -6,7 +6,7 @@ on:
   pull_request:
   workflow_dispatch:
 permissions:
-  contents: read
+  contents: write
 jobs:
   check:
     runs-on: ubuntu-latest
@@ -59,3 +59,26 @@ jobs:
         with:
           name: Yamachat-Web
           path: web-dist
+      - name: Publish generated Web/PWA client
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          set -euo pipefail
+          cp index.html /tmp/yamachat-generated-index.html
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          for attempt in 1 2 3; do
+            git fetch origin main
+            git checkout -B publish-web origin/main
+            cp /tmp/yamachat-generated-index.html index.html
+            git add index.html
+            if git diff --cached --quiet; then
+              exit 0
+            fi
+            git commit -m "Publish generated Yamachat Web/PWA client [skip ci]"
+            if git push origin HEAD:main; then
+              exit 0
+            fi
+            echo "Web publish raced with another main update; retrying ($attempt/3)..."
+            sleep 2
+          done
+          exit 1
