@@ -32,6 +32,7 @@ window.streamTest={
   ycSyncStreamViewer();
  },
  same(){return this.firstVideo===document.querySelector('.yc-stream-viewer video')&&this.firstPeer===voicePeers.get('peer')},
+ peerSame(){return this.firstPeer===voicePeers.get('peer')},
  screenAudioReady(){const a=window.__ycScreenAudioEls?.get('peer');return !!this.firstScreenAudioTrack&&a?.srcObject?.getAudioTracks?.()[0]===this.firstScreenAudioTrack},
  screenAudioTrackKept(){return window.__ycScreenAudioTracks?.get('peer')===this.firstScreenAudioTrack&&!window.__ycScreenAudioEls?.has('peer')},
  async reopen(){await ycWatchScreenShare('peer');ycSyncStreamViewer()},
