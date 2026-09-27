@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
-  "publishedAt": "2026-09-27T02:20:32Z",
+  "publishedAt": "2026-09-27T08:35:41Z",
   "windows": {
-    "latestVersion": "1.0.99",
+    "latestVersion": "1.0.100",
     "required": true,
-    "releaseUrl": "https://github.com/yamboleeroy-ai/yamachat/releases/tag/v1.0.99",
-    "notes": "Yamachat 1.0.99\n\nDlouhé podržení / pravé tlačítko otevírá kontextové nabídky kanálů a uživatelů konzistentně napříč platformami.\nTest mikrofonu při aktivním voice dočasně ztlumí odesílaný mikrofon a po ukončení vrátí předchozí stav.\nZměna vstupního zařízení, echo cancellation, AGC nebo YamaClean během testu mikrofonu test obnoví a nechá ho běžet.\nOznámení lze individuálně zapnout nebo vypnout pro uživatele, textový kanál a celý server; priorita je uživatel > kanál > server.\nServer-side push filtrování respektuje preference i při zavřené aplikaci.\nStream fullscreen, app-only audio, WNS, updater a tray z 1.0.98 zůstávají zachované."
+    "releaseUrl": "https://github.com/yamboleeroy-ai/yamachat/releases/tag/v1.0.100",
+    "notes": "Yamachat 1.0.100\n\n- Opravený přenos zvuku vybrané aplikace přes nativní process loopback, bez automatického přepnutí na zvuk celého systému.\n- Sdílení celé obrazovky vylučuje zvuk procesů Yamachatu. Známé virtuální výstupy (např. FxSound) bezpečně odmítne s vysvětlením; obraz lze dál sdílet.\n- Fullscreen přehrávače zachovává stav desktopového okna a dostupné ovládání hlasitosti. iOS/PWA má bezpečný režim přes celý viewport.\n- Kontrola aktualizací po 20 minutách v aktivní online aplikaci, kontrola při návratu a značka Update v Nastavení.\n- Volba Auto / Mužský / Ženský hlas podle dostupných hlasů zařízení, se zachováním testu, čtení jmen a join/leave zvuků.\n- Android zachovává permanentní podpis, Firebase oznámení a aktuální mobilní klient. Web/PWA používá aktuální ověřený zdroj, bez regenerace ze staré reference.\n\nOmezení: kompletní kombinace spuštění Windows jako správce a zvýšených práv cílových aplikací ještě nebyla ověřena na reálném zařízení. Dostupnost mužského/ženského hlasu závisí na hlasech nainstalovaných v zařízení. iOS fullscreen byl ověřen simulací fallbacku, nikoli na fyzickém iPhonu.\n\nPředchozí vydání v1.0.99 zůstává dostupné pro návrat."
   },
   "android": {
     "latestVersion": "1.1.0.531",
