@@ -65,6 +65,7 @@ for(const [from,to] of [
   ['Otevřít server','Otevřít komunitu'],
   ['Server už neexistuje.','Komunita už neexistuje.'],
   ['Barvu serveru může měnit jen vlastník.','Barvu komunity může měnit jen vlastník.'],
+  ['Barva serveru','Barva komunity'],
   ['🎨 Barva serveru · ','🎨 Barva komunity · '],
   ['Tato barva patří serveru. Uvidí ji všichni členové na hlavičce serveru a na jeho ikoně. Osobní barva Yamachatu každého uživatele zůstává beze změny.','Tato barva patří komunitě. Uvidí ji všichni členové na hlavičce komunity a na její ikoně. Osobní barva Yamachatu každého uživatele zůstává beze změny.'],
   ['Vlastní barva serveru','Vlastní barva komunity'],
