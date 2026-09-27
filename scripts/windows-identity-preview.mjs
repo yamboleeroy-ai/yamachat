@@ -135,7 +135,6 @@ const style=`
 <style id="ycWindowsIdentityPreviewStyle">
 /* Windows-only identity preview. Shared Web/PWA/mobile sources are intentionally untouched. */
 @media (min-width:1101px){
-  body .app .yc-v3-workspace{grid-template-rows:52px 78px minmax(0,1fr) 126px!important}
   body .app .yc-v3-ribbon{height:76px!important;min-height:76px!important;padding:0!important;justify-self:start!important;width:fit-content!important;max-width:100%!important;overflow:hidden!important}
   body .app .yc-v3-ribbon-head{display:none!important}
   body .app .yc-v3-ribbon .rail{gap:7px!important;height:76px!important;min-height:76px!important;width:max-content!important;max-width:100%!important;overflow-x:auto!important;overflow-y:hidden!important}
