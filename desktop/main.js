@@ -10,7 +10,8 @@ const {
   dialog,
   nativeImage,
   ipcMain,
-  screen
+  screen,
+  net
 } = require('electron')
 
 const path = require('path');
@@ -19,6 +20,11 @@ const { pathToFileURL } = require('url');
 const crypto = require('crypto');
 const { execFile, spawn } = require('child_process');
 const { YamachatUpdater } = require('./updater');
+const isPreviewBuild = fs.existsSync(path.join(__dirname, 'preview.json'));
+if (isPreviewBuild) {
+  app.setName('Yamachat Preview');
+  app.setPath('userData', path.join(app.getPath('appData'), 'Yamachat-Stream-Preview'));
+}
 
 let mainWindow = null;
 let yamachatUpdater = null;
@@ -72,8 +78,7 @@ function startProcessAudioCapture() {
   stopProcessAudioCapture('restart');
   const selection = lastDisplayCaptureSelection;
   if (!selection?.audioRequested) return Promise.resolve({ mode: 'none', reason: 'audio-not-requested' });
-  if (selection.kind !== 'window') return Promise.resolve({ mode: 'system', reason: 'entire-screen-source' });
-  if (!selection.windowHandle) return Promise.resolve({ mode: 'unavailable', reason: 'window-handle-unavailable' });
+  if (selection.kind === 'window' && !selection.windowHandle) return Promise.resolve({ mode: 'unavailable', reason: 'window-handle-unavailable' });
 
   const executable = processAudioExecutablePath();
   if (!fs.existsSync(executable)) {
@@ -81,7 +86,7 @@ function startProcessAudioCapture() {
   }
 
   const generation = ++processAudioGeneration;
-  const child = spawn(executable, ['--hwnd', selection.windowHandle], {
+  const child = spawn(executable, selection.kind === 'window' ? ['--hwnd', selection.windowHandle] : ['--exclude-pid', String(process.pid)], {
     windowsHide: true,
     stdio: ['ignore', 'pipe', 'pipe']
   });
@@ -102,7 +107,7 @@ function startProcessAudioCapture() {
       sendProcessAudioStatus({ state: 'error', reason, detail, generation });
       finish({ mode: 'unavailable', reason, detail });
     };
-    const timer = setTimeout(() => fail('process-audio-start-timeout', stderr.slice(-500)), 4500);
+    const timer = setTimeout(() => fail('process-audio-start-timeout', stderr.slice(-500)), 8000);
 
     child.stdout.on('data', (chunk) => {
       if (processAudioChild !== child || generation !== processAudioGeneration || !chunk?.length) return;
@@ -123,6 +128,7 @@ function startProcessAudioCapture() {
       if (!ready || settled) return;
       const result = {
         mode: 'process',
+        scope: selection.kind === 'window' ? 'include-tree' : 'exclude-yamachat-tree',
         generation,
         targetName: selection.name || '',
         pid: Number(ready[1]),
@@ -306,6 +312,7 @@ function requestPackagedWnsAction(action, timeoutMs = 90000) {
 }
 
 function requestWindowsWnsChannel() {
+  if (isPreviewBuild) return Promise.resolve({ ok: false, error: 'preview-wns-isolated' });
   return requestPackagedWnsAction('register');
 }
 
@@ -1423,6 +1430,7 @@ function createWindow() {
 
   win.on('focus', () => {
     wakeBackgroundAudio(win);
+    void yamachatUpdater?.check?.(false);
   });
 
   win.on('blur', () => {
@@ -1512,13 +1520,14 @@ function createWindow() {
 app.whenReady().then(async () => {
   if (!hasInstanceLock) return;
   app.setAppUserModelId('cz.yamachat.desktop');
-  try { app.setAsDefaultProtocolClient('yamachat'); } catch (error) { console.warn('Yamachat protocol registration:', error.message); }
+  try { if (!isPreviewBuild) app.setAsDefaultProtocolClient('yamachat'); } catch (error) { console.warn('Yamachat protocol registration:', error.message); }
   appSettings = loadAppSettings();
 
   yamachatUpdater = new YamachatUpdater({ app, getWindow: () => mainWindow });
   await yamachatUpdater.init();
 
   handleClientIpc('yamachat:update-get-state', () => yamachatUpdater?.publicState?.() || null);
+  handleClientIpc('yamachat:update-resume', () => { void yamachatUpdater?.check?.(false); return null; });
   handleClientIpc('yamachat:update-check', () => { void yamachatUpdater?.check?.(true); return yamachatUpdater?.publicState?.() || null; });
   handleClientIpc('yamachat:update-download', () => { void yamachatUpdater?.download?.(); return yamachatUpdater?.publicState?.() || null; });
   handleClientIpc('yamachat:update-install', async () => yamachatUpdater?.install?.() || { ok: false });
@@ -1548,21 +1557,7 @@ app.whenReady().then(async () => {
     maximized: !!(mainWindow && !mainWindow.isDestroyed() && mainWindow.isMaximized()),
     fullscreen: !!(mainWindow && !mainWindow.isDestroyed() && mainWindow.isFullScreen())
   }));
-  handleClientIpc('yamachat:stream-fullscreen', async (_event, active) => {
-    if (!mainWindow || mainWindow.isDestroyed()) return { fullscreen: false, maximized: false };
-    const wanted = !!active;
-    if (mainWindow.isFullScreen() !== wanted) {
-      mainWindow.setFullScreen(wanted);
-      const deadline = Date.now() + 1600;
-      while (mainWindow && !mainWindow.isDestroyed() && mainWindow.isFullScreen() !== wanted && Date.now() < deadline) {
-        await new Promise(resolve => setTimeout(resolve, 25));
-      }
-    }
-    return {
-      fullscreen: !!(mainWindow && !mainWindow.isDestroyed() && mainWindow.isFullScreen()),
-      maximized: !!(mainWindow && !mainWindow.isDestroyed() && mainWindow.isMaximized())
-    };
-  });
+  // Viewer fullscreen is confined to the renderer; native window bounds never change.
   handleClientIpc('yamachat:process-audio-start', async () => startProcessAudioCapture());
   handleClientIpc('yamachat:process-audio-stop', async () => {
     stopProcessAudioCapture('renderer-stop');
@@ -1575,7 +1570,7 @@ app.whenReady().then(async () => {
       kind: selection.kind,
       name: selection.name,
       audioRequested: !!selection.audioRequested,
-      processAudioAvailable: selection.kind === 'window' && !!selection.windowHandle && fs.existsSync(processAudioExecutablePath())
+      processAudioAvailable: (selection.kind === 'screen' || !!selection.windowHandle) && fs.existsSync(processAudioExecutablePath())
     };
   });
 
@@ -1669,12 +1664,12 @@ app.whenReady().then(async () => {
           console.log(
             'Stream audio requested:',
             shareSystemAudio,
-            isWindowSource ? 'process-only' : 'system-loopback'
+            isWindowSource ? 'process-only' : 'exclude-yamachat-tree'
           );
 
           callback({
             video: source,
-            ...(shareSystemAudio && !isWindowSource ? { audio: 'loopback' } : {})
+            // Audio is attached separately. Never capture Yamachat playback through system loopback.
           });
 
         } catch (error) {

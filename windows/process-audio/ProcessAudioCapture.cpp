@@ -86,12 +86,12 @@ class ActivationHandler final
   ComPtr<IAudioClient> client_;
 };
 
-HRESULT activate_process_loopback(DWORD processId, ComPtr<IAudioClient>& client) {
+HRESULT activate_process_loopback(DWORD processId, bool excludeTree, ComPtr<IAudioClient>& client) {
   AUDIOCLIENT_ACTIVATION_PARAMS params = {};
   params.ActivationType = AUDIOCLIENT_ACTIVATION_TYPE_PROCESS_LOOPBACK;
   params.ProcessLoopbackParams.TargetProcessId = processId;
   params.ProcessLoopbackParams.ProcessLoopbackMode =
-      PROCESS_LOOPBACK_MODE_INCLUDE_TARGET_PROCESS_TREE;
+      excludeTree ? PROCESS_LOOPBACK_MODE_EXCLUDE_TARGET_PROCESS_TREE : PROCESS_LOOPBACK_MODE_INCLUDE_TARGET_PROCESS_TREE;
 
   PROPVARIANT activation = {};
   PropVariantInit(&activation);
@@ -137,7 +137,31 @@ bool parse_u64(const wchar_t* text, uint64_t& value) {
   return true;
 }
 
-int capture_process(DWORD processId) {
+DWORD integrity_level(HANDLE process) {
+  HANDLE token = nullptr;
+  if (!OpenProcessToken(process, TOKEN_QUERY, &token)) return 0;
+  DWORD length = 0;
+  GetTokenInformation(token, TokenIntegrityLevel, nullptr, 0, &length);
+  std::vector<BYTE> data(length);
+  DWORD level = 0;
+  if (length && GetTokenInformation(token, TokenIntegrityLevel, data.data(), length, &length)) {
+    auto label = reinterpret_cast<TOKEN_MANDATORY_LABEL*>(data.data());
+    auto count = *GetSidSubAuthorityCount(label->Label.Sid);
+    if (count) level = *GetSidSubAuthority(label->Label.Sid, count - 1);
+  }
+  CloseHandle(token);
+  return level;
+}
+
+int capture_process(DWORD processId, bool excludeTree) {
+  HANDLE target = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE, processId);
+  const DWORD targetError = target ? 0 : GetLastError();
+  const DWORD ownLevel = integrity_level(GetCurrentProcess());
+  const DWORD targetLevel = target ? integrity_level(target) : 0;
+  if (target) CloseHandle(target);
+  fwprintf(stderr, L"YAMACHAT_PROCESS_AUDIO_DIAGNOSTIC helperIntegrity=%lu targetIntegrity=%lu targetError=%lu exclusion=%u\n",
+           ownLevel, targetLevel, targetError, excludeTree ? 1u : 0u);
+  fflush(stderr);
   HRESULT hr = CoInitializeEx(nullptr, COINIT_MULTITHREADED);
   const bool comInitialized = SUCCEEDED(hr);
   if (FAILED(hr) && hr != RPC_E_CHANGED_MODE) {
@@ -146,7 +170,7 @@ int capture_process(DWORD processId) {
   }
 
   ComPtr<IAudioClient> audioClient;
-  hr = activate_process_loopback(processId, audioClient);
+  hr = activate_process_loopback(processId, excludeTree, audioClient);
   if (FAILED(hr)) {
     print_hresult(L"ActivateAudioInterfaceAsync", hr);
     if (comInitialized) CoUninitialize();
@@ -283,12 +307,12 @@ int capture_process(DWORD processId) {
 
 int wmain(int argc, wchar_t** argv) {
   if (argc == 2 && wcscmp(argv[1], L"--version") == 0) {
-    fwprintf(stdout, L"Yamachat.ProcessAudioCapture 1\n");
+    fwprintf(stdout, L"Yamachat.ProcessAudioCapture 2\n");
     return 0;
   }
 
-  if (argc != 3 || (wcscmp(argv[1], L"--hwnd") != 0 && wcscmp(argv[1], L"--pid") != 0)) {
-    fwprintf(stderr, L"Usage: Yamachat.ProcessAudioCapture (--hwnd <window-handle> | --pid <process-id>)\n");
+  if (argc != 3 || (wcscmp(argv[1], L"--hwnd") != 0 && wcscmp(argv[1], L"--pid") != 0 && wcscmp(argv[1], L"--exclude-pid") != 0)) {
+    fwprintf(stderr, L"Usage: Yamachat.ProcessAudioCapture (--hwnd <window-handle> | --pid <process-id> | --exclude-pid <process-id>)\n");
     return 2;
   }
 
@@ -299,7 +323,7 @@ int wmain(int argc, wchar_t** argv) {
   }
 
   DWORD pid = 0;
-  if (wcscmp(argv[1], L"--pid") == 0) {
+  if (wcscmp(argv[1], L"--hwnd") != 0) {
     if (raw > MAXDWORD) {
       fwprintf(stderr, L"YAMACHAT_PROCESS_AUDIO_ERROR process id out of range\n");
       return 4;
@@ -314,5 +338,5 @@ int wmain(int argc, wchar_t** argv) {
     }
   }
 
-  return capture_process(pid);
+  return capture_process(pid, wcscmp(argv[1], L"--exclude-pid") == 0);
 }

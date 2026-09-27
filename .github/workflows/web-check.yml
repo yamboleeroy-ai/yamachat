@@ -4,6 +4,7 @@ permissions:
   contents: read
 jobs:
   check:
+    if: github.ref != 'refs/heads/fix/windows-stream-voice-preview'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

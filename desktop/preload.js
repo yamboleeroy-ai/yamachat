@@ -7,7 +7,7 @@ contextBridge.exposeInMainWorld('yamachatDesktop', {
   toggleMaximizeWindow: () => ipcRenderer.invoke('yamachat:window-toggle-maximize'),
   closeWindow: () => ipcRenderer.invoke('yamachat:window-close'),
   getWindowState: () => ipcRenderer.invoke('yamachat:get-window-state'),
-  setStreamFullscreen: (active) => ipcRenderer.invoke('yamachat:stream-fullscreen', !!active),
+  resumeUpdateCheck: () => ipcRenderer.invoke('yamachat:update-resume'),
   startProcessAudioCapture: () => ipcRenderer.invoke('yamachat:process-audio-start'),
   stopProcessAudioCapture: () => ipcRenderer.invoke('yamachat:process-audio-stop'),
   getProcessAudioSelection: () => ipcRenderer.invoke('yamachat:process-audio-selection'),

@@ -9,7 +9,7 @@ const UPDATE_OWNER = 'yamboleeroy-ai';
 const UPDATE_REPO = 'yamachat';
 const UPDATE_CHANNEL = 'latest';
 const STARTUP_CHECK_DELAY_MS = 15_000;
-const PERIODIC_CHECK_MS = 6 * 60 * 60 * 1000;
+const PERIODIC_CHECK_MS = 20 * 60 * 1000;
 const HEALTH_STABLE_MS = 8_000;
 
 function safeError(error) {
@@ -62,8 +62,10 @@ class YamachatUpdater {
     this.checkPromise = null;
     this.downloadPromise = null;
     this.lastManualCheckAt = 0;
+    this.lastCheckAt = 0;
 
-    this.runtimeRoot = path.join(process.env.LOCALAPPDATA || app.getPath('userData'), 'YamachatUpdater');
+    this.preview = fs.existsSync(path.join(__dirname, 'preview.json'));
+    this.runtimeRoot = this.preview ? path.join(app.getPath('userData'), 'updater-preview') : path.join(process.env.LOCALAPPDATA || app.getPath('userData'), 'YamachatUpdater');
     this.stateFile = path.join(this.runtimeRoot, 'state.json');
     this.helperDir = path.join(this.runtimeRoot, 'helper');
     this.sessionDir = path.join(this.runtimeRoot, 'sessions');
@@ -113,6 +115,7 @@ class YamachatUpdater {
   }
 
   async init() {
+    if (this.preview) return this.setState({status:'disabled',portable:true,canAutoUpdate:false,reason:'Preview má vlastní profil a neinstaluje aktualizace.'});
     fs.mkdirSync(this.runtimeRoot, { recursive: true });
     this.state.rollbackReady = fs.existsSync(this.installedSetup);
 
@@ -241,7 +244,15 @@ class YamachatUpdater {
     if (!this.ready || !this.autoUpdater) return this.publicState();
     if (this.downloadPromise || ['downloading', 'downloaded', 'installing'].includes(this.state.status)) return this.publicState();
     if (this.checkPromise) return this.publicState();
-    if (manual) this.lastManualCheckAt = Date.now();
+    const now = Date.now();
+    if (!manual) {
+      if (!require('electron').net.isOnline()) return this.publicState();
+      const win = this.getWindow();
+      if (!win || win.isDestroyed() || !win.isVisible() || win.isMinimized()) return this.publicState();
+    }
+    if (this.lastCheckAt && now - this.lastCheckAt < (manual ? 30_000 : PERIODIC_CHECK_MS)) return this.publicState();
+    this.lastCheckAt = now;
+    if (manual) this.lastManualCheckAt = now;
     this.checkPromise = Promise.resolve()
       .then(() => this.autoUpdater.checkForUpdates())
       .catch(error => this.setState({ status: 'error', error: safeError(error) }))
@@ -253,7 +264,7 @@ class YamachatUpdater {
   async download() {
     if (!this.ready || !this.autoUpdater) return this.publicState();
     if (!['available', 'error'].includes(this.state.status)) return this.publicState();
-    if (this.downloadPromise) return this.publicState();
+    if (this.downloadPromise || this.checkPromise) return this.publicState();
     this.setState({ status: 'downloading', percent: 0, transferred: 0, total: 0, bytesPerSecond: 0, error: '' });
     this.downloadPromise = Promise.resolve()
       .then(() => this.autoUpdater.downloadUpdate())

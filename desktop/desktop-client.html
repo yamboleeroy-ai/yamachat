@@ -1002,12 +1002,14 @@ html body .yc-ss-note{
 .yc-stream-viewer[data-mode="mini"] .yc-sv-media{cursor:pointer}
 .yc-stream-viewer[data-mode="fullscreen"]{border:0;border-radius:0}
 .yc-stream-viewer[data-mode="fullscreen"] .yc-sv-header{position:absolute;top:max(8px,env(safe-area-inset-top));right:max(8px,env(safe-area-inset-right));z-index:5;flex-basis:auto;padding:0;background:transparent;cursor:default}
-.yc-stream-viewer[data-mode="fullscreen"] .yc-sv-avatar,.yc-stream-viewer[data-mode="fullscreen"] .yc-sv-title,.yc-stream-viewer[data-mode="fullscreen"] [data-action="maximize"],.yc-stream-viewer[data-mode="fullscreen"] [data-action="minimize"],.yc-stream-viewer[data-mode="fullscreen"] [data-action="close"],.yc-stream-viewer[data-mode="fullscreen"] .yc-sv-footer,.yc-stream-viewer[data-mode="fullscreen"] .yc-sv-resize{display:none}
+.yc-stream-viewer[data-mode="fullscreen"] .yc-sv-avatar,.yc-stream-viewer[data-mode="fullscreen"] .yc-sv-title,.yc-stream-viewer[data-mode="fullscreen"] [data-action="maximize"],.yc-stream-viewer[data-mode="fullscreen"] [data-action="minimize"],.yc-stream-viewer[data-mode="fullscreen"] [data-action="close"],.yc-stream-viewer[data-mode="fullscreen"] .yc-sv-resize{display:none}
 .yc-stream-viewer[data-mode="fullscreen"] [data-action="fullscreen"]{background:#071019cc;backdrop-filter:blur(8px)}
 .yc-stream-viewer[data-mobile="true"] .yc-sv-header{cursor:default;flex-basis:52px}
 .yc-stream-viewer[data-mobile="true"]:not([data-mode="mini"]) [data-action="maximize"],.yc-stream-viewer[data-mobile="true"] .yc-sv-resize,.yc-stream-viewer[data-mode="maximized"] .yc-sv-resize{display:none}
 .yc-stream-viewer:fullscreen{width:100%!important;height:100%!important;inset:0!important;border:0;border-radius:0;padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)}
 .yc-sv-safe-area{position:absolute;visibility:hidden;pointer-events:none;padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)}
+
+.yc-stream-viewer[data-mode="fullscreen"] .yc-sv-footer{display:flex;position:absolute;bottom:max(8px,env(safe-area-inset-bottom));left:max(8px,env(safe-area-inset-left));right:max(8px,env(safe-area-inset-right));z-index:6;padding:10px 14px;background:#071019e8;border-radius:10px}
 </style>
 </head>
 <body>
@@ -1760,6 +1762,7 @@ async function ycPrepareDesktopProcessAudio(stream){
    for(const track of stream.getAudioTracks())try{stream.removeTrack(track);track.stop()}catch{};
    stream.addTrack(result.track);window.__ycDesktopProcessAudioMode='process';return result;
   }
+  if(result?.mode==='unavailable')toast('Obraz se sdílí bez zvuku: '+(result.detail||result.reason||'zachytávání zvuku není dostupné')+'. U hry ověř stejná oprávnění hry a Yamachatu. Systémový zvuk se jako náhrada nepoužije.',true);
   window.__ycDesktopProcessAudioMode=result?.mode||'none';return result||{mode:'none'};
  }catch(e){console.warn('desktop process audio start',e);window.__ycDesktopProcessAudioMode='unavailable';return{mode:'unavailable',reason:e?.message||String(e)}}
 }
@@ -1769,7 +1772,7 @@ async function startScreenShare(){
   if(!voiceChannel){toast('Nejdřív se připoj do hlasového kanálu.',true);return}
   const media=getScreenMediaDevices();if(!media?.getDisplayMedia){toast('Tento prohlížeč nepodporuje sdílení obrazovky.',true);return}
   let stream
-  try{stream=await media.getDisplayMedia({video:{width:{ideal:ycScreenShareProfile().width,max:ycScreenShareProfile().width},height:{ideal:ycScreenShareProfile().height,max:ycScreenShareProfile().height},frameRate:{ideal:ycScreenShareProfile().fps,max:ycScreenShareProfile().fps}},audio:{restrictOwnAudio:true},systemAudio:'include',surfaceSwitching:'include'})}catch(e){if(e?.name!=='NotAllowedError')toast('Sdílení obrazovky se nepodařilo spustit: '+(e?.message||e),true);return}
+  try{stream=await media.getDisplayMedia({video:{width:{ideal:ycScreenShareProfile().width,max:ycScreenShareProfile().width},height:{ideal:ycScreenShareProfile().height,max:ycScreenShareProfile().height},frameRate:{ideal:ycScreenShareProfile().fps,max:ycScreenShareProfile().fps}},audio:{restrictOwnAudio:true},systemAudio:'include',surfaceSwitching:'include'})}catch(e){toast('Sdílení bylo zrušeno nebo jej Windows nepovolil. Pokud výběr proběhl, zkus běžné spuštění Yamachatu a stejná oprávnění jako u hry. Chyba: '+(e?.message||e),true);return}
   await ycPrepareDesktopProcessAudio(stream);const track=stream.getVideoTracks()[0];if(!track){stream.getTracks().forEach(t=>t.stop());toast('Nebyl vybrán žádný obraz.',true);return}
   screenShareStream=stream;screenShareActive=true;screenShareViewers.clear()
   await enableScreenShareAudio(stream)
@@ -2203,7 +2206,7 @@ function ycVoiceHandleAnnouncement(payload){
     if(String(payload.room_id||'')!==String(voiceChannel?.id||''))return
     const name=String(payload.name||'Uživatel').trim()||'Uživatel'
     if(payload.action==='join')ycVoiceSpeak(name+' se připojil do místnosti')
-    else if(payload.action==='leave')ycVoiceSpeak(name+' opustil místnost')
+    else if(payload.action==='leave')ycVoiceSpeak(name+' se odpojil')
   }catch(e){console.warn('voice announcement receive',e)}
 }
 async function ycVoiceUnsubscribeAnnouncement(){
@@ -2726,15 +2729,20 @@ function ycRegisterAppSettingsSection(config){if(!config?.id)throw new Error('Ap
 function ycCloseBehaviorSectionHtml(){const v=ycAppSettingsState.closeBehavior||'ask';const choice=(value,title,desc)=>'<label class="yc-setting-choice"><input type="radio" name="ycCloseBehavior" value="'+value+'" '+(v===value?'checked':'')+'><span><strong>'+title+'</strong><small>'+desc+'</small></span></label>';return choice('tray','Minimalizovat do systémové lišty','Kliknutí na X schová Yamachat do traye a aplikace zůstane běžet na pozadí.')+choice('quit','Ukončit aplikaci','Kliknutí na X Yamachat úplně ukončí včetně voice spojení.')+choice('ask','Vždy se zeptat','Při zavření zobrazí volbu mezi trayem a úplným ukončením.')}
 function ycUpdateFmtBytes(v){const n=Number(v||0);if(!n)return '0 B';const u=['B','KB','MB','GB'];let i=0,x=n;while(x>=1024&&i<u.length-1){x/=1024;i++}return (x>=100||i===0?Math.round(x):x.toFixed(1))+' '+u[i]}
 function ycUpdateMeta(){const st=ycUpdateState||{},status=st.status||'idle';if(status==='checking')return{label:'Kontroluji…',cls:''};if(status==='available')return{label:'Nová verze',cls:'warn'};if(status==='downloading')return{label:'Stahuji…',cls:''};if(status==='downloaded')return{label:'Připraveno',cls:'good'};if(status==='up-to-date')return{label:'Aktuální',cls:'good'};if(status==='installing')return{label:'Instaluji…',cls:'warn'};if(status==='error')return{label:'Chyba',cls:'bad'};if(status==='disabled')return{label:'Portable',cls:'warn'};return{label:'Připraveno',cls:''}}
-function ycUpdateBodyHtml(){const st=ycUpdateState||{},m=ycUpdateMeta(),pct=Math.max(0,Math.min(100,Number(st.percent||0))),download=status=>status==='downloading'||status==='downloaded',status=st.status||'idle';let detail='';if(status==='disabled')detail=st.reason||'Automatické aktualizace jsou dostupné v nainstalované Setup.exe verzi.';else if(status==='checking')detail='Yamachat kontroluje GitHub Releases.';else if(status==='available')detail='Aktualizace je připravená ke stažení přímo v aplikaci.';else if(status==='downloading')detail='Stahování probíhá na pozadí. Yamachat můžeš dál používat.';else if(status==='downloaded')detail='Staženo a ověřeno. Po restartu se nainstaluje nová verze.';else if(status==='up-to-date')detail='Používáš nejnovější veřejnou verzi Yamachatu.';else if(status==='installing')detail='Yamachat se za chvíli zavře, aktualizuje a znovu spustí.';else if(status==='error')detail=st.error||'Aktualizaci se nepodařilo dokončit.';else detail='Kontrola probíhá automaticky po spuštění a potom každých několik hodin.';const showProgress=download(status);const notes=String(st.releaseNotes||'').trim();const available=st.availableVersion?'<span>Nová verze <b>'+esc(st.availableVersion)+'</b></span>':'';let actions='';if(status==='available')actions='<button id="ycUpdateCheck" type="button">Zkontrolovat znovu</button><button id="ycUpdateDownload" class="primary" type="button">Stáhnout aktualizaci</button>';else if(status==='downloaded')actions='<button id="ycUpdateInstall" class="primary" type="button">Restartovat a aktualizovat</button>';else if(status==='downloading'||status==='checking'||status==='installing')actions='<button type="button" disabled>'+esc(m.label)+'</button>';else if(status==='disabled')actions='<button type="button" disabled>Vyžaduje Setup.exe</button>';else actions='<button id="ycUpdateCheck" class="primary" type="button">Zkontrolovat aktualizace</button>';return '<div class="yc-update-card"><div class="yc-update-head"><div class="yc-update-logo">Y</div><div class="yc-update-copy"><strong>Yamachat Desktop</strong><small>Automatické aktualizace přes GitHub Releases</small></div><span class="yc-update-badge '+m.cls+'">'+esc(m.label)+'</span></div><div class="yc-update-body"><div class="yc-update-version"><span>Nainstalováno <b>'+esc(st.currentVersion||'—')+'</b></span>'+available+'</div>'+(showProgress?'<div class="yc-update-progress"><i style="width:'+pct.toFixed(1)+'%"></i></div><div class="yc-update-progress-meta"><span>'+pct.toFixed(0)+' %</span><span>'+ycUpdateFmtBytes(st.transferred)+' / '+ycUpdateFmtBytes(st.total)+(st.bytesPerSecond?' · '+ycUpdateFmtBytes(st.bytesPerSecond)+'/s':'')+'</span></div>':'')+(notes?'<div class="yc-update-notes">'+esc(notes)+'</div>':'')+'<div class="yc-update-detail '+(status==='error'?'error':'')+'">'+esc(detail)+'</div><div class="yc-update-actions">'+actions+'</div><div class="yc-update-safety '+(st.rollbackReady?'ok':'')+'">'+(st.rollbackReady?'✓ Bezpečný návrat k předchozí verzi je připravený.':'🛡 Po instalaci přes Setup.exe se automaticky připravuje lokální záloha pro rollback.')+'</div></div></div>'}
+function ycUpdateBodyHtml(){const st=ycUpdateState||{},m=ycUpdateMeta(),pct=Math.max(0,Math.min(100,Number(st.percent||0))),download=status=>status==='downloading'||status==='downloaded',status=st.status||'idle';let detail='';if(status==='disabled')detail=st.reason||'Automatické aktualizace jsou dostupné v nainstalované Setup.exe verzi.';else if(status==='checking')detail='Yamachat kontroluje GitHub Releases.';else if(status==='available')detail='Aktualizace je připravená ke stažení přímo v aplikaci.';else if(status==='downloading')detail='Stahování probíhá na pozadí. Yamachat můžeš dál používat.';else if(status==='downloaded')detail='Staženo a ověřeno. Po restartu se nainstaluje nová verze.';else if(status==='up-to-date')detail='Používáš nejnovější veřejnou verzi Yamachatu.';else if(status==='installing')detail='Yamachat se za chvíli zavře, aktualizuje a znovu spustí.';else if(status==='error')detail=st.error||'Aktualizaci se nepodařilo dokončit.';else detail='Kontrola probíhá automaticky po spuštění a potom každých 20 minut při aktivní online aplikaci.';const showProgress=download(status);const notes=String(st.releaseNotes||'').trim();const available=st.availableVersion?'<span>Nová verze <b>'+esc(st.availableVersion)+'</b></span>':'';let actions='';if(status==='available')actions='<button id="ycUpdateCheck" type="button">Zkontrolovat znovu</button><button id="ycUpdateDownload" class="primary" type="button">Stáhnout aktualizaci</button>';else if(status==='downloaded')actions='<button id="ycUpdateInstall" class="primary" type="button">Restartovat a aktualizovat</button>';else if(status==='downloading'||status==='checking'||status==='installing')actions='<button type="button" disabled>'+esc(m.label)+'</button>';else if(status==='disabled')actions='<button type="button" disabled>Vyžaduje Setup.exe</button>';else actions='<button id="ycUpdateCheck" class="primary" type="button">Zkontrolovat aktualizace</button>';return '<div class="yc-update-card"><div class="yc-update-head"><div class="yc-update-logo">Y</div><div class="yc-update-copy"><strong>Yamachat Desktop</strong><small>Automatické aktualizace přes GitHub Releases</small></div><span class="yc-update-badge '+m.cls+'">'+esc(m.label)+'</span></div><div class="yc-update-body"><div class="yc-update-version"><span>Nainstalováno <b>'+esc(st.currentVersion||'—')+'</b></span>'+available+'</div>'+(showProgress?'<div class="yc-update-progress"><i style="width:'+pct.toFixed(1)+'%"></i></div><div class="yc-update-progress-meta"><span>'+pct.toFixed(0)+' %</span><span>'+ycUpdateFmtBytes(st.transferred)+' / '+ycUpdateFmtBytes(st.total)+(st.bytesPerSecond?' · '+ycUpdateFmtBytes(st.bytesPerSecond)+'/s':'')+'</span></div>':'')+(notes?'<div class="yc-update-notes">'+esc(notes)+'</div>':'')+'<div class="yc-update-detail '+(status==='error'?'error':'')+'">'+esc(detail)+'</div><div class="yc-update-actions">'+actions+'</div><div class="yc-update-safety '+(st.rollbackReady?'ok':'')+'">'+(st.rollbackReady?'✓ Bezpečný návrat k předchozí verzi je připravený.':'🛡 Po instalaci přes Setup.exe se automaticky připravuje lokální záloha pro rollback.')+'</div></div></div>'}
 function ycUpdateSectionHtml(){return '<div id="ycUpdateSectionBody">'+ycUpdateBodyHtml()+'</div>'}
 function ycBindUpdateSection(root){if(!root)return;root.querySelector('#ycUpdateCheck')?.addEventListener('click',()=>{void ycDesktopSettingsRequest('check-update')});root.querySelector('#ycUpdateDownload')?.addEventListener('click',()=>{void ycDesktopSettingsRequest('download-update')});root.querySelector('#ycUpdateInstall')?.addEventListener('click',()=>{void ycDesktopSettingsRequest('install-update')})}
-function ycRefreshUpdateUi(){const body=$('ycUpdateSectionBody');if(!body)return;body.innerHTML=ycUpdateBodyHtml();ycBindUpdateSection(body.closest('[data-yc-settings-section="updates"]')||body)}
+function ycUpdateBadgeHtml(){const st=ycUpdateState;return st.availableVersion&&st.availableVersion!==st.currentVersion&&!['up-to-date','disabled'].includes(st.status)?'<span class="yc-update-badge warn" data-yc-update-badge>Update</span>':''}
+function ycRefreshUpdateBadge(){
+ for(const el of document.querySelectorAll('[data-yc-update-summary]'))el.innerHTML=ycUpdateBadgeHtml();
+ const button=$('appSettingsBtn');if(button){button.querySelector('[data-yc-update-badge]')?.remove();button.insertAdjacentHTML('beforeend',ycUpdateBadgeHtml())}
+}
+function ycRefreshUpdateUi(){ycRefreshUpdateBadge();const body=$('ycUpdateSectionBody');if(!body)return;body.innerHTML=ycUpdateBodyHtml();ycBindUpdateSection(body.closest('[data-yc-settings-section="updates"]')||body)}
 async function ycSyncUpdateState(){const state=await ycDesktopSettingsRequest('get-update-state');if(state&&typeof state==='object'){ycUpdateState={...ycUpdateState,...state};ycRefreshUpdateUi();ycRenderUpdateNotice()}return ycUpdateState}
 function ycRenderUpdateNotice(){ycInstallAppSettingsStyle();const st=ycUpdateState||{},status=st.status||'';let n=$('ycUpdateNotice');if(!['available','downloaded'].includes(status)||(!st.availableVersion&&status==='available')||ycUpdateNoticeDismissedFor===String(st.availableVersion||status)){n?.remove();return}if(!n){n=document.createElement('div');n.id='ycUpdateNotice';n.className='yc-update-notice';document.body.appendChild(n)}const ready=status==='downloaded';n.innerHTML='<strong>'+(ready?'Aktualizace je připravena':'Nový Yamachat '+esc(st.availableVersion||''))+'</strong><p>'+(ready?'Stažení je hotové. Restartuj Yamachat a aktualizace se nainstaluje automaticky.':'Novou verzi můžeš stáhnout přímo v aplikaci. Nemusíš otevírat web ani hledat ZIP.')+'</p><div class="yc-update-notice-actions"><button id="ycUpdateNoticeLater" type="button">Později</button><button id="ycUpdateNoticeOpen" class="primary" type="button">'+(ready?'Restartovat a aktualizovat':'Zobrazit aktualizaci')+'</button></div>';n.querySelector('#ycUpdateNoticeLater').onclick=()=>{ycUpdateNoticeDismissedFor=String(st.availableVersion||status);n.remove()};n.querySelector('#ycUpdateNoticeOpen').onclick=()=>{if(ready){void ycDesktopSettingsRequest('install-update')}else{n.remove();void ycOpenAppSettings()}}}
 ycRegisterAppSettingsSection({id:'window',title:'Chování okna',description:'Určuje, co má desktopová aplikace udělat po kliknutí na zavírací křížek.',render:ycCloseBehaviorSectionHtml,bind:root=>{root.querySelectorAll('input[name="ycCloseBehavior"]').forEach(r=>r.onchange=async()=>{if(!r.checked)return;ycAppSettingsState.closeBehavior=r.value;localStorage.setItem('yc_close_behavior',r.value);await ycDesktopSettingsRequest('set-setting',{key:'closeBehavior',value:r.value});toast('Nastavení zavírání uloženo.')})}});
 ycRegisterAppSettingsSection({id:'updates',title:'Aktualizace Yamachatu',description:'Nové verze se kontrolují automaticky a instalují se až po tvém potvrzení.',render:ycUpdateSectionHtml,bind:ycBindUpdateSection});
-async function ycOpenAppSettings(){ycInstallAppSettingsStyle();await ycSyncAppSettings();const sections=[...ycAppSettingsSections.values()].filter(s=>s.visible===undefined||(typeof s.visible==='function'?s.visible():s.visible));$('modalRoot').innerHTML='<div class="modal-back"><div class="modal yc-app-settings-modal"><div class="modal-head"><h3>⚙ Nastavení aplikace</h3><button class="x" id="closeModal">×</button></div><div id="ycAppSettingsSections">'+sections.map(s=>'<section class="yc-app-settings-section" data-yc-settings-section="'+esc(s.id)+'"><h4>'+esc(s.title||s.id)+'</h4>'+(s.description?'<p>'+esc(s.description)+'</p>':'')+(s.render?s.render():'')+'</section>').join('')+'</div><div class="yc-settings-note">Nastavení je připravené jako rozšiřitelný modul. Další volby můžeme přidávat po sekcích bez zásahu do ostatních částí Yamachatu.</div></div></div>';$('closeModal').onclick=closeModal;const ycAppSettingsBack=$('modalRoot')?.querySelector('.modal-back');if(ycAppSettingsBack)ycAppSettingsBack.addEventListener('pointerdown',e=>{if(e.target===ycAppSettingsBack)closeModal()});const root=$('ycAppSettingsSections');for(const s of sections)try{s.bind?.(root.querySelector('[data-yc-settings-section="'+s.id+'"]'))}catch(e){console.warn('app settings bind',s.id,e)}}
+async function ycOpenAppSettings(){ycInstallAppSettingsStyle();await ycSyncAppSettings();const sections=[...ycAppSettingsSections.values()].filter(s=>s.visible===undefined||(typeof s.visible==='function'?s.visible():s.visible));$('modalRoot').innerHTML='<div class="modal-back"><div class="modal yc-app-settings-modal"><div class="modal-head"><h3>⚙ Nastavení aplikace</h3><button class="x" id="closeModal">×</button></div><div id="ycAppSettingsSections">'+sections.map(s=>'<section class="yc-app-settings-section" data-yc-settings-section="'+esc(s.id)+'"><h4>'+esc(s.title||s.id)+(s.id==='updates'?'<span data-yc-update-summary>'+ycUpdateBadgeHtml()+'</span>':'')+'</h4>'+(s.description?'<p>'+esc(s.description)+'</p>':'')+(s.render?s.render():'')+'</section>').join('')+'</div><div class="yc-settings-note">Nastavení je připravené jako rozšiřitelný modul. Další volby můžeme přidávat po sekcích bez zásahu do ostatních částí Yamachatu.</div></div></div>';$('closeModal').onclick=closeModal;const ycAppSettingsBack=$('modalRoot')?.querySelector('.modal-back');if(ycAppSettingsBack)ycAppSettingsBack.addEventListener('pointerdown',e=>{if(e.target===ycAppSettingsBack)closeModal()});const root=$('ycAppSettingsSections');for(const s of sections)try{s.bind?.(root.querySelector('[data-yc-settings-section="'+s.id+'"]'))}catch(e){console.warn('app settings bind',s.id,e)}}
 window.YamachatAppSettings={register:ycRegisterAppSettingsSection,open:ycOpenAppSettings,state:ycAppSettingsState,sync:ycSyncAppSettings};
 ycOnLifecycle('init',()=>{const b=$('appSettingsBtn');if(b)b.onclick=()=>void ycOpenAppSettings();void ycSyncAppSettings();void ycSyncUpdateState()});
 
@@ -5415,6 +5423,7 @@ setTimeout(ycFriendsRefreshDecorate,350);
 // Voice experience preferences: local per-user choices, no new backend schema.
 window.__ycVoiceParticipantAnnouncements=true;
 const YC_VOICE_ANNOUNCE_MODE_KEY='yc_voice_announce_mode';
+const YC_VOICE_GENDER_KEY='yc_voice_gender_v1';
 const YC_VOICE_ANNOUNCE_VOICE_KEY='yc_voice_announce_voice';
 const YC_VOICE_ANNOUNCE_CHARACTER_KEY='yc_voice_announce_character'; // legacy only
 const YC_SOUNDBOARD_VOLUME_KEY='yc_soundboard_volume_v1';
@@ -5446,7 +5455,14 @@ function ycVoiceGenderHint(v){
  const male=/(^|\b)(jakub|david|mark|george|james|richard|pavel|michal|daniel|filip|jan|adam|anton[ií]n|ondřej|ondrej|matěj|matej|male|man)(\b|$)/i;
  return female.test(n)?'female':male.test(n)?'male':'';
 }
+function ycVoiceGender(){const v=localStorage.getItem(YC_VOICE_GENDER_KEY);return ['male','female'].includes(v)?v:'auto'}
 function ycVoiceSelectedVoice(voices){
+ const gender=ycVoiceGender();
+ if(gender!=='auto'){
+  const matches=voices.filter(v=>ycVoiceGenderHint(v)===gender);
+  return matches.find(v=>String(v.lang||'').toLowerCase().startsWith('cs'))||matches[0]
+   ||voices.find(v=>String(v.lang||'').toLowerCase().startsWith('cs'))||voices.find(v=>v.default)||voices[0]||null;
+ }
  const wanted=localStorage.getItem(YC_VOICE_ANNOUNCE_VOICE_KEY)||'';
  const exact=voices.find(v=>v.voiceURI===wanted||v.name===wanted);if(exact)return exact;
  return voices.find(v=>String(v.lang||'').toLowerCase().startsWith('cs'))||voices.find(v=>v.default)||voices[0]||null;
@@ -5556,7 +5572,7 @@ function ycVoiceExperienceSettingsHtml(){
  const opt=(v,label)=>'<option value="'+v+'" '+(mode===v?'selected':'')+'>'+label+'</option>';
  return '<div class="yc-voice-experience-settings">'+
   '<div class="field"><label>Oznámení vstupu a odchodu z voice</label><select id="ycVoiceAnnounceMode">'+opt('speech','Přečíst jméno hlasem')+opt('cue','Jen krátký zvuk')+opt('off','Vypnuto')+'</select></div>'+
-  '<div class="field" data-yc-voice-select-wrap><label>Skutečný hlas pro čtení jmen</label><select id="ycVoiceAnnounceVoice"><option value="">Automaticky · preferovat češtinu</option></select><small data-yc-real-voice-note>Seznam obsahuje skutečné hlasy, které poskytuje Windows/Electron. Mužský/ženský štítek se zobrazí jen u hlasů, které lze bezpečně rozpoznat podle názvu.</small></div>'+
+  '<div class="field" data-yc-voice-select-wrap><label>Hlas pro čtení jmen</label><select id="ycVoiceGender"><option value="auto">Auto · současné nastavení</option><option value="female">Ženský</option><option value="male">Mužský</option></select><label>Konkrétní hlas tohoto zařízení (pro Auto)</label><select id="ycVoiceAnnounceVoice"><option value="">Automaticky · preferovat češtinu</option></select><small data-yc-real-voice-note>Seznam obsahuje skutečné hlasy, které poskytuje Windows/Electron. Mužský/ženský štítek se zobrazí jen u hlasů, které lze bezpečně rozpoznat podle názvu.</small></div>'+
   '<div class="yc-voice-preview-row"><button type="button" id="ycVoiceAnnounceTest">▶ Vyzkoušet hlas</button><button type="button" id="ycVoiceJoinTest" hidden>▶ JOIN zvuk</button><button type="button" id="ycVoiceLeaveTest" hidden>▶ LEAVE zvuk</button></div>'+
   '<div class="field"><label>Hlasitost soundboardu · <span id="ycSoundboardVolumeValue">'+volume+' %</span></label><input id="ycSoundboardVolumeRange" type="range" min="0" max="100" step="5" value="'+volume+'"></div>'+
   '<p class="yc-settings-note">Hlasitost lidí a lokální mute zůstávají zvlášť pro každého uživatele. Pravým kliknutím na člověka ve voice můžeš navíc ztlumit jen jeho soundboard.</p>'+
@@ -5566,18 +5582,23 @@ function ycBindVoiceExperienceSettings(root){
  if(!root)return;
  const mode=root.querySelector('#ycVoiceAnnounceMode'),voiceSelect=root.querySelector('#ycVoiceAnnounceVoice');
  const syncVisibility=()=>{const speech=mode?.value==='speech',cue=mode?.value==='cue';root.querySelector('[data-yc-voice-select-wrap]')?.toggleAttribute('hidden',!speech);root.querySelector('#ycVoiceAnnounceTest')?.toggleAttribute('hidden',!speech);root.querySelector('#ycVoiceJoinTest')?.toggleAttribute('hidden',!cue);root.querySelector('#ycVoiceLeaveTest')?.toggleAttribute('hidden',!cue)};
+ const genderSelect=root.querySelector('#ycVoiceGender');
+ genderSelect.value=ycVoiceGender();
  const fillVoices=()=>{
   if(!voiceSelect)return;const chosen=localStorage.getItem(YC_VOICE_ANNOUNCE_VOICE_KEY)||'',voices=ycVoiceAvailableVoices();
   voiceSelect.innerHTML='<option value="">Automaticky · preferovat češtinu</option>'+ycVoiceOptionsHtml(voices);
   voiceSelect.value=[...voiceSelect.options].some(o=>o.value===chosen)?chosen:'';
   const note=root.querySelector('[data-yc-real-voice-note]');
-  if(note)note.textContent=voices.length
-   ?'Nalezeno '+voices.length+' skutečných systémových hlasů. Výběr mění voiceURI, ne rychlost nebo výšku jednoho hlasu.'
-   :'Windows/Electron zatím nevrátil žádný systémový hlas. Pokud se hlasy načtou později, seznam se automaticky obnoví.';
+  const selected=ycVoiceSelectedVoice(voices),gender=ycVoiceGender();
+  if(note)note.textContent=selected
+   ?'Použitý hlas: '+ycVoiceOptionLabel(selected)+(gender!=='auto'&&ycVoiceGenderHint(selected)!==gender?' — odpovídající hlas není na zařízení dostupný; používá se náhradní hlas.':'')
+   :'Hlasy se ještě načítají; použije se výchozí hlas zařízení.';
+
  };
+ genderSelect.onchange=()=>{localStorage.setItem(YC_VOICE_GENDER_KEY,genderSelect.value);fillVoices()};
  fillVoices();try{speechSynthesis?.addEventListener?.('voiceschanged',fillVoices,{once:true})}catch{}
  mode.onchange=()=>{localStorage.setItem(YC_VOICE_ANNOUNCE_MODE_KEY,mode.value);syncVisibility()};
- voiceSelect.onchange=()=>{localStorage.setItem(YC_VOICE_ANNOUNCE_VOICE_KEY,voiceSelect.value);try{speechSynthesis.cancel()}catch{}};
+ voiceSelect.onchange=()=>{localStorage.setItem(YC_VOICE_ANNOUNCE_VOICE_KEY,voiceSelect.value);fillVoices()};
  const sb=root.querySelector('#ycSoundboardVolumeRange'),sbv=root.querySelector('#ycSoundboardVolumeValue');
  sb.oninput=()=>{const v=Math.max(0,Math.min(100,Number(sb.value)||0));localStorage.setItem(YC_SOUNDBOARD_VOLUME_KEY,String(v));sbv.textContent=v+' %'};
  const previewButtons=[...root.querySelectorAll('#ycVoiceAnnounceTest,#ycVoiceJoinTest,#ycVoiceLeaveTest')];let previewBusy=false,previewTimer=0;
@@ -5868,6 +5889,7 @@ const ycStreamViewer=(()=>{
   function setMode(session,mode){
     const previous=session.mode,video=session.video,stream=video.srcObject;
     if(document.fullscreenElement===session.panel)void document.exitFullscreen().catch(()=>{});
+    if(previous==='fullscreen'&&YC_STREAM_DESKTOP)void window.parent?.YamachatDesktopStreamFullscreen?.set?.(false);
     session.mode=mode;layout(session);
     if((mode==='mini'||previous==='mini'||mode==='fullscreen'||previous==='fullscreen')&&iosPwa())resumeIosPwaPlaybackAfterLayout(session,video,stream);
   }
@@ -5875,7 +5897,7 @@ const ycStreamViewer=(()=>{
     let drag=null;
     handle.addEventListener('pointerdown',event=>{
       if(event.button!==0||(!resize&&event.target.closest('button,input')))return;
-      if(session.mode==='maximized'||(mobile()&&session.mode!=='mini'))return;
+      if(session.mode==='fullscreen'||session.mode==='maximized'||(mobile()&&session.mode!=='mini'))return;
       const r=session.panel.getBoundingClientRect();
       drag={x:event.clientX,y:event.clientY,left:r.left,top:r.top,width:r.width,height:r.height};
       handle.setPointerCapture(event.pointerId);event.preventDefault();
@@ -5914,21 +5936,23 @@ const ycStreamViewer=(()=>{
         session.mode=entering?returnMode:'fullscreen';layout(session);
       }
     }
-    if(iosPwa()){
-      const entering=session.mode!=='fullscreen';
-      if(entering)session.fullscreenReturnMode=session.mode==='mini'?'floating':session.mode;
-      session.mode=entering?'fullscreen':(session.fullscreenReturnMode||'floating');layout(session);
-      resumeIosPwaPlaybackAfterLayout(session,video,stream);
-      return;
+    const entering=session.mode!=='fullscreen';
+    if(!entering){
+      if(document.fullscreenElement===session.panel)await document.exitFullscreen().catch(()=>{});
+      else if(document.webkitFullscreenElement===session.panel)document.webkitExitFullscreen?.();
+      session.mode=session.fullscreenReturnMode||'floating';layout(session);return;
     }
-    if(document.fullscreenElement){await document.exitFullscreen().catch(()=>{});return}
+    session.fullscreenReturnMode=session.mode==='mini'?'floating':session.mode;
+    session.mode='fullscreen';layout(session);
     try{
       if(session.panel.requestFullscreen){await session.panel.requestFullscreen();return}
-      if(session.video.webkitEnterFullscreen){session.video.webkitEnterFullscreen();return}
+      if(session.panel.webkitRequestFullscreen){session.panel.webkitRequestFullscreen();return}
     }catch{}
-    setMode(session,'maximized');
-    toast('Systémový fullscreen není dostupný. Stream je zvětšený v aplikaci.');
+    // Keep the same video and separate audio receiver; native video fullscreen loses our volume controls.
+    resumeIosPwaPlaybackAfterLayout(session,video,stream);
+    toast('Stream vyplňuje aplikaci. Zpět se vrátíš tlačítkem celé obrazovky.');
   }
+
   function remove(session){
     if(session.mode==='fullscreen'&&YC_STREAM_DESKTOP)void window.parent?.YamachatDesktopStreamFullscreen?.set?.(false).catch?.(()=>{});
     session.abort.abort();session.trackAbort?.abort();session.video.pause();session.video.srcObject=null;session.panel.remove();sessions.delete(session.id);
@@ -6036,8 +6060,17 @@ const ycStreamViewer=(()=>{
   window.visualViewport?.addEventListener('resize',scheduleLayout);window.visualViewport?.addEventListener('scroll',scheduleLayout);
   window.addEventListener('online',()=>void resume());window.addEventListener('offline',()=>{for(const s of sessions.values())update(s)});
   document.addEventListener('visibilitychange',()=>void resume());
-  document.addEventListener('fullscreenchange',()=>{scheduleLayout();for(const s of sessions.values())if(s.video.srcObject)void play(s)});
-  document.addEventListener('keydown',event=>{if(event.key==='Escape'&&!document.fullscreenElement)for(const s of sessions.values())if(s.mode==='maximized')setMode(s,'floating')});
+  const onFullscreenChange=()=>{
+    for(const s of sessions.values()){
+      if(s.elementFullscreen&&!document.fullscreenElement&&!document.webkitFullscreenElement){s.mode=s.fullscreenReturnMode||'floating';s.elementFullscreen=false}
+      if(document.fullscreenElement===s.panel||document.webkitFullscreenElement===s.panel)s.elementFullscreen=true;
+      if(s.video.srcObject)void play(s);
+    }
+    scheduleLayout();
+  };
+  document.addEventListener('fullscreenchange',onFullscreenChange);
+  document.addEventListener('webkitfullscreenchange',onFullscreenChange);
+  document.addEventListener('keydown',event=>{if(event.key==='Escape'&&!document.fullscreenElement)for(const s of sessions.values())if(s.mode==='maximized'||s.mode==='fullscreen')setMode(s,s.fullscreenReturnMode||'floating')});
   window.addEventListener('message',event=>{
     if(!YC_STREAM_DESKTOP||event.source!==window.parent||event.data?.type!=='yamachat:stream-native-fullscreen')return;
     const active=!!event.data.fullscreen;

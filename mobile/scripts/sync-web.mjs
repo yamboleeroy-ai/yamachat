@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
-import '../../scripts/build-web.mjs';
+if(process.env.YC_USE_CURRENT_WEB!=='1')await import('../../scripts/build-web.mjs');
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'../..');
 const out=path.join(root,'mobile/www');
 fs.mkdirSync(out,{recursive:true});

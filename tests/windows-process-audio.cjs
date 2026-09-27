@@ -12,8 +12,8 @@ const pkg=JSON.parse(read('desktop/package.json'));
 assert(main.includes("const { execFile, spawn } = require('child_process')"),'desktop main does not spawn native process-audio helper');
 assert(main.includes("function parseDesktopWindowHandle(sourceId)"),'desktop source HWND parser missing');
 assert(main.includes("String(source.id || '').startsWith('window:')"),'window source detection missing');
-assert(main.includes("...(shareSystemAudio && !isWindowSource ? { audio: 'loopback' } : {})"),'window share still risks system loopback');
-assert(main.includes("spawn(executable, ['--hwnd', selection.windowHandle]"),'native process-audio helper is not started from selected HWND');
+assert(!main.includes("audio: 'loopback'"),'capture must not use unfiltered system loopback');
+assert(main.includes("['--hwnd', selection.windowHandle]"),'native process-audio helper is not started from selected HWND');
 assert(main.includes("'yamachat:process-audio-start'"),'process-audio start IPC missing');
 assert(main.includes("'yamachat:process-audio-stop'"),'process-audio stop IPC missing');
 assert(main.includes("'yamachat:process-audio-chunk'"),'process-audio PCM forwarding missing');
@@ -34,7 +34,8 @@ assert(client.includes('await ycStopDesktopProcessAudio()'), 'generated desktop 
 
 assert(helper.includes('AUDIOCLIENT_ACTIVATION_TYPE_PROCESS_LOOPBACK'),'native helper is not using process loopback activation');
 assert(helper.includes('PROCESS_LOOPBACK_MODE_INCLUDE_TARGET_PROCESS_TREE'),'native helper is not restricted to target process tree');
-assert(!helper.includes('PROCESS_LOOPBACK_MODE_EXCLUDE_TARGET_PROCESS_TREE'),'native helper unexpectedly captures audio outside target process tree');
+assert(helper.includes('PROCESS_LOOPBACK_MODE_EXCLUDE_TARGET_PROCESS_TREE'),'screen capture must exclude Yamachat tree');
+assert(main.includes("['--exclude-pid', String(process.pid)]"),'exclusion must use root Electron PID');
 assert(helper.includes('GetWindowThreadProcessId'),'native helper does not resolve selected HWND to PID');
 assert(helper.includes('AUDCLNT_STREAMFLAGS_AUTOCONVERTPCM'),'native helper PCM conversion missing');
 

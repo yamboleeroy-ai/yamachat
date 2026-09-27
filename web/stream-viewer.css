@@ -24,9 +24,11 @@
 .yc-stream-viewer[data-mode="mini"] .yc-sv-media{cursor:pointer}
 .yc-stream-viewer[data-mode="fullscreen"]{border:0;border-radius:0}
 .yc-stream-viewer[data-mode="fullscreen"] .yc-sv-header{position:absolute;top:max(8px,env(safe-area-inset-top));right:max(8px,env(safe-area-inset-right));z-index:5;flex-basis:auto;padding:0;background:transparent;cursor:default}
-.yc-stream-viewer[data-mode="fullscreen"] .yc-sv-avatar,.yc-stream-viewer[data-mode="fullscreen"] .yc-sv-title,.yc-stream-viewer[data-mode="fullscreen"] [data-action="maximize"],.yc-stream-viewer[data-mode="fullscreen"] [data-action="minimize"],.yc-stream-viewer[data-mode="fullscreen"] [data-action="close"],.yc-stream-viewer[data-mode="fullscreen"] .yc-sv-footer,.yc-stream-viewer[data-mode="fullscreen"] .yc-sv-resize{display:none}
+.yc-stream-viewer[data-mode="fullscreen"] .yc-sv-avatar,.yc-stream-viewer[data-mode="fullscreen"] .yc-sv-title,.yc-stream-viewer[data-mode="fullscreen"] [data-action="maximize"],.yc-stream-viewer[data-mode="fullscreen"] [data-action="minimize"],.yc-stream-viewer[data-mode="fullscreen"] [data-action="close"],.yc-stream-viewer[data-mode="fullscreen"] .yc-sv-resize{display:none}
 .yc-stream-viewer[data-mode="fullscreen"] [data-action="fullscreen"]{background:#071019cc;backdrop-filter:blur(8px)}
 .yc-stream-viewer[data-mobile="true"] .yc-sv-header{cursor:default;flex-basis:52px}
 .yc-stream-viewer[data-mobile="true"]:not([data-mode="mini"]) [data-action="maximize"],.yc-stream-viewer[data-mobile="true"] .yc-sv-resize,.yc-stream-viewer[data-mode="maximized"] .yc-sv-resize{display:none}
 .yc-stream-viewer:fullscreen{width:100%!important;height:100%!important;inset:0!important;border:0;border-radius:0;padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)}
 .yc-sv-safe-area{position:absolute;visibility:hidden;pointer-events:none;padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)}
+
+.yc-stream-viewer[data-mode="fullscreen"] .yc-sv-footer{display:flex;position:absolute;bottom:max(8px,env(safe-area-inset-bottom));left:max(8px,env(safe-area-inset-left));right:max(8px,env(safe-area-inset-right));z-index:6;padding:10px 14px;background:#071019e8;border-radius:10px}

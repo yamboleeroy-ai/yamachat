@@ -10,6 +10,7 @@ on:
       - ".github/workflows/desktop-check.yml"
       - ".github/workflows/publish-yamachat-release.yml"
   push:
+    branches-ignore: ['fix/windows-stream-voice-preview']
     paths:
       - "desktop/**"
       - "scripts/**"

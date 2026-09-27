@@ -535,6 +535,7 @@
     let ycProcessAudioTrack = null;
     let ycProcessAudioGeneration = 0;
     let ycProcessAudioNextTime = 0;
+    let ycProcessAudioRemainder = new Uint8Array(0);
     const ycProcessAudioSources = new Set();
 
     function ycProcessAudioBytes(value) {
@@ -550,6 +551,7 @@
     }
 
     function ycResetProcessAudioGraph() {
+      ycProcessAudioRemainder = new Uint8Array(0);
       for (const source of [...ycProcessAudioSources]) {
         try { source.stop(); } catch {}
         try { source.disconnect(); } catch {}
@@ -579,18 +581,16 @@
     function ycScheduleProcessAudioChunk(payload = {}) {
       if (!ycProcessAudioContext || !ycProcessAudioDestination) return;
       if (!ycProcessAudioGeneration || Number(payload.generation) !== ycProcessAudioGeneration) return;
-      const bytes = ycProcessAudioBytes(payload.pcm);
-      const channels = Math.max(1, Math.min(2, Number(payload.channels) || 2));
-      const sampleRate = Number(payload.sampleRate) || 48000;
-      if (!bytes || bytes.byteLength < channels * 2) return;
-
-      const alignedLength = bytes.byteLength - (bytes.byteLength % 2);
-      const copy = bytes.byteOffset % 2 === 0
-        ? new Uint8Array(bytes.buffer, bytes.byteOffset, alignedLength)
-        : Uint8Array.from(bytes.subarray(0, alignedLength));
-      const samples = new Int16Array(copy.buffer, copy.byteOffset, Math.floor(copy.byteLength / 2));
-      const frames = Math.floor(samples.length / channels);
-      if (!frames) return;
+      const incoming = ycProcessAudioBytes(payload.pcm);
+      if (!incoming) return;
+      const channels = 2, sampleRate = 48000;
+      const bytes = new Uint8Array(ycProcessAudioRemainder.length + incoming.length);
+      bytes.set(ycProcessAudioRemainder); bytes.set(incoming, ycProcessAudioRemainder.length);
+      const alignedLength = bytes.length - bytes.length % 4;
+      ycProcessAudioRemainder = bytes.slice(alignedLength);
+      if (!alignedLength) return;
+      const samples = new Int16Array(bytes.buffer, 0, alignedLength / 2);
+      const frames = alignedLength / 4;
 
       const buffer = ycProcessAudioContext.createBuffer(2, frames, sampleRate);
       const left = buffer.getChannelData(0);
@@ -621,6 +621,7 @@
 
     window.yamachatDesktop?.onProcessAudioChunk?.(ycScheduleProcessAudioChunk);
     window.yamachatDesktop?.onProcessAudioStatus?.((status = {}) => {
+      if (status.state === 'ready' && ycProcessAudioContext) ycProcessAudioGeneration = Number(status.generation) || 0;
       try { iframe.contentWindow?.postMessage({ type: 'yamachat:process-audio-status', status }, '*'); } catch {}
       if ((status.state === 'error' || status.state === 'ended') && Number(status.generation) === ycProcessAudioGeneration) {
         ycProcessAudioGeneration = 0;
@@ -634,13 +635,13 @@
         await ycStopDesktopProcessAudio(true);
         const selection = await window.yamachatDesktop?.getProcessAudioSelection?.();
         if (!selection?.audioRequested) return { mode: 'none', track: null, reason: 'audio-not-requested' };
-        if (selection.kind !== 'window') return { mode: 'system', track: null, reason: 'entire-screen-source' };
 
         const AudioContextCtor = window.AudioContext || window.webkitAudioContext;
         if (!AudioContextCtor) return { mode: 'unavailable', track: null, reason: 'web-audio-unavailable' };
 
         ycProcessAudioContext = new AudioContextCtor({ latencyHint: 'interactive', sampleRate: 48000 });
         try { await ycProcessAudioContext.resume(); } catch {}
+        if (ycProcessAudioContext.state !== 'running') { ycResetProcessAudioGraph(); return {mode:'unavailable',reason:'audio-context-suspended'}; }
         ycProcessAudioDestination = ycProcessAudioContext.createMediaStreamDestination();
         ycProcessAudioTrack = ycProcessAudioDestination.stream.getAudioTracks()[0] || null;
 
@@ -657,32 +658,13 @@
       stop: () => ycStopDesktopProcessAudio(true)
     });
 
-    let ycStreamFullscreenRequested = false;
-    function forwardWindowState(state = {}) {
-      const fullscreen = !!state.fullscreen;
-      if (!fullscreen) ycStreamFullscreenRequested = false;
-      document.body.classList.toggle('yc-stream-fullscreen', fullscreen && ycStreamFullscreenRequested);
-      try { iframe.contentWindow?.postMessage({ type: 'yamachat:stream-native-fullscreen', fullscreen }, '*'); } catch {}
-      updateMaximizeButton(state);
-    }
+    window.addEventListener('online', () => window.yamachatDesktop?.resumeUpdateCheck?.());
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) window.yamachatDesktop?.resumeUpdateCheck?.(); });
+    function forwardWindowState(state = {}) { updateMaximizeButton(state); }
     window.YamachatDesktopStreamFullscreen = Object.freeze({
       set: async (active) => {
-        ycStreamFullscreenRequested = !!active;
-        document.body.classList.toggle('yc-stream-fullscreen', ycStreamFullscreenRequested);
-        try {
-          const state = await window.yamachatDesktop?.setStreamFullscreen?.(ycStreamFullscreenRequested);
-          const fullscreen = !!state?.fullscreen;
-          if (!fullscreen) {
-            ycStreamFullscreenRequested = false;
-            document.body.classList.remove('yc-stream-fullscreen');
-          }
-          try { iframe.contentWindow?.postMessage({ type: 'yamachat:stream-native-fullscreen', fullscreen }, '*'); } catch {}
-          return state || { fullscreen: false, maximized: false };
-        } catch (error) {
-          ycStreamFullscreenRequested = false;
-          document.body.classList.remove('yc-stream-fullscreen');
-          throw error;
-        }
+        document.body.classList.toggle('yc-stream-fullscreen', !!active);
+        return { fullscreen: !!active };
       }
     });
 
