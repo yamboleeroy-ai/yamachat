@@ -98,7 +98,7 @@ jobs:
           if (Test-Path "$appRoot/preview.json") { throw 'Preview isolation leaked into release' }
           & "$appRoot/process-audio/Yamachat.ProcessAudioCapture.exe" --version
           if ($LASTEXITCODE -ne 0) { throw 'Native audio helper failed' }
-          if ((Get-Content desktop/dist/latest.yml -Raw) -notmatch 'version:\s*1\.0\.100') { throw 'Wrong updater version' }
+          if ((Get-Content desktop/dist/latest.yml -Raw) -notmatch 'version:\s*1\.0\.101') { throw 'Wrong updater version' }
           foreach ($file in @('Yamachat-Setup-1.0.101.exe','Yamachat-Setup-1.0.101.exe.blockmap','latest.yml')) {
             if (-not (Test-Path "desktop/dist/$file")) { throw "Missing updater asset: $file" }
           }
