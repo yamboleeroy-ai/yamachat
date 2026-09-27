@@ -75,6 +75,15 @@ export function withStreamViewer(input,{desktop=false}={}) {
   if(!html.includes('function ycAttachExistingScreenAudioReceiver(peerId)'))throw Error('Screen audio reopen bridge missing');
   if(!html.includes('window.__ycScreenAudioTracks=window.__ycScreenAudioTracks||new Map()'))throw Error('Screen audio track cache missing');
 
+  // Never feed Yamachat's own voice playback back into a shared stream.
+  // Chromium/Electron honors restrictOwnAudio by excluding the capturing app's
+  // playback from loopback while keeping the selected display/window audio request.
+  html=html.replace(
+    "audio:true,systemAudio:'include',surfaceSwitching:'include'",
+    "audio:{restrictOwnAudio:true},systemAudio:'include',surfaceSwitching:'include'"
+  );
+  if(!html.includes("audio:{restrictOwnAudio:true},systemAudio:'include'"))throw Error('Own-audio exclusion constraint missing');
+
   // A stream track can briefly mute during network recovery. Keep the same
   // MediaStream/video binding; the pending state owns retry/timeout instead.
   html=html.replace('remoteScreenStreams.delete(peerId);if(screenWatchingByUser.has(peerId)&&(voiceScreenActiveByUser.has(peerId)||ycStreamInfo(peerId)))',
