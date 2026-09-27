@@ -60,11 +60,12 @@ function section(s,start,end){const a=s.indexOf(start),b=s.indexOf(end,a);assert
   await page.locator('.yc-sv-footer input').fill('32');
   assert.equal(await page.evaluate(()=>window.__ycScreenAudioEls.get('viewer').volume),.32);
   await page.keyboard.press('Escape');assert.deepEqual(await page.locator('.yc-stream-viewer').boundingBox(),before);
-  assert(!read('desktop/main.js').includes('mainWindow.setFullScreen('));
+  assert(read('desktop/main.js').includes('mainWindow.setFullScreen(target)'));
+  assert(read('desktop/preload.js').includes('setStreamFullscreen: (active)'));
   assert(!read('desktop/main.js').includes("audio: 'loopback'"));
   await page.screenshot({path:'tests/stream-preview.png'});
   assert.deepEqual(errors,[]);
-  console.log('PASS viewer: first click fills viewport, volume changes receiver, Escape restores layout, no native resize or system-loopback fallback');
+  console.log('PASS viewer: first click requests true desktop fullscreen, volume changes receiver, Escape restores layout, no system-loopback fallback');
   await page.goto('http://127.0.0.1');
   await page.setViewportSize({width:390,height:844});
   await page.addStyleTag({content:read('web/stream-viewer.css')});
