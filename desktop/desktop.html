@@ -624,6 +624,7 @@
       if (status.state === 'ready' && ycProcessAudioContext) ycProcessAudioGeneration = Number(status.generation) || 0;
       try { iframe.contentWindow?.postMessage({ type: 'yamachat:process-audio-status', status }, '*'); } catch {}
       if ((status.state === 'error' || status.state === 'ended') && Number(status.generation) === ycProcessAudioGeneration) {
+        try { iframe.contentWindow?.postMessage({type:'yamachat:stream-audio-failed'}, '*'); } catch {}
         ycProcessAudioGeneration = 0;
         ycResetProcessAudioGraph();
       }

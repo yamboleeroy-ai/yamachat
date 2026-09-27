@@ -148,7 +148,7 @@ function startProcessAudioCapture() {
         return;
       }
       if (generation === processAudioGeneration) {
-        sendProcessAudioStatus({ state: 'ended', code, signal, generation });
+        sendProcessAudioStatus({ state: 'ended', code, signal, generation, detail: stderr.slice(-800) });
       }
     });
   });

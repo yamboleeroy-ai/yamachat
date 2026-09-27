@@ -31,7 +31,7 @@ jobs:
         run: |
           Invoke-WebRequest https://github.com/yamboleeroy-ai/yamachat/releases/download/v1.0.99/Yamachat-Setup-1.0.99.exe -OutFile "$env:RUNNER_TEMP/baseline.exe"
           if ((Get-FileHash "$env:RUNNER_TEMP/baseline.exe").Hash.ToLower() -ne 'c41d4660c7536ba77e37d5700ff884d878fad379f14f7c83fb9bd0b2c02d6cf0') { throw 'Baseline hash mismatch' }
-          7z x "$env:RUNNER_TEMP/baseline.exe" -opreview-dist -y
+          7z x -t7z "$env:RUNNER_TEMP/baseline.exe" -opreview-dist -y
           if ($LASTEXITCODE -ne 0) { throw 'Extraction failed' }
           foreach ($file in @('main.js','preload.js','updater.js','desktop.html','desktop-client.html')) { Copy-Item "desktop/$file" "preview-dist/resources/app/$file" -Force }
           Copy-Item desktop/process-audio/Yamachat.ProcessAudioCapture.exe preview-dist/resources/app/process-audio/ -Force

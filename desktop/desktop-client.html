@@ -1767,6 +1767,7 @@ async function ycPrepareDesktopProcessAudio(stream){
  }catch(e){console.warn('desktop process audio start',e);window.__ycDesktopProcessAudioMode='unavailable';return{mode:'unavailable',reason:e?.message||String(e)}}
 }
 async function ycStopDesktopProcessAudio(){window.__ycDesktopProcessAudioMode='none';try{await window.parent?.YamachatDesktopProcessAudio?.stop?.()}catch(e){console.warn('desktop process audio stop',e)}}
+window.addEventListener('message',event=>{if(event.source===window.parent&&event.data?.type==='yamachat:stream-audio-failed'&&screenShareActive)toast('Zachytávání zvuku se přerušilo. Obraz pokračuje bez zvuku; spusť sdílení znovu. Ověř oprávnění hry a Yamachatu.',true)});
 async function toggleScreenShare(){if(screenShareActive)return stopScreenShare(false);return startScreenShare()}
 async function startScreenShare(){
   if(!voiceChannel){toast('Nejdřív se připoj do hlasového kanálu.',true);return}
