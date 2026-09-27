@@ -81,7 +81,6 @@ const ycStreamViewer=(()=>{
     if(session.mode!=='fullscreen')return;
     session.controlsTimer=setTimeout(()=>{
       if(sessions.get(session.id)!==session||session.mode!=='fullscreen')return;
-      if(session.panel.matches(':focus-within')){showFullscreenControls(session,1400);return}
       session.panel.dataset.controls='hidden';
     },hold);
   }
@@ -198,7 +197,7 @@ const ycStreamViewer=(()=>{
   }
   function create(id,local){
     ensureLayer();
-    const panel=document.createElement('section');panel.className='yc-stream-viewer';panel.dataset.peer=id;panel.setAttribute('role','region');
+    const panel=document.createElement('section');panel.className='yc-stream-viewer';panel.dataset.peer=id;panel.dataset.desktop=String(YC_STREAM_DESKTOP);panel.setAttribute('role','region');
     panel.innerHTML='<header class="yc-sv-header" tabindex="0" aria-label="Přesunout stream šipkami nebo tažením"><span class="yc-sv-avatar" aria-hidden="true"></span><strong class="yc-sv-title"></strong><button type="button" data-action="maximize" aria-label="Maximalizovat stream" title="Maximalizovat stream">□</button><button type="button" data-action="fullscreen" aria-label="Celá obrazovka" title="Celá obrazovka">⛶</button><button type="button" data-action="minimize" aria-label="Minimalizovat stream" title="Minimalizovat stream">−</button><button type="button" data-action="close" aria-label="Zavřít sledování" title="Zavřít sledování">×</button></header><div class="yc-sv-media"><video autoplay playsinline muted></video><div class="yc-sv-status" role="status"><span></span><button type="button" hidden>Přehrát</button></div></div><footer class="yc-sv-footer"><label>Zvuk <input type="range" min="0" max="100" step="1" aria-label="Hlasitost streamu"></label><span class="yc-sv-quality"></span></footer><button type="button" class="yc-sv-resize" aria-label="Změnit velikost streamu šipkami nebo tažením" title="Změnit velikost">◢</button>';
     const session={id,local,panel,mode:'floating',rect:null,stream:null,abort:new AbortController(),name:local?'Tvůj stream':screenShareName(id),blocked:false,controlsTimer:null};
     panel.dataset.controls='visible';
@@ -224,7 +223,7 @@ const ycStreamViewer=(()=>{
     volume.oninput=()=>{
       const v=Number(volume.value)/100;
       try{const map=JSON.parse(localStorage.getItem('yc_stream_volume_by_user_safe_v1')||'{}');map[id]=v;localStorage.setItem('yc_stream_volume_by_user_safe_v1',JSON.stringify(map))}catch{}
-      const audio=window.__ycScreenAudioEls?.get(id);if(audio){audio.volume=v;audio.muted=v===0;if(v)void audio.play().catch(()=>{session.blocked=true;update(session)})}
+      const audio=window.__ycScreenAudioEls?.get(id);if(audio){audio.volume=v;audio.muted=v<=0;if(v>0)void audio.play().catch(()=>{session.blocked=true;update(session)})}
     };
     bindMove(session,panel.querySelector('header'));bindMove(session,panel.querySelector('.yc-sv-resize'),true);
     for(const event of ['loadedmetadata','playing','waiting','stalled'])session.video.addEventListener(event,()=>update(session),{signal:session.abort.signal});
