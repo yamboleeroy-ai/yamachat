@@ -8,7 +8,7 @@ const shell=read('desktop/desktop.html');
 const client=read('desktop-client-dist/desktop-client.html');
 const pkg=require('../desktop/package.json');
 
-assert.equal(pkg.version,'1.0.97','Windows preview must stay on released 1.0.97 lineage');
+assert.equal(pkg.version,'1.0.99','Windows preview must stay on released 1.0.99 lineage');
 
 assert(main.includes("handleClientIpc('yamachat:stream-fullscreen'"),'native stream fullscreen IPC missing');
 assert(main.includes('mainWindow.setFullScreen(wanted)'),'Electron setFullScreen bridge missing');
@@ -37,4 +37,4 @@ for(const marker of [
 for(const oldMarker of ['id="screenShareStage"','ycShareOverlay','__ycMultiStreamViewerInstalled','__ycStreamResizeInstalled'])
   assert(!client.includes(oldMarker),'old stream UI remains: '+oldMarker);
 
-console.log('PASS Windows 1.0.97 stream lifecycle: one-click edge-to-edge native fullscreen, Yamachat voice exclusion and screen-audio reopen hooks are present.');
+console.log('PASS Windows 1.0.99 stream lifecycle: one-click edge-to-edge native fullscreen, Yamachat voice exclusion and screen-audio reopen hooks are present.');
