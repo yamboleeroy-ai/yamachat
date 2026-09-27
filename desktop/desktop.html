@@ -751,6 +751,9 @@
           --v3-cyan:var(--yc-theme,#35e7ff)!important;
         }
         html,body{background:var(--yc-skin-0)!important;color:var(--yc-skin-text)!important}
+        /* A blurred viewport-sized SVG can flash when Windows changes DWM focus.
+           Keep the selected-server contour but avoid that desktop-only GPU filter. */
+        #ycServerContextFrame .yc-context-halo{filter:none!important;opacity:.22!important;stroke-width:3!important}
         body{background:
           radial-gradient(circle at 7% -5%,rgba(var(--yc-theme-rgb),.075),transparent 28%),
           radial-gradient(circle at 88% -12%,var(--yc-logo-secondary-soft),transparent 31%),
