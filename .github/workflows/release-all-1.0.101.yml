@@ -1,0 +1,147 @@
+name: Yamachat 1.0.101 release
+on:
+  push:
+    branches: [release/all-1.0.101]
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: yamachat-1.0.101-release
+  cancel-in-progress: false
+jobs:
+  web:
+    uses: ./.github/workflows/web-check.yml
+  android:
+    uses: ./.github/workflows/mobile-android.yml
+    secrets: inherit
+  ios:
+    uses: ./.github/workflows/mobile-ios.yml
+  apple:
+    runs-on: ubuntu-latest
+    outputs:
+      configured: ${{ steps.check.outputs.configured }}
+    steps:
+      - id: check
+        env:
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APP_STORE_CONNECT_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+          APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+          APP_STORE_CONNECT_API_KEY_BASE64: ${{ secrets.APP_STORE_CONNECT_API_KEY_BASE64 }}
+        run: |
+          ready=true
+          for key in APPLE_TEAM_ID APP_STORE_CONNECT_KEY_ID APP_STORE_CONNECT_ISSUER_ID APP_STORE_CONNECT_API_KEY_BASE64; do
+            if [ -z "${!key:-}" ]; then ready=false; echo "::notice::Apple distribution is not configured: $key"; fi
+          done
+          echo "configured=$ready" >> "$GITHUB_OUTPUT"
+  testflight:
+    needs: [ios, apple]
+    if: needs.apple.outputs.configured == 'true'
+    uses: ./.github/workflows/mobile-ios-testflight.yml
+    with:
+      marketing_version: '1.0.101'
+    secrets: inherit
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 65
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - run: node scripts/verify-stream-preview.cjs
+      - name: Build native process audio
+        shell: pwsh
+        run: ./scripts/build-windows-process-audio.ps1
+      - name: Build WNS with unchanged production identity
+        shell: pwsh
+        env:
+          YAMACHAT_WNS_PACKAGE_VERSION: '1.0.101.0'
+        run: |
+          npm install --no-save --package-lock=false @microsoft/winappcli
+          if ($LASTEXITCODE -ne 0) { throw 'WinApp CLI install failed' }
+          ./scripts/build-windows-wns.ps1
+      - name: Verify WNS production identity on runner
+        shell: pwsh
+        run: |
+          & desktop/wns/WindowsAppRuntimeInstall-x64.exe --quiet
+          if ($LASTEXITCODE -ne 0) { throw 'Windows App Runtime install failed' }
+          Add-AppxPackage -Path (Resolve-Path desktop/wns/Yamachat.PushIdentity.msix) -ExternalLocation (Resolve-Path desktop) -AllowUnsigned -ForceApplicationShutdown
+          $pkg = Get-AppxPackage -Name 'yamachat.eu-7E03B8AF'
+          if ($pkg.PackageFamilyName -ne 'yamachat.eu-7E03B8AF_m02xq2dqtpa7p' -or $pkg.Version -ne '1.0.101.0') { throw 'WNS identity/version mismatch' }
+          $pkg | Remove-AppxPackage
+      - name: Prepare reviewed runtime
+        shell: pwsh
+        run: |
+          Copy-Item -Recurse -Force build desktop/build
+          Copy-Item -Recurse -Force audio desktop/audio
+          Copy-Item boot-guard.js desktop/boot-guard.js
+          if (Test-Path desktop/preview.json) { throw 'Preview configuration must not enter production' }
+      - run: npm ci
+        working-directory: desktop
+      - run: npm run release:win
+        working-directory: desktop
+      - name: Verify installer, native helper, updater and exact clients
+        shell: pwsh
+        run: |
+          $appRoot = 'desktop/dist/win-unpacked/resources/app'
+          foreach ($file in @('main.js','preload.js','updater.js','desktop.html','desktop-client.html')) {
+            if ((Get-FileHash "$appRoot/$file").Hash -ne (Get-FileHash "desktop/$file").Hash) { throw "Packaged source mismatch: $file" }
+          }
+          foreach ($file in @('process-audio/Yamachat.ProcessAudioCapture.exe','wns/Yamachat.WnsBridge.exe','wns/Yamachat.PushIdentity.msix','wns/WindowsAppRuntimeInstall-x64.exe','build/icon.ico')) {
+            if (-not (Test-Path "$appRoot/$file")) { throw "Missing packaged runtime: $file" }
+          }
+          if (Test-Path "$appRoot/preview.json") { throw 'Preview isolation leaked into release' }
+          & "$appRoot/process-audio/Yamachat.ProcessAudioCapture.exe" --version
+          if ($LASTEXITCODE -ne 0) { throw 'Native audio helper failed' }
+          if ((Get-Content desktop/dist/latest.yml -Raw) -notmatch 'version:\s*1\.0\.100') { throw 'Wrong updater version' }
+          foreach ($file in @('Yamachat-Setup-1.0.101.exe','Yamachat-Setup-1.0.101.exe.blockmap','latest.yml')) {
+            if (-not (Test-Path "desktop/dist/$file")) { throw "Missing updater asset: $file" }
+          }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Yamachat-Windows-1.0.101
+          path: |
+            desktop/dist/Yamachat-Setup-1.0.101.exe
+            desktop/dist/Yamachat-Setup-1.0.101.exe.blockmap
+            desktop/dist/latest.yml
+          if-no-files-found: error
+          retention-days: 30
+  publish:
+    needs: [web, android, ios, windows, apple, testflight]
+    if: ${{ always() && needs.web.result == 'success' && needs.android.result == 'success' && needs.ios.result == 'success' && needs.windows.result == 'success' && needs.apple.result == 'success' && (needs.testflight.result == 'success' || needs.testflight.result == 'skipped') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/download-artifact@v4
+        with:
+          name: Yamachat-Windows-1.0.101
+          path: release-assets
+      - uses: actions/download-artifact@v4
+        with:
+          name: Yamachat-Android
+          path: release-assets
+      - name: Validate release provenance and package hashes
+        run: |
+          git fetch origin main
+          git merge-base --is-ancestor origin/main HEAD
+          node scripts/verify-release-assets.cjs release-assets
+          cd release-assets
+          sha256sum Yamachat-Setup-1.0.101.exe Yamachat-Setup-1.0.101.exe.blockmap latest.yml Yamachat-Android.apk > SHA256SUMS.txt
+      - name: Publish verified update (explicitly approved by owner)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if gh release view v1.0.101 --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo 'Refusing to overwrite an existing release'
+            exit 1
+          fi
+          gh release create v1.0.101 release-assets/* --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --title "Yamachat 1.0.101" --notes-file docs/release-1.0.101.md --latest
+
