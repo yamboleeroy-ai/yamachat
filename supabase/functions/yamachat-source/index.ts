@@ -63,12 +63,20 @@ async function fcmPush(row:any,c:any,cfg:any){
   }catch(error:any){console.error('fcm exception',error?.message||error);return{ok:false,error:String(error?.message||error)}}
 }
 
+function wnsCredentials(cfg:any){
+  return {
+    tenant:String(Deno.env.get('WNS_TENANT_ID')||cfg?.wns_tenant_id||'').trim(),
+    clientId:String(Deno.env.get('WNS_CLIENT_ID')||cfg?.wns_app_id||'').trim(),
+    secret:String(Deno.env.get('WNS_CLIENT_SECRET')||cfg?.wns_client_secret||''),
+    objectId:String(Deno.env.get('WNS_OBJECT_ID')||'').trim()
+  }
+}
 async function wnsAccessToken(cfg:any){
-  const tenant=String(cfg?.wns_tenant_id||''),clientId=String(cfg?.wns_app_id||''),secret=String(cfg?.wns_client_secret||'')
+  const {tenant,clientId,secret}=wnsCredentials(cfg)
   if(!tenant||!clientId||!secret)return null
   const body=new URLSearchParams({grant_type:'client_credentials',client_id:clientId,client_secret:secret,scope:'https://wns.windows.com/.default'})
   const response=await fetch('https://login.microsoftonline.com/'+encodeURIComponent(tenant)+'/oauth2/v2.0/token',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body})
-  if(!response.ok){console.error('wns oauth',response.status,(await response.text()).slice(0,400));return null}
+  if(!response.ok){console.error('wns oauth',response.status);return null}
   const data=await response.json().catch(()=>({}))
   return String(data?.access_token||'')||null
 }
@@ -140,7 +148,7 @@ async function ttsHandler(req:Request){
 async function pushHandler(req:Request){
   if(req.method==='OPTIONS')return new Response(null,{status:204,headers:CORS})
   try{
-    if(req.method==='GET'){const cfg=await runtimeConfig();return json({ok:true,vapidPublicKey:cfg.vapid_public,androidFcmConfigured:!!(Deno.env.get('YAMACHAT_FCM_SERVICE_ACCOUNT_JSON')||cfg.fcm_service_account),windowsWnsConfigured:!!(cfg.wns_tenant_id&&cfg.wns_app_id&&cfg.wns_client_secret)})}
+    if(req.method==='GET'){const cfg=await runtimeConfig(),wns=wnsCredentials(cfg);return json({ok:true,vapidPublicKey:cfg.vapid_public,androidFcmConfigured:!!(Deno.env.get('YAMACHAT_FCM_SERVICE_ACCOUNT_JSON')||cfg.fcm_service_account),windowsWnsConfigured:!!(wns.tenant&&wns.clientId&&wns.secret),windowsWnsObjectConfigured:!!wns.objectId})}
     if(req.method!=='POST')return json({error:'method-not-allowed'},405)
     const body=await req.json().catch(()=>({})),action=String(body?.action||'')
     if(action==='register'){
