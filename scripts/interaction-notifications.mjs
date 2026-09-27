@@ -1,14 +1,14 @@
 import fs from 'node:fs';
 
 const runtime=fs.readFileSync(new URL('../web/interaction-notifications.js',import.meta.url),'utf8');
-const style=String.raw\`
+const style=String.raw`
 <style id="ycInteractionNotificationStyle">
 #channelList [data-channel],#voiceChannelList .voice-channel[data-voice],.voice-user[data-user-id],#rightContent .steam-member-row[data-member-id],#rightContent .steam-friend-row[data-profile-user],.yc-dm-social-row[data-profile-user]{-webkit-touch-callout:none}
 @media(pointer:coarse){
  #channelList [data-channel],#voiceChannelList .voice-channel[data-voice],.voice-user[data-user-id],#rightContent .steam-member-row[data-member-id],#rightContent .steam-friend-row[data-profile-user],.yc-dm-social-row[data-profile-user]{touch-action:pan-y}
 }
 </style>
-\`;
+`;
 
 function replaceOnce(html,before,after,label){
  if(!html.includes(before))throw Error('Interaction/notification boundary missing: '+label);
@@ -29,7 +29,7 @@ export function withInteractionNotifications(html){
  );
 
  const oldStop="function ycStopMicTest(){++ycMicTestGeneration;ycResetThresholdMeter();if(ycMicTestMeterStop){try{ycMicTestMeterStop()}catch{}ycMicTestMeterStop=null}if(ycMicTestAudio){try{ycMicTestAudio.pause();ycMicTestAudio.srcObject=null;ycMicTestAudio.remove()}catch{}ycMicTestAudio=null}if(ycMicTestStream){const old=ycMicTestStream;ycMicTestStream=null;void ycStopManagedMicStream(old)}const b=$('voiceMicTestBtn');if(b){b.classList.remove('active');b.textContent='🎙 Spustit test mikrofonu'}}";
- const newStop=String.raw\`
+ const newStop=String.raw`
 function ycApplyMicTestVoiceHold(){
  try{if(voiceStream)voiceStream.getAudioTracks().forEach(t=>t.enabled=ycMicTestVoiceHold?false:!voiceMuted&&!voiceDeafened)}catch{}
  if(ycMicTestVoiceHold){voiceSpeaking=false;if(voiceChannel)void trackVoicePresence().catch(()=>{})}
@@ -47,11 +47,11 @@ function ycCleanupMicTest({restoreVoice=false,clearWanted=false}={}){
  if(restoreVoice)ycSetMicTestVoiceHold(false);
 }
 function ycStopMicTest(){clearTimeout(ycMicTestRestartTimer);ycMicTestRestartTimer=null;ycCleanupMicTest({restoreVoice:true,clearWanted:true})}
-\`.trim();
+`.trim();
  html=replaceOnce(html,oldStop,newStop,'mic test stop');
 
  const oldToggle="async function ycToggleMicTest(){const generation=++ycMicTestGeneration;if(ycMicTestStream){ycStopMicTest();return}const btn=$('voiceMicTestBtn');if(btn){btn.disabled=true;btn.textContent='Spouštím test…'}try{const media=getVoiceMediaDevices();if(!media?.getUserMedia)throw new Error('Mikrofon není dostupný');const device=$('voiceMicSelect')?.value||voiceDeviceId||'';const mode=ycNoiseModeFromUi(),audio=ycNoiseConstraints(mode,device,$('voiceEchoCheck')?.checked??voiceEcho,$('voiceAgcCheck')?.checked??voiceAgc),raw=await media.getUserMedia({audio});const processed=await ycPrepareMicStream(raw,mode,ycMicDraft());if(generation!==ycMicTestGeneration||!$('voiceMicTestBtn')){await ycStopManagedMicStream(processed);return}ycMicTestStream=processed;ycMicTestAudio=document.createElement('audio');ycMicTestAudio.autoplay=true;ycMicTestAudio.playsInline=true;ycMicTestAudio.volume=.85;ycMicTestAudio.srcObject=ycMicTestStream;ycMicTestAudio.style.display='none';document.body.appendChild(ycMicTestAudio);const sink=$('voiceOutputSelect')?.value||voiceOutputId||'default';if(typeof ycMicTestAudio.setSinkId==='function')try{await ycMicTestAudio.setSinkId(sink)}catch{}await ycMicTestAudio.play().catch(()=>{});ycStartMicTestMeter(ycMicTestStream);if(btn){btn.classList.add('active');btn.textContent='⏹ Zastavit test mikrofonu'}}catch(e){ycStopMicTest();toast('Test mikrofonu se nepodařilo spustit: '+(e?.message||e),true)}finally{if(btn)btn.disabled=false}}";
- const newToggle=String.raw\`
+ const newToggle=String.raw`
 async function ycStartMicTestInternal(){
  if(!ycMicTestWanted)return;
  const generation=++ycMicTestGeneration,btn=$('voiceMicTestBtn');ycMicTestStarting=true;ycSetMicTestVoiceHold(true);
@@ -83,7 +83,7 @@ function ycMicTestSettingChanged(event){
  }
  ycRestartMicTest();
 }
-\`.trim();
+`.trim();
  html=replaceOnce(html,oldToggle,newToggle,'mic test toggle');
 
  const oldFocus="$('ycVoiceFocus').value=o.focus;$('ycVoiceFocus').onchange=()=>{if($('ycVoiceFocus').value!=='off'&&ycNoiseModeFromUi()!=='ai'){$('ycNoiseModeSelect').value='ai';ycStopMicTest();ycRenderNoiseModeHint();toast('Zapnuto YamaClean AI. Spusť znovu test mikrofonu.')}else ycMicUpdateTest()};";
