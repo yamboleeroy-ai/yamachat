@@ -1,0 +1,138 @@
+name: Windows stream lifecycle portable preview
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - fix/windows-stream-lifecycle-20260927
+    paths:
+      - "desktop/main.js"
+      - "desktop/preload.js"
+      - "desktop/desktop.html"
+      - "scripts/stream-viewer.mjs"
+      - "scripts/apply-stream-viewer-desktop.mjs"
+      - "scripts/build-stream-desktop.mjs"
+      - "web/stream-viewer.js"
+      - "web/stream-viewer.css"
+      - "tests/windows-stream-lifecycle.cjs"
+      - ".github/workflows/windows-stream-lifecycle-preview.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  verify-and-package:
+    runs-on: windows-latest
+    timeout-minutes: 55
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/windows-stream-lifecycle-20260927
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: desktop/package-lock.json
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Parse Electron runtime
+        shell: pwsh
+        run: |
+          node --check desktop/main.js
+          node --check desktop/preload.js
+
+      - name: Restore verified Yamachat desktop assets
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: ./scripts/restore-desktop-brand-assets.ps1 -Destination build
+
+      - name: Regenerate released Windows client
+        run: |
+          node scripts/prepare-desktop-1.0.92.mjs
+          node scripts/apply-stream-viewer-desktop.mjs
+          node scripts/build-stream-desktop.mjs
+
+      - name: Verify protected WebRTC transport and stream lifecycle
+        run: |
+          node tests/stream-transport.mjs
+          node tests/windows-stream-lifecycle.cjs
+
+      - name: Verify preview stays on Windows 1.0.97
+        shell: pwsh
+        run: |
+          $p=Get-Content desktop/package.json -Raw | ConvertFrom-Json
+          if($p.version -ne "1.0.97"){throw "Preview must stay on Windows 1.0.97 lineage"}
+          $client=Get-Content desktop/desktop-client.html -Raw
+          foreach($marker in @(
+            'const YC_STREAM_DESKTOP=true;',
+            'YamachatDesktopStreamFullscreen',
+            'ycAttachExistingScreenAudioReceiver',
+            '__ycScreenAudioTracks',
+            "session.mode==='fullscreen'"
+          )){
+            if(-not $client.Contains($marker)){throw "Missing stream lifecycle marker: $marker"}
+          }
+          foreach($oldMarker in @('id="screenShareStage"','ycShareOverlay','__ycMultiStreamViewerInstalled','__ycStreamResizeInstalled')){
+            if($client.Contains($oldMarker)){throw "Old stream UI remains: $oldMarker"}
+          }
+
+      - name: Build WNS runtime without changing production identity
+        shell: pwsh
+        env:
+          YAMACHAT_WNS_PACKAGE_VERSION: "1.0.97.0"
+        run: ./scripts/build-windows-wns.ps1
+
+      - name: Prepare desktop runtime assets
+        shell: pwsh
+        run: |
+          Copy-Item -Recurse -Force build desktop\build
+          Copy-Item -Recurse -Force audio desktop\audio
+          Copy-Item -Force boot-guard.js desktop\boot-guard.js
+
+      - name: Install desktop dependencies
+        working-directory: desktop
+        run: npm ci
+
+      - name: Build unpacked Windows preview
+        working-directory: desktop
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: npm run dist:win
+
+      - name: Verify packaged preview
+        shell: pwsh
+        run: |
+          $appRoot="desktop/dist/win-unpacked/resources/app"
+          foreach($file in @(
+            "$appRoot/main.js",
+            "$appRoot/preload.js",
+            "$appRoot/desktop.html",
+            "$appRoot/desktop-client.html",
+            "$appRoot/wns/Yamachat.WnsBridge.exe",
+            "$appRoot/build/icon.ico",
+            "desktop/dist/win-unpacked/Yamachat.exe"
+          )){
+            if(-not(Test-Path $file)){throw "Packaged preview file missing: $file"}
+          }
+          $main=Get-Content "$appRoot/main.js" -Raw
+          $preload=Get-Content "$appRoot/preload.js" -Raw
+          $shell=Get-Content "$appRoot/desktop.html" -Raw
+          $client=Get-Content "$appRoot/desktop-client.html" -Raw
+          if(-not $main.Contains("yamachat:stream-fullscreen") -or -not $main.Contains("setFullScreen(wanted)")){throw "Packaged native fullscreen bridge missing"}
+          if(-not $preload.Contains("setStreamFullscreen")){throw "Packaged preload fullscreen bridge missing"}
+          if(-not $shell.Contains("YamachatDesktopStreamFullscreen") -or -not $shell.Contains("yc-stream-fullscreen")){throw "Packaged shell fullscreen bridge missing"}
+          if(-not $client.Contains("ycAttachExistingScreenAudioReceiver") -or -not $client.Contains("__ycScreenAudioTracks")){throw "Packaged screen audio reopen bridge missing"}
+          Write-Host "PASS packaged Windows preview keeps 1.0.97 runtime and stream lifecycle hotfix."
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: yamachat-windows-stream-lifecycle-preview
+          path: desktop/dist/win-unpacked/**
+          if-no-files-found: error
+          retention-days: 7
