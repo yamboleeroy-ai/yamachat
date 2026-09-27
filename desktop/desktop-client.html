@@ -689,7 +689,7 @@ body .app .chat-head>#ycServerMenuBtn{position:relative!important;inset:auto!imp
 </style>
 
 <style id="ycServerCardContextStyle">
-#rail [data-community][data-yc-server-context="1"]{-webkit-touch-callout:none}
+#rail [data-community][data-yc-server-context="1"],#ycMobileServerMenuBtn{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
 #ycUiMenuRoot[data-yc-server-card-menu="desktop"]{min-width:250px}
 #ycUiMenuRoot[data-yc-server-card-menu] .yc-ui-menu-title{color:#a8ddea}
 #ycUiMenuRoot[data-yc-server-card-menu] .yc-ui-menu-item{min-height:42px}
@@ -970,7 +970,7 @@ html body .yc-ss-note{
 
 
 <style id="ycInteractionNotificationStyle">
-#channelList [data-channel],#voiceChannelList .voice-channel[data-voice],.voice-user[data-user-id],#rightContent .steam-member-row[data-member-id],#rightContent .steam-friend-row[data-profile-user],.yc-dm-social-row[data-profile-user]{-webkit-touch-callout:none}
+#channelList [data-channel],#voiceChannelList .voice-channel[data-voice],.voice-user[data-user-id],#rightContent .steam-member-row[data-member-id],#rightContent .steam-friend-row[data-profile-user],.yc-dm-social-row[data-profile-user]{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
 @media(pointer:coarse){
  #channelList [data-channel],#voiceChannelList .voice-channel[data-voice],.voice-user[data-user-id],#rightContent .steam-member-row[data-member-id],#rightContent .steam-friend-row[data-profile-user],.yc-dm-social-row[data-profile-user]{touch-action:pan-y}
 }
@@ -1009,7 +1009,8 @@ html body .yc-ss-note{
 .yc-stream-viewer:fullscreen{width:100%!important;height:100%!important;inset:0!important;border:0;border-radius:0;padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)}
 .yc-sv-safe-area{position:absolute;visibility:hidden;pointer-events:none;padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)}
 
-.yc-stream-viewer[data-mode="fullscreen"] .yc-sv-footer{display:flex;position:absolute;bottom:max(8px,env(safe-area-inset-bottom));left:max(8px,env(safe-area-inset-left));right:max(8px,env(safe-area-inset-right));z-index:6;padding:10px 14px;background:#071019e8;border-radius:10px}
+.yc-stream-viewer[data-mode="fullscreen"] .yc-sv-footer{display:flex;position:absolute;bottom:max(8px,env(safe-area-inset-bottom));left:max(8px,env(safe-area-inset-left));right:max(8px,env(safe-area-inset-right));z-index:6;padding:10px 14px;background:#071019e8;border-radius:10px;opacity:1;transform:translateY(0);transition:opacity .18s ease,transform .18s ease}
+.yc-stream-viewer[data-mode="fullscreen"][data-controls="hidden"] .yc-sv-footer{opacity:0;transform:translateY(12px);pointer-events:none}
 </style>
 </head>
 <body>
@@ -1604,9 +1605,9 @@ window.addEventListener('pointerdown',e=>{if(e.button!==0||!e.target.closest?.('
 window.addEventListener('dblclick',e=>{if(e.target.closest?.('.voice-channel[data-voice]')){clearTimeout(ycVoiceGestureTimer);ycVoiceGestureTimer=setTimeout(ycFlushVoiceGesture,0)}},true);
 window.addEventListener('blur',ycFlushVoiceGesture);
 function renderVoiceChannels(chs){voiceChannelDefs=chs||[];const root=$('voiceChannelList');if(!root)return;const activeId=(window.__ycVoiceSwitchBusy&&window.__ycVoiceSwitchTargetId)?String(window.__ycVoiceSwitchTargetId):String(voiceChannel?.id||'');root.innerHTML=voiceChannelDefs.map(c=>{const people=voicePresenceByChannel[c.id]||[];return '<div class="voice-block"><button class="voice-channel '+(activeId===String(c.id)?'active':'')+'" data-voice="'+c.id+'"><span>🔊</span><span>'+esc(c.name)+'</span><span class="voice-count">'+people.length+'</span></button><div class="voice-users">'+people.map(p=>{const mix=voiceMixFor(p.user_id),remote=p.user_id!==user?.id;return '<div class="voice-user '+(p.user_id===user?.id?'me-voice':'')+' '+(p.speaking&&!p.muted?'is-speaking':'')+' '+(remote&&mix.muted?'local-muted':'')+'" data-user-id="'+esc(p.user_id)+'" data-user-name="'+esc(p.username||'Uživatel')+'" title="'+(remote?'Pravým tlačítkem: hlasitost / lokální mute':'Ty')+'"><span class="voice-talk-dot"></span><span>'+(p.muted?'🔇':'🎙')+'</span><span>'+esc(p.username||'Uživatel')+'</span><span class="voice-user-icons">'+(remote&&mix.muted?'🔇':remote&&mix.volume!==100?'🔈 '+mix.volume+'%':'')+(p.deafened?' 🎧':'')+'</span></div>'}).join('')+'</div></div>'}).join('')}
-function subscribeVoiceParticipants(){if(voiceParticipantSub)return;voiceParticipantSub=sb.channel('yc-voice-participants-'+user.id+'-'+Date.now()).on('postgres_changes',{event:'*',schema:'public',table:'voice_participants'},payload=>{const row=payload.new||payload.old,id=row?.channel_id,uid=row?.user_id;if(payload.eventType==='DELETE'){if(uid){if(uid!==user.id){closeVoicePeer(uid)}if(id){if(voiceChannel?.id===id)syncVoicePeers()}renderVoiceChannels(voiceChannelDefs)}if(id){setTimeout(()=>refreshVoiceParticipants(id),180);setTimeout(()=>refreshVoiceParticipants(id),900)}else{for(const c of voiceChannelDefs)setTimeout(()=>refreshVoiceParticipants(c.id),180)}return}if(!id)return;if(!voiceChannelDefs.some(c=>c.id===id)&&voiceChannel?.id!==id)return;if(payload.eventType==='INSERT'&&uid!==user.id&&voiceJoinSoundArmed&&voiceChannel?.id===id)void 0;refreshVoiceParticipants(id);if(uid){for(const c of voiceChannelDefs){if(c.id!==id)refreshVoiceParticipants(c.id)}}}).subscribe()}
+function subscribeVoiceParticipants(){if(voiceParticipantSub)return;voiceParticipantSub=sb.channel('yc-voice-participants-'+user.id+'-'+Date.now()).on('postgres_changes',{event:'*',schema:'public',table:'voice_participants'},payload=>{const row=payload.new||payload.old,id=row?.channel_id,uid=row?.user_id;if(payload.eventType==='DELETE'){if(uid){if(uid!==user.id&&String(voiceChannel?.id||'')===String(id||'')){closeVoicePeer(uid)}if(id){if(voiceChannel?.id===id)syncVoicePeers()}renderVoiceChannels(voiceChannelDefs)}if(id){setTimeout(()=>refreshVoiceParticipants(id),180);setTimeout(()=>refreshVoiceParticipants(id),900)}else{for(const c of voiceChannelDefs)setTimeout(()=>refreshVoiceParticipants(c.id),180)}return}if(!id)return;if(!voiceChannelDefs.some(c=>c.id===id)&&voiceChannel?.id!==id)return;if(payload.eventType==='INSERT'&&uid!==user.id&&voiceJoinSoundArmed&&voiceChannel?.id===id)void 0;refreshVoiceParticipants(id);if(uid){for(const c of voiceChannelDefs){if(c.id!==id)refreshVoiceParticipants(c.id)}}}).subscribe()}
 async function refreshVoiceParticipants(id){if(!id)return;const before=[...(voicePresenceByChannel[id]||[])],cutoff=new Date(Date.now()-20000).toISOString();const {data,error}=await sb.from('voice_participants').select('channel_id,user_id,session_id,username,muted,deafened,speaking,joined_at,last_seen').eq('channel_id',id).gt('last_seen',cutoff).order('joined_at');if(error){console.warn('voice participants',error);return}const after=data||[];voicePresenceByChannel[id]=after;ycVoiceDiffAnnouncements(id,before,after);renderVoiceChannels(voiceChannelDefs);if(voiceChannel?.id===id)syncVoicePeers()}
-function ensureVoiceRooms(chs){subscribeVoiceParticipants();const wanted=new Set((chs||[]).map(c=>c.id));if(voiceChannel?.id)wanted.add(voiceChannel.id);for(const [id,room] of voiceRooms){if(!wanted.has(id)){sb.removeChannel(room);voiceRooms.delete(id);delete voicePresenceByChannel[id]}}for(const c of chs||[]){if(voiceRooms.has(c.id))continue;const id=c.id;const room=sb.channel('yc-voice-'+id,{config:{presence:{key:user.id},broadcast:{self:false}}}).on('presence',{event:'sync'},()=>{if(voiceChannel?.id===id)trackVoicePresence();refreshVoiceParticipants(id)}).on('presence',{event:'join'},()=>refreshVoiceParticipants(id)).on('presence',{event:'leave'},()=>{setTimeout(()=>refreshVoiceParticipants(id),250);setTimeout(()=>refreshVoiceParticipants(id),1000)}).on('broadcast',{event:'rtc-signal'},({payload})=>{if(voiceChannel?.id===id)handleVoiceSignal(payload)}).subscribe(status=>{if(status==='SUBSCRIBED'){if(voiceChannel?.id===id)trackVoicePresence();refreshVoiceParticipants(id)}});voiceRooms.set(id,room);refreshVoiceParticipants(id)}}
+function ensureVoiceRooms(chs){subscribeVoiceParticipants();const defs=[...(chs||[])];if(voiceChannel?.id&&!defs.some(c=>String(c.id)===String(voiceChannel.id)))defs.push(voiceChannel);const wanted=new Set(defs.map(c=>c.id));for(const [id,room] of voiceRooms){if(!wanted.has(id)){sb.removeChannel(room);voiceRooms.delete(id);delete voicePresenceByChannel[id]}}for(const c of defs){if(voiceRooms.has(c.id))continue;const id=c.id;const room=sb.channel('yc-voice-'+id,{config:{presence:{key:user.id},broadcast:{self:false}}}).on('presence',{event:'sync'},()=>{if(voiceChannel?.id===id)trackVoicePresence();refreshVoiceParticipants(id)}).on('presence',{event:'join'},()=>refreshVoiceParticipants(id)).on('presence',{event:'leave'},()=>{setTimeout(()=>refreshVoiceParticipants(id),250);setTimeout(()=>refreshVoiceParticipants(id),1000)}).on('broadcast',{event:'rtc-signal'},({payload})=>{if(voiceChannel?.id===id)handleVoiceSignal(payload)}).subscribe(status=>{if(status==='SUBSCRIBED'){if(voiceChannel?.id===id)trackVoicePresence();refreshVoiceParticipants(id);return}if(['CHANNEL_ERROR','TIMED_OUT','CLOSED'].includes(status)&&String(voiceChannel?.id||'')===String(id)){if(voiceRooms.get(id)===room)voiceRooms.delete(id);setTimeout(()=>{if(String(voiceChannel?.id||'')===String(id))ensureVoiceRooms(voiceChannelDefs)},1800)}});voiceRooms.set(id,room);refreshVoiceParticipants(id)}}
 function updateVoicePresence(id){refreshVoiceParticipants(id)}
 function getVoiceMediaDevices(){try{const f=window.frameElement;if(f){f.setAttribute('allow','microphone; camera; display-capture; autoplay; fullscreen; clipboard-read; clipboard-write; speaker-selection; picture-in-picture');f.setAttribute('allowfullscreen','')}}catch{}try{if(window.parent&&window.parent!==window&&window.parent.navigator?.mediaDevices)return window.parent.navigator.mediaDevices}catch{}return navigator.mediaDevices}
 async function voiceConstraints(){return ycNoiseConstraints(ycNoiseMode,voiceDeviceId,voiceEcho,voiceAgc)}
@@ -1616,9 +1617,18 @@ let ycVoiceKeepMicDuringSwitch=false
 async function loadVoiceTurnServers(){
   if(voiceTurnReady&&voiceIceServers?.length&&Date.now()-ycVoiceTurnLoadedAt<120000)return true
   voiceTurnReady=false;voiceTurnProvider='none'
-  try{const {data,error}=await sb.functions.invoke('yamachat-turn-cloudflare',{method:'GET'});if(!error&&data?.iceServers?.length){voiceIceServers=data.iceServers;voiceTurnReady=true;voiceTurnProvider='cloudflare';ycVoiceTurnLoadedAt=Date.now();return true}}catch(e){console.warn('Cloudflare TURN credentials',e)}
-  try{const {data,error}=await sb.functions.invoke('yamachat-turn',{method:'GET'});if(error)throw error;if(data?.iceServers?.length){voiceIceServers=data.iceServers;voiceTurnReady=true;voiceTurnProvider='metered';ycVoiceTurnLoadedAt=Date.now();return true}}catch(e){console.warn('Metered TURN credentials',e)}
-  voiceIceServers=[{urls:['stun:stun.cloudflare.com:3478','stun:stun.cloudflare.com:53','stun:stun.l.google.com:19302']}];return false
+  const collected=[],providers=[]
+  const [cloudflare,metered]=await Promise.allSettled([
+    sb.functions.invoke('yamachat-turn-cloudflare',{method:'GET'}),
+    sb.functions.invoke('yamachat-turn',{method:'GET'})
+  ])
+  const add=(result,name)=>{if(result.status!=='fulfilled')return;const value=result.value;if(value?.error||!value?.data?.iceServers?.length)return;collected.push(...value.data.iceServers);providers.push(name)}
+  add(cloudflare,'cloudflare');add(metered,'metered')
+  voiceIceServers=[...collected,{urls:['stun:stun.cloudflare.com:3478','stun:stun.cloudflare.com:53','stun:stun.l.google.com:19302']}]
+  voiceTurnReady=collected.length>0;voiceTurnProvider=providers.join('+')||'stun';ycVoiceTurnLoadedAt=Date.now()
+  if(cloudflare.status==='rejected')console.warn('Cloudflare TURN credentials',cloudflare.reason)
+  if(metered.status==='rejected')console.warn('Metered TURN credentials',metered.reason)
+  return voiceTurnReady
 }
 async function joinVoiceChannel(ch){
       if(voiceChannel?.id===ch.id){toast('Už jsi připojený v '+ch.name+'.');return}
@@ -1648,7 +1658,7 @@ async function joinVoiceChannel(ch){
 // VOICE PRESENCE CLEANUP v2.0.2
 let ycVoiceParticipantSyncQueue=Promise.resolve()
 function syncVoiceParticipantRow(){if(!voiceChannel||!voiceSessionId||!user)return Promise.resolve();const channelId=voiceChannel.id,sid=voiceSessionId,username=profile.display_name||profile.username||'Uživatel',muted=voiceMuted||ycMicTestVoiceHold,deafened=voiceDeafened,speaking=voiceSpeaking;const run=async()=>{if(!voiceChannel||voiceSessionId!==sid||String(voiceChannel.id)!==String(channelId))return;const {error}=await sb.rpc('set_voice_participant',{p_channel_id:channelId,p_session_id:sid,p_username:username,p_muted:muted,p_deafened:deafened,p_speaking:speaking});if(error)console.warn('voice heartbeat',error)};ycVoiceParticipantSyncQueue=ycVoiceParticipantSyncQueue.catch(()=>{}).then(run);return ycVoiceParticipantSyncQueue}
-function startVoiceHeartbeat(){stopVoiceHeartbeat();syncVoiceParticipantRow();voiceHeartbeatTimer=setInterval(()=>{if(voiceChannel){syncVoiceParticipantRow();refreshVoiceParticipants(voiceChannel.id)}},5000)}
+function startVoiceHeartbeat(){stopVoiceHeartbeat();const beat=()=>{if(!voiceChannel)return;ensureVoiceRooms(voiceChannelDefs);void trackVoicePresence().catch(e=>console.warn('voice presence keepalive',e));refreshVoiceParticipants(voiceChannel.id)};beat();voiceHeartbeatTimer=setInterval(beat,5000)}
 function stopVoiceHeartbeat(){if(voiceHeartbeatTimer){clearInterval(voiceHeartbeatTimer);voiceHeartbeatTimer=null}}
 async function trackVoicePresence(attempt=0){if(!voiceChannel)return;const room=voiceRooms.get(voiceChannel.id);if(room){try{const pending=room.track({user_id:user.id,username:profile.display_name||profile.username,muted:voiceMuted||ycMicTestVoiceHold,deafened:voiceDeafened,speaking:voiceSpeaking,session_id:voiceSessionId,joined_at:new Date().toISOString()});if(pending&&typeof pending.catch==='function')pending.catch(()=>{if(attempt<8)setTimeout(()=>trackVoicePresence(attempt+1),400)})}catch{}}await syncVoiceParticipantRow()}
 function renderVoiceControls(){const box=$('voiceControls');if(!box)return;const switching=!!window.__ycVoiceSwitchBusy,connected=!!voiceChannel;box.classList.remove('hidden');box.classList.toggle('is-idle',!connected&&!switching);box.classList.toggle('is-connected',connected);box.classList.toggle('is-switching',switching);const voicePresence=(typeof ycAutoPresenceState==='function'?ycAutoPresenceState():String(profile?.status||'online').toLowerCase());box.dataset.presence=voicePresence==='busy'?'dnd':voicePresence==='away'?'afk':voicePresence;const panel=$('voiceConnectionPanel');panel?.classList.toggle('hidden',!connected&&!switching);const selfName=profile?.display_name||profile?.username||'Uživatel',selfState=$('voiceSelfState'),selfAvatar=$('voiceSelfAvatar');if($('voiceSelfName'))$('voiceSelfName').textContent=selfName;if(selfState)selfState.textContent=switching?'Připojuji…':connected?(voiceDeafened?'Zvuk i mikrofon vypnutý':voiceMuted?'Mikrofon ztlumený':'Připojen k hlasu'):(voiceDeafened?'Zvuk vypnutý pro další připojení':voiceMuted?'Mikrofon ztlumený pro další připojení':'Hlas připraven');if(selfAvatar){const selfPresenceState=(voicePresence==='dnd'?'dnd':voicePresence==='afk'?'afk':voicePresence==='online'?'online':'offline');if(profile)selfAvatar.innerHTML=rankAvatarHtml(profile,myStats,'avatar',selfPresenceState);else selfAvatar.textContent=initials(selfName)}if($('voiceMuteBtn')){$('voiceMuteBtn').classList.toggle('active',voiceMuted);$('voiceMuteBtn').innerHTML=voiceMuted?'<span>🔇</span>':'<span>🎙</span>';$('voiceMuteBtn').title=voiceMuted?'Zapnout mikrofon':'Ztlumit mikrofon'}if($('voiceDeafenBtn')){$('voiceDeafenBtn').classList.toggle('active',voiceDeafened);$('voiceDeafenBtn').innerHTML=voiceDeafened?'<span>🔕</span>':'<span>🎧</span>';$('voiceDeafenBtn').title=voiceDeafened?'Zapnout zvuk':'Ztlumit zvuk'}if(switching){$('soundboardPanel')?.classList.add('hidden');if($('voiceStatusName'))$('voiceStatusName').textContent='Přepínám hlas';if($('voiceRoomName'))$('voiceRoomName').textContent=window.__ycVoiceSwitchTargetName||'Hlasový kanál';const sub=$('voiceStatusSub');if(sub)sub.textContent=(voiceChannel?.id&&String(voiceChannel.id)===String(window.__ycVoiceSwitchTargetId))?'Dokončuji připojení…':'Připojuji…';renderVoiceChannels(voiceChannelDefs);return}if(!voiceChannel){$('soundboardPanel')?.classList.add('hidden');if($('voiceScreenBtn')){$('voiceScreenBtn').classList.remove('screen-active');$('voiceScreenBtn').innerHTML='<span>🖥️</span>'}renderVoiceChannels(voiceChannelDefs);return}if($('voiceStatusName'))$('voiceStatusName').textContent='Hlas připojen';if($('voiceRoomName'))$('voiceRoomName').textContent=voiceChannel.name;updateVoiceConnectionStatus();if($('voiceScreenBtn')){$('voiceScreenBtn').classList.toggle('screen-active',screenShareActive);$('voiceScreenBtn').innerHTML=screenShareActive?'<span>⏹️</span>':'<span>🖥️</span>';$('voiceScreenBtn').title=screenShareActive?'Přestat sdílet':'Sdílet obrazovku'}renderVoiceChannels(voiceChannelDefs)}
@@ -5353,7 +5363,7 @@ document.addEventListener('pointerdown',event=>{
  const card=event.target.closest?.('#rail [data-community],#ycMobileServerMenuBtn');if(!card)return;
  ycServerCardCancelPress();
  const state={card,pointerId:event.pointerId,x:event.clientX,y:event.clientY,opened:false,timer:null};
- state.timer=setTimeout(()=>{if(ycServerCardPress!==state||!card.isConnected)return;state.opened=true;ycServerCardSuppressClickUntil=Date.now()+850;try{navigator.vibrate?.(10)}catch{};void ycOpenServerCardMenu(card,state.x,state.y)},520);
+ state.timer=setTimeout(()=>{if(ycServerCardPress!==state||!card.isConnected)return;state.opened=true;ycServerCardSuppressClickUntil=Date.now()+850;try{window.getSelection?.()?.removeAllRanges?.()}catch{};try{navigator.vibrate?.(10)}catch{};void ycOpenServerCardMenu(card,state.x,state.y)},520);
  ycServerCardPress=state;
 },true);
 document.addEventListener('pointermove',event=>{
@@ -5671,6 +5681,7 @@ document.addEventListener('pointerdown',event=>{
  state.timer=setTimeout(()=>{
   if(ycContextLongPress!==state||!target.isConnected)return;
   state.opened=true;ycContextLongPressSuppressUntil=Date.now()+900;
+  try{window.getSelection?.()?.removeAllRanges?.()}catch{}
   try{navigator.vibrate?.(10)}catch{}
   ycOpenLongPressContext(target,state.x,state.y);
  },520);
@@ -5879,6 +5890,17 @@ const ycStreamViewer=(()=>{
     if(layoutFrame||!sessions.size)return;
     layoutFrame=requestAnimationFrame(()=>{layoutFrame=0;for(const session of sessions.values())layout(session)});
   }
+  function showFullscreenControls(session,hold=2400){
+    if(!session?.panel)return;
+    clearTimeout(session.controlsTimer);session.controlsTimer=null;
+    session.panel.dataset.controls='visible';
+    if(session.mode!=='fullscreen')return;
+    session.controlsTimer=setTimeout(()=>{
+      if(sessions.get(session.id)!==session||session.mode!=='fullscreen')return;
+      if(session.panel.matches(':focus-within')){showFullscreenControls(session,1400);return}
+      session.panel.dataset.controls='hidden';
+    },hold);
+  }
   function resumeScreenAudio(session){
     if(session.local)return;
     try{ycAttachExistingScreenAudioReceiver?.(session.id)}catch{}
@@ -5907,6 +5929,7 @@ const ycStreamViewer=(()=>{
     if(document.fullscreenElement===session.panel)void document.exitFullscreen().catch(()=>{});
     if(previous==='fullscreen'&&YC_STREAM_DESKTOP)void window.parent?.YamachatDesktopStreamFullscreen?.set?.(false);
     session.mode=mode;layout(session);
+    if(mode==='fullscreen')showFullscreenControls(session);else{clearTimeout(session.controlsTimer);session.controlsTimer=null;session.panel.dataset.controls='visible'}
     if((mode==='mini'||previous==='mini'||mode==='fullscreen'||previous==='fullscreen')&&iosPwa())resumeIosPwaPlaybackAfterLayout(session,video,stream);
   }
   function bindMove(session,handle,resize=false){
@@ -5947,7 +5970,7 @@ const ycStreamViewer=(()=>{
           session.nativeFullscreenPending=false;
           if(!!state?.fullscreen===entering){
             session.mode=entering?'fullscreen':returnMode;
-            layout(session);resumeScreenAudio(session);
+            layout(session);if(entering)showFullscreenControls(session);else{clearTimeout(session.controlsTimer);session.controlsTimer=null;session.panel.dataset.controls='visible'}resumeScreenAudio(session);
             if(session.video.srcObject)void play(session);
             return;
           }
@@ -5980,6 +6003,7 @@ const ycStreamViewer=(()=>{
 
   function remove(session){
     if(session.mode==='fullscreen'&&YC_STREAM_DESKTOP)void window.parent?.YamachatDesktopStreamFullscreen?.set?.(false).catch?.(()=>{});
+    clearTimeout(session.controlsTimer);session.controlsTimer=null;
     session.abort.abort();session.trackAbort?.abort();session.video.pause();session.video.srcObject=null;session.panel.remove();sessions.delete(session.id);
     // Receiver tracks belong to RTC, so closing a viewer must never stop them.
     if(!sessions.size){layer?.remove();layer=null;safe=null}
@@ -5992,7 +6016,8 @@ const ycStreamViewer=(()=>{
     ensureLayer();
     const panel=document.createElement('section');panel.className='yc-stream-viewer';panel.dataset.peer=id;panel.setAttribute('role','region');
     panel.innerHTML='<header class="yc-sv-header" tabindex="0" aria-label="Přesunout stream šipkami nebo tažením"><span class="yc-sv-avatar" aria-hidden="true"></span><strong class="yc-sv-title"></strong><button type="button" data-action="maximize" aria-label="Maximalizovat stream" title="Maximalizovat stream">□</button><button type="button" data-action="fullscreen" aria-label="Celá obrazovka" title="Celá obrazovka">⛶</button><button type="button" data-action="minimize" aria-label="Minimalizovat stream" title="Minimalizovat stream">−</button><button type="button" data-action="close" aria-label="Zavřít sledování" title="Zavřít sledování">×</button></header><div class="yc-sv-media"><video autoplay playsinline muted></video><div class="yc-sv-status" role="status"><span></span><button type="button" hidden>Přehrát</button></div></div><footer class="yc-sv-footer"><label>Zvuk <input type="range" min="0" max="100" step="1" aria-label="Hlasitost streamu"></label><span class="yc-sv-quality"></span></footer><button type="button" class="yc-sv-resize" aria-label="Změnit velikost streamu šipkami nebo tažením" title="Změnit velikost">◢</button>';
-    const session={id,local,panel,mode:'floating',rect:null,stream:null,abort:new AbortController(),name:local?'Tvůj stream':screenShareName(id),blocked:false};
+    const session={id,local,panel,mode:'floating',rect:null,stream:null,abort:new AbortController(),name:local?'Tvůj stream':screenShareName(id),blocked:false,controlsTimer:null};
+    panel.dataset.controls='visible';
     session.video=panel.querySelector('video');session.video.muted=true;
     session.status=panel.querySelector('.yc-sv-status');session.statusText=session.status.querySelector('span');
     session.playButton=session.status.querySelector('button');
@@ -6001,8 +6026,11 @@ const ycStreamViewer=(()=>{
     panel.querySelector('.yc-sv-avatar').textContent=session.name.slice(0,1).toUpperCase();
     session.minimize.onclick=()=>setMode(session,session.mode==='mini'?'floating':'mini');
     session.maximize.onclick=()=>setMode(session,session.mode==='maximized'?'floating':'maximized');
-    session.fullscreen.onclick=()=>void fullscreen(session);
+    session.fullscreen.onclick=()=>{showFullscreenControls(session);void fullscreen(session)};
     panel.querySelector('[data-action="close"]').onclick=()=>close(session);
+    for(const type of ['pointermove','pointerdown','touchstart'])panel.addEventListener(type,()=>{if(session.mode==='fullscreen')showFullscreenControls(session)},{passive:true,signal:session.abort.signal});
+    panel.addEventListener('keydown',()=>{if(session.mode==='fullscreen')showFullscreenControls(session)},{signal:session.abort.signal});
+    panel.addEventListener('focusin',()=>{if(session.mode==='fullscreen')showFullscreenControls(session,3200)},{signal:session.abort.signal});
     panel.querySelector('.yc-sv-media').onclick=event=>{if(session.mode==='mini'&&!event.target.closest('button'))setMode(session,'floating')};
     session.playButton.onclick=()=>{
       session.blocked=false;void play(session);
