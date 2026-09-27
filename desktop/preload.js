@@ -8,6 +8,9 @@ contextBridge.exposeInMainWorld('yamachatDesktop', {
   closeWindow: () => ipcRenderer.invoke('yamachat:window-close'),
   getWindowState: () => ipcRenderer.invoke('yamachat:get-window-state'),
   setStreamFullscreen: (active) => ipcRenderer.invoke('yamachat:stream-fullscreen', !!active),
+  startProcessAudioCapture: () => ipcRenderer.invoke('yamachat:process-audio-start'),
+  stopProcessAudioCapture: () => ipcRenderer.invoke('yamachat:process-audio-stop'),
+  getProcessAudioSelection: () => ipcRenderer.invoke('yamachat:process-audio-selection'),
   showNotification: (payload) => ipcRenderer.invoke('yamachat:show-notification', payload),
   getWindowsPushChannel: () => ipcRenderer.invoke('yamachat:wns-get-channel'),
   getUpdateState: () => ipcRenderer.invoke('yamachat:update-get-state'),
@@ -32,5 +35,17 @@ contextBridge.exposeInMainWorld('yamachatDesktop', {
     const handler = (_event, state) => callback(state || {});
     ipcRenderer.on('yamachat:window-state', handler);
     return () => ipcRenderer.removeListener('yamachat:window-state', handler);
+  },
+  onProcessAudioChunk: (callback) => {
+    if (typeof callback !== 'function') return () => {};
+    const handler = (_event, payload) => callback(payload || {});
+    ipcRenderer.on('yamachat:process-audio-chunk', handler);
+    return () => ipcRenderer.removeListener('yamachat:process-audio-chunk', handler);
+  },
+  onProcessAudioStatus: (callback) => {
+    if (typeof callback !== 'function') return () => {};
+    const handler = (_event, payload) => callback(payload || {});
+    ipcRenderer.on('yamachat:process-audio-status', handler);
+    return () => ipcRenderer.removeListener('yamachat:process-audio-status', handler);
   }
 });
