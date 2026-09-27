@@ -8,17 +8,16 @@
     "notes": "Yamachat 1.0.99\n\nDlouhé podržení / pravé tlačítko otevírá kontextové nabídky kanálů a uživatelů konzistentně napříč platformami.\nTest mikrofonu při aktivním voice dočasně ztlumí odesílaný mikrofon a po ukončení vrátí předchozí stav.\nZměna vstupního zařízení, echo cancellation, AGC nebo YamaClean během testu mikrofonu test obnoví a nechá ho běžet.\nOznámení lze individuálně zapnout nebo vypnout pro uživatele, textový kanál a celý server; priorita je uživatel > kanál > server.\nServer-side push filtrování respektuje preference i při zavřené aplikaci.\nStream fullscreen, app-only audio, WNS, updater a tray z 1.0.98 zůstávají zachované."
   },
   "android": {
-    "latestVersion": "1.1.0.530",
-    "latestVersionCode": 200530,
+    "latestVersion": "1.1.0.531",
+    "latestVersionCode": 200531,
     "required": true,
-    "apkUrl": "https://yamachat.eu/download/Yamachat-Android.apk?v=200530",
-    "sha256": "31ea740457287563552612e65bbfbdd8798400c707c8fc71c33e1d4b86311c80",
+    "apkUrl": "https://yamachat.eu/download/Yamachat-Android.apk?v=200531",
+    "sha256": "62e577c0a79b69d4583358fddf081b81e241a71e30c544eebcc5828209f84e51",
     "notes": [
-      "Dlouhým podržením kanálu nebo uživatele se otevře stejné kontextové menu jako pravým tlačítkem na desktopu.",
-      "Test mikrofonu při voice dočasně ztlumí odesílaný mikrofon a po ukončení vrátí předchozí stav.",
-      "Změny mikrofonu během aktivního testu test automaticky obnoví místo jeho vypnutí.",
-      "Oznámení lze individuálně řídit pro uživatele, textové kanály a servery; preference platí i pro FCM push při zavřené aplikaci.",
-      "Stream, voice, mobilní rozložení a ostatní funkce zůstávají zachované."
+      "Yamachat oznámení mají vlastní logo, ikonu a vlastní zvuk zprávy na Androidu.",
+      "Kliknutí na oznámení otevře přímo správnou DM, kanál a konkrétní zprávu.",
+      "FCM push při úplně ukončené APK je aktivní.",
+      "Současné mobilní rozložení, voice, Real Voices a ostatní funkce zůstávají beze změny."
     ]
   }
 }
