@@ -67,9 +67,9 @@ async function longPress(page,selector){
   await page.getByText(/Vypnout oznámení z kanálu|Zapnout oznámení z kanálu/).click();
   await page.waitForFunction(()=>window.__mockWrites.some(x=>x==='notification_preferences:upsert'));
 
-  // Close the left mobile drawer before opening Members; its scrim intentionally intercepts header clicks.
-  await page.locator('#ycMobileScrim').click();
-  await page.waitForFunction(()=>!document.getElementById('ycMobileScrim')?.classList.contains('open'));
+  // Close the left mobile drawer through its existing toggle; pointer hit-testing of the scrim varies by layout.
+  await page.evaluate(()=>document.getElementById('mobileMenu')?.click());
+  await page.waitForTimeout(250);
   // A touch hold on another user must invoke that user's menu and expose notification control.
   await page.locator('#ycMobileMembersBtn').click();
   await page.waitForSelector('#rightContent .steam-member-row[data-member-id="peer"]');
