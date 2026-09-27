@@ -1,6 +1,6 @@
 {
   "name": "yamachat-windows",
-  "version": "1.0.104",
+  "version": "1.0.105",
   "description": "Yamachat desktop — stream audio, viewer and voice announcements",
   "main": "main.js",
   "productName": "Yamachat",
