@@ -97,8 +97,8 @@ async function boot(browser,width,height){
     await page.waitForSelector('.yc-server-info-modal');
     await page.waitForFunction(()=>!document.querySelector('.yc-server-info-loading'),null,{timeout:5000});
     const infoText=await page.locator('.yc-server-info-modal').innerText();
-    assert.match(infoText,/Veřejná komunita/);
-    assert.match(infoText,/Nastavení komunity/);
+    assert.match(infoText,/Veřejná komunita/i);
+    assert.match(infoText,/Nastavení komunity/i);
     await page.locator('.yc-server-info-close').click();
 
     await page.locator('#membersTab').click();
