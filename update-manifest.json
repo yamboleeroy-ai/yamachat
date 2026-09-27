@@ -8,11 +8,11 @@
     "notes": "Yamachat 1.0.101\n\n- Opravené odpojování z aktivního voice při procházení nebo psaní v jiné komunitě. Kontrola skrytých/zaheslovaných kanálů teď smí ukončit voice jen v komunitě, ke které aktivní voice skutečně patří.\n- Desktopový stream používá skutečný Windows fullscreen na první kliknutí. Fullscreen obraz vyplní displej a spodní ovládací lišta se po neaktivitě automaticky skryje.\n- Hlasitost streamu na 0 % nyní znamená skutečné úplné ztlumení a stream audio je oddělené od běžného voice audia.\n- Po ukončení a novém spuštění streamu se znovu vytvoří stream-audio WebRTC cesta, takže divák nemusí opouštět a znovu připojovat voice kvůli obnovení zvuku.\n- Opravené bliknutí desktopového okna při práci s Windows lištou / změně fokusu po pádu GPU procesu; Windows klient používá stabilnější vykreslovací cestu.\n- Na iOS/PWA a Androidu prvky s dlouhým podržením (serverové karty, kanály a uživatelé) neoznačují text při otevření kontextové nabídky.\n- Zachované současné notifikace, FCM/WNS, updater, voice nastavení a ostatní funkce z 1.0.100.\n\nPoznámka: nativní TestFlight build se publikuje jen pokud jsou v GitHubu nakonfigurované Apple distribuční secrets; web/PWA a iOS kontrola tím nejsou blokované.\n\nPředchozí vydání v1.0.100 zůstává dostupné pro návrat."
   },
   "android": {
-    "latestVersion": "1.1.0.555",
-    "latestVersionCode": 200555,
+    "latestVersion": "1.1.0.574",
+    "latestVersionCode": 200574,
     "required": true,
-    "apkUrl": "https://yamachat.eu/download/Yamachat-Android.apk?v=200555",
-    "sha256": "2f1c6b31ac4348cbc6d8c0329f5c84539a0b30ad099cbeb39110d85783349369",
+    "apkUrl": "https://yamachat.eu/download/Yamachat-Android.apk?v=200574",
+    "sha256": "c4493364bd603a62d14ad549ad908fba36da1f2da3d721d5dc370b0970f6ad1f",
     "notes": [
       "Yamachat oznámení mají vlastní logo, ikonu a vlastní zvuk zprávy na Androidu.",
       "Kliknutí na oznámení otevře přímo správnou DM, kanál a konkrétní zprávu.",
