@@ -6,8 +6,8 @@ const results=[];
 (async()=>{
  const browser=await chromium.launch({headless:true,...(process.env.BROWSER_EXECUTABLE?{executablePath:process.env.BROWSER_EXECUTABLE}:{})});
  try{
-  for(const [platform,width,height,touch] of [['web',1440,900,false],['desktop',650,500,false],['android',390,844,true],['ios-layout',390,844,true]]){
-   const page=await browser.newPage({viewport:{width,height},hasTouch:touch,isMobile:touch,serviceWorkers:'block'});const errors=[];page.on('pageerror',e=>errors.push(e.message));
+  for(const [platform,width,height,touch,iosPwa] of [['web',1440,900,false,false],['desktop',650,500,false,false],['android',390,844,true,false],['ios-pwa',390,844,true,true]]){
+   const page=await browser.newPage({viewport:{width,height},hasTouch:touch,isMobile:touch,serviceWorkers:'block',...(iosPwa?{userAgent:'Mozilla/5.0 (iPhone; CPU iPhone OS 18_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.6 Mobile/15E148 Safari/604.1'}:{})});const errors=[];page.on('pageerror',e=>errors.push(e.message));
    await page.route('**/*',route=>{
     const u=new URL(route.request().url());if(u.hostname!=='127.0.0.1')return route.abort();
     if(u.pathname.endsWith('/supabase.js'))return route.fulfill({contentType:'text/javascript',body:fixture.mock()});
@@ -18,13 +18,31 @@ const results=[];
    await page.evaluate(()=>Object.defineProperty(navigator.mediaDevices,'getDisplayMedia',{value:undefined,configurable:true}));
    await page.evaluate(()=>streamTest.start());
    await page.waitForFunction(()=>document.querySelector('.yc-stream-viewer video')?.videoWidth>0);
+   await page.waitForFunction(()=>streamTest.screenAudioReady());
    const video=page.locator('.yc-stream-viewer video');
    const initialTime=await video.evaluate(v=>v.currentTime);
    await page.waitForFunction(t=>document.querySelector('.yc-stream-viewer video').currentTime>t+.1,initialTime);
    const chatBefore=await page.locator('#messages').boundingBox();
+   if(iosPwa)await page.evaluate(()=>{
+    Object.defineProperty(navigator,'standalone',{value:true,configurable:true});
+    const video=document.querySelector('.yc-stream-viewer video'),nativePlay=video.play.bind(video);
+    window.__ycIosMini={video,stream:video.srcObject,playCalls:0,nativePlay};
+    video.play=(...args)=>{window.__ycIosMini.playCalls++;return nativePlay(...args)};
+   });
    await page.locator('[data-action="minimize"]').click();
    const chatAfter=await page.locator('#messages').boundingBox();assert.deepEqual(chatAfter,chatBefore,'viewer must not resize chat');
+   if(iosPwa){
+    await page.waitForFunction(()=>window.__ycIosMini.playCalls>=1);
+    assert(await page.evaluate(()=>{const s=window.__ycIosMini,v=document.querySelector('.yc-stream-viewer video');return v===s.video&&v.srcObject===s.stream&&streamTest.same()}),'iOS PWA mini keeps video, MediaStream and peer identity');
+    const miniTime=await video.evaluate(v=>v.currentTime);await page.waitForFunction(t=>document.querySelector('.yc-stream-viewer video').currentTime>t+.15,miniTime);
+   }
    await page.locator('.yc-sv-media').click();
+   if(iosPwa){
+    await page.waitForFunction(()=>window.__ycIosMini.playCalls>=2);
+    assert(await page.evaluate(()=>{const s=window.__ycIosMini,v=document.querySelector('.yc-stream-viewer video');return v===s.video&&v.srcObject===s.stream&&streamTest.same()}),'iOS PWA restore keeps video, MediaStream and peer identity');
+    const restoredMiniTime=await video.evaluate(v=>v.currentTime);await page.waitForFunction(t=>document.querySelector('.yc-stream-viewer video').currentTime>t+.15,restoredMiniTime);
+    await page.evaluate(()=>Object.defineProperty(navigator,'standalone',{value:false,configurable:true}));
+   }
    for(const where of ['channel','server','friends','dm','settings']){
     await page.evaluate(w=>streamTest.navigate(w),where);
     assert(await page.evaluate(()=>streamTest.same()),platform+' player/peer survived '+where);
@@ -32,9 +50,19 @@ const results=[];
    }
    // Settings stays operable; dismiss only its own dialog for pointer tests.
    await page.evaluate(()=>document.getElementById('modalRoot').replaceChildren());
+   if(iosPwa)await page.evaluate(()=>Object.defineProperty(navigator,'standalone',{value:true,configurable:true}));
    await page.locator('[data-action="minimize"]').click();
    assert.equal(await page.locator('.yc-stream-viewer').getAttribute('data-mode'),'mini');
    await page.waitForTimeout(550);
+   if(iosPwa){
+    const beforeRotate=await video.evaluate(v=>v.currentTime);
+    await page.setViewportSize({width:844,height:390});await page.waitForTimeout(120);
+    assert(await page.evaluate(()=>{const s=window.__ycIosMini,v=document.querySelector('.yc-stream-viewer video');return v===s.video&&v.srcObject===s.stream&&streamTest.same()}),'iOS PWA landscape keeps video, MediaStream and peer identity');
+    await page.waitForFunction(t=>document.querySelector('.yc-stream-viewer video').currentTime>t+.15,beforeRotate);
+    const landscapeTime=await video.evaluate(v=>v.currentTime);
+    await page.setViewportSize({width:390,height:844});await page.waitForTimeout(120);
+    await page.waitForFunction(t=>document.querySelector('.yc-stream-viewer video').currentTime>t+.15,landscapeTime);
+   }
    const overlaps=await page.evaluate(()=>{
     const r=document.querySelector('.yc-stream-viewer').getBoundingClientRect();
     return [...document.querySelectorAll('.composer-wrap,.voice-controls,#ycMobileVoiceDock,#ycGlobalNav,#rail,#ycMobileHeader,#mobileMenu,#ycMobileNavBtn')].filter(n=>{const b=n.getBoundingClientRect();return b.width&&b.height&&getComputedStyle(n).visibility!=='hidden'&&Math.min(r.right,b.right)>Math.max(r.left,b.left)+1&&Math.min(r.bottom,b.bottom)>Math.max(r.top,b.top)+1}).map(n=>n.id||n.className);
@@ -42,6 +70,7 @@ const results=[];
    await page.screenshot({path:path.join(out,platform+'-mini.png')});
    await page.locator('.yc-sv-media').click();
    assert.equal(await page.locator('.yc-stream-viewer').getAttribute('data-mode'),'floating');
+   if(iosPwa){await page.waitForFunction(()=>window.__ycIosMini.playCalls>=4);await page.evaluate(()=>Object.defineProperty(navigator,'standalone',{value:false,configurable:true}))}
    if(!touch){
     await page.locator('[data-action="maximize"]').click();assert.equal(await page.locator('.yc-stream-viewer').getAttribute('data-mode'),'maximized');
     await page.keyboard.press('Escape');
@@ -63,13 +92,37 @@ const results=[];
    await page.context().setOffline(false);await page.waitForTimeout(150);assert(await page.evaluate(()=>streamTest.same()),'short offline does not destroy session');
    await page.evaluate(()=>streamTest.recovery());assert(await page.evaluate(()=>streamTest.same()),'recovery preserves node');
    const recoveredTime=await video.evaluate(v=>v.currentTime);await page.waitForFunction(t=>document.querySelector('.yc-stream-viewer video').currentTime>t+.2,recoveredTime);
-   await page.locator('[data-action="fullscreen"]').click();
-   await page.waitForFunction(()=>!!document.fullscreenElement||document.querySelector('.yc-stream-viewer')?.dataset.mode==='maximized');
-   assert(await page.evaluate(()=>!!document.fullscreenElement||document.querySelector('.yc-stream-viewer').dataset.mode==='maximized'),'fullscreen or app fallback');
-   await page.evaluate(async()=>{if(document.fullscreenElement)await document.exitFullscreen()});
+   if(iosPwa){
+    await page.evaluate(()=>Object.defineProperty(navigator,'standalone',{value:true,configurable:true}));
+    const fsBefore=await video.evaluate(v=>v.currentTime);
+    await page.locator('[data-action="fullscreen"]').click();
+    await page.waitForFunction(()=>document.querySelector('.yc-stream-viewer')?.dataset.mode==='fullscreen');
+    assert.equal(await page.evaluate(()=>!!document.fullscreenElement),false,'iOS PWA uses stable in-app fullscreen instead of WebKit fullscreen');
+    assert(await page.evaluate(()=>{const s=window.__ycIosMini,v=document.querySelector('.yc-stream-viewer video');return v===s.video&&v.srcObject===s.stream&&streamTest.same()&&streamTest.screenAudioReady()}),'iOS PWA fullscreen keeps video, MediaStream, audio and peer identity');
+    await page.waitForFunction(t=>document.querySelector('.yc-stream-viewer video').currentTime>t+.15,fsBefore);
+    const fsExitBefore=await video.evaluate(v=>v.currentTime);
+    await page.locator('[data-action="fullscreen"]').click();
+    await page.waitForFunction(()=>document.querySelector('.yc-stream-viewer')?.dataset.mode==='floating');
+    assert(await page.evaluate(()=>streamTest.same()&&streamTest.screenAudioReady()),'iOS PWA fullscreen exit keeps video/audio and peer identity');
+    await page.waitForFunction(t=>document.querySelector('.yc-stream-viewer video').currentTime>t+.15,fsExitBefore);
+    await page.evaluate(()=>Object.defineProperty(navigator,'standalone',{value:false,configurable:true}));
+   }else{
+    await page.locator('[data-action="fullscreen"]').click();
+    await page.waitForFunction(()=>!!document.fullscreenElement||document.querySelector('.yc-stream-viewer')?.dataset.mode==='maximized');
+    assert(await page.evaluate(()=>!!document.fullscreenElement||document.querySelector('.yc-stream-viewer').dataset.mode==='maximized'),'fullscreen or app fallback');
+    await page.evaluate(async()=>{if(document.fullscreenElement)await document.exitFullscreen()});
+   }
    await page.screenshot({path:path.join(out,platform+'-viewer.png')});
    await page.locator('[data-action="close"]').click();assert.equal(await page.locator('.yc-stream-viewer').count(),0);assert.equal(await page.evaluate(()=>streamTest.watched()),false);
    assert.equal(await page.evaluate(()=>streamTest.receiver.connectionState),'connected','closing viewer retains voice peer');
+   assert(await page.evaluate(()=>streamTest.screenAudioTrackKept()),platform+' close keeps classified screen-audio receiver track');
+   await page.evaluate(()=>streamTest.reopen());
+   await page.waitForFunction(()=>document.querySelector('.yc-stream-viewer video')?.videoWidth>0);
+   await page.waitForFunction(()=>streamTest.screenAudioReady());
+   assert(await page.evaluate(()=>streamTest.peerSame()),platform+' reopen keeps the same voice/WebRTC peer');
+   const reopenedTime=await page.locator('.yc-stream-viewer video').evaluate(v=>v.currentTime);
+   await page.waitForFunction(t=>document.querySelector('.yc-stream-viewer video').currentTime>t+.15,reopenedTime);
+   await page.locator('[data-action="close"]').click();assert.equal(await page.locator('.yc-stream-viewer').count(),0);
    await page.evaluate(()=>streamTest.cleanup());
    await page.evaluate(()=>streamTest.start());await page.waitForFunction(()=>document.querySelector('.yc-stream-viewer video')?.videoWidth>0);
    await page.evaluate(()=>streamTest.stop());assert.equal(await page.locator('.yc-stream-viewer').count(),0,'stream stop clears viewer');
@@ -83,5 +136,5 @@ const results=[];
    results.push({platform,engine:'Chromium',width,height,touch,passed:true});await page.close();
   }
  }finally{await browser.close();fs.writeFileSync(path.join(out,'stream-results.json'),JSON.stringify(results,null,2))}
- console.log('PASS: real loopback WebRTC video, navigation identity, mini exclusion, drag/resize, orientation, recovery and cleanup on 4 client configurations.');
+ console.log('PASS: real loopback WebRTC video+audio, navigation identity, iOS PWA mini/fullscreen playback continuity, close/reopen audio recovery, mini exclusion, drag/resize, orientation, recovery and cleanup on 4 client configurations.');
 })().catch(e=>{console.error(e);process.exit(1)});

@@ -6,20 +6,22 @@ window.streamTest={
   const canvas=document.createElement('canvas');canvas.width=960;canvas.height=540;
   const ctx=canvas.getContext('2d');let frame=0;
   const timer=setInterval(()=>{ctx.fillStyle='#112837';ctx.fillRect(0,0,960,540);ctx.fillStyle='#70e4e8';ctx.font='40px sans-serif';ctx.fillText('Yamachat · testovací stream',80,180);ctx.fillText(String(++frame),80,280)},80);
-  const source=canvas.captureStream(12),sender=new RTCPeerConnection(),receiver=new RTCPeerConnection();
+  const source=canvas.captureStream(12),audioContext=new AudioContext(),oscillator=audioContext.createOscillator(),audioGain=audioContext.createGain(),audioDest=audioContext.createMediaStreamDestination(),sender=new RTCPeerConnection(),receiver=new RTCPeerConnection();
+  audioGain.gain.value=.02;oscillator.connect(audioGain).connect(audioDest);oscillator.start();source.addTrack(audioDest.stream.getAudioTracks()[0]);
   sender.onicecandidate=e=>{if(e.candidate)receiver.addIceCandidate(e.candidate).catch(()=>{})};
   receiver.onicecandidate=e=>{if(e.candidate)sender.addIceCandidate(e.candidate).catch(()=>{})};
   voiceChannel={id:'voice-a',name:'Test voice',community_id:'community-a'};voiceSessionId='test-session';
   voicePresenceByChannel['voice-a']=[{user_id:'peer',username:'Testující streamer'}];
   voicePeers.set('peer',receiver);voiceScreenActiveByUser.add('peer');
-  receiver.ontrack=e=>attachVoiceScreen('peer',e.streams[0]);
+  receiver.ontrack=e=>{if(e.track.kind==='video')attachVoiceScreen('peer',e.streams[0]);else ycAttachRemoteScreenAudio('peer',e.track)};
   source.getTracks().forEach(t=>sender.addTrack(t,source));
   await receiver.setRemoteDescription(await sender.createOffer().then(async offer=>{await sender.setLocalDescription(offer);return offer}));
   await sender.setRemoteDescription(await receiver.createAnswer().then(async answer=>{await receiver.setLocalDescription(answer);return answer}));
   await ycWatchScreenShare('peer');
-  this.sender=sender;this.receiver=receiver;this.source=source;this.timer=timer;
+  this.sender=sender;this.receiver=receiver;this.source=source;this.timer=timer;this.audioContext=audioContext;this.oscillator=oscillator;
   this.firstVideo=document.querySelector('.yc-stream-viewer video');
   this.firstPeer=voicePeers.get('peer');
+  this.firstScreenAudioTrack=window.__ycScreenAudioTracks?.get('peer')||null;
  },
  async navigate(where){
   if(where==='channel')await selectChannel('chat-b');
@@ -30,6 +32,10 @@ window.streamTest={
   ycSyncStreamViewer();
  },
  same(){return this.firstVideo===document.querySelector('.yc-stream-viewer video')&&this.firstPeer===voicePeers.get('peer')},
+ peerSame(){return this.firstPeer===voicePeers.get('peer')},
+ screenAudioReady(){const a=window.__ycScreenAudioEls?.get('peer');return !!this.firstScreenAudioTrack&&a?.srcObject?.getAudioTracks?.()[0]===this.firstScreenAudioTrack},
+ screenAudioTrackKept(){return window.__ycScreenAudioTracks?.get('peer')===this.firstScreenAudioTrack&&!window.__ycScreenAudioEls?.has('peer')},
+ async reopen(){await ycWatchScreenShare('peer');ycSyncStreamViewer()},
  stop(){return handleVoiceSignal({to:user.id,from:'peer',channel_id:voiceChannel.id,signal_type:'screen-state',active:false})},
  detach(){closeVoicePeer('peer')},
  sync(){ycSyncStreamViewer()},
@@ -38,7 +44,7 @@ window.streamTest={
  async unavailable(){voiceScreenActiveByUser.add('missing-peer');await ycWatchScreenShare('missing-peer')},
  watched(){return screenWatchingByUser.has('peer')},
  async recovery(){const ids=ycStreamViewer.beginRecovery();screenWatchingByUser.clear();remoteScreenStreams.clear();ycSyncStreamViewer();await ycStreamViewer.endRecovery(ids,true)},
- cleanup(){clearInterval(this.timer);this.source?.getTracks().forEach(t=>t.stop());this.sender?.close();this.receiver?.close()}
+ cleanup(){clearInterval(this.timer);try{this.oscillator?.stop()}catch{};this.source?.getTracks().forEach(t=>t.stop());this.sender?.close();this.receiver?.close();void this.audioContext?.close?.()}
 };
 `;
 function html(desktop=false){

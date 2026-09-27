@@ -35,6 +35,55 @@ export function withStreamViewer(input,{desktop=false}={}) {
   for(const name of ['ycStreamLayoutFitStyle','ycStreamVolumeStyle','ycMultiStreamViewerStyle','ycStreamPolishV3014Style','ycStreamFullscreenLocalV3016Style','ycStreamResizeStyle']){
     html=html.replace(new RegExp('<style id="'+name+'">[\\s\\S]*?<\\/style>'),'');
   }
+  // Screen audio uses a separate receiver element. Closing a viewer intentionally
+  // removes that element, but replaceTrack(null -> track) may reuse the same RTC
+  // receiver and therefore never fire ontrack again. Keep the already classified
+  // screen-audio track so reopening can recreate only the audio element, without
+  // replacing the peer or touching voice audio.
+  html=html.replace(
+    'window.__ycScreenAudioEls=window.__ycScreenAudioEls||new Map()',
+    'window.__ycScreenAudioEls=window.__ycScreenAudioEls||new Map()\nwindow.__ycScreenAudioTracks=window.__ycScreenAudioTracks||new Map()'
+  );
+  html=html.replace(
+    "function ycRemoveScreenAudioElement(peerId){try{const a=window.__ycScreenAudioEls.get(peerId);if(a){a.pause();a.srcObject=null;a.remove()}window.__ycScreenAudioEls.delete(peerId)}catch{}}",
+    "function ycRemoveScreenAudioElement(peerId){try{const a=window.__ycScreenAudioEls.get(peerId);if(a){a.pause();a.srcObject=null;a.remove()}window.__ycScreenAudioEls.delete(peerId)}catch{}}\nfunction ycForgetScreenAudioTrack(peerId){ycRemoveScreenAudioElement(peerId);try{window.__ycScreenAudioTracks.delete(peerId)}catch{}}\nfunction ycAttachExistingScreenAudioReceiver(peerId){try{const track=window.__ycScreenAudioTracks.get(peerId);if(track&&track.readyState==='live')ycAttachRemoteScreenAudio(peerId,track)}catch{}}"
+  );
+  html=html.replace(
+    "function ycAttachRemoteScreenAudio(peerId,track){\n if(!track)return",
+    "function ycAttachRemoteScreenAudio(peerId,track){\n if(!track)return\n try{window.__ycScreenAudioTracks.set(peerId,track)}catch{}"
+  );
+  html=html.replace(
+    "track.addEventListener('ended',()=>ycRemoveScreenAudioElement(peerId),{once:true})",
+    "track.addEventListener('ended',()=>ycForgetScreenAudioTrack(peerId),{once:true})"
+  );
+  html=html.replace(
+    "voiceScreenActiveByUser.delete(peerId);try{ycRemoveScreenAudioElement(peerId)}catch{}renderScreenShareStage();",
+    "voiceScreenActiveByUser.delete(peerId);try{ycForgetScreenAudioTrack(peerId)}catch{}renderScreenShareStage();"
+  );
+  html=html.replace(
+    "if(!msg.active){ycClearScreenWatchTimer(peerId);screenWatchingByUser.delete(peerId);screenWatchPendingByUser.delete(peerId);remoteScreenStreams.delete(peerId);try{ycRemoveScreenAudioElement(peerId)}catch{}}",
+    "if(!msg.active){ycClearScreenWatchTimer(peerId);screenWatchingByUser.delete(peerId);screenWatchPendingByUser.delete(peerId);remoteScreenStreams.delete(peerId);try{ycForgetScreenAudioTrack(peerId)}catch{}}"
+  );
+  html=html.replace(
+    "for(const id of [...(window.__ycScreenAudioEls?.keys?.()||[])])ycRemoveScreenAudioElement(id);voicePeers.clear();",
+    "for(const id of [...(window.__ycScreenAudioEls?.keys?.()||[])])ycRemoveScreenAudioElement(id);window.__ycScreenAudioTracks?.clear?.();voicePeers.clear();"
+  );
+  html=html.replaceAll(
+    "ycAttachExistingScreenReceiver(peerId);",
+    "ycAttachExistingScreenReceiver(peerId);ycAttachExistingScreenAudioReceiver(peerId);"
+  );
+  if(!html.includes('function ycAttachExistingScreenAudioReceiver(peerId)'))throw Error('Screen audio reopen bridge missing');
+  if(!html.includes('window.__ycScreenAudioTracks=window.__ycScreenAudioTracks||new Map()'))throw Error('Screen audio track cache missing');
+
+  // Never feed Yamachat's own voice playback back into a shared stream.
+  // Chromium/Electron honors restrictOwnAudio by excluding the capturing app's
+  // playback from loopback while keeping the selected display/window audio request.
+  html=html.replace(
+    "audio:true,systemAudio:'include',surfaceSwitching:'include'",
+    "audio:{restrictOwnAudio:true},systemAudio:'include',surfaceSwitching:'include'"
+  );
+  if(!html.includes("audio:{restrictOwnAudio:true},systemAudio:'include'"))throw Error('Own-audio exclusion constraint missing');
+
   // A stream track can briefly mute during network recovery. Keep the same
   // MediaStream/video binding; the pending state owns retry/timeout instead.
   html=html.replace('remoteScreenStreams.delete(peerId);if(screenWatchingByUser.has(peerId)&&(voiceScreenActiveByUser.has(peerId)||ycStreamInfo(peerId)))',
