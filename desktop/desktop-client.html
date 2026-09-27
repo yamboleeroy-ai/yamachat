@@ -5778,9 +5778,11 @@ function ycDesktopNaturalVoiceForPreference(){
   const shortName=wanted.slice(YC_DESKTOP_NATURAL_PREFIX.length);
   const exact=voices.find(v=>String(v.shortName)===shortName);if(exact)return exact;
  }
- if(gender==='female')return voices.find(v=>String(v.locale||'').toLowerCase()==='cs-cz'&&ycDesktopNaturalGender(v)==='female')
+ if(gender==='female')return voices.find(v=>String(v.shortName||'')==='cs-CZ-VlastaNeural')
+   ||voices.find(v=>String(v.locale||'').toLowerCase()==='cs-cz'&&ycDesktopNaturalGender(v)==='female')
    ||voices.find(v=>ycDesktopNaturalGender(v)==='female')||null;
- if(gender==='male')return voices.find(v=>String(v.locale||'').toLowerCase()==='cs-cz'&&ycDesktopNaturalGender(v)==='male')
+ if(gender==='male')return voices.find(v=>String(v.shortName||'')==='cs-CZ-AntoninNeural')
+   ||voices.find(v=>String(v.locale||'').toLowerCase()==='cs-cz'&&ycDesktopNaturalGender(v)==='male')
    ||voices.find(v=>ycDesktopNaturalGender(v)==='male')||null;
  return null;
 }
