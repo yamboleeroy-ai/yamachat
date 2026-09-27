@@ -12,6 +12,12 @@ for(const marker of [
   "restoreMainWindowInteractivity(win, 'restore')",
   "restoreMainWindowInteractivity(win, 'show')",
   "restoreMainWindowInteractivity(win, 'focus')",
+  "function repairVoiceTaskbarActivation(win, reason = 'taskbar-focus')",
+  "repairVoiceTaskbarActivation(win, 'taskbar-focus')",
+  "if (typeof win.setEnabled === 'function') win.setEnabled(true)",
+  "win.show();\n      win.focus();",
+  "restoreMainWindowInteractivity(win, reason + '-settled')",
+  "restoreMainWindowInteractivity(win, reason + '-final')",
   "} else {\n      showMainWindow();"
 ]) assert(main.includes(marker),'Desktop taskbar restore marker missing: '+marker);
 
@@ -28,4 +34,15 @@ const recovery=main.slice(recoveryStart,recoveryEnd);
 for(const forbidden of ['reload(','reloadIgnoringCache','leaveVoiceChannel','stopProcessAudioCapture','destroy()'])
   assert(!recovery.includes(forbidden),'Restore helper must preserve live renderer/voice/stream state: '+forbidden);
 
-console.log('PASS Windows taskbar restore: native restore/show/focus and tray activation share input/focus recovery without renderer reload or media disconnect.');
+const taskbarRepairStart=main.indexOf("function repairVoiceTaskbarActivation");
+const taskbarRepairEnd=main.indexOf("\nfunction showMainWindow()",taskbarRepairStart);
+assert(taskbarRepairStart>=0&&taskbarRepairEnd>taskbarRepairStart,'Voice taskbar activation repair boundary missing');
+const taskbarRepair=main.slice(taskbarRepairStart,taskbarRepairEnd);
+assert(taskbarRepair.includes("!desktopState.voiceConnected"),'Taskbar repair must stay scoped to active voice');
+assert(taskbarRepair.includes("!win.isFocused()"),'Delayed taskbar repair must not steal focus after the user leaves Yamachat');
+assert(taskbarRepair.includes("setTimeout(() =>"),'Taskbar repair must run after native Windows activation settles');
+assert(taskbarRepair.includes("}, 120);"),'Taskbar repair needs a final compositor/input hand-off pass');
+for(const forbidden of ['reload(','reloadIgnoringCache','leaveVoiceChannel','stopProcessAudioCapture','destroy()','win.hide()'])
+  assert(!taskbarRepair.includes(forbidden),'Taskbar repair must preserve live renderer/voice/stream state: '+forbidden);
+
+console.log('PASS Windows taskbar restore: active voice gets a delayed native show/focus/input repair matching the working tray path, without reload or media disconnect.');
