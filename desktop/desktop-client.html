@@ -1786,7 +1786,8 @@ async function stopScreenShare(silent=false){
   const stream=screenShareStream;if(!screenShareActive&&!stream)return
   screenShareActive=false;screenShareStream=null;screenShareViewers.clear()
   for(const [,sender] of voiceScreenSenders){try{await sender.replaceTrack(null)}catch{}}
-  if(typeof ycEnsureScreenAudio==='function')await ycEnsureScreenAudio()
+  if(typeof ycResetScreenAudioSenders==='function')await ycResetScreenAudioSenders()
+  else if(typeof ycEnsureScreenAudio==='function')await ycEnsureScreenAudio()
   await broadcastScreenState(false);await disableScreenShareAudio(true);await ycStopDesktopProcessAudio();if(stream)for(const t of stream.getTracks()){t.onended=null;try{t.stop()}catch{}}
   void ycStopGlobalStreamPresence();ycSyncStreamViewer();renderVoiceControls();if(!silent)toast('Sdílení obrazovky ukončeno.')
 }
@@ -3109,6 +3110,20 @@ function ycScheduleScreenAudioNegotiation(peerId){if(peerId)ycScreenAudioNegotia
 function ycRemoveScreenAudioElement(peerId){try{const a=window.__ycScreenAudioEls.get(peerId);if(a){a.pause();a.srcObject=null;a.remove()}window.__ycScreenAudioEls.delete(peerId)}catch{}}
 function ycForgetScreenAudioTrack(peerId){ycRemoveScreenAudioElement(peerId);try{window.__ycScreenAudioTracks.delete(peerId)}catch{}}
 function ycAttachExistingScreenAudioReceiver(peerId){try{const track=window.__ycScreenAudioTracks.get(peerId);if(track&&track.readyState==='live')ycAttachRemoteScreenAudio(peerId,track)}catch{}}
+async function ycResetScreenAudioSenders(){
+ const pending=[]
+ for(const [peerId,sender] of [...ycScreenAudioSenders]){
+  const pc=voicePeers?.get?.(peerId)
+  try{if(sender?.track)pending.push(sender.replaceTrack(null).catch(()=>{}))}catch{}
+  try{
+   const tx=(pc?.getTransceivers?.()||[]).find(item=>item.sender===sender)
+   if(tx&&typeof tx.stop==='function')tx.stop()
+   else if(pc&&sender&&typeof pc.removeTrack==='function')pc.removeTrack(sender)
+  }catch(e){console.warn('screen audio transceiver reset',peerId,e)}
+  ycScreenAudioSenders.delete(peerId)
+ }
+ if(pending.length)await Promise.allSettled(pending)
+}
 function ycAttachRemoteScreenAudio(peerId,track){
  if(!track)return
  try{window.__ycScreenAudioTracks.set(peerId,track)}catch{}
@@ -5924,17 +5939,26 @@ const ycStreamViewer=(()=>{
       const bridge=window.parent?.YamachatDesktopStreamFullscreen;
       if(bridge?.set){
         const entering=session.mode!=='fullscreen';
-        const returnMode=session.fullscreenReturnMode||session.mode;
-        if(entering)session.fullscreenReturnMode=session.mode==='mini'?'floating':session.mode;
-        session.mode=entering?'fullscreen':(session.fullscreenReturnMode||'floating');
-        session.nativeFullscreenPending=entering;layout(session);
+        const returnMode=entering?(session.mode==='mini'?'floating':session.mode):(session.fullscreenReturnMode||'floating');
+        if(entering)session.fullscreenReturnMode=returnMode;
+        session.nativeFullscreenPending=true;
         try{
           const state=await bridge.set(entering);
           session.nativeFullscreenPending=false;
-          if(!!state?.fullscreen===entering){layout(session);return;}
+          if(!!state?.fullscreen===entering){
+            session.mode=entering?'fullscreen':returnMode;
+            layout(session);resumeScreenAudio(session);
+            if(session.video.srcObject)void play(session);
+            return;
+          }
         }catch{}
         session.nativeFullscreenPending=false;
-        session.mode=entering?returnMode:'fullscreen';layout(session);
+        if(!entering){
+          session.mode='fullscreen';layout(session);
+          return;
+        }
+        // Native fullscreen failed to enter. Fall through to the element/viewport
+        // fallback without first stretching the panel inside the window.
       }
     }
     const entering=session.mode!=='fullscreen';
@@ -6071,6 +6095,15 @@ const ycStreamViewer=(()=>{
   };
   document.addEventListener('fullscreenchange',onFullscreenChange);
   document.addEventListener('webkitfullscreenchange',onFullscreenChange);
+  window.addEventListener('message',event=>{
+    if(!YC_STREAM_DESKTOP||event.source!==window.parent||event.data?.type!=='yamachat:desktop-stream-fullscreen-state')return;
+    if(event.data.fullscreen)return;
+    for(const s of sessions.values()){
+      if(s.mode!=='fullscreen')continue;
+      s.mode=s.fullscreenReturnMode||'floating';layout(s);resumeScreenAudio(s);
+      if(s.video.srcObject)void play(s);
+    }
+  });
   document.addEventListener('keydown',event=>{if(event.key==='Escape'&&!document.fullscreenElement)for(const s of sessions.values())if(s.mode==='maximized'||s.mode==='fullscreen')setMode(s,s.fullscreenReturnMode||'floating')});
   window.addEventListener('message',event=>{
     if(!YC_STREAM_DESKTOP||event.source!==window.parent||event.data?.type!=='yamachat:stream-native-fullscreen')return;
