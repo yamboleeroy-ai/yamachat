@@ -68,6 +68,30 @@ try{
  for(const forbidden of ['male-deep','female-bright','yc_surface_theme_v1','ycSurfaceThemeStyle']){
    assert(!generatedWeb.includes(forbidden),'Generated web contains rejected/fake theme or voice marker: '+forbidden);
  }
+ for(const marker of [
+   'YC_CONTEXT_LONGPRESS_SELECTOR',
+   'ycContextLongPressSuppressUntil',
+   "from('notification_preferences')",
+   "ycNotificationMenuItems('channel'",
+   "ycNotificationMenuItems('server'",
+   "ycNotificationMenuItems('user'",
+   'ycShouldNotifyMessage',
+   'ycMicTestVoiceHold',
+   'ycRestartMicTest',
+   'ycMicTestSettingChanged',
+   "if(!await ycShouldNotifyMessage(m))return"
+ ]) assert(generatedWeb.includes(marker),'Generated web missing interaction/notification marker: '+marker);
+ assert(!generatedWeb.includes("addEventListener('change',ycStopMicTest)"),'Changing microphone settings must not stop an active microphone test');
+ assert(generatedWeb.includes("!voiceMuted&&!voiceDeafened&&!ycMicTestVoiceHold"),'Voice microphone is not physically held muted during microphone test');
+ const notificationSql=fs.readFileSync(path.join(root,'supabase/notification-preferences.sql'),'utf8');
+ for(const marker of [
+   'create table if not exists public.notification_preferences',
+   "scope_type in ('server','channel','user')",
+   "np.scope_type='user'",
+   "np.scope_type='channel'",
+   "np.scope_type='server'",
+   'primary key (user_id, scope_type, scope_id)'
+ ]) assert(notificationSql.includes(marker),'Notification preference SQL missing marker: '+marker);
  const crypto=(await import('node:crypto')).default;
  for(const [file,expected] of [
    ['audio/yamachat_join_voice.mp3','d0f4654da5668871290144e88cef5e879397a8ab05a6df0f4ecbd1c7a9cd151e'],
