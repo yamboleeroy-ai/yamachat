@@ -1,7 +1,13 @@
 const assert=require('node:assert/strict'),fs=require('node:fs');
-const main=fs.readFileSync('desktop/main.js','utf8'),shell=fs.readFileSync('desktop/desktop.html','utf8'),client=fs.readFileSync('desktop/desktop-client.html','utf8');
-assert(!main.includes('mainWindow.setFullScreen('),'viewer must preserve native window state');
-assert(shell.includes("document.body.classList.toggle('yc-stream-fullscreen', !!active)"));
-for(const marker of ['const YC_STREAM_DESKTOP=true;','ycAttachExistingScreenAudioReceiver','ycPrepareDesktopProcessAudio','session.fullscreenReturnMode'])assert(client.includes(marker),marker);
+const main=fs.readFileSync('desktop/main.js','utf8'),shell=fs.readFileSync('desktop/desktop.html','utf8'),client=fs.readFileSync('desktop/desktop-client.html','utf8'),preload=fs.readFileSync('desktop/preload.js','utf8');
+assert(main.includes("handleClientIpc('yamachat:window-set-stream-fullscreen'"),'native stream fullscreen IPC missing');
+assert(main.includes('mainWindow.setFullScreen(target)'),'native stream fullscreen must use BrowserWindow fullscreen');
+assert(preload.includes('setStreamFullscreen: (active)'),'preload fullscreen bridge missing');
+assert(shell.includes("window.yamachatDesktop?.setStreamFullscreen?.(target)"),'desktop shell must call native fullscreen bridge');
+assert(shell.includes('yamachat:desktop-stream-fullscreen-state'),'native fullscreen exit must be forwarded to the viewer');
+const minimizeAt=main.indexOf("win.on('minimize'");
+const hideAt=main.indexOf('win.hide();',minimizeAt),restoreAt=main.indexOf('win.restore();',minimizeAt);
+assert(minimizeAt>=0&&hideAt>minimizeAt&&restoreAt>hideAt,'voice-safe taskbar minimize must hide before restoring');
+for(const marker of ['const YC_STREAM_DESKTOP=true;','ycAttachExistingScreenAudioReceiver','ycPrepareDesktopProcessAudio','session.fullscreenReturnMode','async function ycResetScreenAudioSenders','tx.stop()'])assert(client.includes(marker),marker);
 assert(!client.includes('id="screenShareStage"'));
-console.log('PASS Windows viewer lifecycle: viewport overlay, native window untouched, stable audio receiver');
+console.log('PASS Windows viewer lifecycle: true native fullscreen, no visible restore flash, fresh screen-audio transceiver after stream restart.');
