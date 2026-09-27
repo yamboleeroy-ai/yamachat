@@ -87,9 +87,9 @@ jobs:
         run: |
           node - <<'NODE'
           const p=require('./desktop/package.json');
-          if(p.version!=='1.0.97') throw new Error('Expected released desktop source version 1.0.97');
+          if(p.version!=='1.0.98') throw new Error('Expected released desktop source version 1.0.98');
           if(!p.dependencies?.['electron-updater']) throw new Error('electron-updater missing');
-          console.log('PASS released desktop stream viewer lineage',p.version);
+          console.log('PASS released desktop stream audio lineage',p.version);
           NODE
 
 
