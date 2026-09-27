@@ -13,7 +13,15 @@ function section(source,name){
  return (next<0?rest:rest.slice(0,next+1)).replaceAll('ycSyncStreamViewer','renderScreenShareStage').trim();
 }
 for(const [name,before,after] of [['web',baseline,fs.readFileSync('index.html','utf8')],['desktop',desktop,fs.readFileSync('desktop/desktop-client.html','utf8')]]){
- for(const fn of functions)assert.equal(section(after,fn),section(before,fn),name+' transport changed: '+fn);
+ for(const fn of functions){
+  if(name==='desktop'&&fn==='stopScreenShare')continue;
+  assert.equal(section(after,fn),section(before,fn),name+' transport changed: '+fn);
+ }
+ if(name==='desktop'){
+  const stop=section(after,'stopScreenShare');
+  assert(stop.includes("if(typeof ycResetScreenAudioSenders==='function')await ycResetScreenAudioSenders()"),'desktop stop must retire stale stream-audio sender');
+  assert(after.includes('async function ycResetScreenAudioSenders()'),'desktop fresh screen-audio transceiver helper missing');
+ }
  for(const old of ['screenShareStage','ycShareOverlay','__ycMultiStreamViewerInstalled','__ycSafeStreamVolumeInstalled','__ycDeadShareCleanup','__ycStreamResizeInstalled'])assert(!after.includes(old),name+' old UI remains '+old);
  assert.equal((after.match(/const ycStreamViewer=/g)||[]).length,1);
  assert(after.includes("audio:{restrictOwnAudio:true},systemAudio:'include'"),name+' does not exclude Yamachat playback from stream audio');
