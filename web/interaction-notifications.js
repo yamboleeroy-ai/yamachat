@@ -36,6 +36,7 @@ document.addEventListener('pointerdown',event=>{
  state.timer=setTimeout(()=>{
   if(ycContextLongPress!==state||!target.isConnected)return;
   state.opened=true;ycContextLongPressSuppressUntil=Date.now()+900;
+  try{window.getSelection?.()?.removeAllRanges?.()}catch{}
   try{navigator.vibrate?.(10)}catch{}
   ycOpenLongPressContext(target,state.x,state.y);
  },520);
