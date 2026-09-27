@@ -134,17 +134,26 @@ const ycStreamViewer=(()=>{
       const bridge=window.parent?.YamachatDesktopStreamFullscreen;
       if(bridge?.set){
         const entering=session.mode!=='fullscreen';
-        const returnMode=session.fullscreenReturnMode||session.mode;
-        if(entering)session.fullscreenReturnMode=session.mode==='mini'?'floating':session.mode;
-        session.mode=entering?'fullscreen':(session.fullscreenReturnMode||'floating');
-        session.nativeFullscreenPending=entering;layout(session);
+        const returnMode=entering?(session.mode==='mini'?'floating':session.mode):(session.fullscreenReturnMode||'floating');
+        if(entering)session.fullscreenReturnMode=returnMode;
+        session.nativeFullscreenPending=true;
         try{
           const state=await bridge.set(entering);
           session.nativeFullscreenPending=false;
-          if(!!state?.fullscreen===entering){layout(session);return;}
+          if(!!state?.fullscreen===entering){
+            session.mode=entering?'fullscreen':returnMode;
+            layout(session);resumeScreenAudio(session);
+            if(session.video.srcObject)void play(session);
+            return;
+          }
         }catch{}
         session.nativeFullscreenPending=false;
-        session.mode=entering?returnMode:'fullscreen';layout(session);
+        if(!entering){
+          session.mode='fullscreen';layout(session);
+          return;
+        }
+        // Native fullscreen failed to enter. Fall through to the element/viewport
+        // fallback without first stretching the panel inside the window.
       }
     }
     const entering=session.mode!=='fullscreen';
@@ -281,6 +290,15 @@ const ycStreamViewer=(()=>{
   };
   document.addEventListener('fullscreenchange',onFullscreenChange);
   document.addEventListener('webkitfullscreenchange',onFullscreenChange);
+  window.addEventListener('message',event=>{
+    if(!YC_STREAM_DESKTOP||event.source!==window.parent||event.data?.type!=='yamachat:desktop-stream-fullscreen-state')return;
+    if(event.data.fullscreen)return;
+    for(const s of sessions.values()){
+      if(s.mode!=='fullscreen')continue;
+      s.mode=s.fullscreenReturnMode||'floating';layout(s);resumeScreenAudio(s);
+      if(s.video.srcObject)void play(s);
+    }
+  });
   document.addEventListener('keydown',event=>{if(event.key==='Escape'&&!document.fullscreenElement)for(const s of sessions.values())if(s.mode==='maximized'||s.mode==='fullscreen')setMode(s,s.fullscreenReturnMode||'floating')});
   window.addEventListener('message',event=>{
     if(!YC_STREAM_DESKTOP||event.source!==window.parent||event.data?.type!=='yamachat:stream-native-fullscreen')return;
