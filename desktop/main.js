@@ -1437,6 +1437,31 @@ app.whenReady().then(async () => {
     maximized: !!(mainWindow && !mainWindow.isDestroyed() && mainWindow.isMaximized()),
     fullscreen: !!(mainWindow && !mainWindow.isDestroyed() && mainWindow.isFullScreen())
   }));
+  handleClientIpc('yamachat:stream-fullscreen', async (_event, active) => {
+    if (!mainWindow || mainWindow.isDestroyed()) return { fullscreen: false, maximized: false };
+    const wanted = !!active;
+    if (mainWindow.isFullScreen() !== wanted) {
+      await new Promise((resolve) => {
+        const eventName = wanted ? 'enter-full-screen' : 'leave-full-screen';
+        let settled = false;
+        let timer = null;
+        const finish = () => {
+          if (settled) return;
+          settled = true;
+          if (timer) clearTimeout(timer);
+          try { if (mainWindow && !mainWindow.isDestroyed()) mainWindow.removeListener(eventName, finish); } catch {}
+          resolve();
+        };
+        mainWindow.once(eventName, finish);
+        mainWindow.setFullScreen(wanted);
+        timer = setTimeout(finish, 900);
+      });
+    }
+    return {
+      fullscreen: !!(mainWindow && !mainWindow.isDestroyed() && mainWindow.isFullScreen()),
+      maximized: !!(mainWindow && !mainWindow.isDestroyed() && mainWindow.isMaximized())
+    };
+  });
 
   powerSaveId = powerSaveBlocker.start('prevent-app-suspension');
 
