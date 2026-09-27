@@ -23,4 +23,4 @@ for(const marker of [
 
 assert(!client.includes("addEventListener('change',ycStopMicTest)"),'Windows mic setting change still stops active mic test');
 assert(client.includes("YC_STREAM_DESKTOP=true"),'Windows stream viewer marker missing');
-console.log('PASS Windows 1.0.99 interaction/notification hotfix: scoped alerts, temporary mic-test voice hold and stream fixes coexist.');
+console.log('PASS Windows 1.0.101 interaction/notification regression: scoped alerts, temporary mic-test voice hold and stream fixes coexist.');
