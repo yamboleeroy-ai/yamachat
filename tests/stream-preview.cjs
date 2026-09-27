@@ -93,7 +93,9 @@ function section(s,start,end){const a=s.indexOf(start),b=s.indexOf(end,a);assert
   assert.equal(await page.locator('.yc-stream-viewer').getAttribute('data-mode'),'fullscreen');
   assert(await page.locator('.yc-sv-footer input').isVisible());
   assert.equal(Math.round((await page.locator('.yc-stream-viewer').boundingBox()).width),390);
-  await page.waitForTimeout(2700);
+  // The fullscreen button receives focus on iOS/PWA; focusin intentionally keeps
+  // controls visible a little longer (3200 ms) before the inactivity timer hides them.
+  await page.waitForTimeout(3600);
   assert.equal(await page.locator('.yc-stream-viewer').getAttribute('data-controls'),'hidden','iOS/PWA fullscreen controls should hide after inactivity');
   await page.locator('.yc-stream-viewer').dispatchEvent('pointerdown',{pointerType:'touch',pointerId:91,isPrimary:true,button:0,buttons:1,clientX:120,clientY:220});
   await page.waitForTimeout(80);
