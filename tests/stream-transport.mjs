@@ -15,5 +15,6 @@ for(const [name,before,after] of [['web',baseline,fs.readFileSync('index.html','
  for(const fn of functions)assert.equal(section(after,fn),section(before,fn),name+' transport changed: '+fn);
  for(const old of ['screenShareStage','ycShareOverlay','__ycMultiStreamViewerInstalled','__ycSafeStreamVolumeInstalled','__ycDeadShareCleanup','__ycStreamResizeInstalled'])assert(!after.includes(old),name+' old UI remains '+old);
  assert.equal((after.match(/const ycStreamViewer=/g)||[]).length,1);
- console.log('PASS '+name+': nine voice/screen transport functions unchanged; one viewer; old UI absent.');
+ assert(after.includes("audio:{restrictOwnAudio:true},systemAudio:'include'"),name+' does not exclude Yamachat playback from stream audio');
+ console.log('PASS '+name+': nine protected voice/screen transport functions unchanged; Yamachat playback excluded from stream audio; one viewer; old UI absent.');
 }
