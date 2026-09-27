@@ -110,7 +110,7 @@ async function boot(browser,width,height){
 
     await page.locator('#friendsTab').click();
     await page.waitForSelector('#rightContent .steam-friend-row[data-profile-user="peer"]',{timeout:5000});
-    const friendDot=page.locator('#rightContent .steam-friend-row[data-profile-user="peer"] .yc-presence-dot');
+    const friendDot=page.locator('#rightContent .steam-friend-row[data-profile-user="peer"] .yc-avatar-presence-dot');
     await friendDot.waitFor({state:'visible'});
     assert.match(await friendDot.evaluate(el=>getComputedStyle(el).clipPath),/polygon/i,'Friend presence is not a Yamachat diamond');
 
