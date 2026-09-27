@@ -7,6 +7,7 @@ contextBridge.exposeInMainWorld('yamachatDesktop', {
   toggleMaximizeWindow: () => ipcRenderer.invoke('yamachat:window-toggle-maximize'),
   closeWindow: () => ipcRenderer.invoke('yamachat:window-close'),
   getWindowState: () => ipcRenderer.invoke('yamachat:get-window-state'),
+  setStreamFullscreen: (active) => ipcRenderer.invoke('yamachat:stream-fullscreen', !!active),
   showNotification: (payload) => ipcRenderer.invoke('yamachat:show-notification', payload),
   getWindowsPushChannel: () => ipcRenderer.invoke('yamachat:wns-get-channel'),
   getUpdateState: () => ipcRenderer.invoke('yamachat:update-get-state'),
