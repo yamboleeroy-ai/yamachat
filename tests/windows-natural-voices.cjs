@@ -1,12 +1,12 @@
 const assert=require('node:assert/strict'),fs=require('node:fs');
 
 const client=fs.readFileSync('desktop/desktop-client.html','utf8');
-const edge=fs.readFileSync('supabase/functions/yamachat-tts/index.ts','utf8');
+const edge=fs.readFileSync('supabase/functions/yamachat-source/index.ts','utf8');
 
 for(const marker of [
   "const YC_DESKTOP_NATURAL_PREFIX='azure:'",
-  "sb.functions.invoke('yamachat-tts',{body:{action:'voices'}})",
-  "sb.functions.invoke('yamachat-tts',{body:{action:'synthesize'",
+  "sb.functions.invoke('yamachat-source',{body:{action:'tts-voices'}})",
+  "sb.functions.invoke('yamachat-source',{body:{action:'tts-synthesize'",
   "cs-CZ-VlastaNeural",
   "cs-CZ-AntoninNeural",
   "ycDesktopLocalVoiceSpeakEnhanced=ycVoiceSpeakEnhanced",
@@ -29,7 +29,7 @@ for(const marker of [
   "if(!text||text.length>220)",
   "if(!userId)return json({error:'unauthorized'},401)",
   "if(!allowSynthesis(userId))return json({error:'rate-limit'},429)"
-]) assert(edge.includes(marker),'Secure yamachat-tts marker missing: '+marker);
+]) assert(edge.includes(marker),'Secure yamachat-source TTS marker missing: '+marker);
 
 assert(!/Ocp-Apim-Subscription-Key['"]?\s*:\s*['"][^'"]{8,}/.test(edge),'Azure Speech key must come only from server environment');
 
