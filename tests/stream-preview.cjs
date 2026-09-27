@@ -57,6 +57,7 @@ function section(s,start,end){const a=s.indexOf(start),b=s.indexOf(end,a);assert
   await page.locator('[data-action="fullscreen"]').click();
   assert.equal(await page.locator('.yc-stream-viewer').getAttribute('data-mode'),'fullscreen');
   assert(await page.locator('.yc-sv-footer input').isVisible());
+  assert(read('web/stream-viewer.css').includes('[data-controls="hidden"] .yc-sv-footer'));
   await page.locator('.yc-sv-footer input').fill('32');
   assert.equal(await page.evaluate(()=>window.__ycScreenAudioEls.get('viewer').volume),.32);
   await page.keyboard.press('Escape');assert.deepEqual(await page.locator('.yc-stream-viewer').boundingBox(),before);
