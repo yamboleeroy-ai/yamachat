@@ -1,0 +1,144 @@
+name: Windows interaction notification portable preview
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/windows-interaction-notification-hotfix-20260927
+    paths:
+      - "desktop/**"
+      - "web/interaction-notifications.js"
+      - "scripts/interaction-notifications.mjs"
+      - "scripts/prepare-desktop-1.0.92.mjs"
+      - "scripts/apply-stream-viewer-desktop.mjs"
+      - "scripts/stream-viewer.mjs"
+      - "scripts/build-windows-process-audio.ps1"
+      - "scripts/build-windows-wns.ps1"
+      - "windows/process-audio/**"
+      - "windows/wns/**"
+      - "supabase/notification-preferences.sql"
+      - "tests/windows-interaction-notifications.cjs"
+      - ".github/workflows/windows-interaction-notification-preview.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  verify-and-package:
+    runs-on: windows-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/windows-interaction-notification-hotfix-20260927
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: desktop/package-lock.json
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Install WinApp CLI
+        shell: pwsh
+        run: |
+          npm install --no-save @microsoft/winappcli
+          npx --no-install winapp --version
+
+      - name: Verify Windows 1.0.98 source syntax
+        shell: pwsh
+        run: |
+          node -e "const p=require('./desktop/package.json'); const l=require('./desktop/package-lock.json'); if(p.version!=='1.0.98'||l.version!=='1.0.98'||l.packages[''].version!=='1.0.98') process.exit(1); console.log('PASS Windows preview lineage 1.0.98')"
+          node --check desktop/main.js
+          node --check desktop/preload.js
+          node --check web/interaction-notifications.js
+          node --check scripts/interaction-notifications.mjs
+
+      - name: Build app-only audio helper
+        shell: pwsh
+        run: ./scripts/build-windows-process-audio.ps1
+
+      - name: Restore verified Yamachat assets
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: ./scripts/restore-desktop-brand-assets.ps1 -Destination build
+
+      - name: Generate Windows client with interaction hotfix
+        run: |
+          node scripts/prepare-desktop-1.0.92.mjs
+          node scripts/apply-stream-viewer-desktop.mjs
+
+      - name: Verify interaction, notifications, voice and stream guards
+        run: |
+          node tests/windows-interaction-notifications.cjs
+          node tests/stream-transport.mjs
+          node tests/windows-stream-lifecycle.cjs
+          node tests/windows-process-audio.cjs
+          node tests/windows-wns-desktop.cjs
+
+      - name: Build WNS runtime without changing identity
+        shell: pwsh
+        env:
+          YAMACHAT_WNS_PACKAGE_VERSION: "1.0.98.0"
+        run: ./scripts/build-windows-wns.ps1
+
+      - name: Prepare runtime assets
+        shell: pwsh
+        run: |
+          Copy-Item -Recurse -Force build desktop\build
+          Copy-Item -Recurse -Force audio desktop\audio
+          Copy-Item -Force boot-guard.js desktop\boot-guard.js
+          if(-not(Test-Path "desktop/process-audio/Yamachat.ProcessAudioCapture.exe")){throw "Process-audio helper missing"}
+
+      - name: Install desktop dependencies
+        working-directory: desktop
+        run: npm ci
+
+      - name: Build unpacked Windows preview
+        working-directory: desktop
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: npm run dist:win
+
+      - name: Verify packaged Windows preview
+        shell: pwsh
+        run: |
+          $appRoot="desktop/dist/win-unpacked/resources/app"
+          foreach($file in @(
+            "$appRoot/main.js",
+            "$appRoot/preload.js",
+            "$appRoot/desktop.html",
+            "$appRoot/desktop-client.html",
+            "$appRoot/process-audio/Yamachat.ProcessAudioCapture.exe",
+            "$appRoot/wns/Yamachat.WnsBridge.exe",
+            "desktop/dist/win-unpacked/Yamachat.exe"
+          )){
+            if(-not(Test-Path $file)){throw "Packaged preview file missing: $file"}
+          }
+          $client=Get-Content "$appRoot/desktop-client.html" -Raw
+          foreach($marker in @(
+            "ycMicTestVoiceHold",
+            "ycRestartMicTest",
+            "ycNotificationMenuItems('channel'",
+            "ycNotificationMenuItems('server'",
+            "ycNotificationMenuItems('user'",
+            "from('notification_preferences')",
+            "if(!await ycShouldNotifyMessage(m))return",
+            "ycPrepareDesktopProcessAudio"
+          )){
+            if(-not $client.Contains($marker)){throw "Packaged hotfix marker missing: $marker"}
+          }
+          if($client.Contains("addEventListener('change',ycStopMicTest)")){throw "Packaged client still stops mic test on setting changes"}
+          Write-Host "PASS packaged Windows 1.0.98 interaction/notification preview"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: yamachat-windows-interaction-notification-preview
+          path: desktop/dist/win-unpacked/**
+          if-no-files-found: error
+          retention-days: 7
