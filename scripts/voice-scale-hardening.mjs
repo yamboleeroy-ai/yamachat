@@ -63,6 +63,11 @@ attachVoiceAudio=(peerId,stream)=>{ycStartRemoteVoiceActivityDetector(peerId,str
   if(!html.includes(localVadOld))throw Error('Voice scale local-VAD boundary missing');
   html=html.replace(localVadOld,localVadNew);
 
+  const missingPeerOld="for(const id of [...voicePeers.keys()]){if(ids.has(id)){voiceMissingSince.delete(id);continue}const pc=voicePeers.get(id);if(pc?.connectionState==='connected'){voiceMissingSince.delete(id);continue}const since=voiceMissingSince.get(id)||now;voiceMissingSince.set(id,since);if(now-since>60000)closeVoicePeer(id)}";
+  const missingPeerNew="for(const id of [...voicePeers.keys()]){if(ids.has(id)){voiceMissingSince.delete(id);continue}const since=voiceMissingSince.get(id)||now;voiceMissingSince.set(id,since);if(now-since>60000)closeVoicePeer(id)}";
+  if(!html.includes(missingPeerOld))throw Error('Voice scale missing-peer cleanup boundary missing');
+  html=html.replace(missingPeerOld,missingPeerNew);
+
   const closeOld='function closeVoicePeer(peerId){const pc=voicePeers.get(peerId);';
   if(!html.includes(closeOld))throw Error('Voice scale peer cleanup boundary missing');
   html=html.replace(closeOld,'function closeVoicePeer(peerId){ycStopRemoteVoiceActivityDetector(peerId);const pc=voicePeers.get(peerId);');
