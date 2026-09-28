@@ -100,6 +100,71 @@ function buildTopNav(global){
   setNavActive('home');
 }
 
+
+let voiceUiTimer=null,voiceStatsTimer=null,voiceStatsBusy=false;
+
+function decorateVoicePanel(){
+  const box=q('#voiceControls');if(!box)return false;
+  box.classList.add('yc-nexus-voice-panel');
+  let summary=q('.yc-nexus-voice-summary',box);
+  if(!summary){
+    summary=document.createElement('section');
+    summary.className='yc-nexus-voice-summary';
+    summary.innerHTML='<div class="yc-nexus-voice-bg" aria-hidden="true"></div><div class="yc-nexus-voice-hero"><div class="yc-nexus-voice-self-slot"></div><div class="yc-nexus-voice-room-copy"><strong id="ycNexusVoiceRoom">Hlas připraven</strong><small id="ycNexusVoiceCommunity">Yamachat</small><div id="ycNexusVoiceEq" class="yc-nexus-voice-eq" aria-label="Aktivita hlasu"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div></div><div class="yc-nexus-voice-health"><span id="ycNexusVoiceConnected" class="yc-nexus-health-connected"><i></i><b>Připraveno</b></span><span class="yc-nexus-health-ms"><b id="ycNexusVoiceMs">—</b><small> ms</small></span><span id="ycNexusVoiceQuality" class="yc-nexus-health-quality">Čekám na spojení</span></div></div>';
+    box.insertBefore(summary,box.firstChild);
+    const row=q('.yc-voice-self-row',box),slot=q('.yc-nexus-voice-self-slot',summary);
+    if(row&&slot)slot.appendChild(row);
+  }
+  q('#voiceSelfAvatar',box)?.classList.add('yc-nexus-connect-avatar');
+  return true;
+}
+
+function syncVoicePanel(){
+  if(!decorateVoicePanel())return;
+  let state=null;try{state=bridge()?.nexusVoiceUiState?.()}catch{}
+  if(!state)return;
+  const box=q('#voiceControls'),room=q('#ycNexusVoiceRoom',box),community=q('#ycNexusVoiceCommunity',box),eq=q('#ycNexusVoiceEq',box),conn=q('#ycNexusVoiceConnected',box),avatar=q('#voiceSelfAvatar',box),bg=q('.yc-nexus-voice-bg',box);
+  box?.classList.toggle('yc-nexus-connected',!!state.connected);
+  box?.classList.toggle('yc-nexus-switching',!!state.switching);
+  if(room)room.textContent=state.channelName||'Hlas připraven';
+  if(community)community.textContent=state.communityName||'Yamachat';
+  if(eq){eq.classList.toggle('is-speaking',!!state.speaking);eq.dataset.speakers=String(state.speakingCount||0)}
+  if(conn){
+    conn.classList.toggle('connected',!!state.connected);
+    conn.classList.toggle('switching',!!state.switching);
+    const label=q('b',conn);if(label)label.textContent=state.switching?'Připojuji…':state.connected?'Připojeno':'Připraveno';
+  }
+  if(avatar){avatar.classList.toggle('connected',!!state.connected);avatar.style.setProperty('--yc-connect-ring',state.connected?'360deg':'0deg')}
+  if(bg){
+    const next=state.bannerUrl||'';
+    if(bg.dataset.src!==next){bg.dataset.src=next;bg.style.backgroundImage=next?'linear-gradient(90deg,rgba(3,12,22,.20),rgba(5,11,20,.70)),url("'+String(next).replace(/"/g,'%22')+'")':''}
+    bg.classList.toggle('has-image',!!next);
+  }
+}
+
+async function refreshVoiceHealth(){
+  if(voiceStatsBusy)return;voiceStatsBusy=true;
+  try{
+    const state=bridge()?.nexusVoiceUiState?.(),stats=await bridge()?.nexusVoiceStats?.();
+    const ms=q('#ycNexusVoiceMs'),quality=q('#ycNexusVoiceQuality');
+    if(ms)ms.textContent=state?.connected&&stats?.ms!=null?String(stats.ms):'—';
+    if(quality){
+      let label=stats?.quality||'Čekám na spojení';
+      if(!state?.connected)label=state?.switching?'Navazuji spojení':'Voice není připojen';
+      quality.textContent=label;
+      quality.dataset.quality=stats?.ms==null?'waiting':stats.ms<55?'excellent':stats.ms<100?'good':stats.ms<180?'stable':'weak';
+    }
+  }catch(error){console.warn('Nexus voice health',error)}
+  finally{voiceStatsBusy=false}
+}
+
+function startVoiceUiSync(){
+  clearInterval(voiceUiTimer);clearInterval(voiceStatsTimer);
+  syncVoicePanel();void refreshVoiceHealth();
+  voiceUiTimer=setInterval(syncVoicePanel,180);
+  voiceStatsTimer=setInterval(()=>void refreshVoiceHealth(),1400);
+}
+
 function mountLayout(){
   if(mounted)return true;
   const app=q('#app'),global=q('#ycGlobalNav'),work=q('.yc-v3-workspace'),content=q('.yc-v3-content-grid'),rail=q('#rail'),side=q('#side');
@@ -108,9 +173,11 @@ function mountLayout(){
   if(rail.parentElement!==content)content.insertBefore(rail,content.firstChild);
   buildTopNav(global);
   syncServerHero();
+  decorateVoicePanel();
+  startVoiceUiSync();
   const ro=new MutationObserver(()=>{syncServerHero();syncNotificationBadge()});
   ro.observe(rail,{subtree:true,childList:true,attributes:true,attributeFilter:['class','src']});
-  const appObserver=new MutationObserver(()=>{syncNotificationBadge();if(q('.yc-app-settings-modal'))injectSettingsAbout()});
+  const appObserver=new MutationObserver(()=>{syncNotificationBadge();decorateVoicePanel();syncVoicePanel();if(q('.yc-app-settings-modal'))injectSettingsAbout()});
   appObserver.observe(app,{subtree:true,childList:true});
   document.addEventListener('click',e=>{
     const community=e.target.closest?.('#rail [data-community]');
