@@ -182,7 +182,7 @@ html[data-yc-nexus="1"] .yc-v3-content-grid>.right{grid-column:3!important}
 /* The bottom dock mirrors the three visible columns. Voice spans server+chat,
    TURN returns to the right column under Members/Friends. */
 html[data-yc-nexus="1"] .yc-v3-workspace{
-  grid-template-rows:minmax(0,1fr) auto!important;
+  grid-template-rows:minmax(0,1fr)!important;
 }
 html[data-yc-nexus="1"] .yc-v3-voice-host{
   display:grid!important;
@@ -287,6 +287,154 @@ html[data-yc-nexus="1"] .yc-v3-member-shell .right-tabs{
 }
 html[data-yc-nexus="1"] .right-tabs button{
   border-radius:7px!important;
+}
+
+
+/* ---------- FULL-HEIGHT CHAT / OVERLAY UTILITY DOCK ----------
+   The center chat owns the full usable window height. Voice and TURN remain the
+   existing functional components, but are visually docked over the left/right
+   utility columns instead of consuming a bottom row below chat. */
+html[data-yc-nexus="1"] .yc-v3-workspace{
+  position:relative!important;
+  grid-template-rows:minmax(0,1fr)!important;
+}
+html[data-yc-nexus="1"] .yc-v3-content-grid{
+  grid-row:1!important;
+  height:100%!important;
+  min-height:0!important;
+}
+html[data-yc-nexus="1"] .yc-v3-content-grid>.chat{
+  height:100%!important;
+  min-height:0!important;
+}
+html[data-yc-nexus="1"] .yc-v3-content-grid>.chat>.messages{
+  flex:1 1 auto!important;
+  min-height:0!important;
+}
+html[data-yc-nexus="1"] .yc-v3-content-grid>.chat>.composer-wrap{
+  margin-top:auto!important;
+}
+
+/* Keep channel/member content scrollable above the overlay cards. */
+html[data-yc-nexus="1"] .yc-v3-content-grid>.side .channels{
+  padding-bottom:164px!important;
+}
+html[data-yc-nexus="1"] .yc-v3-content-grid>.right .right-content{
+  padding-bottom:132px!important;
+}
+
+/* Existing voice + TURN host becomes a transparent overlay grid. No media,
+   WebRTC or event lifecycle is recreated. */
+html[data-yc-nexus="1"] .yc-v3-voice-host{
+  position:absolute!important;
+  left:9px!important;
+  right:9px!important;
+  bottom:9px!important;
+  z-index:34!important;
+  display:grid!important;
+  grid-template-columns:minmax(220px,252px) minmax(440px,1fr) minmax(260px,292px)!important;
+  gap:7px!important;
+  width:auto!important;
+  height:auto!important;
+  min-height:0!important;
+  padding:0!important;
+  pointer-events:none!important;
+  align-items:end!important;
+}
+html[data-yc-nexus="1"] .yc-v3-voice-host .voice-controls{
+  grid-column:1!important;
+  pointer-events:auto!important;
+  width:100%!important;
+  height:auto!important;
+  min-height:0!important;
+  max-height:none!important;
+  margin:0!important;
+  padding:8px!important;
+  display:flex!important;
+  flex-direction:column!important;
+  gap:6px!important;
+  align-items:stretch!important;
+  overflow:visible!important;
+  border-radius:12px!important;
+  background:linear-gradient(155deg,rgba(7,31,39,.985),rgba(17,12,35,.99))!important;
+}
+html[data-yc-nexus="1"] .yc-v3-voice-host .voice-card-top{
+  width:100%!important;
+  min-width:0!important;
+  max-height:none!important;
+  padding:0 0 6px!important;
+  border-right:0!important;
+  border-bottom:1px solid rgba(91,211,255,.14)!important;
+  overflow:hidden!important;
+}
+html[data-yc-nexus="1"] .yc-v3-voice-host .yc-voice-self-row{
+  width:100%!important;
+  min-width:0!important;
+  min-height:40px!important;
+  padding:2px 4px!important;
+  align-self:auto!important;
+}
+html[data-yc-nexus="1"] .yc-v3-voice-host .discord-voice-buttons{
+  width:100%!important;
+  display:grid!important;
+  grid-template-columns:repeat(6,minmax(0,1fr))!important;
+  gap:4px!important;
+  min-width:0!important;
+  overflow:visible!important;
+}
+html[data-yc-nexus="1"] .yc-v3-voice-host .voice-btn{
+  width:100%!important;
+  min-width:0!important;
+  height:36px!important;
+  padding:0!important;
+}
+html[data-yc-nexus="1"] .yc-v3-voice-host .voice-controls:has(.voice-card-top.hidden){
+  display:flex!important;
+}
+html[data-yc-nexus="1"] .yc-v3-voice-host .voice-controls:has(.voice-card-top.hidden) .discord-voice-buttons{
+  grid-template-columns:repeat(3,minmax(0,1fr))!important;
+}
+html[data-yc-nexus="1"] .yc-v3-voice-host #soundboardPanel{
+  left:0!important;
+  right:auto!important;
+  bottom:calc(100% + 8px)!important;
+  width:min(340px,calc(100vw - 30px))!important;
+  max-height:48vh!important;
+  overflow:auto!important;
+}
+
+/* TURN remains under Members/Friends in the right utility column. */
+html[data-yc-nexus="1"] .yc-v3-voice-host>#ycTurnUsage{
+  grid-column:3!important;
+  pointer-events:auto!important;
+  align-self:end!important;
+  width:100%!important;
+  height:auto!important;
+  min-height:0!important;
+  max-height:122px!important;
+  margin:0!important;
+  padding:8px 9px!important;
+  overflow:hidden!important;
+  border-radius:12px!important;
+}
+html[data-yc-nexus="1"] .yc-v3-voice-host>#ycTurnUsage.open{
+  max-height:122px!important;
+}
+
+/* At narrower desktop widths the chat still owns the full height; only TURN is
+   hidden with the already-hidden right people pane. */
+@media(max-width:1180px){
+  html[data-yc-nexus="1"] .yc-v3-voice-host{
+    grid-template-columns:minmax(195px,225px) minmax(390px,1fr) 250px!important;
+  }
+  html[data-yc-nexus="1"] .yc-v3-content-grid>.side .channels{padding-bottom:172px!important}
+}
+@media(max-width:1020px){
+  html[data-yc-nexus="1"] .yc-v3-voice-host{
+    grid-template-columns:minmax(190px,215px) minmax(380px,1fr)!important;
+  }
+  html[data-yc-nexus="1"] .yc-v3-voice-host>#ycTurnUsage{display:none!important}
+  html[data-yc-nexus="1"] .yc-v3-content-grid>.right{display:none!important}
 }
 
 /* ---------- SERVER / CHANNEL PANE ---------- */
