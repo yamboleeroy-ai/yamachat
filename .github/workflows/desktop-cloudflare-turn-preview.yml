@@ -8,6 +8,12 @@ on:
       - "scripts/voice-experience.mjs"
       - "tests/voice-experience.cjs"
       - ".github/workflows/desktop-cloudflare-turn-preview.yml"
+  pull_request:
+    paths:
+      - "desktop/desktop-client.html"
+      - "scripts/voice-experience.mjs"
+      - "tests/voice-experience.cjs"
+      - ".github/workflows/desktop-cloudflare-turn-preview.yml"
   workflow_dispatch:
 
 permissions:
