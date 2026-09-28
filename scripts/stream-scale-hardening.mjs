@@ -48,8 +48,8 @@ async function ycStartCommunityStreamWatch(){
 }`;
   html=replaceBetween(html,'async function ycStopCommunityStreamWatch(){','function ycClearStreamPublishTimers(){',watch,'community stream watch');
 
-  const streamStopOld="async function stopScreenShare(silent=false){\\n  const stream=screenShareStream;if(!screenShareActive&&!stream)return";
-  const streamStopNew="async function stopScreenShare(silent=false){\\n  const ownerUserId=user?.id,stream=screenShareStream;if(!screenShareActive&&!stream)return";
+  const streamStopOld="async function stopScreenShare(silent=false){\n  const stream=screenShareStream;if(!screenShareActive&&!stream)return";
+  const streamStopNew="async function stopScreenShare(silent=false){\n  const ownerUserId=user?.id,stream=screenShareStream;if(!screenShareActive&&!stream)return";
   if(!html.includes(streamStopOld))throw Error('Stream owner cleanup boundary missing');
   html=html.replace(streamStopOld,streamStopNew);
   const globalStopCallOld="void ycStopGlobalStreamPresence();ycSyncStreamViewer();renderVoiceControls();if(!silent)toast('Sdílení obrazovky ukončeno.')";
