@@ -3263,18 +3263,39 @@ setTimeout(()=>void ycEnsureScreenAudio(),100)
 
 // community-wide stream discovery + lightweight preview.
 const ycCommunityStreams=new Map()
-let ycCommunityStreamSub=null,ycStreamPresenceTimer=null,ycStreamPreviewTimer=null
+let ycCommunityStreamSub=null,ycCommunityStreamPollTimer=null,ycCommunityStreamLoadBusy=null,ycStreamPresenceTimer=null,ycStreamPreviewTimer=null
 function ycStreamPresenceFresh(row){if(!row?.updated_at)return false;const age=Date.now()-new Date(row.updated_at).getTime();return Number.isFinite(age)&&age<50000}
 function ycStreamInfo(uid){const row=ycCommunityStreams.get(String(uid));if(row&&!ycStreamPresenceFresh(row)){ycCommunityStreams.delete(String(uid));return null}return row||null}
 async function ycLoadCommunityStreams(){
-  ycCommunityStreams.clear();if(!currentCommunity?.id){renderVoiceChannels(voiceChannelDefs);return}
-  try{const cutoff=new Date(Date.now()-50000).toISOString();const {data,error}=await sb.from('community_stream_presence').select('*').eq('community_id',currentCommunity.id).gt('updated_at',cutoff);if(error)throw error;for(const row of data||[])ycCommunityStreams.set(String(row.user_id),row)}catch(e){console.warn('community stream load',e)}
-  renderVoiceChannels(voiceChannelDefs)
+  if(!currentCommunity?.id){ycCommunityStreams.clear();renderVoiceChannels(voiceChannelDefs);return}
+  if(ycCommunityStreamLoadBusy)return ycCommunityStreamLoadBusy
+  const cid=String(currentCommunity.id)
+  ycCommunityStreamLoadBusy=(async()=>{
+    try{
+      const cutoff=new Date(Date.now()-50000).toISOString(),{data,error}=await sb.from('community_stream_presence').select('*').eq('community_id',cid).gt('updated_at',cutoff)
+      if(error)throw error
+      if(String(currentCommunity?.id||'')!==cid)return
+      const next=new Map();for(const row of data||[])next.set(String(row.user_id),row)
+      let changed=next.size!==ycCommunityStreams.size
+      if(!changed)for(const [uid,row] of next){const old=ycCommunityStreams.get(uid);if(!old||old.updated_at!==row.updated_at||old.channel_id!==row.channel_id||old.preview_data!==row.preview_data){changed=true;break}}
+      ycCommunityStreams.clear();for(const [uid,row] of next)ycCommunityStreams.set(uid,row)
+      if(changed)renderVoiceChannels(voiceChannelDefs)
+    }catch(e){console.warn('community stream load',e)}
+  })().finally(()=>{ycCommunityStreamLoadBusy=null})
+  return ycCommunityStreamLoadBusy
 }
-async function ycStopCommunityStreamWatch(){const ch=ycCommunityStreamSub;ycCommunityStreamSub=null;if(ch)try{await sb.removeChannel(ch)}catch{}}
+async function ycStopCommunityStreamWatch(){
+  if(ycCommunityStreamPollTimer){clearInterval(ycCommunityStreamPollTimer);ycCommunityStreamPollTimer=null}
+  const ch=ycCommunityStreamSub;ycCommunityStreamSub=null;if(ch)try{await sb.removeChannel(ch)}catch{}
+}
 async function ycStartCommunityStreamWatch(){
-  await ycStopCommunityStreamWatch();await ycLoadCommunityStreams();if(!currentCommunity?.id)return;const cid=currentCommunity.id
-  ycCommunityStreamSub=sb.channel('yc-community-streams-'+cid+'-'+Date.now()).on('postgres_changes',{event:'*',schema:'public',table:'community_stream_presence',filter:'community_id=eq.'+cid},payload=>{const row=payload.new||payload.old;if(!row?.user_id)return;const key=String(row.user_id);if(payload.eventType==='DELETE'||!ycStreamPresenceFresh(row)){ycCommunityStreams.delete(key);if(screenWatchingByUser.has(key)){screenWatchingByUser.delete(key);screenWatchPendingByUser.delete(key);remoteScreenStreams.delete(key);try{ycRemoveScreenAudioElement(key)}catch{}ycSyncStreamViewer()}}else ycCommunityStreams.set(key,row);renderVoiceChannels(voiceChannelDefs);if(ycHoverCard?.classList?.contains('yc-stream-hover-mode')&&ycHoverCard.dataset.streamUser===key){const anchor=document.querySelector('.voice-user[data-user-id="'+CSS.escape(key)+'"]');if(anchor)void ycHoverShow(anchor,key)}}).subscribe()
+  await ycStopCommunityStreamWatch();await ycLoadCommunityStreams();if(!currentCommunity?.id)return;const cid=String(currentCommunity.id)
+  const removeStream=key=>{ycCommunityStreams.delete(key);if(screenWatchingByUser.has(key)){screenWatchingByUser.delete(key);screenWatchPendingByUser.delete(key);remoteScreenStreams.delete(key);try{ycRemoveScreenAudioElement(key)}catch{}ycSyncStreamViewer()}renderVoiceChannels(voiceChannelDefs)}
+  ycCommunityStreamSub=sb.channel('yc-community-streams-'+cid+'-'+Date.now())
+    .on('postgres_changes',{event:'INSERT',schema:'public',table:'community_stream_presence',filter:'community_id=eq.'+cid},payload=>{const row=payload.new;if(!row?.user_id||!ycStreamPresenceFresh(row))return;ycCommunityStreams.set(String(row.user_id),row);renderVoiceChannels(voiceChannelDefs)})
+    .on('postgres_changes',{event:'DELETE',schema:'public',table:'community_stream_presence'},payload=>{const row=payload.old;if(!row?.user_id||String(row.community_id||'')!==cid)return;removeStream(String(row.user_id))})
+    .subscribe()
+  ycCommunityStreamPollTimer=setInterval(()=>{if(String(currentCommunity?.id||'')===cid)void ycLoadCommunityStreams()},20000)
 }
 function ycClearStreamPublishTimers(){if(ycStreamPresenceTimer){clearInterval(ycStreamPresenceTimer);ycStreamPresenceTimer=null}if(ycStreamPreviewTimer){clearInterval(ycStreamPreviewTimer);ycStreamPreviewTimer=null}}
 async function ycCaptureStreamPreviewData(){
