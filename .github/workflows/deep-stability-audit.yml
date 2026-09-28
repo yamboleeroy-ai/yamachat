@@ -2,7 +2,7 @@ name: Deep stability audit
 on:
   push:
     branches:
-      - audit/deep-stability-20260928
+      - audit/deep-stability-20260929
   workflow_dispatch:
 permissions:
   contents: read
