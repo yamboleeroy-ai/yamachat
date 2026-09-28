@@ -59,6 +59,8 @@ jobs:
         run: node tests/web-mobile-desktop-behavior-sync.cjs
       - name: Cross-platform login bootstrap
         run: node tests/auth-login-flow.cjs
+      - name: Cross-platform realtime chat
+        run: node tests/cross-platform-chat-realtime.cjs
       - name: Repeated login logout lifecycle
         run: node tests/auth-relogin-lifecycle.cjs
       - name: Cross-platform voice interoperability
