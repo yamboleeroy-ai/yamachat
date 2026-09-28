@@ -73,7 +73,7 @@ jobs:
           mkdir -p web-dist web-dist/legal
           cp index.html reset-password.html sw.js boot-guard.js favicon.ico manifest.webmanifest offline.html CNAME .nojekyll web-dist/
           cp -r icons audio vendor build download web-dist/
-          cp LICENSE BRAND-NOTICE.md PROVENANCE.md THIRD_PARTY_NOTICES.md LEGAL-BASELINE.md ASSET-MANIFEST.md web-dist/legal/
+          cp LICENSE TERMS_OF_USE.md PRIVACY_POLICY.md BRAND-NOTICE.md PROVENANCE.md THIRD_PARTY_NOTICES.md LEGAL-BASELINE.md ASSET-MANIFEST.md web-dist/legal/
       - uses: actions/upload-artifact@v4
         with:
           name: Yamachat-Web
