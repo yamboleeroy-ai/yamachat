@@ -3107,7 +3107,7 @@ ycSetupThemeLogo()
 
 
 // persistent DM unread state and notification sound
-let ycDmNotifySub=null,ycDmUnreadByThread={},ycDmAudioCtx=null,ycDmAudioArmed=false
+let ycDmNotifySub=null,ycDmMembershipSub=null,ycDmUnreadByThread={},ycDmAudioCtx=null,ycDmAudioArmed=false
 function ycUnreadLabel(n){n=Number(n||0);return n>9?'9+':String(n)}
 function ycDmUnreadTotal(){return Object.values(ycDmUnreadByThread).reduce((a,b)=>a+Number(b||0),0)}
 function ycEnsureDmAudio(){
@@ -3151,11 +3151,21 @@ async function ycLoadDmUnread(){
 async function ycMarkDmRead(threadId){
  if(!threadId||!user?.id)return;ycDmUnreadByThread[threadId]=0;ycUpdateDmBadge();ycDecorateDmRows();const now=new Date().toISOString();try{await sb.from('direct_thread_reads').upsert({thread_id:threadId,user_id:user.id,last_read_at:now,updated_at:now},{onConflict:'thread_id,user_id'})}catch(e){console.warn('dm mark read',e)}
 }
-async function ycStartDmNotifications(){
+async function ycStartDmNotifications(rebuildMembership=true){
  if(!user?.id)return;ycArmDmAudio();if(ycDmNotifySub){try{await sb.removeChannel(ycDmNotifySub)}catch{}ycDmNotifySub=null}
- ycDmNotifySub=sb.channel('yc-dm-global-'+user.id+'-'+Date.now()).on('postgres_changes',{event:'INSERT',schema:'public',table:'messages'},async payload=>{const m=payload.new||{};if(!m.direct_thread_id||m.author_id===user.id)return;const tid=m.direct_thread_id;if(currentThread?.id===tid){await ycMarkDmRead(tid);return}if(!(dmThreads||[]).some(t=>t.id===tid)){try{await loadDmThreads()}catch{}}ycDmUnreadByThread[tid]=(ycDmUnreadByThread[tid]||0)+1;ycUpdateDmBadge();ycDecorateDmRows();if(await ycShouldNotifyMessage(m))ycPlayDmSound()}).subscribe()
+ const ids=[...new Set((dmThreads||[]).map(t=>String(t.id||'')).filter(Boolean))]
+ if(ids.length){
+  let sub=sb.channel('yc-dm-targeted-'+user.id+'-'+Date.now())
+  const onMessage=async payload=>{const m=payload.new||{};if(!m.direct_thread_id||m.author_id===user.id)return;const tid=m.direct_thread_id;if(currentThread?.id===tid){await ycMarkDmRead(tid);return}ycDmUnreadByThread[tid]=(ycDmUnreadByThread[tid]||0)+1;ycUpdateDmBadge();ycDecorateDmRows();if(await ycShouldNotifyMessage(m))ycPlayDmSound()}
+  for(const tid of ids)sub=sub.on('postgres_changes',{event:'INSERT',schema:'public',table:'messages',filter:'direct_thread_id=eq.'+tid},onMessage)
+  ycDmNotifySub=sub.subscribe()
+ }
+ if(rebuildMembership){
+  if(ycDmMembershipSub){try{await sb.removeChannel(ycDmMembershipSub)}catch{}ycDmMembershipSub=null}
+  ycDmMembershipSub=sb.channel('yc-dm-membership-'+user.id+'-'+Date.now()).on('postgres_changes',{event:'*',schema:'public',table:'direct_thread_members',filter:'user_id=eq.'+user.id},async()=>{try{await loadDmThreads();await ycLoadDmUnread();await ycStartDmNotifications(false);ycUpdateDmBadge();ycDecorateDmRows()}catch(e){console.warn('dm membership refresh',e)}}).subscribe()
+ }
 }
-async function ycStopDmNotifications(){const ch=ycDmNotifySub;ycDmNotifySub=null;if(ch)try{await sb.removeChannel(ch)}catch{};ycDmUnreadByThread={};ycUpdateDmBadge()}
+async function ycStopDmNotifications(){const channels=[ycDmNotifySub,ycDmMembershipSub];ycDmNotifySub=null;ycDmMembershipSub=null;for(const ch of channels)if(ch)try{await sb.removeChannel(ch)}catch{};ycDmUnreadByThread={};ycUpdateDmBadge()}
 const ycBridgeRenderDmListUnread=renderDmList
 renderDmList=function(...args){const out=ycBridgeRenderDmListUnread.apply(this,args);ycDecorateDmRows();ycUpdateDmBadge();return out}
 const ycBridgeEnsureFriendsRailButtonUnread=ycEnsureFriendsRailButton
@@ -3655,10 +3665,19 @@ async function ycWinShowMessage(m){
   n.onclick=()=>{void ycWinOpenTarget(m,ch);try{n.close()}catch{}}
  }catch(e){console.warn('windows notification',e)}
 }
+async function ycWinNotificationTargets(){
+ const communityIds=[...new Set((communities||[]).map(c=>String(c.id||'')).filter(Boolean))],dmIds=[...new Set((dmThreads||[]).map(t=>String(t.id||'')).filter(Boolean))];let channelIds=[]
+ if(communityIds.length)try{const {data,error}=await sb.from('channels').select('id,kind').in('community_id',communityIds);if(!error)channelIds=(data||[]).filter(c=>c.kind!=='voice').map(c=>String(c.id))}catch(e){console.warn('windows notification targets',e)}
+ return{channelIds:[...new Set(channelIds)],dmIds}
+}
 async function ycStartWinNotifications(){
  if(!user?.id)return
  if(ycWinNotifySub){try{await sb.removeChannel(ycWinNotifySub)}catch{}ycWinNotifySub=null}
- ycWinNotifySub=sb.channel('yc-win-notify-'+user.id+'-'+Date.now()).on('postgres_changes',{event:'INSERT',schema:'public',table:'messages'},payload=>{void ycWinShowMessage(payload.new||{})}).subscribe()
+ const {channelIds,dmIds}=await ycWinNotificationTargets();if(!channelIds.length&&!dmIds.length)return
+ let sub=sb.channel('yc-win-notify-targeted-'+user.id+'-'+Date.now()),handler=payload=>{void ycWinShowMessage(payload.new||{})}
+ for(const id of channelIds)sub=sub.on('postgres_changes',{event:'INSERT',schema:'public',table:'messages',filter:'channel_id=eq.'+id},handler)
+ for(const id of dmIds)sub=sub.on('postgres_changes',{event:'INSERT',schema:'public',table:'messages',filter:'direct_thread_id=eq.'+id},handler)
+ ycWinNotifySub=sub.subscribe()
 }
 async function ycStopWinNotifications(){const ch=ycWinNotifySub;ycWinNotifySub=null;if(ch)try{await sb.removeChannel(ch)}catch{}}
 ycOnLifecycle('init',()=>{void ycStartWinNotifications()})
