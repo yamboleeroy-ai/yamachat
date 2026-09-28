@@ -37,6 +37,8 @@ jobs:
         run: node tests/cross-platform-multiclient-voice.cjs
       - name: Ten-client stability stress
         run: node tests/stability-10-client-load.cjs
+      - name: Twenty-client lifecycle stress
+        run: node tests/stability-20-client-lifecycle.cjs
       - name: Realtime scope model
         run: node tests/realtime-scope-model.cjs
       - name: Voice scale model
