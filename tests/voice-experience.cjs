@@ -100,8 +100,9 @@ if(!isDesktop){
  })();
 }
 if(isDesktop){
- assert(html.includes("Promise.allSettled([\n    sb.functions.invoke('yamachat-turn-cloudflare'"),'TURN providers must be loaded in parallel');
- assert(html.includes("providers.join('+')||'stun'"),'TURN provider fallback state missing');
+ assert(html.includes("sb.functions.invoke('yamachat-turn-cloudflare',{method:'GET'})"),'Desktop must request Cloudflare TURN credentials');
+ assert(html.includes("voiceTurnProvider='cloudflare'"),'Desktop must report Cloudflare as the TURN provider');
+ assert(!html.includes("sb.functions.invoke('yamachat-turn',{method:'GET'})"),'Desktop must not request Metered TURN credentials');
 }
 
 // Presence: manual status wins. In voice, AFK may appear only after prolonged microphone/UI inactivity,
@@ -109,14 +110,15 @@ if(isDesktop){
 assert(html.includes("const voiceLive=!!voiceChannel&&!!voiceStream?.getAudioTracks?.().some(t=>t.readyState==='live');if(voiceLive){const lastVoiceActivity=Math.max(Number(window.__ycVoiceLastMicActivityAt||0),Number(ycLastInputAt||0));return Date.now()-lastVoiceActivity>=300000?'afk':'online'}"),'Microphone-aware voice AFK protection missing');
 assert(html.includes("window.__ycVoiceLastMicActivityAt=Date.now()"),'Voice VAD does not mark microphone activity');
 assert(html.includes("if(next&&ycLastPresenceSig.startsWith('afk|'))void ycTouchPresence(true)"),'Voice AFK does not recover promptly when speech resumes');
-if(!isDesktop)assert(html.includes("if(next&&ycLastPresenceSig.startsWith('afk|'))void ycTouchPresence(true);syncVoiceParticipantRow().catch(()=>{})"),'VAD speaking changes must update the DB row without spamming Realtime Presence');
+assert(!html.includes("if(next&&ycLastPresenceSig.startsWith('afk|'))void ycTouchPresence(true);syncVoiceParticipantRow().catch(()=>{})"),'VAD speaking changes must stay local and must not write participant heartbeats');
 assert(html.includes("if(pref!=='online')return pref"),'Manual AFK/DND/invisible preference must remain authoritative');
 
 // Voice participant announcements have one authoritative source: refreshed participant diffs.
-assert(!html.includes("payload.eventType==='INSERT'&&uid!==user.id&&voiceJoinSoundArmed&&voiceChannel?.id===id)ycVoiceAnnounceOnce(row,'join')"),'Direct INSERT join announcement would duplicate the refreshed participant diff');
-assert(!html.includes("if(voiceJoinSoundArmed&&(!id||voiceChannel?.id===id))ycVoiceAnnounceOnce(row,'leave')"),'Direct DELETE leave announcement would duplicate the refreshed participant diff');
-assert(html.includes("payload.eventType==='INSERT'&&uid!==user.id&&voiceJoinSoundArmed&&voiceChannel?.id===id)void 0"),'INSERT path is not neutralized before participant diff');
-assert(html.includes("if(uid!==user.id&&String(voiceChannel?.id||'')===String(id||'')){closeVoicePeer(uid)}"),'Participant DELETE must only close peers from the currently joined voice room');
+assert(!html.includes("ycVoiceAnnounceOnce(row,'join')"),'Direct participant INSERT must not announce outside the refreshed participant diff');
+assert(!html.includes("ycVoiceAnnounceOnce(row,'leave')"),'Direct participant DELETE must not announce outside the refreshed participant diff');
+assert(html.includes("event:'INSERT',schema:'public',table:'voice_participants',filter"),'Joined room INSERT subscription missing');
+assert(html.includes("event:'DELETE',schema:'public',table:'voice_participants',filter"),'Joined room DELETE subscription missing');
+assert(html.includes("const uid=payload.old?.user_id;if(uid&&uid!==user.id)closeVoicePeer(uid)"),'Scoped DELETE must close only the departed peer from the joined room');
 assert(html.includes("ycVoiceDiffAnnouncements(id,before,after)"),'Participant diff announcement source missing');
 assert(html.includes("function ycVoiceHandleAnnouncement(payload){\n  if(window.__ycVoiceParticipantAnnouncements)return;"),'Legacy broadcast TTS path is not suppressed');
 assert(html.includes("function ycVoiceSpeakPerson(row,action){\n  if(window.__ycVoiceParticipantAnnouncements)return;"),'Legacy participant TTS path is not suppressed');
