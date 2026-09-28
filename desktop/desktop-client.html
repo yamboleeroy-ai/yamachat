@@ -2355,9 +2355,8 @@ function ycHandlePresenceRealtime(payload){
 }
 function ycEnsurePresenceRealtime(){
   if(!user||ycPresenceRealtimeSub)return
-  ycPresenceRealtimeSub=sb.channel('yc-user-presence-live-'+user.id+'-'+Date.now())
-    .on('postgres_changes',{event:'*',schema:'public',table:'user_presence'},payload=>ycHandlePresenceRealtime(payload))
-    .on('postgres_changes',{event:'UPDATE',schema:'public',table:'profiles'},payload=>{const row=payload.new||{};if(String(row.id||'')===String(user.id)){profile={...profile,...row};ycLastPresenceSig='';ycRefreshOwnPresenceUi();void ycTouchPresence(true)}else{try{ycHoverCache?.delete?.(String(row.id||''))}catch{};ycRefreshVisibleSocialSoon()}})
+  ycPresenceRealtimeSub=sb.channel('yc-own-profile-live-'+user.id+'-'+Date.now())
+    .on('postgres_changes',{event:'UPDATE',schema:'public',table:'profiles',filter:'id=eq.'+user.id},payload=>{const row=payload.new||{};profile={...profile,...row};ycLastPresenceSig='';ycRefreshOwnPresenceUi();void ycTouchPresence(true)})
     .subscribe(status=>{if(status==='SUBSCRIBED')ycRefreshVisibleSocialSoon()})
 }
 async function ycStopPresenceRealtime(){const ch=ycPresenceRealtimeSub;ycPresenceRealtimeSub=null;if(ch)try{await sb.removeChannel(ch)}catch{}}
@@ -2656,39 +2655,13 @@ ycLinkDiscord=async function(){
 }
 
 
-// reliable voice join/leave name announcements
-let ycVoiceNamesSub=null,ycVoiceNameSeen=new Map()
-function ycVoiceNameKey(row,action){return String(row?.channel_id||'')+'|'+String(row?.user_id||'')+'|'+action}
-function ycVoiceNameAllow(row,action){
-  const key=ycVoiceNameKey(row,action),now=Date.now(),last=ycVoiceNameSeen.get(key)||0
-  if(now-last<2500)return false
-  ycVoiceNameSeen.set(key,now)
-  if(ycVoiceNameSeen.size>200){for(const [k,t] of ycVoiceNameSeen){if(now-t>60000)ycVoiceNameSeen.delete(k)}}
-  return true
-}
-function ycVoiceSpeakPerson(row,action){
-  if(window.__ycVoiceParticipantAnnouncements)return;
-  try{
-    if(!row||!voiceChannel||row.channel_id!==voiceChannel.id||row.user_id===user?.id)return
-    if(!ycVoiceNameAllow(row,action))return
-    const name=String(row.username||'Uživatel').trim()||'Uživatel'
-    if(action==='join')ycVoiceSpeak(name+' se připojil do místnosti')
-    else ycVoiceSpeak(name+' opustil místnost')
-  }catch(e){console.warn('voice name announce',e)}
-}
-function ycEnsureVoiceNamesRealtime(){
-  if(!user||ycVoiceNamesSub)return
-  ycVoiceNamesSub=sb.channel('yc-voice-name-events-'+user.id+'-'+Date.now())
-    .on('postgres_changes',{event:'INSERT',schema:'public',table:'voice_participants'},({new:row})=>ycVoiceSpeakPerson(row,'join'))
-    .on('postgres_changes',{event:'DELETE',schema:'public',table:'voice_participants'},({old:row})=>ycVoiceSpeakPerson(row,'leave'))
-    .subscribe()
-}
-async function ycStopVoiceNamesRealtime(){const ch=ycVoiceNamesSub;ycVoiceNamesSub=null;if(ch)try{await sb.removeChannel(ch)}catch{}}
-// disable the older auxiliary broadcast path to prevent duplicate TTS
-ycVoiceHandleAnnouncement=function(){}
-ycOnLifecycle('init',()=>{ycEnsureVoiceNamesRealtime()})
-ycOnLifecycle('beforeAuth',()=>{void ycStopVoiceNamesRealtime()})
-if(user)ycEnsureVoiceNamesRealtime()
+// scale-safe voice join/leave announcements
+// The active-room voice_participants roster diff is authoritative.
+// Do not open a second global Postgres Changes listener or an auxiliary broadcast room.
+try{joinVoiceChannel=ycOriginalJoinVoiceChannel;leaveVoiceChannel=ycOriginalLeaveVoiceChannel;void ycVoiceUnsubscribeAnnouncement()}catch{}
+let ycVoiceNamesSub=null
+function ycEnsureVoiceNamesRealtime(){}
+async function ycStopVoiceNamesRealtime(){}
 
 
 // hover user profile cards
