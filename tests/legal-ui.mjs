@@ -21,6 +21,8 @@ function verify(html,label){
   assert.ok(html.includes("Nejde o právní certifikaci ani právní ověření obsahu."),label+': signature limitation missing');
   assert.ok(html.includes('class="yc-legal-links-grid"'),label+': About legal document cards missing');
   assert.ok(html.includes('class="yc-legal-signature"'),label+': signature status card missing');
+  assert.ok(html.includes('.yc-developer-modal .yc-dev-grid{grid-template-columns:repeat(3,minmax(0,1fr))'),label+': balanced developer contact grid missing');
+  assert.ok(html.includes('.yc-developer-modal .yc-dev-send{width:100%}'),label+': mobile developer contact footer rule missing');
   assert.ok(html.includes('(max-width:1100px) and (max-height:560px)'),label+': phone-landscape legal layout missing');
   assert.ok(html.includes('env(safe-area-inset-bottom)'),label+': legal safe-area support missing');
   assert.ok(html.includes("id='ycLegalPortal'")||html.includes("r.id='ycLegalPortal'"),label+': legal dialog must use body-level portal for login access');
