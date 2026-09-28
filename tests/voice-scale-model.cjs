@@ -41,7 +41,8 @@ assert(!desktop.includes("sb.channel('yc-win-notify-'+user.id"),'Global Windows 
 assert(scaleSql.includes('voice_participants_channel_last_seen_idx'),'Voice roster composite index definition missing');
 assert(scaleSql.includes('(channel_id, last_seen desc)'),'Voice roster index must match channel + lease cutoff query');
 assert(scaleSql.includes('voice_signals_created_at_idx'),'Stale signaling cleanup index missing');
-assert(scaleSql.includes('prune_stale_voice_signals'),'Server-side stale signaling cleanup function missing');
+assert(scaleSql.includes('prune_stale_voice_state'),'Server-side stale voice-state cleanup function missing');
+assert(scaleSql.includes('delete from public.voice_signals'),'Server-side stale signaling DELETE missing');
 assert(scaleSql.includes("created_at < now() - interval '5 minutes'"),'Signal cleanup TTL must remain bounded');
 
 
