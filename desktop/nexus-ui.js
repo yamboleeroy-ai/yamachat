@@ -126,13 +126,14 @@ function syncVoicePanel(){
   const box=q('#voiceControls'),room=q('#ycNexusVoiceRoom',box),community=q('#ycNexusVoiceCommunity',box),eq=q('#ycNexusVoiceEq',box),conn=q('#ycNexusVoiceConnected',box),avatar=q('#voiceSelfAvatar',box),bg=q('.yc-nexus-voice-bg',box);
   box?.classList.toggle('yc-nexus-connected',!!state.connected);
   box?.classList.toggle('yc-nexus-switching',!!state.switching);
-  if(room)room.textContent=state.channelName||'Hlas připraven';
-  if(community)community.textContent=state.communityName||'Yamachat';
+  const roomText=state.channelName||'Hlas připraven',communityText=state.communityName||'Yamachat';
+  if(room&&room.textContent!==roomText)room.textContent=roomText;
+  if(community&&community.textContent!==communityText)community.textContent=communityText;
   if(eq){eq.classList.toggle('is-speaking',!!state.speaking);eq.dataset.speakers=String(state.speakingCount||0)}
   if(conn){
     conn.classList.toggle('connected',!!state.connected);
     conn.classList.toggle('switching',!!state.switching);
-    const label=q('b',conn);if(label)label.textContent=state.switching?'Připojuji…':state.connected?'Připojeno':'Připraveno';
+    const label=q('b',conn),labelText=state.switching?'Připojuji…':state.connected?'Připojeno':'Připraveno';if(label&&label.textContent!==labelText)label.textContent=labelText;
   }
   if(avatar){avatar.classList.toggle('connected',!!state.connected);avatar.style.setProperty('--yc-connect-ring',state.connected?'360deg':'0deg')}
   if(bg){
@@ -147,11 +148,12 @@ async function refreshVoiceHealth(){
   try{
     const state=bridge()?.nexusVoiceUiState?.(),stats=await bridge()?.nexusVoiceStats?.();
     const ms=q('#ycNexusVoiceMs'),quality=q('#ycNexusVoiceQuality');
-    if(ms)ms.textContent=state?.connected&&stats?.ms!=null?String(stats.ms):'—';
+    const msText=state?.connected&&stats?.ms!=null?String(stats.ms):'—';
+    if(ms&&ms.textContent!==msText)ms.textContent=msText;
     if(quality){
       let label=stats?.quality||'Čekám na spojení';
       if(!state?.connected)label=state?.switching?'Navazuji spojení':'Voice není připojen';
-      quality.textContent=label;
+      if(quality.textContent!==label)quality.textContent=label;
       quality.dataset.quality=stats?.ms==null?'waiting':stats.ms<55?'excellent':stats.ms<100?'good':stats.ms<180?'stable':'weak';
     }
   }catch(error){console.warn('Nexus voice health',error)}
@@ -177,7 +179,7 @@ function mountLayout(){
   startVoiceUiSync();
   const ro=new MutationObserver(()=>{syncServerHero();syncNotificationBadge()});
   ro.observe(rail,{subtree:true,childList:true,attributes:true,attributeFilter:['class','src']});
-  const appObserver=new MutationObserver(()=>{syncNotificationBadge();decorateVoicePanel();syncVoicePanel();if(q('.yc-app-settings-modal'))injectSettingsAbout()});
+  const appObserver=new MutationObserver(()=>{syncNotificationBadge();decorateVoicePanel();if(q('.yc-app-settings-modal'))injectSettingsAbout()});
   appObserver.observe(app,{subtree:true,childList:true});
   document.addEventListener('click',e=>{
     const community=e.target.closest?.('#rail [data-community]');
