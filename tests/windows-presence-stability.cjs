@@ -17,7 +17,6 @@ for(const marker of [
  "rightMode==='members'&&ycMembersPresenceNeedsRefresh()",
  "function ycHandlePresenceRealtime(payload)",
  "if(beforeSig===afterSig)return",
- "payload=>ycHandlePresenceRealtime(payload)",
  "void ycTouchPresence(true);playVoiceCue('self-join')",
  "typeof ycOwnPresenceState==='function'?ycOwnPresenceState()"
 ]) assert(client.includes(marker),'Presence stability marker missing: '+marker);
@@ -26,9 +25,14 @@ assert(!client.includes("async function ycPresenceOffline(){try{if(user)await sb
  'Closing/logging out one client must not overwrite another active client with offline');
 assert(!client.includes(".on('postgres_changes',{event:'*',schema:'public',table:'user_presence'},()=>ycRefreshVisibleSocialSoon())"),
  'Raw presence heartbeats must not rerender the whole social panel');
+assert(!client.includes("table:'user_presence'},payload=>ycHandlePresenceRealtime(payload)"),
+ 'Presence heartbeat rows must not be globally fanned out through Realtime');
+assert(client.includes("table:'profiles',filter:'id=eq.'+user.id"),
+ 'Realtime profile sync must be scoped to the signed-in user');
+
 const presenceTimerStart=client.indexOf('function ycStartPresence()'),presenceTimerEnd=client.indexOf('ycStartPresence()',presenceTimerStart+20);
 assert(presenceTimerStart>=0&&presenceTimerEnd>presenceTimerStart,'Presence timer boundary missing');
 const presenceTimerBody=client.slice(presenceTimerStart,presenceTimerEnd);
 assert(presenceTimerBody.includes("rightMode==='members'&&ycMembersPresenceNeedsRefresh()"),'Members timer must be gated by a visible-state transition');
 assert(!presenceTimerBody.includes("else if(rightMode==='members')void renderRight()"),'Periodic social timer must not rerender Members unconditionally');
-console.log('PASS Windows presence stability: one effective self state, active-client lease, no offline clobber and heartbeat rerender suppression.');
+console.log('PASS Windows presence stability: one effective self state, active-client lease, no global heartbeat fanout, no offline clobber and batched social refresh.');
