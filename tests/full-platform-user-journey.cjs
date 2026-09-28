@@ -111,6 +111,19 @@ async function cleanupSyntheticRemoteStream(page){
         ...(cfg.ios?{userAgent:'Mozilla/5.0 (iPhone; CPU iPhone OS 18_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.6 Mobile/15E148 Safari/604.1'}:{})
       });
       if(cfg.ios)await context.addInitScript(()=>Object.defineProperty(navigator,'standalone',{value:true,configurable:true}));
+      await context.addInitScript(()=>{
+       const install=()=>{
+        if(!navigator.mediaDevices)return;
+        navigator.mediaDevices.getUserMedia=async constraints=>{
+         if(!constraints?.audio)throw new DOMException('Video capture is not used in this voice test','NotSupportedError');
+         const ac=new (window.AudioContext||window.webkitAudioContext)(),osc=ac.createOscillator(),gain=ac.createGain(),dest=ac.createMediaStreamDestination();
+         gain.gain.value=.012;osc.frequency.value=220;osc.connect(gain).connect(dest);osc.start();
+         window.__ycSyntheticMic={ac,osc,dest};
+         return dest.stream;
+        };
+       };
+       install();
+      });
       const page=await context.newPage(),errors=[];page.on('pageerror',e=>errors.push(e.message));
       const supabase=mock(),doc=html(cfg.platform);
       await page.route('**/*',route=>{
@@ -139,7 +152,8 @@ async function cleanupSyntheticRemoteStream(page){
       
       // Real voice join path with a fake Chromium microphone device.
       await page.evaluate(()=>window.__ycE2E.joinVoiceById('voice-a'));
-      await page.waitForFunction(()=>{const s=window.__ycE2E.state();return s.voice==='voice-a'&&s.audio==='live'});
+      try{await page.waitForFunction(()=>{const s=window.__ycE2E.state();return s.voice==='voice-a'&&s.audio==='live'},{},{timeout:12000})}
+      catch(e){const snapshot=await page.evaluate(()=>window.__ycE2E.state());throw new Error(cfg.platform+' voice join stalled: '+JSON.stringify(snapshot)+' :: '+e.message)}
       state=await page.evaluate(()=>({...window.__ycE2E.state(),rpcs:window.__mockRpcWrites.map(x=>x.name)}));
       assert.equal(state.voice,'voice-a');assert(state.heartbeat,cfg.platform+' heartbeat missing');assert(state.signalReady,cfg.platform+' signal subscription not ready');
       assert(state.participantSub,cfg.platform+' scoped participant subscription missing');assert.equal(state.audio,'live');
