@@ -18,7 +18,7 @@ async function boot(browser,width,height,mobile=false){
   });
   await page.goto('http://127.0.0.1/');
   await page.waitForFunction(()=>window.__ycClientReady&&window.YamachatLegalUI,{},{timeout:15000});
-  await page.waitForSelector('#ycGlobalNav');
+  await page.waitForSelector('#ycGlobalNav',{state:'attached'});
   await page.evaluate(({mobile})=>{
     const auth=document.getElementById('auth'),app=document.getElementById('app');
     auth?.classList.add('hidden');auth?.style.setProperty('display','none','important');
@@ -79,12 +79,13 @@ function inside(b,w,h){return b&&b.width>0&&b.height>0&&b.x>=-1&&b.y>=-1&&b.x+b.
         app?.style.setProperty('display','block','important');
         app?.style.setProperty('visibility','visible','important');
         nav?.classList.add('yc-mobile-open');
+        if(nav)nav.inert=false;
         app?.classList.add('yc-mobile-drawer-open');
         nav?.style.setProperty('display','flex','important');
         nav?.style.setProperty('visibility','visible','important');
       });
-      const order=await page.evaluate(()=>[...(document.querySelector('.yc-v3-user-actions')?.children||[])].map(x=>x.id));
-      assert(order.indexOf('ycLegalAboutBtn')>=0&&order.indexOf('ycLegalAboutBtn')<order.indexOf('logoutBtn'));
+      const order=await page.evaluate(()=>[...(document.getElementById('ycV3NavActions')?.children||[])].map(x=>x.id));
+      assert(order.indexOf('ycLegalAboutBtn')>=0&&order.indexOf('ycLegalAboutBtn')<order.indexOf('logoutBtn'),'Mobile About must render above logout in final nav actions');
       await page.screenshot({path:path.join(__dirname,'legal-ui-screens','mobile-nav-about.png'),fullPage:true});
       await page.evaluate(()=>{
         document.getElementById('ycGlobalNav')?.classList.remove('yc-mobile-open');
