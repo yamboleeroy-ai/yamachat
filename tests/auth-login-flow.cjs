@@ -41,15 +41,30 @@ function authFixture(){
    await page.locator('#password').fill('StrongPass123!');
    await page.locator('#authSubmit').click();
    await page.waitForSelector('#app:not(.hidden)',{timeout:20000});
-   const state=await page.evaluate(()=>({uid:user?.id,community:currentCommunity?.id,channel:currentChannel?.id,attempts:window.__loginAttempts,authHidden:document.querySelector('#auth')?.classList.contains('hidden')}));
-   assert.equal(state.uid,'audit-user',cfg.platform+' login did not create authenticated app state');
-   assert.equal(state.community,'community-a',cfg.platform+' login did not load communities');
-   assert.equal(state.channel,'chat-a',cfg.platform+' login did not select text channel');
+   const state=await page.evaluate(()=>({
+    attempts:window.__loginAttempts,
+    authHidden:document.querySelector('#auth')?.classList.contains('hidden'),
+    appVisible:!document.querySelector('#app')?.classList.contains('hidden'),
+    topName:document.querySelector('#topName')?.textContent||'',
+    activeCommunity:document.querySelector('#rail [data-community].active')?.dataset.community||'',
+    activeChannel:document.querySelector('#channelList [data-channel].active')?.dataset.channel||'',
+    messageReady:!!document.querySelector('#messageInput:not([disabled])')
+   }));
+   assert.equal(state.appVisible,true,cfg.platform+' app not visible after login');
+   assert(state.topName.includes('Místní test'),cfg.platform+' authenticated profile was not rendered');
+   assert.equal(state.activeCommunity,'community-a',cfg.platform+' login did not load/select initial community');
+   assert.equal(state.activeChannel,'chat-a',cfg.platform+' login did not select initial text channel');
+   assert.equal(state.messageReady,true,cfg.platform+' composer not ready after login');
    assert.equal(state.attempts,1,cfg.platform+' login submitted more than once');
    assert.equal(state.authHidden,true,cfg.platform+' auth screen remained visible after login');
    await page.locator('#logoutBtn').click();
    await page.waitForSelector('#auth:not(.hidden)');
-   assert.equal(await page.evaluate(()=>user),null,cfg.platform+' logout did not clear user state');
+   const loggedOut=await page.evaluate(()=>({
+    authVisible:!document.querySelector('#auth')?.classList.contains('hidden'),
+    appHidden:document.querySelector('#app')?.classList.contains('hidden'),
+    composerHidden:document.querySelector('#app')?.classList.contains('hidden')
+   }));
+   assert.deepEqual(loggedOut,{authVisible:true,appHidden:true,composerHidden:true},cfg.platform+' logout did not return to a clean auth state');
    assert.deepEqual(errors,[],cfg.platform+' login flow page errors');
    await context.close();
   }
