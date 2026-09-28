@@ -55,13 +55,16 @@ jobs:
 
           $desktop=Get-Content 'desktop/desktop-client.html' -Raw
           $web=Get-Content 'index.html' -Raw
-          foreach ($pair in @(@('desktop',$desktop),@('web',$web))) {
-            $name=$pair[0]; $html=$pair[1]
-            if ($html -notmatch "sb\.functions\.invoke\('yamachat-turn-cloudflare'") { throw "$name Cloudflare TURN provider missing" }
-            if ($html -match "sb\.functions\.invoke\('yamachat-turn'\s*,") { throw "$name still invokes Metered TURN" }
-            if ($html -match "add\(metered,'metered'\)|voiceTurnProvider='metered'|providers\.join\('\+'\)") { throw "$name still contains Metered TURN routing" }
-            if ($html -notmatch "iceTransportPolicy:'all'") { throw "$name WebRTC transport policy changed" }
-          }
+
+          if ($desktop -notmatch "sb\.functions\.invoke\('yamachat-turn-cloudflare'") { throw 'desktop Cloudflare TURN provider missing' }
+          if ($desktop -match "sb\.functions\.invoke\('yamachat-turn'\s*,") { throw 'desktop still invokes Metered TURN' }
+          if ($desktop -match "add\(metered,'metered'\)|voiceTurnProvider='metered'|providers\.join\('\+'\)") { throw 'desktop still contains Metered TURN routing' }
+          if ($desktop -notmatch "iceTransportPolicy:'all'") { throw 'desktop WebRTC transport policy changed' }
+
+          if ($web -notmatch "sb\.functions\.invoke\('yamachat-turn-cloudflare'") { throw 'web Cloudflare TURN provider missing' }
+          if ($web -match "sb\.functions\.invoke\('yamachat-turn'\s*,") { throw 'web still invokes Metered TURN' }
+          if ($web -match "voiceTurnProvider='metered'") { throw 'web still contains Metered TURN provider state' }
+          if ($web -notmatch "iceTransportPolicy:'all'") { throw 'web WebRTC transport policy changed' }
 
       - name: Run voice and stream regression guards
         shell: pwsh
