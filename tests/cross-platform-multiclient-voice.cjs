@@ -31,7 +31,7 @@ window.__ycE2E={
   const ac=new (window.AudioContext||window.webkitAudioContext)(),osc=ac.createOscillator(),gain=ac.createGain(),dest=ac.createMediaStreamDestination();
   gain.gain.value=.012;osc.frequency.value=220;osc.connect(gain).connect(dest);osc.start();
   const media={getUserMedia:async()=>dest.stream,enumerateDevices:async()=>[]};
-  getVoiceMediaDevices=()=>media;window.__ycSyntheticMic={ac,osc,dest};
+  getVoiceMediaDevices=()=>media;ycPrepareMicStream=async raw=>raw;window.__ycSyntheticMic={ac,osc,dest};
   return dest.stream.getAudioTracks()[0]?.readyState||'';
  },
  stopSyntheticMic:async()=>{const m=window.__ycSyntheticMic;if(!m)return;try{m.osc.stop()}catch{};m.dest.stream.getTracks().forEach(t=>t.stop());await m.ac.close().catch(()=>{});window.__ycSyntheticMic=null;},
