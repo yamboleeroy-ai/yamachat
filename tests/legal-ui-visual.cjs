@@ -18,6 +18,11 @@ async function boot(browser,width,height,mobile=false){
   });
   await page.goto('http://127.0.0.1/');
   await page.waitForFunction(()=>window.__ycClientReady&&window.YamachatLegalUI,{},{timeout:15000});
+  await page.waitForSelector('#ycGlobalNav');
+  await page.evaluate(()=>{
+    document.getElementById('auth')?.classList.add('hidden');
+    document.getElementById('app')?.classList.remove('hidden');
+  });
   return {page,errors};
 }
 function inside(b,w,h){return b&&b.width>0&&b.height>0&&b.x>=-1&&b.y>=-1&&b.x+b.width<=w+1&&b.y+b.height<=h+1}
