@@ -1,5 +1,8 @@
 name: Deep stability audit
 on:
+  push:
+    branches:
+      - audit/deep-stability-20260929
   workflow_dispatch:
 permissions:
   contents: read
@@ -20,6 +23,40 @@ jobs:
         run: |
           npm install --no-save --package-lock=false playwright@1.62.1
           npx playwright install --with-deps chromium
+      - name: Extended static regressions
+        run: |
+          node tests/account-messages.cjs
+          node tests/android-natural-voices.cjs
+          node tests/voice-scale-sql.cjs
+          node tests/web-mobile-desktop-behavior-sync.cjs
+          node tests/windows-dm-media-performance.cjs
+          node tests/windows-interaction-notifications.cjs
+          node tests/windows-natural-voices.cjs
+          node tests/windows-presence-stability.cjs
+          node tests/windows-process-audio.cjs
+          node tests/windows-social-hover-context.cjs
+          node tests/windows-stream-lifecycle.cjs
+          node tests/windows-wns-desktop.cjs
+      - name: Extended browser regressions
+        run: |
+          node tests/interaction-notifications.cjs
+          node tests/legal-ui-visual.cjs
+          node tests/mobile-friends-drawer.cjs
+          node tests/password-recovery.cjs
+          node tests/platform-install-ui.cjs
+          node tests/profile-actions.cjs
+          node tests/profile-layout.cjs
+          node tests/social-release-web.cjs
+          node tests/stream-preview.cjs
+          node tests/voice-experience.cjs
+          YC_CLIENT=desktop/desktop-client.html node tests/voice-experience.cjs
+      - name: Responsive UI matrix
+        run: |
+          python3 -m http.server 4173 >/tmp/yamachat-ui-server.log 2>&1 &
+          SERVER_PID=$!
+          trap 'kill $SERVER_PID 2>/dev/null || true' EXIT
+          sleep 1
+          node tests/ui.cjs
       - name: Auth bootstrap
         run: node tests/auth-login-flow.cjs
       - name: Auth relogin lifecycle
