@@ -12,6 +12,7 @@ import {withServerCardContext} from './server-card-context.mjs';
 import {withFriendsPanelRefresh} from './friends-panel-refresh.mjs';
 import {withVoiceThemePolish} from './voice-theme-polish.mjs';
 import {withVoiceExperience} from './voice-experience.mjs';
+import {withVoiceScaleHardening} from './voice-scale-hardening.mjs';
 import {withMessageNotificationSound} from './message-notification-sound.mjs';
 import {withInteractionNotifications} from './interaction-notifications.mjs';
 import {withStreamViewer} from './stream-viewer.mjs';
@@ -157,6 +158,7 @@ html=html.replace(
  // This keeps current Android/iOS/PWA navigation and geometry authoritative.
  html=withVoiceThemePolish(withMessageNotificationSound(withVoiceExperience(html)));
  html=withInteractionNotifications(html);
+ html=withVoiceScaleHardening(html);
 
 html=withStreamViewer(html);
 html=withLegalUi(html);
