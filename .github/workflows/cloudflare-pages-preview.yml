@@ -1,0 +1,34 @@
+name: Cloudflare Pages packaging preview
+on:
+  push:
+    branches: [infra/cloudflare-pages-preview-20260928]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Generate current Web/PWA client
+        run: node scripts/build-web.mjs
+      - name: Run current Yamachat web checks
+        run: node scripts/check.mjs
+      - name: Prepare Cloudflare Pages output
+        run: node scripts/prepare-cloudflare-pages.mjs
+      - name: Verify required production files
+        run: |
+          test -f web-dist/index.html
+          test -f web-dist/sw.js
+          test -f web-dist/manifest.webmanifest
+          test -f web-dist/reset-password.html
+          test -f web-dist/update-manifest.json
+          test -f web-dist/download/Yamachat-Android.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: yamachat-cloudflare-pages-preview
+          path: web-dist
+          retention-days: 7
