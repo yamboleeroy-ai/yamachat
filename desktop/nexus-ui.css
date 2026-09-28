@@ -164,6 +164,131 @@ html[data-yc-nexus="1"] .yc-v3-content-grid>#rail .server.add{font-size:0!import
 html[data-yc-nexus="1"] .yc-v3-content-grid>#rail .server.browse:before{content:"⌕";font-size:17px;color:#78ddff}
 html[data-yc-nexus="1"] .yc-v3-content-grid>#rail .server.add:before{content:"＋";font-size:19px;color:#d387ff}
 
+
+/* ---------- NEXUS 3-COLUMN CORRECTION ----------
+   Servers are opened from the top Server Browser. The legacy rail remains in DOM
+   as a compatibility/navigation source but is not a visible Discord-like dock. */
+html[data-yc-nexus="1"] .yc-v3-content-grid{
+  grid-template-columns:minmax(220px,252px) minmax(440px,1fr) minmax(260px,292px)!important;
+}
+html[data-yc-nexus="1"] .yc-v3-content-grid>#rail{
+  display:none!important;
+}
+html[data-yc-nexus="1"] #ycServerContextFrame{display:none!important}
+html[data-yc-nexus="1"] .yc-v3-content-grid>.side{grid-column:1!important}
+html[data-yc-nexus="1"] .yc-v3-content-grid>.chat{grid-column:2!important}
+html[data-yc-nexus="1"] .yc-v3-content-grid>.right{grid-column:3!important}
+
+/* The bottom dock mirrors the three visible columns. Voice spans server+chat,
+   TURN returns to the right column under Members/Friends. */
+html[data-yc-nexus="1"] .yc-v3-workspace{
+  grid-template-rows:minmax(0,1fr) auto!important;
+}
+html[data-yc-nexus="1"] .yc-v3-voice-host{
+  display:grid!important;
+  grid-template-columns:minmax(220px,252px) minmax(440px,1fr) minmax(260px,292px)!important;
+  gap:7px!important;
+  min-height:92px!important;
+  height:auto!important;
+  padding-top:7px!important;
+  align-items:stretch!important;
+}
+html[data-yc-nexus="1"] .yc-v3-voice-host .voice-controls{
+  grid-column:1/3!important;
+  width:100%!important;
+  height:auto!important;
+  min-height:92px!important;
+  max-height:none!important;
+  margin:0!important;
+  padding:8px 10px!important;
+  display:grid!important;
+  grid-template-columns:minmax(175px,.78fr) minmax(155px,.62fr) minmax(300px,1.55fr)!important;
+  gap:9px!important;
+  align-items:center!important;
+  overflow:visible!important;
+  border-radius:12px!important;
+}
+html[data-yc-nexus="1"] .yc-v3-voice-host .voice-controls:has(.voice-card-top.hidden){
+  grid-template-columns:minmax(190px,.72fr) minmax(340px,1.5fr)!important;
+}
+html[data-yc-nexus="1"] .yc-v3-voice-host .voice-card-top{
+  min-width:0!important;
+  max-height:72px!important;
+  overflow:hidden!important;
+}
+html[data-yc-nexus="1"] .yc-v3-voice-host .voice-room-line,
+html[data-yc-nexus="1"] .yc-v3-voice-host .voice-copy small{
+  white-space:nowrap!important;
+  overflow:hidden!important;
+  text-overflow:ellipsis!important;
+}
+html[data-yc-nexus="1"] .yc-v3-voice-host .yc-voice-self-row{
+  min-width:0!important;
+  align-self:stretch!important;
+  display:flex!important;
+  align-items:center!important;
+}
+html[data-yc-nexus="1"] .yc-v3-voice-host .discord-voice-buttons{
+  display:grid!important;
+  grid-template-columns:repeat(6,minmax(38px,1fr))!important;
+  gap:6px!important;
+  align-items:center!important;
+}
+html[data-yc-nexus="1"] .yc-v3-voice-host .voice-btn{
+  width:100%!important;
+  min-width:0!important;
+  height:44px!important;
+}
+html[data-yc-nexus="1"] .yc-v3-voice-host>#ycTurnUsage{
+  display:block!important;
+  grid-column:3!important;
+  align-self:stretch!important;
+  width:100%!important;
+  min-width:0!important;
+  height:auto!important;
+  max-height:none!important;
+  margin:0!important;
+  padding:8px 9px!important;
+  overflow:hidden!important;
+  border:1px solid rgba(90,207,255,.22)!important;
+  border-radius:12px!important;
+  background:linear-gradient(180deg,rgba(9,25,36,.98),rgba(6,15,24,.99))!important;
+  box-shadow:0 0 0 1px rgba(185,76,255,.08),0 -8px 24px rgba(0,0,0,.16)!important;
+}
+html[data-yc-nexus="1"] .yc-v3-voice-host>#ycTurnUsage .yc-turn-usage-head{min-height:25px!important}
+html[data-yc-nexus="1"] .yc-v3-voice-host>#ycTurnUsage .yc-turn-usage-body{padding-top:4px!important}
+html[data-yc-nexus="1"] .yc-v3-voice-host>#ycTurnUsage .yc-turn-foot{font-size:8px!important;margin-top:3px!important}
+
+/* Active server identity stays in the actual server pane header, never as a
+   full-height image inside a narrow side registry. */
+html[data-yc-nexus="1"] #side>.side-head{
+  flex-basis:96px!important;height:96px!important;min-height:96px!important;
+}
+html[data-yc-nexus="1"] #side>.side-head>.yc-nexus-server-hero{
+  inset:0!important;border-radius:0!important;overflow:hidden!important;
+}
+html[data-yc-nexus="1"] #side>.side-head>.yc-nexus-server-hero img{
+  width:100%!important;height:100%!important;object-fit:cover!important;
+  object-position:center!important;
+}
+
+/* Make the right pane read as a Yamachat utility deck instead of a Discord-style
+   member sidebar: stronger card container and quieter row chrome. */
+html[data-yc-nexus="1"] .yc-v3-content-grid>.right{
+  background:
+    radial-gradient(circle at 50% 0,rgba(185,76,255,.06),transparent 180px),
+    linear-gradient(180deg,rgba(7,20,31,.98),rgba(5,13,22,.99))!important;
+}
+html[data-yc-nexus="1"] .yc-v3-member-shell .right-tabs{
+  margin:6px!important;
+  border:1px solid rgba(88,201,245,.16)!important;
+  border-radius:10px!important;
+  background:#081724!important;
+}
+html[data-yc-nexus="1"] .right-tabs button{
+  border-radius:7px!important;
+}
+
 /* ---------- SERVER / CHANNEL PANE ---------- */
 html[data-yc-nexus="1"] .yc-v3-content-grid>.side,
 html[data-yc-nexus="1"] .yc-v3-content-grid>.chat,
@@ -460,15 +585,17 @@ html[data-yc-nexus="1"] .yc-stream-viewer button:hover{border-color:#c05aff!impo
 @media(max-width:1180px){
   html[data-yc-nexus="1"] .yc-nexus-nav-btn{padding:0 9px}
   html[data-yc-nexus="1"] .yc-nexus-top-search{flex-basis:190px}
-  html[data-yc-nexus="1"] .yc-v3-content-grid{grid-template-columns:48px minmax(190px,225px) minmax(380px,1fr) 250px!important}
-  html[data-yc-nexus="1"] .yc-v3-voice-host{grid-template-columns:48px minmax(190px,225px) minmax(380px,1fr) 250px!important}
+  html[data-yc-nexus="1"] .yc-v3-content-grid{grid-template-columns:minmax(195px,225px) minmax(390px,1fr) 250px!important}
+  html[data-yc-nexus="1"] .yc-v3-voice-host{grid-template-columns:minmax(195px,225px) minmax(390px,1fr) 250px!important}
 }
 @media(max-width:1020px){
   html[data-yc-nexus="1"] .yc-nexus-nav-btn span:last-child{display:none}
   html[data-yc-nexus="1"] .yc-nexus-nav-btn{width:38px;padding:0}
-  html[data-yc-nexus="1"] .yc-v3-content-grid{grid-template-columns:46px minmax(185px,215px) minmax(360px,1fr)!important}
+  html[data-yc-nexus="1"] .yc-v3-content-grid{grid-template-columns:minmax(190px,215px) minmax(380px,1fr)!important}
   html[data-yc-nexus="1"] .yc-v3-content-grid>.right{display:none!important}
-  html[data-yc-nexus="1"] .yc-v3-voice-host{grid-template-columns:46px minmax(185px,215px) minmax(360px,1fr)!important}
+  html[data-yc-nexus="1"] .yc-v3-voice-host{grid-template-columns:minmax(190px,215px) minmax(380px,1fr)!important}
+  html[data-yc-nexus="1"] .yc-v3-voice-host .voice-controls{grid-column:1/3!important}
+  html[data-yc-nexus="1"] .yc-v3-voice-host>#ycTurnUsage{display:none!important}
   html[data-yc-nexus="1"] .yc-nexus-browser-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
 }
 @media(max-width:860px){
