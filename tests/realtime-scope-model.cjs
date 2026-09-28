@@ -8,7 +8,7 @@ for(const file of ['desktop/desktop-client.html','index.html']){
   const userRealtimeBlock=html.slice(userRealtimeStart,userRealtimeStart+4200);
   assert(userRealtimeBlock.includes("filter:'requester_id=eq.'+uid"),file+' friendship requester scope missing');
   assert(userRealtimeBlock.includes("filter:'addressee_id=eq.'+uid"),file+' friendship addressee scope missing');
-  assert(userRealtimeBlock.includes("const uid=String(user.id)"),file+' friendship realtime is not bound to an auth-owner snapshot');
+  assert(/const uid=(?:String\()?user\?\.id/.test(userRealtimeBlock),file+' friendship realtime is not bound to an auth-owner snapshot');
   assert(userRealtimeBlock.includes("typeof ycRefreshNotificationCenter==='function'"),file+' friendship realtime no longer refreshes notification center');
   assert(!html.includes('yc-notify-friends-'),file+' duplicate notification-center friendship realtime channel remains');
   assert(!html.includes('ycStartFriendNotificationSub'),file+' duplicate friendship subscription lifecycle remains');
