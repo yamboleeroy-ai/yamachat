@@ -272,7 +272,7 @@ function processSnapshot(label){
   for(const [id,c] of clients){
    if(!c.context)continue;
    const state=await c.page.evaluate(()=>window.__ycAudit.state()),heap=await c.page.evaluate(()=>window.__ycAudit.heap()),rtc=await c.page.evaluate(()=>window.__ycAudit.rtc()),runtime=await c.page.evaluate(()=>window.__ycAudit.runtimeErrors());
-   audit.push({id,platform:c.cfg.platform,room:c.cfg.room,state,heap,rtc,runtime,pageErrors:c.pageErrors});
+   audit.push({id,platform:c.cfg.platform,room:c.cfg.room,baseline:{realtime:c.baselineRealtime,heap_used:c.baselineHeap},state,heap,rtc,runtime,pageErrors:c.pageErrors});
    assert.deepEqual(c.pageErrors,[],id+' page errors');assert.deepEqual(runtime,[],id+' runtime errors');
   }
   console.log('AUDIT_CLIENTS '+JSON.stringify(audit));
@@ -280,7 +280,9 @@ function processSnapshot(label){
 
   // Clean disconnect every surviving voice client and assert no ghost media/subscriptions/timers/peers.
   for(const [id,c] of clients){if(!c.context||!c.cfg.room)continue;await c.page.evaluate(()=>window.__ycAudit.disconnectVoice());await c.page.waitForFunction(()=>{const s=window.__ycAudit.state();return !s.voice&&!s.heartbeat&&!s.participantSub&&s.peers===0&&s.remoteVad===0&&s.remoteScreens===0&&s.screenSenders===0&&s.screenTimers===0},{},{timeout:12000});await c.page.evaluate(()=>window.__ycAudit.stopSyntheticMic())}
-  for(const [id,c] of clients){if(!c.context)continue;const st=await c.page.evaluate(()=>window.__ycAudit.state());assert(st.realtime<=c.baselineRealtime+1,id+' realtime subscription leak after cleanup '+JSON.stringify(st));}
+  const cleanupAudit=[];
+  for(const [id,c] of clients){if(!c.context)continue;const st=await c.page.evaluate(()=>window.__ycAudit.state()),heap=await c.page.evaluate(()=>window.__ycAudit.heap());assert(st.realtime<=c.baselineRealtime+1,id+' realtime subscription leak after cleanup '+JSON.stringify(st));cleanupAudit.push({id,platform:c.cfg.platform,baseline:{realtime:c.baselineRealtime,heap_used:c.baselineHeap},after_cleanup:{realtime:st.realtime,heap_used:heap.used},state:st})}
+  console.log('AUDIT_CLEANUP '+JSON.stringify(cleanupAudit));
   processSnapshot('after_cleanup');
   console.log('PASS 10-client Yamachat stability stress: 10 authenticated clients across desktop/web/Android/iOS-PWA; 8 concurrent voice users split across two isolated rooms/servers, 2 chat-only users, real SDP/ICE/audio, simultaneous chat, mute/deafen spam, local volume/mute, cross-server browsing, room-scoped stream, repeated leave/rejoin, lifecycle background/foreground handlers, hard web refresh/session replacement, hard-close ghost cleanup and signaling reconnect. elapsed_ms='+(Date.now()-started));
  }finally{
