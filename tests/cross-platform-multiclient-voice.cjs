@@ -27,6 +27,14 @@ window.__ycE2E={
  watching:id=>screenWatchingByUser.has(id),
  selectCommunityById:id=>selectCommunity(id),
  disconnectVoice:()=>ycRequestVoiceDisconnect(),
+ installSyntheticMic:async()=>{
+  const ac=new (window.AudioContext||window.webkitAudioContext)(),osc=ac.createOscillator(),gain=ac.createGain(),dest=ac.createMediaStreamDestination();
+  gain.gain.value=.012;osc.frequency.value=220;osc.connect(gain).connect(dest);osc.start();
+  const media={getUserMedia:async()=>dest.stream,enumerateDevices:async()=>[]};
+  getVoiceMediaDevices=()=>media;window.__ycSyntheticMic={ac,osc,dest};
+  return dest.stream.getAudioTracks()[0]?.readyState||'';
+ },
+ stopSyntheticMic:async()=>{const m=window.__ycSyntheticMic;if(!m)return;try{m.osc.stop()}catch{};m.dest.stream.getTracks().forEach(t=>t.stop());await m.ac.close().catch(()=>{});window.__ycSyntheticMic=null;},
  startSyntheticScreen:async()=>{
    const canvas=document.createElement('canvas');canvas.width=640;canvas.height=360;const ctx=canvas.getContext('2d');let frame=0;
    const timer=setInterval(()=>{ctx.fillStyle='#071019';ctx.fillRect(0,0,640,360);ctx.fillStyle='#70e4e8';ctx.font='28px sans-serif';ctx.fillText('Yamachat multi '+(++frame),30,80)},80);
@@ -126,6 +134,8 @@ function mockFor(id,name){
    await client.page.waitForFunction(()=>window.__ycClientReady,{},{timeout:20000});
    await client.page.waitForSelector('#app:not(.hidden)');
    assert.equal(await client.page.evaluate(()=>window.__ycE2E.state().user),id,id+' authenticated identity mismatch');
+   const syntheticMicState=await client.page.evaluate(()=>window.__ycE2E.installSyntheticMic());
+   assert.equal(syntheticMicState,'live',id+' synthetic microphone did not become live');
    await client.page.evaluate(()=>window.__ycE2E.joinVoiceById('voice-a'));
    await client.page.waitForFunction(()=>{const s=window.__ycE2E.state();return s.voice==='voice-a'&&s.audio==='live'},{},{timeout:15000});
    await client.page.evaluate(()=>window.__ycE2E.installSignalBridge());
@@ -185,6 +195,7 @@ function mockFor(id,name){
 
   await streamer.page.evaluate(()=>window.__ycE2E.stopSyntheticScreen());
   for(const c of clients.values())await c.page.evaluate(()=>window.__ycE2E.disconnectVoice());
+  for(const c of clients.values())await c.page.evaluate(()=>window.__ycE2E.stopSyntheticMic());
   for(const [id,c] of clients){
    await c.page.waitForFunction(()=>{const s=window.__ycE2E.state();return !s.voice&&!s.heartbeat&&!s.participantSub},{},{timeout:10000});
    assert.deepEqual(c.errors,[],id+' runtime page errors');
