@@ -23,10 +23,21 @@ jobs:
         run: |
           npm install --no-save --package-lock=false playwright@1.62.1
           npx playwright install --with-deps chromium
+      - name: Prepare Android audit bundle
+        working-directory: mobile
+        run: |
+          npm ci
+          npm run prepare:web
+          if [ ! -d android ]; then
+            npx cap add android
+          fi
+          npx cap sync android
+          node scripts/patch-native.mjs android
+      - name: Android Natural Voices regression
+        run: node tests/android-natural-voices.cjs
       - name: Extended static regressions
         run: |
           node tests/account-messages.cjs
-          node tests/android-natural-voices.cjs
           node tests/voice-scale-sql.cjs
           node tests/web-mobile-desktop-behavior-sync.cjs
           node tests/windows-dm-media-performance.cjs
