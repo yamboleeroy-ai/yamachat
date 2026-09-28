@@ -98,7 +98,34 @@ attachVoiceAudio=(peerId,stream)=>{ycStartRemoteVoiceActivityDetector(peerId,str
   if(!html.includes(cleanupOld))throw Error('Voice scale cleanup boundary missing');
   html=html.replace(cleanupOld,"function cleanupVoiceRooms(){if(typeof ycStopMicTest==='function')ycStopMicTest();stopVoiceHeartbeat();stopVoiceRosterRefresh();for(const id of [...voiceRemoteVadStops.keys()])ycStopRemoteVoiceActivityDetector(id);leaveVoiceChannel(true);");
 
-  for(const bad of ["config:{presence:{key:user.id}","voice presence subscribe","voice presence keepalive","yamachat-turn',{method:'GET'}","setTimeout(()=>trackVoicePresence"])
+  // The participant roster diff already owns join/leave announcements.
+  // Retire the older global voice_participants listener and auxiliary broadcast wrapper.
+  const voiceNamesStart=html.indexOf('// reliable voice join/leave name announcements');
+  const voiceNamesEnd=html.indexOf('\n\n// hover user profile cards',voiceNamesStart);
+  if(voiceNamesStart<0||voiceNamesEnd<0)throw Error('Voice scale auxiliary announcement boundary missing');
+  const scaleVoiceNames=`// scale-safe voice join/leave announcements
+// The active-room voice_participants roster diff is authoritative.
+try{joinVoiceChannel=ycOriginalJoinVoiceChannel;leaveVoiceChannel=ycOriginalLeaveVoiceChannel;void ycVoiceUnsubscribeAnnouncement()}catch{}
+let ycVoiceNamesSub=null
+function ycEnsureVoiceNamesRealtime(){}
+async function ycStopVoiceNamesRealtime(){}
+`;
+  html=html.slice(0,voiceNamesStart)+scaleVoiceNames+html.slice(voiceNamesEnd);
+
+  // Presence heartbeat writes remain leases, but inbound realtime must never fan every user's
+  // 20-second heartbeat to every connected client. Friends/members already refresh in batches.
+  const presenceStart=html.indexOf('function ycEnsurePresenceRealtime(){');
+  const presenceEnd=html.indexOf('\nasync function ycStopPresenceRealtime()',presenceStart);
+  if(presenceStart<0||presenceEnd<0)throw Error('Presence scale realtime boundary missing');
+  const scalePresence=`function ycEnsurePresenceRealtime(){
+  if(!user||ycPresenceRealtimeSub)return
+  ycPresenceRealtimeSub=sb.channel('yc-own-profile-live-'+user.id+'-'+Date.now())
+    .on('postgres_changes',{event:'UPDATE',schema:'public',table:'profiles',filter:'id=eq.'+user.id},payload=>{const row=payload.new||{};profile={...profile,...row};ycLastPresenceSig='';ycRefreshOwnPresenceUi();void ycTouchPresence(true)})
+    .subscribe(status=>{if(status==='SUBSCRIBED')ycRefreshVisibleSocialSoon()})
+}`;
+  html=html.slice(0,presenceStart)+scalePresence+html.slice(presenceEnd);
+
+  for(const bad of ["config:{presence:{key:user.id}","voice presence subscribe","voice presence keepalive","yamachat-turn',{method:'GET'}","setTimeout(()=>trackVoicePresence","yc-voice-name-events-","table:'user_presence'},payload=>ycHandlePresenceRealtime"])
     if(html.includes(bad))throw Error('Voice scale forbidden marker remains: '+bad);
 
   return html;
