@@ -2,10 +2,10 @@
   "schemaVersion": 1,
   "publishedAt": "2026-09-27T10:59:56Z",
   "windows": {
-    "latestVersion": "1.0.105",
+    "latestVersion": "1.0.106",
     "required": true,
-    "releaseUrl": "https://github.com/yamboleeroy-ai/yamachat/releases/tag/v1.0.105",
-    "notes": "Yamachat 1.0.105\n\n- Právní a licenční baseline Yamachatu je nyní součástí projektu i distribučních balíčků pro Windows, Web/PWA, Android a iOS-derived buildy.\n- Yamachat je označen jako proprietární projekt Lukáše Hubáčka; dřívější ISC metadata byla nahrazena UNLICENSED bez změny funkčního kódu aplikace.\n- Přidány jsou LICENSE, BRAND-NOTICE, PROVENANCE, THIRD_PARTY_NOTICES, LEGAL-BASELINE a ASSET-MANIFEST.\n- Podepsaný právní baseline tag legal-baseline-2026-09-27 byl ověřen GitHubem jako platný SSH podpis.\n- Funkce, vzhled, voice, stream, notifikace, updater, WNS identita a mobilní rozložení zůstávají beze změny.\n\nPředchozí vydání v1.0.104 zůstává dostupné pro návrat."
+    "releaseUrl": "https://github.com/yamboleeroy-ai/yamachat/releases/tag/v1.0.106",
+    "notes": "Yamachat 1.0.106\n\n- Dokončené Podmínky používání a Ochrana osobních údajů v existujícím právním UI.\n- Právní dokumenty jsou balené pro Windows, Web/PWA, Android a iOS/PWA.\n- Karta Vývojář / Kontakt je po odstranění věku znovu vyvážená a responsivní pro desktop i mobil.\n- Přihlašovací obrazovka nabízí samostatný návod pro Web a instalovatelnou Web app/PWA.\n- Windows instalační návod upozorňuje na chybějící code-signing podpis a možné SmartScreen varování.\n- Voice, stream, WebRTC, notifikace, updater, profily, servery, kanály a ostatní funkční rozložení zůstávají beze změny.\n\nPředchozí vydání v1.0.105 zůstává dostupné pro návrat."
   },
   "android": {
     "latestVersion": "1.1.0.605",
