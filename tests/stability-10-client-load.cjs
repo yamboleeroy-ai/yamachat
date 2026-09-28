@@ -38,6 +38,7 @@ window.__ycAudit={
  syncVoice:()=>syncVoicePeers(),
  handleSignal:msg=>handleVoiceSignal(msg),
  installSignalBridge:()=>{sendVoiceSignal=async(to,data)=>{if(!voiceChannel||!to||to===user.id)return;const wire=JSON.parse(JSON.stringify({...data,from_session:voiceSessionId}));return window.__ycTestSignal({...wire,signal_type:data.signal_type,from:user.id,to,channel_id:voiceChannel.id})}},
+ reconnectSignals:async()=>{voiceSignalReady=false;if(voiceSignalSub){try{await sb.removeChannel(voiceSignalSub)}catch{}voiceSignalSub=null}await subscribeVoiceSignals();return voiceSignalReady},
  installSyntheticMic:async()=>{
    const ac=new (window.AudioContext||window.webkitAudioContext)(),osc=ac.createOscillator(),gain=ac.createGain(),dest=ac.createMediaStreamDestination();
    gain.gain.value=.012;osc.frequency.value=220;osc.connect(gain).connect(dest);osc.start();
@@ -264,7 +265,7 @@ function processSnapshot(label){
   for(const id of ['d2','w2','a2']){const c=clients.get(id);await c.page.evaluate(id=>window.__ycAudit.forceExpirePeer(id),hardClosedId);await c.page.waitForFunction(()=>window.__ycAudit.state().peers===2,{},{timeout:10000})}
 
   // Short signaling reconnect on a live room must not create duplicate peers.
-  const reconnect=clients.get('a2');await reconnect.page.evaluate(async()=>{voiceSignalReady=false;if(voiceSignalSub){try{await sb.removeChannel(voiceSignalSub)}catch{}voiceSignalSub=null}await subscribeVoiceSignals()});await reconnect.page.waitForFunction(()=>window.__ycAudit.state().signalReady);assert.equal(await reconnect.page.evaluate(()=>window.__ycAudit.state().peers),2,'signal reconnect duplicated peers');
+  const reconnect=clients.get('a2');await reconnect.page.evaluate(()=>window.__ycAudit.reconnectSignals());await reconnect.page.waitForFunction(()=>window.__ycAudit.state().signalReady);assert.equal(await reconnect.page.evaluate(()=>window.__ycAudit.state().peers),2,'signal reconnect duplicated peers');
 
   processSnapshot('stress_peak');
   const audit=[];
