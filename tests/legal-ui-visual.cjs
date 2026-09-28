@@ -37,11 +37,20 @@ function inside(b,w,h){return b&&b.width>0&&b.height>0&&b.x>=-1&&b.y>=-1&&b.x+b.
       const {page,errors}=await boot(browser,1440,900,false);
       const about=page.locator('#ycLegalAboutBtn');
       assert.equal(await about.locator('span').last().textContent(),'O aplikaci');
-      const order=await page.evaluate(()=>{
-        const actions=document.querySelector('.yc-v3-user-actions');
-        return [...(actions?.children||[])].map(x=>x.id);
+      const navState=await page.evaluate(()=>{
+        const ids=['profileBtn','appSettingsBtn','ycServerSettingsNavBtn','ycLegalAboutBtn','logoutBtn'];
+        const items=Object.fromEntries(ids.map(id=>{
+          const el=document.getElementById(id),p=el?.parentElement;
+          return [id,{exists:!!el,parentId:p?.id||'',parentClass:p?.className||'',siblings:[...(p?.children||[])].map(x=>x.id||x.className||x.tagName)}];
+        }));
+        return {items,userActionCount:document.querySelectorAll('.yc-v3-user-actions').length};
       });
-      assert(order.includes('ycLegalAboutBtn')&&order.includes('logoutBtn'),'About/logout missing from user navigation');
+      console.log('LEGAL-NAV-STATE '+JSON.stringify(navState));
+      const aboutState=navState.items.ycLegalAboutBtn,logoutState=navState.items.logoutBtn;
+      assert(aboutState.exists&&logoutState.exists,'About/logout missing from runtime DOM');
+      assert.equal(aboutState.parentId||aboutState.parentClass,logoutState.parentId||logoutState.parentClass,'About and logout must share navigation container');
+      const order=aboutState.siblings;
+      assert(order.includes('ycLegalAboutBtn')&&order.includes('logoutBtn'),'About/logout missing from shared navigation');
       assert(order.indexOf('ycLegalAboutBtn')<order.indexOf('logoutBtn'),'About must be directly before logout in navigation order');
       await page.evaluate(()=>{
         const app=document.getElementById('app'),nav=document.getElementById('ycGlobalNav');
