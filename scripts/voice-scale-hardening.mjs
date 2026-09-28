@@ -44,13 +44,12 @@ function ensureVoiceRooms(chs){const defs=[...(chs||[])];if(voiceChannel?.id&&!d
   const attachStart=html.indexOf('function attachVoiceAudio(peerId,stream)');
   const attachEnd=html.indexOf('\nasync function toggleVoiceMute()',attachStart);
   if(attachStart<0||attachEnd<0)throw Error('Voice scale attach-audio boundary missing');
-  let attach=html.slice(attachStart,attachEnd);
-  const unlock='unlockVoiceAudio();const old=voiceAudioNodes.get(peerId);';
-  if(!attach.includes(unlock))throw Error('Voice scale remote-VAD insertion boundary missing');
-  attach=attach.replace(unlock,'unlockVoiceAudio();ycStartRemoteVoiceActivityDetector(peerId,stream);const old=voiceAudioNodes.get(peerId);');
+  const attach=html.slice(attachStart,attachEnd);
   const remoteVad=`function ycStopRemoteVoiceActivityDetector(peerId){const stop=voiceRemoteVadStops.get(peerId);if(stop){try{stop()}catch{}voiceRemoteVadStops.delete(peerId)}voiceRemoteSpeaking.delete(peerId);const row=document.querySelector('.voice-user[data-user-id="'+CSS.escape(String(peerId))+'"]');row?.classList.remove('is-speaking')}
 function ycSetRemoteSpeaking(peerId,active){const next=!!active;if(next)voiceRemoteSpeaking.add(peerId);else voiceRemoteSpeaking.delete(peerId);const row=document.querySelector('.voice-user[data-user-id="'+CSS.escape(String(peerId))+'"]');row?.classList.toggle('is-speaking',next)}
 function ycStartRemoteVoiceActivityDetector(peerId,stream){ycStopRemoteVoiceActivityDetector(peerId);try{const ctx=voiceAudioContext;if(!ctx)return;const src=ctx.createMediaStreamSource(stream),an=ctx.createAnalyser();an.fftSize=256;an.smoothingTimeConstant=.4;src.connect(an);const arr=new Uint8Array(an.fftSize);let raf=0,lastSample=0,noise=.003,speakingUntil=0,last=false;const tick=ts=>{if(!lastSample||ts-lastSample>=48){lastSample=ts;an.getByteTimeDomainData(arr);let sum=0;for(const v of arr){const x=(v-128)/128;sum+=x*x}const rms=Math.sqrt(sum/arr.length),now=performance.now();if(!last&&rms<.035)noise=noise*.97+rms*.03;const threshold=Math.max(.008,noise*2.1);if(rms>threshold)speakingUntil=now+360;const next=now<speakingUntil;if(next!==last){last=next;ycSetRemoteSpeaking(peerId,next)}}raf=requestAnimationFrame(tick)};raf=requestAnimationFrame(tick);voiceRemoteVadStops.set(peerId,()=>{cancelAnimationFrame(raf);try{src.disconnect()}catch{}try{an.disconnect()}catch{}ycSetRemoteSpeaking(peerId,false)})}catch(e){console.warn('remote voice activity',e)}}
+const ycAttachVoiceAudioBase=attachVoiceAudio
+attachVoiceAudio=(peerId,stream)=>{ycStartRemoteVoiceActivityDetector(peerId,stream);return ycAttachVoiceAudioBase(peerId,stream)}
 `;
   html=html.slice(0,attachStart)+remoteVad+attach+html.slice(attachEnd);
 
