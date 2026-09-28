@@ -57,7 +57,7 @@ function authFixture(){
    assert.equal(state.messageReady,true,cfg.platform+' composer not ready after login');
    assert.equal(state.attempts,1,cfg.platform+' login submitted more than once');
    assert.equal(state.authHidden,true,cfg.platform+' auth screen remained visible after login');
-   await page.locator('#logoutBtn').click();
+   await page.evaluate(()=>document.querySelector('#logoutBtn')?.click());
    await page.waitForSelector('#auth:not(.hidden)');
    const loggedOut=await page.evaluate(()=>({
     authVisible:!document.querySelector('#auth')?.classList.contains('hidden'),
