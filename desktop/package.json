@@ -43,7 +43,9 @@
       "audio/**/*",
       "build/**/*",
       "wns/**/*",
-      "process-audio/**/*"
+      "process-audio/**/*",
+      "nexus-ui.css",
+      "nexus-ui.js"
     ],
     "win": {
       "target": [
