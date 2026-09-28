@@ -101,10 +101,12 @@ async function ycStopGlobalStreamPresence(ownerUserId=user?.id){
 `;
   html=replaceBetween(html,'async function ycPublishStreamPresence','ycOnLifecycle(\'init\'',publishBlock,'serialized stream presence');
 
-  const stopAwaitOld="void ycStopGlobalStreamPresence(ownerUserId);ycSyncStreamViewer();renderVoiceControls();if(!silent)toast('Sdílení obrazovky ukončeno.')";
-  const stopAwaitNew="await ycStopGlobalStreamPresence(ownerUserId);ycSyncStreamViewer();renderVoiceControls();if(!silent)toast('Sdílení obrazovky ukončeno.')";
-  if(!html.includes(stopAwaitOld))throw Error('Stream stop await boundary missing');
-  html=html.replace(stopAwaitOld,stopAwaitNew);
+  const stopStart=html.indexOf('async function stopScreenShare(silent=false){'),stopEnd=html.indexOf('\n}\n',stopStart);
+  if(stopStart<0||stopEnd<0)throw Error('Stream stop await function boundary missing');
+  let stopBlock=html.slice(stopStart,stopEnd);
+  if(/\bvoid\s+ycStopGlobalStreamPresence\s*\(\s*ownerUserId\s*\)\s*;/.test(stopBlock))stopBlock=stopBlock.replace(/\bvoid\s+ycStopGlobalStreamPresence\s*\(\s*ownerUserId\s*\)\s*;/,'await ycStopGlobalStreamPresence(ownerUserId);');
+  else if(!/\bawait\s+ycStopGlobalStreamPresence\s*\(\s*ownerUserId\s*\)/.test(stopBlock))throw Error('Stream stop await boundary missing');
+  html=html.slice(0,stopStart)+stopBlock+html.slice(stopEnd);
 
   if(html.includes(".on('postgres_changes',{event:'*',schema:'public',table:'community_stream_presence',filter:'community_id=eq.'+cid}"))
     throw Error('Global stream heartbeat UPDATE fanout remains');
