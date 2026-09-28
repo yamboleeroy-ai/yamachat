@@ -26,25 +26,25 @@ function legalRuntime(){
 .yc-auth-legal-links{display:flex;align-items:center;justify-content:center;gap:7px;flex-wrap:wrap;margin-top:10px;color:#6f8798;font-size:11px}
 .yc-auth-legal-links button{border:0;background:transparent;color:#88aabd;padding:4px 3px;text-decoration:underline;text-decoration-color:rgba(136,170,189,.35);text-underline-offset:3px;cursor:pointer}
 .yc-auth-legal-links button:hover,.yc-auth-legal-links button:focus-visible{color:#d9f5ff;outline:2px solid var(--yc-theme,#70e4e8);outline-offset:2px;border-radius:5px}
-.yc-legal-back{position:fixed;inset:0;z-index:11050;display:grid;place-items:center;padding:18px max(18px,env(safe-area-inset-right)) max(18px,env(safe-area-inset-bottom)) max(18px,env(safe-area-inset-left));background:rgba(2,7,12,.82);backdrop-filter:blur(8px)}
-.yc-legal-shell{width:min(920px,100%);height:min(760px,calc(100dvh - 36px));min-height:420px;display:grid;grid-template-columns:260px minmax(0,1fr);overflow:hidden;border:1px solid rgba(112,228,232,.24);border-radius:18px;background:linear-gradient(145deg,#091823,#071019 72%);box-shadow:0 28px 90px rgba(0,0,0,.62),inset 0 1px 0 rgba(255,255,255,.035);color:#e7f2f5}
-.yc-legal-nav{display:flex;flex-direction:column;min-height:0;padding:18px 12px;background:linear-gradient(180deg,rgba(13,31,43,.98),rgba(7,19,28,.99));border-right:1px solid rgba(112,228,232,.13)}
+.yc-legal-back{position:fixed;inset:0;width:100vw;max-width:100vw;box-sizing:border-box;overflow:hidden;z-index:11050;display:grid;place-items:center;padding:18px max(18px,env(safe-area-inset-right)) max(18px,env(safe-area-inset-bottom)) max(18px,env(safe-area-inset-left));background:rgba(2,7,12,.82);backdrop-filter:blur(8px)}
+.yc-legal-shell{width:min(920px,100%);max-width:100%;min-width:0;box-sizing:border-box;height:min(760px,calc(100dvh - 36px));min-height:420px;display:grid;grid-template-columns:260px minmax(0,1fr);overflow:hidden;border:1px solid rgba(112,228,232,.24);border-radius:18px;background:linear-gradient(145deg,#091823,#071019 72%);box-shadow:0 28px 90px rgba(0,0,0,.62),inset 0 1px 0 rgba(255,255,255,.035);color:#e7f2f5}
+.yc-legal-nav{display:flex;flex-direction:column;min-width:0;max-width:100%;min-height:0;padding:18px 12px;background:linear-gradient(180deg,rgba(13,31,43,.98),rgba(7,19,28,.99));border-right:1px solid rgba(112,228,232,.13)}
 .yc-legal-brand{padding:4px 8px 15px}.yc-legal-brand strong{display:block;font-size:18px;color:#efffff}.yc-legal-brand small{display:block;margin-top:4px;color:#7693a0;font-size:10px;line-height:1.45}
 .yc-legal-nav-list{display:grid;gap:6px;overflow:auto;padding:2px}
 .yc-legal-nav-btn{width:100%;display:flex;align-items:center;gap:9px;text-align:left;border:1px solid transparent;border-radius:10px;background:transparent;color:#9eb7c2;padding:10px 9px;font-size:11px;font-weight:800}
 .yc-legal-nav-btn:hover,.yc-legal-nav-btn.active{background:rgba(112,228,232,.08);border-color:rgba(112,228,232,.17);color:#efffff}
 .yc-legal-nav-btn .yc-legal-status{margin-left:auto;font-size:8px;color:#6c8d9b;text-transform:uppercase;letter-spacing:.05em}.yc-legal-nav-btn.pending .yc-legal-status{color:#d0ab63}
-.yc-legal-main{display:flex;flex-direction:column;min-width:0;min-height:0}
+.yc-legal-main{display:flex;flex-direction:column;min-width:0;max-width:100%;min-height:0;overflow:hidden}
 .yc-legal-head{display:flex;align-items:center;gap:12px;padding:16px 18px;border-bottom:1px solid rgba(112,228,232,.13)}.yc-legal-head h2{margin:0;flex:1;font-size:19px}.yc-legal-close{width:36px;height:36px;display:grid;place-items:center;border:1px solid rgba(112,228,232,.18);border-radius:10px;background:#0c1d28;color:#a9c1cb;font-size:20px}
-.yc-legal-body{flex:1;min-height:0;overflow:auto;padding:18px}
-.yc-legal-hero{display:grid;gap:12px;padding:18px;border:1px solid rgba(112,228,232,.21);border-radius:15px;background:radial-gradient(circle at 10% 0,rgba(112,228,232,.11),transparent 42%),linear-gradient(135deg,#102735,#0a1721)}
+.yc-legal-body{flex:1;min-width:0;max-width:100%;min-height:0;overflow-x:hidden;overflow-y:auto;padding:18px;box-sizing:border-box}
+.yc-legal-hero{display:grid;min-width:0;max-width:100%;box-sizing:border-box;gap:12px;padding:18px;border:1px solid rgba(112,228,232,.21);border-radius:15px;background:radial-gradient(circle at 10% 0,rgba(112,228,232,.11),transparent 42%),linear-gradient(135deg,#102735,#0a1721)}
 .yc-legal-hero h3{margin:0;font-size:24px}.yc-legal-badge{display:inline-flex;width:max-content;max-width:100%;align-items:center;gap:7px;padding:7px 10px;border:1px solid rgba(112,228,232,.25);border-radius:999px;background:rgba(112,228,232,.07);color:#bff9fb;font-size:10px;font-weight:900}
-.yc-legal-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.yc-legal-info{padding:11px 12px;border:1px solid rgba(112,228,232,.14);border-radius:11px;background:#0b1b26}.yc-legal-info small{display:block;color:#6e8d9a;font-size:9px;text-transform:uppercase;letter-spacing:.07em}.yc-legal-info strong{display:block;margin-top:4px;color:#e5f3f6;font-size:12px;overflow-wrap:anywhere}
+.yc-legal-grid{display:grid;min-width:0;max-width:100%;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.yc-legal-info{padding:11px 12px;border:1px solid rgba(112,228,232,.14);border-radius:11px;background:#0b1b26}.yc-legal-info small{display:block;color:#6e8d9a;font-size:9px;text-transform:uppercase;letter-spacing:.07em}.yc-legal-info strong{display:block;margin-top:4px;color:#e5f3f6;font-size:12px;overflow-wrap:anywhere}
 .yc-legal-signature{display:flex;align-items:flex-start;gap:10px;padding:12px 13px;border:1px solid rgba(112,228,232,.2);border-radius:11px;background:linear-gradient(135deg,rgba(112,228,232,.09),rgba(9,29,40,.72))}
 .yc-legal-signature>span{display:grid;place-items:center;flex:0 0 27px;width:27px;height:27px;border-radius:50%;background:rgba(112,228,232,.13);color:#bff9fb;font-weight:950}.yc-legal-signature strong,.yc-legal-signature small{display:block}.yc-legal-signature strong{color:#e6fbfd;font-size:11px;line-height:1.4}.yc-legal-signature small{margin-top:3px;color:#7694a0;font-size:9px;line-height:1.45}
 .yc-legal-note{padding:12px 13px;border-left:3px solid var(--yc-theme,#70e4e8);border-radius:9px;background:#0b1a24;color:#9fb8c2;font-size:11px;line-height:1.6}
 .yc-legal-links-title{margin:2px 0 -2px;color:#7f9ba7;font-size:9px;font-weight:900;letter-spacing:.12em;text-transform:uppercase}
-.yc-legal-links-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.yc-legal-links-grid{display:grid;min-width:0;max-width:100%;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
 .yc-legal-link-card{display:flex;align-items:center;gap:10px;min-height:48px;width:100%;padding:10px 11px;text-align:left;border:1px solid rgba(112,228,232,.14);border-radius:11px;background:#0a1a25;color:#c9dde4;font-size:10px;font-weight:850}
 .yc-legal-link-card:hover,.yc-legal-link-card:focus-visible{border-color:rgba(112,228,232,.32);background:rgba(112,228,232,.08);color:#efffff;outline:none}.yc-legal-link-card .ico{width:22px;flex:0 0 22px;text-align:center;color:#9feff2}.yc-legal-link-card .copy{min-width:0}.yc-legal-link-card .copy strong,.yc-legal-link-card .copy small{display:block}.yc-legal-link-card .copy strong{font-size:10px}.yc-legal-link-card .copy small{margin-top:2px;color:#708b97;font-size:8px;font-weight:700}
 .yc-legal-open-license{justify-self:start;border:1px solid rgba(112,228,232,.25);border-radius:9px;background:#102735;color:#c8f8fb;padding:9px 11px;font-weight:850}
@@ -94,11 +94,13 @@ function renderDoc(key){
  body.innerHTML='<div class="yc-legal-doc-meta"><strong>'+d.title+'</strong><span>Zdroj:</span><code>'+d.file+'</code></div><pre class="yc-legal-doc"></pre><div class="yc-legal-footer">© 2026 Lukáš Hubáček. Všechna práva vyhrazena.</div>';body.querySelector('.yc-legal-doc').textContent=d.text
 }
 function closeNavigationSurfaces(){
+ try{document.activeElement?.blur?.()}catch{}
  document.getElementById('ycGlobalNav')?.classList.remove('yc-mobile-open');
  document.getElementById('side')?.classList.remove('mobile-open');
  document.querySelector('.yc-v3-content-grid>.right')?.classList.remove('yc-mobile-open');
  document.getElementById('app')?.classList.remove('yc-mobile-drawer-open');
  document.querySelectorAll('[aria-controls][aria-expanded]').forEach(b=>b.setAttribute('aria-expanded','false'));
+ try{document.documentElement.scrollLeft=0;document.body.scrollLeft=0;window.scrollTo(0,window.scrollY||0)}catch{}
 }
 function open(section='about'){active=sectionById(section).id;closeNavigationSurfaces();shell()}
 document.addEventListener('click',e=>{
