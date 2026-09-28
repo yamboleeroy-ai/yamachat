@@ -112,13 +112,24 @@ attachVoiceAudio=(peerId,stream)=>{if(!voiceChannel||!voicePeers.has(peerId))ret
   if(!html.includes(altBgOld))throw Error('Voice scale alternate Presence cleanup missing');
   html=html.replace(altBgOld,altBgNew);
 
-  const cleanupOld="function cleanupVoiceRooms(){if(typeof ycStopMicTest==='function')ycStopMicTest();stopVoiceHeartbeat();leaveVoiceChannel(true);";
-  if(!html.includes(cleanupOld))throw Error('Voice scale cleanup boundary missing');
-  html=html.replace(cleanupOld,"let ycVoiceCleanupPromise=Promise.resolve(),ycVoiceCleanupActive=false\nfunction cleanupVoiceRooms(){if(typeof ycStopMicTest==='function')ycStopMicTest();stopVoiceHeartbeat();stopVoiceRosterRefresh();for(const id of [...voiceRemoteVadStops.keys()])ycStopRemoteVoiceActivityDetector(id);if(!ycVoiceCleanupActive){ycVoiceCleanupActive=true;ycVoiceCleanupPromise=(async()=>{await leaveVoiceChannel(true);for(const [,room] of voiceRooms)try{await sb.removeChannel(room)}catch{};voiceRooms.clear();voicePresenceByChannel={};voiceChannelDefs=[];voiceMissingSince.clear();stopVoiceParticipantSubscription();await stopVoiceSignals()})().catch(e=>console.warn('voice cleanup',e)).finally(()=>{ycVoiceCleanupActive=false})}return ycVoiceCleanupPromise}");
-
-  const cleanupTailOld="for(const [,room] of voiceRooms)sb.removeChannel(room);voiceRooms.clear();voicePresenceByChannel={};voiceChannelDefs=[];voiceMissingSince.clear();if(voiceParticipantSub){sb.removeChannel(voiceParticipantSub);voiceParticipantSub=null}if(voiceSignalSub){sb.removeChannel(voiceSignalSub);voiceSignalSub=null;voiceSignalReady=false}return ycVoiceCleanupPromise}";
-  if(!html.includes(cleanupTailOld))throw Error('Voice cleanup tail boundary missing');
-  html=html.replace(cleanupTailOld,"return ycVoiceCleanupPromise}");
+  const cleanupBlock=`let ycVoiceCleanupPromise=Promise.resolve(),ycVoiceCleanupActive=false
+function cleanupVoiceRooms(){
+  if(typeof ycStopMicTest==='function')ycStopMicTest();
+  stopVoiceHeartbeat();stopVoiceRosterRefresh();
+  for(const id of [...voiceRemoteVadStops.keys()])ycStopRemoteVoiceActivityDetector(id);
+  if(!ycVoiceCleanupActive){
+    ycVoiceCleanupActive=true;
+    ycVoiceCleanupPromise=(async()=>{
+      await leaveVoiceChannel(true);
+      for(const [,room] of voiceRooms)try{await sb.removeChannel(room)}catch{}
+      voiceRooms.clear();voicePresenceByChannel={};voiceChannelDefs=[];voiceMissingSince.clear();
+      stopVoiceParticipantSubscription();await stopVoiceSignals();
+    })().catch(e=>console.warn('voice cleanup',e)).finally(()=>{ycVoiceCleanupActive=false});
+  }
+  return ycVoiceCleanupPromise;
+}
+`;
+  html=replaceBetween(html,'function cleanupVoiceRooms(){','function unlockVoiceAudio()',cleanupBlock,'voice auth cleanup');
 
   const initBarrierOld="async function initApp(s){\n  window.YamachatBootGuard?.begin();\n  const generation=++ycAuthGeneration,uid=s.user.id;\n  const active=()=>generation===ycAuthGeneration&&user?.id===uid;\n  session=s;user=s.user;";
   const initBarrierNew="async function initApp(s){\n  window.YamachatBootGuard?.begin();\n  const generation=++ycAuthGeneration,uid=s.user.id,authActive=()=>generation===ycAuthGeneration;\n  try{await ycVoiceCleanupPromise}catch(e){console.warn('previous voice cleanup',e)}\n  if(!authActive())return false;\n  session=s;user=s.user;const active=()=>generation===ycAuthGeneration&&user?.id===uid;";
