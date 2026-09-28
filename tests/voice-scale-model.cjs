@@ -1,6 +1,7 @@
 const fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict');
 const root=path.resolve(__dirname,'..');
 const desktop=fs.readFileSync(path.join(root,'desktop/desktop-client.html'),'utf8');
+const scaleSql=fs.readFileSync(path.join(root,'supabase/voice-scale-indexes.sql'),'utf8');
 
 function meshPairs(n){return n*(n-1)/2}
 function oldPresenceDeliveriesPerSecond(users,heartbeatSeconds=5){return (users/heartbeatSeconds)*users}
@@ -31,6 +32,9 @@ assert(!desktop.includes("room?.untrack("),'Voice Presence untrack returned');
 assert(desktop.includes("function ycStartRemoteVoiceActivityDetector(peerId,stream)"),'Local remote-speaking detector missing');
 assert(!desktop.includes("syncVoiceParticipantRow().catch(()=>{});renderVoiceChannels(voiceChannelDefs)"),'Speech edges still write Postgres rows');
 assert(!desktop.includes("sb.functions.invoke('yamachat-turn',{method:'GET'})"),'Metered TURN returned');
+assert(scaleSql.includes('voice_participants_channel_last_seen_idx'),'Voice roster composite index definition missing');
+assert(scaleSql.includes('(channel_id, last_seen desc)'),'Voice roster index must match channel + lease cutoff query');
+
 assert(desktop.includes("async function recoverVoiceSignals()"),'Voice signal recovery missing');
 assert(desktop.includes("lt('created_at',stale)"),'Stale voice signals are not pruned');
 assert(desktop.includes("gt('created_at',recent)"),'Recent missed voice signals are not recovered');
