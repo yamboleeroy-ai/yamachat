@@ -38,6 +38,10 @@ assert(html.includes("void syncVoiceParticipantRow().catch(e=>console.warn('voic
 assert(html.includes("if(!voiceSignalSub||!voiceSignalReady)void subscribeVoiceSignals().catch(e=>console.warn('voice signal reconnect',e))"),'Voice heartbeat must recreate a dead signal subscription');
 assert(html.includes("['CHANNEL_ERROR','TIMED_OUT','CLOSED'].includes(status)"),'Voice signal subscription must recover from CLOSED/error channels');
 assert(!html.includes("voice presence keepalive"),'Periodic Realtime presence tracking would reintroduce the Supabase presence-rate-limit storm');
+assert(html.includes("const ycVoiceRoomRetryTimers=new Map(),ycVoiceRoomRetryAttempts=new Map()"),'Voice room reconnect backoff state missing');
+assert(html.includes("const delay=[12000,20000,30000][attempt-1]"),'Voice room reconnect must back off after Realtime closure');
+assert(!html.includes("setTimeout(()=>trackVoicePresence(attempt+1),400)"),'Presence tracking must not retry every 400 ms');
+assert(html.includes("status&&status!=='ok'"),'Presence track result must be observed without retry storm');
 assert(html.includes("uid!==user.id&&String(voiceChannel?.id||'')===String(id||'')"),'Participant DELETE must not close the active peer because of another channel');
 assert(html.includes("if(pc?.connectionState==='connected'){voiceMissingSince.delete(id);continue}"),'Connected peers must survive transient participant metadata loss while browsing another server');
 assert(html.includes("if(now-since>60000)closeVoicePeer(id)"),'Transient participant metadata loss needs the desktop-proven peer grace period');
