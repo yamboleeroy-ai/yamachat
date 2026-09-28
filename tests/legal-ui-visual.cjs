@@ -59,6 +59,15 @@ function inside(b,w,h){return b&&b.width>0&&b.height>0&&b.x>=-1&&b.y>=-1&&b.x+b.
       assert.equal(await page.getByText('Digitálně podepsaná právní baseline – podpis ověřen',{exact:true}).count(),1);
       assert(inside(await page.locator('.yc-legal-shell').boundingBox(),1440,900));
       await page.screenshot({path:path.join(__dirname,'legal-ui-screens','desktop-about.png'),fullPage:true});
+      await page.locator('[data-yc-legal-close]').click();
+      await page.locator('#ycDeveloperDock').waitFor({state:'visible'});
+      await page.locator('#ycDeveloperDock').click();
+      await page.locator('.yc-developer-modal').waitFor({state:'visible'});
+      assert(inside(await page.locator('.yc-developer-modal').boundingBox(),1440,900),'Developer modal must fit desktop viewport');
+      assert.equal(await page.locator('.yc-dev-grid').locator('.yc-dev-info').count(),3,'Developer information grid must contain profile, contact and project only');
+      assert.equal(await page.locator('.yc-dev-grid').evaluate(el=>getComputedStyle(el).gridTemplateColumns.split(' ').length),3,'Developer information grid must use three balanced desktop columns');
+      assert.equal(await page.getByText('Věk',{exact:true}).count(),0,'Developer age must stay removed');
+      await page.screenshot({path:path.join(__dirname,'legal-ui-screens','desktop-developer-contact.png'),fullPage:true});
       assert.deepEqual(errors,[]);
       await page.close();
     }
@@ -90,6 +99,15 @@ function inside(b,w,h){return b&&b.width>0&&b.height>0&&b.x>=-1&&b.y>=-1&&b.x+b.
       assert.equal(portraitFit.heading,'Yamachat');
       for(const b of [portraitFit.title,portraitFit.signature])assert(b&&b.x>=-1&&b.right<=391,JSON.stringify(portraitFit));
       await page.screenshot({path:path.join(__dirname,'legal-ui-screens','mobile-about-portrait.png')});
+      await page.locator('[data-yc-legal-close]').click();
+      await page.locator('#ycDeveloperDock').waitFor({state:'visible'});
+      await page.locator('#ycDeveloperDock').click();
+      await page.locator('.yc-developer-modal').waitFor({state:'visible'});
+      const developerFit=await page.locator('.yc-developer-modal').evaluate(el=>({clientWidth:el.clientWidth,scrollWidth:el.scrollWidth}));
+      assert(developerFit.scrollWidth<=developerFit.clientWidth+1,JSON.stringify(developerFit));
+      assert.equal(await page.locator('.yc-dev-grid').evaluate(el=>getComputedStyle(el).gridTemplateColumns.split(' ').length),1,'Developer grid must collapse to one mobile column');
+      assert.equal(await page.locator('.yc-dev-send').evaluate(el=>Math.round(el.getBoundingClientRect().width)),await page.locator('.yc-dev-form').evaluate(el=>Math.round(el.getBoundingClientRect().width)),'Mobile send button must span the feedback form width');
+      await page.screenshot({path:path.join(__dirname,'legal-ui-screens','mobile-developer-contact.png')});
       assert.deepEqual(errors,[]);
       await page.close();
     }
@@ -123,6 +141,6 @@ function inside(b,w,h){return b&&b.width>0&&b.height>0&&b.x>=-1&&b.y>=-1&&b.x+b.
       await page.close();
     }
 
-    console.log('PASS legal UI visuals: desktop, mobile portrait/landscape and login legal links fit the viewport.');
+    console.log('PASS legal UI visuals: legal UI, developer contact and login legal links fit desktop/mobile viewports.');
   }finally{await browser.close()}
 })().catch(e=>{console.error(e);process.exitCode=1});
