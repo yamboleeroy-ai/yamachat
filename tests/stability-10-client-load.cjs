@@ -29,6 +29,8 @@ window.__ycAudit={
  disconnectVoice:()=>ycRequestVoiceDisconnect(),
  toggleMute:()=>toggleVoiceMute(),
  toggleDeafen:()=>toggleVoiceDeafen(),
+ participantRpcCount:()=>window.__mockRpcWrites.filter(x=>x.name==='set_voice_participant').length,
+ spamVoiceControls:async(mutes=0,deafens=0)=>{for(let i=0;i<mutes;i++)void toggleVoiceMute();for(let i=0;i<deafens;i++)void toggleVoiceDeafen();await ycVoiceParticipantSyncQueue;await Promise.resolve();return window.__mockRpcWrites.filter(x=>x.name==='set_voice_participant').length},
  setMix:(id,patch)=>setVoiceUserMix(id,patch),
  getMix:id=>voiceMixFor(id),
  forceExpirePeer:async id=>{voiceMissingSince.set(id,Date.now()-61000);const rows=voicePresenceByChannel[voiceChannel?.id]||[];voicePresenceByChannel[voiceChannel?.id]=rows.filter(x=>x.user_id!==id);await syncVoicePeers()},
@@ -185,11 +187,13 @@ function processSnapshot(label){
   for(const cfg of configs.filter(x=>x.room))assert.equal(await clients.get(cfg.id).page.evaluate(()=>window.__ycAudit.state().voice),cfg.room,cfg.id+' voice dropped while chatting');
 
   // Rapid mute/deafen toggles must end in a stable enabled state without peer churn.
+  // Fourteen UI transitions are issued synchronously; participant lease writes must coalesce.
   for(const id of ['d1','a1','w2','i2']){
-   const c=clients.get(id),before=await c.page.evaluate(()=>window.__ycAudit.state().peers);
-   for(let n=0;n<8;n++)await c.page.evaluate(()=>window.__ycAudit.toggleMute());
-   for(let n=0;n<6;n++)await c.page.evaluate(()=>window.__ycAudit.toggleDeafen());
-   const st=await c.page.evaluate(()=>window.__ycAudit.state());assert.equal(st.muted,false,id+' mute spam final state');assert.equal(st.deafened,false,id+' deafen spam final state');assert.equal(st.peers,before,id+' peer churn after mute/deafen spam');
+   const c=clients.get(id),before=await c.page.evaluate(()=>window.__ycAudit.state().peers),rpcBefore=await c.page.evaluate(()=>window.__ycAudit.participantRpcCount());
+   const rpcAfter=await c.page.evaluate(()=>window.__ycAudit.spamVoiceControls(8,6));
+   const st=await c.page.evaluate(()=>window.__ycAudit.state()),rpcDelta=rpcAfter-rpcBefore;
+   assert.equal(st.muted,false,id+' mute spam final state');assert.equal(st.deafened,false,id+' deafen spam final state');assert.equal(st.peers,before,id+' peer churn after mute/deafen spam');
+   assert(rpcDelta<=3,id+' mute/deafen spam was not coalesced; 14 UI transitions produced '+rpcDelta+' participant RPCs');
   }
 
   // Local per-user volume/mute never alters the remote peer graph.
