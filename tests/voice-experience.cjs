@@ -23,7 +23,7 @@ assert(html.includes('function ycVoiceCommunityId()'),'Independent voice communi
 assert(html.includes("const ycVoiceCid=ycVoiceCommunityId();"),'Soundboard must load from voice community context');
 assert(html.includes("String(currentCommunity.id)===ycVoiceCommunityId()"),'Soundboard admin actions must stay on the joined voice server');
 assert(!html.includes("speechSynthesis.cancel();speechSynthesis.speak(u);"),'Rapid voice announcements must not cancel the previous username');
-assert(html.includes("community_id:ycVoiceCommunity"),'Stream presence must remain on the joined voice community');
+assert(html.includes("voiceChannel?.community_id||voiceChannel?.communityId||currentCommunity?.id")&&html.includes("community_id:communityId"),'Stream presence must remain on the joined voice community');
 if(!isDesktop){
  assert(html.includes("function ycIosVoiceCommunityId(channel=voiceChannel)"),'iOS PWA voice target must track the joined channel community');
  assert(html.includes("communityId:ycIosVoiceCommunityId(channel)"),'iOS PWA saved voice target must not use the browsed community');
