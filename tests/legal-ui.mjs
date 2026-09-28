@@ -20,7 +20,7 @@ function verify(html,label){
   assert.ok(html.includes("Nejde o právní certifikaci ani právní ověření obsahu."),label+': signature limitation missing');
   assert.ok(html.includes('class="yc-legal-links-grid"'),label+': About legal document cards missing');
   assert.ok(html.includes('class="yc-legal-signature"'),label+': signature status card missing');
-  assert.ok(html.includes('@media(max-width:720px)'),label+': responsive legal layout missing');
+  assert.ok(html.includes('(max-width:1100px) and (max-height:560px)'),label+': phone-landscape legal layout missing');
   assert.ok(html.includes('env(safe-area-inset-bottom)'),label+': legal safe-area support missing');
   assert.ok(html.includes("{id:'terms',label:'Podmínky používání',icon:'§',pending:true}"),label+': Terms must be pending');
   assert.ok(html.includes("{id:'privacy',label:'Ochrana osobních údajů',icon:'◈',pending:true}"),label+': Privacy must be pending');
