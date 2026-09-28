@@ -23,6 +23,7 @@ function verify(html,label){
   assert.ok(html.includes('class="yc-legal-signature"'),label+': signature status card missing');
   assert.ok(html.includes('(max-width:1100px) and (max-height:560px)'),label+': phone-landscape legal layout missing');
   assert.ok(html.includes('env(safe-area-inset-bottom)'),label+': legal safe-area support missing');
+  assert.ok(html.includes("id='ycLegalPortal'")||html.includes("r.id='ycLegalPortal'"),label+': legal dialog must use body-level portal for login access');
   assert.ok(html.includes("{id:'terms',label:'Podmínky používání',icon:'§',pending:true}"),label+': Terms must be pending');
   assert.ok(html.includes("{id:'privacy',label:'Ochrana osobních údajů',icon:'◈',pending:true}"),label+': Privacy must be pending');
   for(const file of ['LICENSE','THIRD_PARTY_NOTICES.md','BRAND-NOTICE.md','PROVENANCE.md','ASSET-MANIFEST.md','LEGAL-BASELINE.md']){
