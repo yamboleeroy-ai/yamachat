@@ -16,9 +16,9 @@ function source(platform){
 }
 function fixture(cfg){
  const ps=JSON.stringify(profiles),current=JSON.stringify(profiles.find(x=>x.id===cfg.id));
- return String.raw\`
+ return `
 window.supabase={createClient:()=>{
- const profile=\${current},profiles=\${ps};
+ const profile=${current},profiles=${ps};
  const communities=[{id:'community-a',name:'Chat Audit',owner_id:'d1',server_color:'#1a9fff'}];
  const channels=[{id:'chat-a',community_id:'community-a',name:'obecny',kind:'text',position:1},{id:'chat-b',community_id:'community-a',name:'druhy',kind:'text',position:2}];
  const members=profiles.map(p=>({user_id:p.id,community_id:'community-a',role:p.id==='d1'?'owner':'member',profiles:p}));
@@ -66,7 +66,7 @@ window.supabase={createClient:()=>{
  window.__mockReceiveMessage=row=>{if(!window.__mockMessages.some(x=>x.id===row.id))window.__mockMessages.push(row);window.__mockEmit('messages','INSERT',row)};
  window.__mockReceiveMention=row=>{if(!window.__mockMentions.some(x=>x.id===row.id))window.__mockMentions.push(row);window.__mockEmit('message_mentions','INSERT',row)};
  return {from:query,rpc:async()=>({data:false,error:null}),channel,removeChannel:async c=>{if(c)c.active=false},auth:{getSession:async()=>({data:{session:{user:{id:profile.id}}},error:null}),onAuthStateChange:()=>({data:{subscription:{unsubscribe(){}}}}),getUser:async()=>({data:{user:{id:profile.id,identities:[]}}}),getUserIdentities:async()=>({data:{identities:[]}}),signOut:async()=>({error:null})},storage:{from:()=>({getPublicUrl:()=>({data:{publicUrl:''}}),createSignedUrl:async()=>({data:null}),upload:async()=>({error:null}),remove:async()=>({error:null})})},functions:{invoke:async()=>({data:null,error:new Error('fixture')})},realtime:{isConnected:()=>true,connect(){}}}
-}};\`;
+}};`;
 }
 (async()=>{
  const browser=await chromium.launch({headless:true});
