@@ -15,10 +15,10 @@ const platforms=Object.freeze({
     id:'windows',icon:'⊞',label:'Windows',eyebrow:'Windows aplikace',
     title:'Yamachat pro Windows',
     text:'Samostatná desktopová aplikace Yamachat pro Windows. Stahuje se z oficiálního GitHub Release projektu.',
-    steps:['Stáhni aktuální instalační balíček.','Spusť instalátor Yamachat a dokonči instalaci.','Přihlas se stejným Yamachat účtem.'],
+    steps:['Stáhni aktuální instalační balíček pouze z tohoto oficiálního odkazu.','Spusť instalátor Yamachat a dokonči instalaci.','Přihlas se stejným Yamachat účtem.'],
     action:'Stáhnout Windows aplikaci',
     url:`https://github.com/yamboleeroy-ai/yamachat/releases/download/v${windowsVersion}/Yamachat-Setup-${windowsVersion}.exe`,
-    note:`Aktuální Windows release: ${windowsVersion}`
+    note:`Aktuální Windows release: ${windowsVersion}. Windows build zatím nemá code-signing podpis. Prohlížeč nebo Microsoft Defender SmartScreen proto může při stažení nebo prvním spuštění zobrazit varování o neznámé či málo používané aplikaci. Samotné takové varování neznamená, že soubor je virus; před pokračováním vždy ověř, že soubor pochází z tohoto oficiálního Yamachat odkazu.`
   },
   android:{
     id:'android',icon:'◉',label:'Android',eyebrow:'Android APK',
@@ -30,13 +30,22 @@ const platforms=Object.freeze({
     note:manifest?.android?.latestVersion?`Aktuální Android verze: ${manifest.android.latestVersion}`:'Oficiální Android APK'
   },
   web:{
-    id:'web',icon:'◎',label:'Web / PWA',eyebrow:'Web a desktop PWA',
-    title:'Yamachat Web / PWA',
-    text:'Yamachat můžeš používat přímo v prohlížeči. Podporovaný prohlížeč může nabídnout také instalaci jako PWA.',
-    steps:['Otevři yamachat.eu v běžném moderním prohlížeči.','Pokud prohlížeč nabídne „Instalovat aplikaci“, můžeš Yamachat přidat jako PWA.','PWA používá stejný Yamachat účet jako web a ostatní platformy.'],
+    id:'web',icon:'◎',label:'Web',eyebrow:'Web v prohlížeči',
+    title:'Yamachat ve webu',
+    text:'Yamachat můžeš používat přímo na yamachat.eu bez instalace dalšího programu.',
+    steps:['Otevři yamachat.eu v běžném moderním prohlížeči.','Přihlas se stejným Yamachat účtem jako v ostatních klientech.','Web můžeš používat přímo v kartě prohlížeče.'],
     action:'Otevřít Yamachat Web',
     url:'https://yamachat.eu/',
-    note:'Bez nutnosti instalovat desktopový program'
+    note:'Přímé použití v prohlížeči bez instalace'
+  },
+  pwa:{
+    id:'pwa',icon:'▤',label:'Web app',eyebrow:'Instalovatelná webová aplikace',
+    title:'Yamachat jako webová aplikace',
+    text:'Na počítači můžeš yamachat.eu nainstalovat jako samostatnou webovou aplikaci (PWA), která se potom otevírá ve vlastním okně.',
+    steps:['Otevři yamachat.eu v podporovaném prohlížeči, například Microsoft Edge nebo Google Chrome.','V nabídce / nastavení prohlížeče otevři Aplikace a zvol „Nainstalovat Yamachat“, „Nainstalovat tento web jako aplikaci“ nebo obdobnou volbu; přesný název se může podle prohlížeče lišit.','Potvrď instalaci. Yamachat se potom objeví mezi aplikacemi a používá stejný účet jako web, Windows i mobilní verze.'],
+    action:'Otevřít yamachat.eu',
+    url:'https://yamachat.eu/',
+    note:'Nabídka prohlížeče → Aplikace → nainstalovat tento web jako aplikaci'
   },
   ios:{
     id:'ios',icon:'▣',label:'iOS / PWA',eyebrow:'iPhone / iPad',
@@ -55,7 +64,7 @@ function runtime(){
 <style id="ycPlatformInstallStyle">
 .yc-platform-login{margin:10px 0 2px;padding:10px;border:1px solid rgba(112,228,232,.13);border-radius:12px;background:linear-gradient(145deg,rgba(12,31,43,.72),rgba(7,20,29,.5))}
 .yc-platform-login-title{margin:0 0 7px;text-align:center;color:#718d99;font-size:9px;font-weight:900;letter-spacing:.10em;text-transform:uppercase}
-.yc-platform-login-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}
+.yc-platform-login-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px}
 .yc-platform-login-btn{min-width:0;min-height:45px;border:1px solid rgba(112,228,232,.12);border-radius:9px;background:#0b1d29;color:#9fb8c3;display:flex;align-items:center;justify-content:center;gap:6px;padding:7px 5px;font:inherit;cursor:pointer;touch-action:manipulation}
 .yc-platform-login-btn:hover,.yc-platform-login-btn:focus-visible{border-color:rgba(112,228,232,.35);background:rgba(112,228,232,.09);color:#efffff;outline:2px solid rgba(112,228,232,.48);outline-offset:1px}
 .yc-platform-login-icon{display:grid;place-items:center;width:20px;height:20px;flex:0 0 20px;border:1px solid rgba(112,228,232,.18);border-radius:6px;color:#a7eff2;background:rgba(112,228,232,.06);font-size:13px;font-weight:900}
@@ -73,7 +82,7 @@ function runtime(){
 .yc-platform-action{display:flex;align-items:center;justify-content:center;min-height:44px;margin-top:14px;border:1px solid rgba(112,228,232,.34);border-radius:10px;background:linear-gradient(180deg,rgba(25,64,79,.98),rgba(10,35,48,.98));color:#e7fcff;text-decoration:none;font-size:11px;font-weight:900;touch-action:manipulation}
 .yc-platform-action:hover,.yc-platform-action:focus-visible{border-color:#83edf2;box-shadow:0 0 18px rgba(112,228,232,.11);outline:2px solid rgba(112,228,232,.32);outline-offset:2px}
 .yc-platform-distribution{margin-top:9px;color:#637f8b;font-size:9px;text-align:center;line-height:1.45}
-@media(max-width:380px){.yc-platform-login-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.yc-platform-login-btn{min-height:42px}.yc-platform-dialog{border-radius:13px}.yc-platform-body{padding:13px}}
+@media(max-width:460px){.yc-platform-login-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.yc-platform-login-btn{min-height:42px}}@media(max-width:340px){.yc-platform-login-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.yc-platform-dialog{border-radius:13px}.yc-platform-body{padding:13px}}
 @media(max-height:560px){.yc-platform-back{place-items:stretch center;padding:7px max(8px,env(safe-area-inset-right)) 7px max(8px,env(safe-area-inset-left))}.yc-platform-dialog{max-height:calc(100dvh - 14px)}.yc-platform-head{padding:10px 12px}.yc-platform-body{padding:11px}.yc-platform-steps{margin:10px 0;gap:6px}.yc-platform-step{padding:8px}}
 </style>
 <script id="ycPlatformInstallRuntime">
