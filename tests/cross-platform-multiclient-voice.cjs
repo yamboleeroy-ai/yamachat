@@ -147,45 +147,33 @@ function mockFor(id,name){
   // Stream from desktop through the existing voice peer graph. Viewers request the stream
   // from web, Android and iOS/PWA while the 4-way voice call remains connected.
   const streamer=clients.get('u-desktop');
-  await streamer.page.evaluate(async()=>{
-   const canvas=document.createElement('canvas');canvas.width=640;canvas.height=360;const ctx=canvas.getContext('2d');let frame=0;
-   const timer=setInterval(()=>{ctx.fillStyle='#071019';ctx.fillRect(0,0,640,360);ctx.fillStyle='#70e4e8';ctx.font='28px sans-serif';ctx.fillText('Yamachat multi '+(++frame),30,80)},80);
-   const stream=canvas.captureStream(12),ac=new AudioContext(),osc=ac.createOscillator(),gain=ac.createGain(),dest=ac.createMediaStreamDestination();
-   gain.gain.value=.01;osc.connect(gain).connect(dest);osc.start();stream.addTrack(dest.stream.getAudioTracks()[0]);
-   window.__multiScreen={canvas,stream,ac,osc,timer};
-   getScreenMediaDevices=()=>({getDisplayMedia:async()=>stream});
-   ycPrepareDesktopProcessAudio=async()=>({mode:'test'});
-   await startScreenShare();
-  });
+  await streamer.page.evaluate(()=>window.__ycE2E.startSyntheticScreen());
   for(const [id,c] of clients){
    if(id==='u-desktop')continue;
-   await c.page.waitForFunction(()=>voiceScreenActiveByUser.has('u-desktop'),{},{timeout:10000});
-   await c.page.evaluate(()=>ycWatchScreenShare('u-desktop'));
+   await c.page.waitForFunction(()=>window.__ycE2E.screenActive('u-desktop'),{},{timeout:10000});
+   await c.page.evaluate(()=>window.__ycE2E.watchScreen('u-desktop'));
   }
   for(const [id,c] of clients){
    if(id==='u-desktop')continue;
    await c.page.waitForFunction(()=>document.querySelector('.yc-stream-viewer video')?.videoWidth>0,{},{timeout:20000});
    const first=await c.page.locator('.yc-stream-viewer video').evaluate(v=>v.currentTime);
    await c.page.waitForFunction(t=>document.querySelector('.yc-stream-viewer video')?.currentTime>t+.12,first,{timeout:10000});
-   const state=await c.page.evaluate(()=>({voice:voiceChannel?.id,connected:[...voicePeerStates.values()].filter(x=>x==='connected').length,watching:screenWatchingByUser.has('u-desktop')}));
+   const state=await c.page.evaluate(()=>{const s=window.__ycE2E.state();return{voice:s.voice,connected:s.connected,watching:window.__ycE2E.watching('u-desktop')}});
    assert.equal(state.voice,'voice-a',id+' voice dropped while watching desktop stream');assert.equal(state.connected,3,id+' peer graph changed while streaming');assert(state.watching,id+' did not enter stream-watch state');
   }
 
   // A client can browse another server and keep the active call + stream alive.
   const android=clients.get('u-android');
-  await android.page.evaluate(()=>selectCommunity('community-b'));
-  await android.page.waitForFunction(()=>currentCommunity?.id==='community-b');
+  await android.page.evaluate(()=>window.__ycE2E.selectCommunityById('community-b'));
+  await android.page.waitForFunction(()=>window.__ycE2E.state().community==='community-b');
   await android.page.locator('#messageInput').fill('android other server during stream');await android.page.locator('#sendBtn').click();
-  const continuity=await android.page.evaluate(()=>({voice:voiceChannel?.id,connected:[...voicePeerStates.values()].filter(x=>x==='connected').length,playing:(document.querySelector('.yc-stream-viewer video')?.currentTime||0)>0}));
+  const continuity=await android.page.evaluate(()=>{const s=window.__ycE2E.state();return{voice:s.voice,connected:s.connected,playing:(document.querySelector('.yc-stream-viewer video')?.currentTime||0)>0}});
   assert.deepEqual(continuity,{voice:'voice-a',connected:3,playing:true},'Android lost voice/stream while browsing and chatting in another server');
 
-  await streamer.page.evaluate(async()=>{
-   await stopScreenShare(true);
-   const s=window.__multiScreen;if(s){clearInterval(s.timer);try{s.osc.stop()}catch{};s.stream.getTracks().forEach(t=>t.stop());await s.ac.close().catch(()=>{});window.__multiScreen=null}
-  });
-  for(const c of clients.values())await c.page.evaluate(()=>ycRequestVoiceDisconnect());
+  await streamer.page.evaluate(()=>window.__ycE2E.stopSyntheticScreen());
+  for(const c of clients.values())await c.page.evaluate(()=>window.__ycE2E.disconnectVoice());
   for(const [id,c] of clients){
-   await c.page.waitForFunction(()=>!voiceChannel&&!voiceHeartbeatTimer&&!voiceParticipantSub,{},{timeout:10000});
+   await c.page.waitForFunction(()=>{const s=window.__ycE2E.state();return !s.voice&&!s.heartbeat&&!s.participantSub},{},{timeout:10000});
    assert.deepEqual(c.errors,[],id+' runtime page errors');
   }
   console.log('PASS simultaneous 4-client call: desktop + web + Android layout + iOS PWA, real SDP/ICE/audio full mesh, chat during call, desktop stream watched by all other platforms, cross-server continuity, clean disconnect.');
