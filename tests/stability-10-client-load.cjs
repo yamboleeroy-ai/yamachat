@@ -219,6 +219,41 @@ function processSnapshot(label){
   }
   const churnState=await churn.page.evaluate(()=>window.__ycAudit.state());assert(churnState.realtime<=baseRt+4,'rapid rejoin leaked realtime subscriptions: '+JSON.stringify(churnState));
 
+  // Exercise the browser/mobile lifecycle handlers while voice is live. This is not an
+  // OS-level iOS suspension emulator, but it verifies that the actual visibility/blur/
+  // focus/pageshow/online recovery handlers do not tear down or duplicate the peer graph.
+  const mobileBg=clients.get('a1'),bgBefore=await mobileBg.page.evaluate(()=>window.__ycAudit.state());
+  const hiddenOverride=await mobileBg.page.evaluate(()=>{
+    let hidden=false,overridden=false;
+    try{Object.defineProperty(document,'hidden',{configurable:true,get:()=>hidden});overridden=true}catch{}
+    if(overridden){hidden=true;document.dispatchEvent(new Event('visibilitychange'))}
+    window.dispatchEvent(new Event('blur'));return overridden;
+  });
+  await mobileBg.page.waitForTimeout(250);
+  await mobileBg.page.evaluate(overridden=>{
+    if(overridden){try{Object.defineProperty(document,'hidden',{configurable:true,value:false})}catch{};document.dispatchEvent(new Event('visibilitychange'))}
+    window.dispatchEvent(new Event('focus'));window.dispatchEvent(new Event('pageshow'));window.dispatchEvent(new Event('online'));
+  },hiddenOverride);
+  await mobileBg.page.waitForTimeout(350);
+  const bgAfter=await mobileBg.page.evaluate(()=>window.__ycAudit.state());
+  assert.equal(bgAfter.voice,bgBefore.voice,'mobile lifecycle dropped voice');
+  assert.equal(bgAfter.peers,bgBefore.peers,'mobile lifecycle changed peer count');
+  assert.equal(bgAfter.connected,bgBefore.connected,'mobile lifecycle disconnected peers');
+
+  // Hard browser refresh while in voice: the old page/peer session dies without Leave.
+  // Rejoining with the same account creates a new session; every surviving room-A client
+  // must replace the old peer rather than keep a duplicate or ghost connection.
+  const refreshOldSid=await churn.page.evaluate(()=>window.__ycAudit.voiceSessionId);
+  await churn.page.reload();await churn.page.waitForFunction(()=>window.__ycClientReady,{},{timeout:20000});await churn.page.waitForSelector('#app:not(.hidden)');
+  assert.equal(await churn.page.evaluate(()=>window.__ycAudit.state().user),'w1','web refresh lost authenticated session');
+  const refreshMic=await churn.page.evaluate(()=>window.__ycAudit.installSyntheticMic());assert.equal(refreshMic,'live','web refresh synthetic mic');
+  await churn.page.evaluate(()=>window.__ycAudit.joinVoiceById('voice-a1'));await churn.page.waitForFunction(()=>{const s=window.__ycAudit.state();return s.voice==='voice-a1'&&s.audio==='live'&&s.signalReady},{},{timeout:15000});await churn.page.evaluate(()=>window.__ycAudit.installSignalBridge());
+  const refreshNewSid=await churn.page.evaluate(()=>window.__ycAudit.voiceSessionId);assert.notEqual(refreshNewSid,refreshOldSid,'web refresh reused old voice session');
+  const refreshedRoster=[];for(const id of ['d1','w1','a1','i1']){const c=clients.get(id),sid=await c.page.evaluate(()=>window.__ycAudit.voiceSessionId);refreshedRoster.push({user_id:id,username:id,session_id:sid,channel_id:'voice-a1',last_seen:new Date().toISOString()})}
+  for(const id of ['d1','w1','a1','i1'])await clients.get(id).page.evaluate(({roster})=>window.__ycAudit.setRoster('voice-a1',roster),{roster:refreshedRoster});
+  await Promise.all(['d1','w1','a1','i1'].map(id=>clients.get(id).page.evaluate(()=>window.__ycAudit.syncVoice())));
+  for(const id of ['d1','w1','a1','i1'])await clients.get(id).page.waitForFunction(()=>{const s=window.__ycAudit.state();return s.peers===3&&s.connected===3},{},{timeout:20000});
+
   // Hard-close i2 without Leave Voice. Remaining room-B clients simulate lease expiry and must remove the ghost peer cleanly.
   const hard=clients.get('i2');hardClosedId='i2';await hard.context.close();hard.context=null;
   for(const id of ['d2','w2','a2']){const c=clients.get(id);await c.page.evaluate(id=>window.__ycAudit.forceExpirePeer(id),hardClosedId);await c.page.waitForFunction(()=>window.__ycAudit.state().peers===2,{},{timeout:10000})}
@@ -241,7 +276,7 @@ function processSnapshot(label){
   for(const [id,c] of clients){if(!c.context||!c.cfg.room)continue;await c.page.evaluate(()=>window.__ycAudit.disconnectVoice());await c.page.waitForFunction(()=>{const s=window.__ycAudit.state();return !s.voice&&!s.heartbeat&&!s.participantSub&&s.peers===0&&s.remoteVad===0&&s.remoteScreens===0&&s.screenSenders===0&&s.screenTimers===0},{},{timeout:12000});await c.page.evaluate(()=>window.__ycAudit.stopSyntheticMic())}
   for(const [id,c] of clients){if(!c.context)continue;const st=await c.page.evaluate(()=>window.__ycAudit.state());assert(st.realtime<=c.baselineRealtime+1,id+' realtime subscription leak after cleanup '+JSON.stringify(st));}
   processSnapshot('after_cleanup');
-  console.log('PASS 10-client Yamachat stability stress: 10 authenticated clients across desktop/web/Android/iOS-PWA; 8 concurrent voice users split across two isolated rooms/servers, 2 chat-only users, real SDP/ICE/audio, simultaneous chat, mute/deafen spam, local volume/mute, cross-server browsing, room-scoped stream, repeated leave/rejoin, hard-close ghost cleanup and signaling reconnect. elapsed_ms='+(Date.now()-started));
+  console.log('PASS 10-client Yamachat stability stress: 10 authenticated clients across desktop/web/Android/iOS-PWA; 8 concurrent voice users split across two isolated rooms/servers, 2 chat-only users, real SDP/ICE/audio, simultaneous chat, mute/deafen spam, local volume/mute, cross-server browsing, room-scoped stream, repeated leave/rejoin, lifecycle background/foreground handlers, hard web refresh/session replacement, hard-close ghost cleanup and signaling reconnect. elapsed_ms='+(Date.now()-started));
  }finally{
   for(const c of clients.values())if(c.context)await c.context.close().catch(()=>{});
   await browser.close().catch(()=>{});
