@@ -1,0 +1,11 @@
+name: Deep stability audit
+on:
+  push:
+    branches:
+      - audit/deep-stability-20260928
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  full-check:
+    uses: ./.github/workflows/web-check.yml
