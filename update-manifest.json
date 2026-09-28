@@ -8,15 +8,16 @@
     "notes": "Yamachat 1.0.106\n\n- Dokončené Podmínky používání a Ochrana osobních údajů v existujícím právním UI.\n- Právní dokumenty jsou balené pro Windows, Web/PWA, Android a iOS/PWA.\n- Karta Vývojář / Kontakt je po odstranění věku znovu vyvážená a responsivní pro desktop i mobil.\n- Přihlašovací obrazovka nabízí samostatný návod pro Web a instalovatelnou Web app/PWA.\n- Windows instalační návod upozorňuje na chybějící code-signing podpis a možné SmartScreen varování.\n- Voice, stream, WebRTC, notifikace, updater, profily, servery, kanály a ostatní funkční rozložení zůstávají beze změny.\n\nPředchozí vydání v1.0.105 zůstává dostupné pro návrat."
   },
   "android": {
-    "latestVersion": "1.1.0.606",
-    "latestVersionCode": 200606,
+    "latestVersion": "1.1.0.671",
+    "latestVersionCode": 200671,
     "required": true,
-    "apkUrl": "https://yamachat.eu/download/Yamachat-Android.apk?v=200606",
-    "sha256": "1a20fdfbefb079ddbf0ab058ba55a88d5857ce519472c301629f52ac271f4fc3",
+    "apkUrl": "https://yamachat.eu/download/Yamachat-Android.apk?v=200671",
+    "sha256": "22f7abef4bad76f470d9a756c40c8216fc387b8ab957eb0b7517717a50ab209c",
     "notes": [
-      "Dokončené právní UI, Podmínky používání a Ochrana osobních údajů.",
-      "Srovnaná responsivní karta Vývojář / Kontakt a nové instalační návody Web / Web app.",
-      "Současné mobilní rozložení, voice, stream, WebRTC, notifikace a Real Voices zůstávají beze změny."
+      "Yamachat oznámení mají vlastní logo, ikonu a vlastní zvuk zprávy na Androidu.",
+      "Kliknutí na oznámení otevře přímo správnou DM, kanál a konkrétní zprávu.",
+      "FCM push při úplně ukončené APK je aktivní.",
+      "Současné mobilní rozložení, voice, Real Voices a ostatní funkce zůstávají beze změny."
     ]
   }
 }
