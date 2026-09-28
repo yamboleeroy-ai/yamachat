@@ -17,7 +17,7 @@ window.__ycE2E={
   selectChannelById:async id=>{const all=await getChannels();return selectChannel(id,all)},
   selectCommunityById:id=>selectCommunity(id),
   disconnectVoice:()=>ycRequestVoiceDisconnect(),
-  setRoster:(id,rows)=>{voicePresenceByChannel[id]=rows;renderVoiceChannels(voiceChannelDefs)},
+  setRoster:(id,rows)=>{window.__testVoiceRows=rows;voicePresenceByChannel[id]=rows;renderVoiceChannels(voiceChannelDefs)},
   attachVoiceScreen,ycAttachRemoteScreenAudio,ycWatchScreenShare,ycSyncStreamViewer
 };
 `;
@@ -44,6 +44,10 @@ function mock(){
     .replace(
       "if(filters.id)data=data.filter(x=>x.id===filters.id);",
       "if(filters.id)data=data.filter(x=>x.id===filters.id);if(filters.community_id)data=data.filter(x=>x.community_id===filters.community_id);if(filters.channel_id)data=data.filter(x=>x.channel_id===filters.channel_id);"
+    )
+    .replace(
+      "if(table==='messages')data=Array.from({length:60},",
+      "if(table==='voice_participants')data=window.__testVoiceRows||[];if(table==='messages')data=Array.from({length:60},"
     )
     .replace(
       "const channel=()=>{const c={on:()=>c,subscribe:()=>c,track:async()=>{},untrack:async()=>{},send:async()=>{},presenceState:()=>({})};return c};",
