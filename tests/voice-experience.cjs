@@ -48,6 +48,8 @@ assert(!html.includes("setTimeout(()=>trackVoicePresence"),'Voice membership mus
 assert(html.includes("async function trackVoicePresence(){await syncVoiceParticipantRow()}"),'Legacy trackVoicePresence call sites must map to the DB lease only');
 assert(html.includes("function ycStartRemoteVoiceActivityDetector(peerId,stream)"),'Remote speaking indication must be derived locally from received audio');
 assert(!html.includes("syncVoiceParticipantRow().catch(()=>{});renderVoiceChannels(voiceChannelDefs)"),'Speech edges must not write heartbeat rows to the database');
+assert(html.includes("ycVoiceSubscribeAnnouncement=async function(roomId){if(window.__ycVoiceParticipantAnnouncements)return false"),'Legacy join/leave broadcast subscription must stay disabled under participant-roster announcements');
+assert(html.includes("ycVoiceBroadcastAnnouncement=async function(action,roomId){if(window.__ycVoiceParticipantAnnouncements)return"),'Legacy join/leave broadcast sends must stay disabled under participant-roster announcements');
 assert(html.includes("voiceTurnProvider='cloudflare'"),'Cloudflare must be the TURN provider');
 assert(!html.includes("sb.functions.invoke('yamachat-turn',{method:'GET'})"),'Metered TURN fallback must not be loaded by clients');
 assert(html.includes("const filter='channel_id=eq.'+id"),'Participant realtime must be filtered to the joined voice channel');
