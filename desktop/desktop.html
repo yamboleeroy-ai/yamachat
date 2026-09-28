@@ -1818,8 +1818,7 @@
     ])
     .then(([html, nexusCss, nexusJs]) => {
       const cssTag = "<style id=\"ycNexusDesktopPreviewStyle\">" + nexusCss + "</style>";
-      const safeJs = nexusJs.replace(/<\\\/script/gi, "<\\\\/script");
-      const jsTag = "<script id=\"ycNexusDesktopPreviewScript\">" + safeJs + "<\\/script>";
+      const jsTag = "<script id=\"ycNexusDesktopPreviewScript\">" + nexusJs + "</scr" + "ipt>";
       iframe.srcdoc = html.replace("</head>", cssTag + "</head>").replace("</body>", jsTag + "</body>");
     })
     .catch(error => {
