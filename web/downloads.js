@@ -18,6 +18,8 @@ function ycDownloadOffers(){
 }
 ycAppSettingsSections.delete('windows-download');
 ycRegisterAppSettingsSection({id:'downloads',title:'Stáhnout Yamachat',description:'Stejný účet a zprávy na dalších zařízeních. Vyber verzi a zobraz postup instalace.',render:ycDownloadOffers,bind:root=>{if(root.querySelector('[data-yc-windows-download]'))void ycWebLoadWindowsDownload(root)}});
+// The login surface uses the compact cross-platform launcher injected by
+// platform-install-ui.mjs. Keep the existing download offers only in Settings
+// so login never renders a second, competing installation block.
 document.querySelector('[data-yc-web-install]')?.remove();
-const ycAuthDownloads=document.createElement('section');ycAuthDownloads.id='ycAuthDownloads';ycAuthDownloads.innerHTML='<h2>Yamachat na dalších zařízeních</h2>'+ycDownloadOffers();document.querySelector('.auth-card')?.appendChild(ycAuthDownloads);
-if(ycAuthDownloads.querySelector('[data-yc-windows-download]'))void ycWebLoadWindowsDownload(ycAuthDownloads);
+document.getElementById('ycAuthDownloads')?.remove();
