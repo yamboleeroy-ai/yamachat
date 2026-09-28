@@ -12,6 +12,7 @@ on:
       - "scripts/platform-install-ui.mjs"
       - "tests/platform-install-ui.cjs"
       - "tests/legal-ui.mjs"
+      - "tests/legal-ui-visual.cjs"
       - "mobile/scripts/sync-web.mjs"
       - "scripts/check-legal-baseline.mjs"
       - ".github/workflows/desktop-legal-preview.yml"
@@ -55,6 +56,8 @@ jobs:
           if ($html -notmatch 'ycPlatformInstallRuntime') { throw 'Platform install runtime missing from generated client' }
           if ($html -notmatch 'data-yc-platform="windows"') { throw 'Windows platform action missing' }
           if ($html -notmatch 'data-yc-platform="android"') { throw 'Android platform action missing' }
+          if ($html -notmatch 'data-yc-platform="pwa"') { throw 'Desktop PWA platform action missing' }
+          if ($html -notmatch 'code-signing podpis') { throw 'Windows signing notice missing' }
           if ($html -match 'play.google.com|apps.apple.com') { throw 'Unverified app-store link introduced' }
 
       - name: Guard unrelated runtime and voice/stream infrastructure
@@ -104,6 +107,10 @@ jobs:
           if ((Get-Content "$appRoot/desktop-client.html" -Raw) -notmatch 'ycLegalUiV1') { throw 'Packaged legal UI marker missing' }
           if ((Get-Content "$appRoot/desktop-client.html" -Raw) -notmatch 'id="ycLegalAboutBtn"') { throw 'Packaged About button missing' }
           if ((Get-Content "$appRoot/desktop-client.html" -Raw) -match '<small>Věk</small><strong>33 let</strong>') { throw 'Developer age still packaged' }
+          $client=Get-Content "$appRoot/desktop-client.html" -Raw
+          if ($client -notmatch 'data-yc-platform="pwa"') { throw 'Packaged desktop PWA launcher missing' }
+          if ($client -notmatch 'code-signing podpis') { throw 'Packaged Windows signing notice missing' }
+          if ($client -notmatch 'yc-developer-modal .yc-dev-grid\{grid-template-columns:repeat\(3,minmax\(0,1fr\)\)') { throw 'Packaged balanced developer contact grid missing' }
           foreach ($file in @('LICENSE','TERMS_OF_USE.md','PRIVACY_POLICY.md','BRAND-NOTICE.md','PROVENANCE.md','THIRD_PARTY_NOTICES.md','LEGAL-BASELINE.md','ASSET-MANIFEST.md')) {
             if (-not (Test-Path "$legalRoot/$file")) { throw "Missing packaged legal source: $file" }
           }
