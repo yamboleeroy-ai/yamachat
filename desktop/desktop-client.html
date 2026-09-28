@@ -1693,10 +1693,9 @@ async function leaveVoiceChannel(silent=false){
       await stopScreenShare(true);const old=voiceChannel;cleanupSoundboardVoice();$('soundboardPanel')?.classList.add('hidden');
       if(old){
         if(!silent)playVoiceCue('self-leave');voiceJoinSoundArmed=false;stopVoiceHeartbeat();stopVoiceActivityDetector();voiceSpeaking=false;
-        const sid=voiceSessionId,room=voiceRooms.get(old.id);
+        const sid=voiceSessionId;
         const clearPromise=(async()=>{try{const {error}=await sb.rpc('clear_voice_participant',{p_session_id:sid});if(error)console.warn('clear voice participant',error)}catch(e){console.warn('clear voice participant',e)}})();
-        const untrackPromise=(async()=>{try{const pending=room?.untrack();if(pending&&typeof pending.then==='function')await pending}catch(e){console.warn('voice untrack',e)}})();
-        const cleanupSettled=Promise.allSettled([clearPromise,untrackPromise]);if(ycVoiceKeepMicDuringSwitch){void cleanupSettled.catch(e=>console.warn('voice switch cleanup',e))}else{await cleanupSettled}
+        const cleanupSettled=Promise.allSettled([clearPromise]);if(ycVoiceKeepMicDuringSwitch){void cleanupSettled.catch(e=>console.warn('voice switch cleanup',e))}else{await cleanupSettled}
         for(const id of Object.keys(voicePresenceByChannel)){voicePresenceByChannel[id]=(voicePresenceByChannel[id]||[]).filter(p=>p.user_id!==leavingUserId)}renderVoiceChannels(voiceChannelDefs)
       }
       for(const [id,pc] of voicePeers){try{pc.close()}catch{}const a=$('voice-audio-'+id);if(a)a.remove()}
