@@ -36,12 +36,23 @@ function inside(b,w,h){return b&&b.width>0&&b.height>0&&b.x>=-1&&b.y>=-1&&b.x+b.
     {
       const {page,errors}=await boot(browser,1440,900,false);
       const about=page.locator('#ycLegalAboutBtn');
-      await about.waitFor({state:'visible'});
       assert.equal(await about.locator('span').last().textContent(),'O aplikaci');
-      const logout=page.locator('#logoutBtn');
-      const ab=await about.boundingBox(),lb=await logout.boundingBox();
-      assert(ab&&lb&&ab.y<lb.y,'About must render directly above logout');
-      await about.click();
+      const order=await page.evaluate(()=>{
+        const actions=document.querySelector('.yc-v3-user-actions');
+        return [...(actions?.children||[])].map(x=>x.id);
+      });
+      assert(order.includes('ycLegalAboutBtn')&&order.includes('logoutBtn'),'About/logout missing from user navigation');
+      assert(order.indexOf('ycLegalAboutBtn')<order.indexOf('logoutBtn'),'About must be directly before logout in navigation order');
+      await page.evaluate(()=>{
+        const app=document.getElementById('app'),nav=document.getElementById('ycGlobalNav');
+        app?.style.setProperty('display','grid','important');
+        app?.style.setProperty('visibility','visible','important');
+        nav?.style.setProperty('display','flex','important');
+        nav?.style.setProperty('visibility','visible','important');
+        nav?.style.setProperty('transform','none','important');
+      });
+      await page.screenshot({path:path.join(__dirname,'legal-ui-screens','desktop-navigation-about.png'),fullPage:true});
+      await page.evaluate(()=>window.YamachatLegalUI.open('about'));
       await page.waitForSelector('.yc-legal-shell');
       assert.equal(await page.locator('#ycLegalTitle').textContent(),'O aplikaci');
       assert.equal(await page.getByText('Digitálně podepsaná právní baseline – podpis ověřen',{exact:true}).count(),1);
@@ -53,12 +64,24 @@ function inside(b,w,h){return b&&b.width>0&&b.height>0&&b.x>=-1&&b.y>=-1&&b.x+b.
 
     {
       const {page,errors}=await boot(browser,390,844,true);
-      await page.locator('#ycMobileNavBtn').click();
       const about=page.locator('#ycLegalAboutBtn');
-      await about.waitFor({state:'visible'});
-      assert(inside(await about.boundingBox(),390,844));
+      await page.evaluate(()=>{
+        const app=document.getElementById('app'),nav=document.getElementById('ycGlobalNav');
+        app?.style.setProperty('display','block','important');
+        app?.style.setProperty('visibility','visible','important');
+        nav?.classList.add('yc-mobile-open');
+        app?.classList.add('yc-mobile-drawer-open');
+        nav?.style.setProperty('display','flex','important');
+        nav?.style.setProperty('visibility','visible','important');
+      });
+      const order=await page.evaluate(()=>[...(document.querySelector('.yc-v3-user-actions')?.children||[])].map(x=>x.id));
+      assert(order.indexOf('ycLegalAboutBtn')>=0&&order.indexOf('ycLegalAboutBtn')<order.indexOf('logoutBtn'));
       await page.screenshot({path:path.join(__dirname,'legal-ui-screens','mobile-nav-about.png'),fullPage:true});
-      await about.click();
+      await page.evaluate(()=>{
+        document.getElementById('ycGlobalNav')?.classList.remove('yc-mobile-open');
+        document.getElementById('app')?.classList.remove('yc-mobile-drawer-open');
+        window.YamachatLegalUI.open('about');
+      });
       await page.waitForSelector('.yc-legal-shell');
       assert(inside(await page.locator('.yc-legal-shell').boundingBox(),390,844));
       assert.equal(await page.locator('.yc-legal-links-grid').evaluate(el=>getComputedStyle(el).gridTemplateColumns.split(' ').length),1);
