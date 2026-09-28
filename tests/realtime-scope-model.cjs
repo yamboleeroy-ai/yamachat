@@ -17,11 +17,7 @@ for(const file of ['desktop/desktop-client.html','index.html']){
     assert(html.includes("table:'"+table+"',filter:'community_id=eq.'+cid"),file+' '+table+' active-community filter missing');
   }
   const roleStart=html.indexOf("let realtime=null,realtimeCommunityId=''");
-  const roleEnd=html.indexOf("})();
-
-
-}",roleStart);
-  const roleBlock=html.slice(roleStart,roleEnd>roleStart?roleEnd:roleStart+5000);
+  const roleBlock=html.slice(roleStart,roleStart+7000);
   assert(!roleBlock.includes("table:'friendships'}"),file+' role/social layer still duplicates global friendship realtime');
   assert(roleBlock.includes("ycOnLifecycle('beforeCommunity',stopRealtime)"),file+' old community realtime is not stopped before switch');
   assert(roleBlock.includes("ycOnLifecycle('beforeAuth',stopRealtime)"),file+' role/social realtime logout cleanup missing');
