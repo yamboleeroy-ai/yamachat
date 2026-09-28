@@ -17,6 +17,14 @@ window.__ycE2E={
   selectChannelById:async id=>{const all=await getChannels();return selectChannel(id,all)},
   selectCommunityById:id=>selectCommunity(id),
   disconnectVoice:()=>ycRequestVoiceDisconnect(),
+  installSyntheticMic:async()=>{
+   const ac=new (window.AudioContext||window.webkitAudioContext)(),osc=ac.createOscillator(),gain=ac.createGain(),dest=ac.createMediaStreamDestination();
+   gain.gain.value=.012;osc.frequency.value=220;osc.connect(gain).connect(dest);osc.start();
+   const media={getUserMedia:async()=>dest.stream,enumerateDevices:async()=>[]};
+   getVoiceMediaDevices=()=>media;window.__ycSyntheticMic={ac,osc,dest};
+   return dest.stream.getAudioTracks()[0]?.readyState||'';
+  },
+  stopSyntheticMic:async()=>{const m=window.__ycSyntheticMic;if(!m)return;try{m.osc.stop()}catch{};m.dest.stream.getTracks().forEach(t=>t.stop());await m.ac.close().catch(()=>{});window.__ycSyntheticMic=null;},
   setRoster:(id,rows)=>{window.__testVoiceRows=rows;voicePresenceByChannel[id]=rows;renderVoiceChannels(voiceChannelDefs)},
   attachVoiceScreen,ycAttachRemoteScreenAudio,ycWatchScreenShare,ycSyncStreamViewer
 };
@@ -151,7 +159,9 @@ async function cleanupSyntheticRemoteStream(page){
       await page.waitForFunction(()=>document.querySelector('#messageInput')?.value===''&&!document.querySelector('#sendBtn')?.disabled);
       assert.equal(await page.locator('#messageInput').inputValue(),'');
       
-      // Real voice join path with a fake Chromium microphone device.
+      // Real voice join path with a deterministic live synthetic microphone track.
+      const syntheticMicState=await page.evaluate(()=>window.__ycE2E.installSyntheticMic());
+      assert.equal(syntheticMicState,'live',cfg.platform+' synthetic microphone did not become live');
       await page.evaluate(()=>window.__ycE2E.joinVoiceById('voice-a'));
       try{await page.waitForFunction(()=>{const s=window.__ycE2E.state();return s.voice==='voice-a'&&s.audio==='live'},{},{timeout:12000})}
       catch(e){const snapshot=await page.evaluate(()=>window.__ycE2E.state());throw new Error(cfg.platform+' voice join stalled: '+JSON.stringify(snapshot)+' :: '+e.message)}
@@ -202,6 +212,7 @@ async function cleanupSyntheticRemoteStream(page){
       await cleanupSyntheticRemoteStream(page);
       await page.evaluate(()=>window.__ycE2E.disconnectVoice());
       await page.waitForFunction(()=>{const s=window.__ycE2E.state();return !s.voice&&!s.heartbeat&&!s.participantSub});
+      await page.evaluate(()=>window.__ycE2E.stopSyntheticMic());
       assert.deepEqual(errors,[],cfg.platform+' runtime page errors');
       results.push({platform:cfg.platform,authenticated:true,chatWrites:4,voice:true,stream:true,crossServerVoice:true,reconnect:true});
       await context.close();
