@@ -52,10 +52,12 @@ async function ycStartCommunityStreamWatch(){
   const streamStopNew="async function stopScreenShare(silent=false){\n  const ownerUserId=user?.id,stream=screenShareStream;if(!screenShareActive&&!stream)return";
   if(!html.includes(streamStopOld))throw Error('Stream owner cleanup boundary missing');
   html=html.replace(streamStopOld,streamStopNew);
-  const globalStopCallOld="void ycStopGlobalStreamPresence();ycSyncStreamViewer();renderVoiceControls();if(!silent)toast('Sdílení obrazovky ukončeno.')";
-  const globalStopCallNew="void ycStopGlobalStreamPresence(ownerUserId);ycSyncStreamViewer();renderVoiceControls();if(!silent)toast('Sdílení obrazovky ukončeno.')";
-  if(!html.includes(globalStopCallOld))throw Error('Stream owner cleanup call boundary missing');
-  html=html.replace(globalStopCallOld,globalStopCallNew);
+  const stopFnStart=html.indexOf('async function stopScreenShare(silent=false){');
+  const stopFnEnd=html.indexOf('\n}\n',stopFnStart);
+  if(stopFnStart<0||stopFnEnd<0)throw Error('Stream stop function boundary missing');
+  const stopFn=html.slice(stopFnStart,stopFnEnd);
+  if(!stopFn.includes('void ycStopGlobalStreamPresence();'))throw Error('Stream owner cleanup call boundary missing');
+  html=html.slice(0,stopFnStart)+stopFn.replace('void ycStopGlobalStreamPresence();','void ycStopGlobalStreamPresence(ownerUserId);')+html.slice(stopFnEnd);
   const globalStopOld="async function ycStopGlobalStreamPresence(){ycClearStreamPublishTimers();if(user?.id){try{await sb.from('community_stream_presence').delete().eq('user_id',user.id)}catch{}}ycCommunityStreams.delete(String(user?.id||''));renderVoiceChannels(voiceChannelDefs)}";
   const globalStopNew="async function ycStopGlobalStreamPresence(ownerUserId=user?.id){const uid=String(ownerUserId||'');ycClearStreamPublishTimers();if(uid){try{await sb.from('community_stream_presence').delete().eq('user_id',uid)}catch{}}if(uid)ycCommunityStreams.delete(uid);renderVoiceChannels(voiceChannelDefs)}";
   if(!html.includes(globalStopOld))throw Error('Global stream presence owner boundary missing');
