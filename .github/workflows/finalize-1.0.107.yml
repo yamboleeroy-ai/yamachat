@@ -1,0 +1,98 @@
+name: Finalize Yamachat 1.0.107 release
+
+on:
+  push:
+    branches: [release/1.0.107-android-natural-stability-20260928]
+    paths:
+      - ".github/workflows/finalize-1.0.107.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  finalize:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Verify already-published 1.0.107 main state
+        run: |
+          set -euo pipefail
+          git merge-base --is-ancestor ef55173ad3f535528ad6105441c7aae143f54f1c HEAD
+          node - <<'NODE'
+          const fs=require('fs'),crypto=require('crypto');
+          const pkg=require('./desktop/package.json');
+          const manifest=require('./update-manifest.json');
+          if(pkg.version!=='1.0.107')throw new Error('main Windows version is not 1.0.107');
+          if(manifest.windows?.latestVersion!=='1.0.107')throw new Error('main Windows update manifest is not 1.0.107');
+          if(manifest.android?.latestVersionCode!==200672)throw new Error('main Android versionCode is not the validated 200672');
+          if(manifest.android?.latestVersion!=='1.1.0.672')throw new Error('main Android versionName is not the validated 1.1.0.672');
+          const apk=fs.readFileSync('download/Yamachat-Android.apk');
+          const apkSha=crypto.createHash('sha256').update(apk).digest('hex');
+          if(apkSha!==manifest.android.sha256)throw new Error('published Android APK does not match update manifest sha256');
+          const desktop=fs.readFileSync('desktop/desktop-client.html','utf8');
+          if(!desktop.includes('YC_VOICE_HEARTBEAT_MS=15000'))throw new Error('voice stability hardening missing from published main');
+          const androidPatch=fs.readFileSync('mobile/scripts/patch-native.mjs','utf8');
+          if(!androidPatch.includes('ANDROID MICROSOFT NATURAL VOICES v1'))throw new Error('Android Microsoft Natural voice integration missing from published main');
+          console.log('PASS published main state for 1.0.107');
+          NODE
+
+      - name: Download validated artifacts from original release run
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          rm -rf release-assets
+          mkdir release-assets
+          gh run download 36480771872 -R "$GITHUB_REPOSITORY" -n Yamachat-Windows-1.0.107 -D release-assets
+          gh run download 36480771872 -R "$GITHUB_REPOSITORY" -n Yamachat-Android -D release-assets
+
+      - name: Verify release artifacts match published state
+        run: |
+          set -euo pipefail
+          node - <<'NODE'
+          const fs=require('fs'),crypto=require('crypto');
+          const dir='release-assets/';
+          const report=JSON.parse(fs.readFileSync(dir+'android-artifact.json','utf8'));
+          const manifest=require('./update-manifest.json');
+          const a=report.artifact;
+          if(report.sameSigningCertificate!==true)throw new Error('Android signing certificate changed');
+          if(a.package!=='eu.yamachat.app')throw new Error('Android package changed');
+          if(a.versionCode!==manifest.android.latestVersionCode||a.versionName!==manifest.android.latestVersion)throw new Error('Android artifact version differs from published manifest');
+          const apk=fs.readFileSync(dir+'Yamachat-Android.apk');
+          const apkSha=crypto.createHash('sha256').update(apk).digest('hex');
+          if(apkSha!==a.sha256||apkSha!==manifest.android.sha256)throw new Error('Android artifact SHA-256 mismatch');
+          const latest=fs.readFileSync(dir+'latest.yml','utf8');
+          if(!/version:\s*1\.0\.107\b/.test(latest))throw new Error('Windows updater metadata is not 1.0.107');
+          const installer=fs.readFileSync(dir+'Yamachat-Setup-1.0.107.exe');
+          const sha512=crypto.createHash('sha512').update(installer).digest('base64');
+          if(!latest.includes(sha512))throw new Error('Windows installer does not match latest.yml sha512');
+          for(const file of ['Yamachat-Setup-1.0.107.exe.blockmap'])if(!fs.existsSync(dir+file))throw new Error('Missing '+file);
+          console.log('PASS exact Windows/Android 1.0.107 artifacts');
+          NODE
+          cd release-assets
+          sha256sum Yamachat-Setup-1.0.107.exe Yamachat-Setup-1.0.107.exe.blockmap latest.yml Yamachat-Android.apk android-artifact.json > SHA256SUMS.txt
+
+      - name: Create GitHub Release v1.0.107
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if gh release view v1.0.107 -R "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "v1.0.107 already exists; refusing to overwrite it."
+            exit 0
+          fi
+          gh release create v1.0.107 release-assets/* \
+            -R "$GITHUB_REPOSITORY" \
+            --target ef55173ad3f535528ad6105441c7aae143f54f1c \
+            --title "Yamachat 1.0.107" \
+            --notes-file docs/release-1.0.107.md \
+            --latest
