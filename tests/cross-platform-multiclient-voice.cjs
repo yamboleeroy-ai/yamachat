@@ -10,7 +10,37 @@ const configs=[
  {id:'u-ios',name:'iOS PWA',platform:'ios-pwa',width:390,height:844,touch:true,ios:true}
 ];
 
-function source(platform){return fs.readFileSync(path.join(root,platform==='desktop'?'desktop/desktop-client.html':'index.html'),'utf8')}
+function source(platform){
+ const doc=fs.readFileSync(path.join(root,platform==='desktop'?'desktop/desktop-client.html':'index.html'),'utf8'),marker='window.__ycClientReady=true;';
+ assert(doc.includes(marker),platform+' client-ready marker missing');
+ const bridge=`
+window.__ycE2E={
+ state:()=>({user:user?.id||'',community:currentCommunity?.id||'',channel:currentChannel?.id||'',voice:voiceChannel?.id||'',heartbeat:!!voiceHeartbeatTimer,participantSub:!!voiceParticipantSub,audio:voiceStream?.getAudioTracks?.()[0]?.readyState||'',peers:voicePeers.size,connected:[...voicePeerStates.values()].filter(x=>x==='connected').length,liveReceivers:[...voicePeers.values()].flatMap(pc=>pc.getReceivers()).filter(r=>r.track?.kind==='audio'&&r.track.readyState==='live').length}),
+ get voiceSessionId(){return voiceSessionId},
+ handleSignal:msg=>handleVoiceSignal(msg),
+ joinVoiceById:async id=>{const ch=voiceChannelDefs.find(x=>String(x.id)===String(id));if(!ch)throw Error('voice channel missing: '+id);return joinVoiceChannel(ch)},
+ installSignalBridge:()=>{sendVoiceSignal=async(to,data)=>{if(!voiceChannel||!to||to===user.id)return;const wire=JSON.parse(JSON.stringify({...data,from_session:voiceSessionId}));return window.__ycTestSignal({...wire,signal_type:data.signal_type,from:user.id,to,channel_id:voiceChannel.id})}},
+ setRoster:(id,rows)=>{window.__testVoiceRows=rows;voicePresenceByChannel[id]=rows;renderVoiceChannels(voiceChannelDefs)},
+ syncVoice:()=>syncVoicePeers(),
+ watchScreen:id=>ycWatchScreenShare(id),
+ screenActive:id=>voiceScreenActiveByUser.has(id),
+ watching:id=>screenWatchingByUser.has(id),
+ selectCommunityById:id=>selectCommunity(id),
+ disconnectVoice:()=>ycRequestVoiceDisconnect(),
+ startSyntheticScreen:async()=>{
+   const canvas=document.createElement('canvas');canvas.width=640;canvas.height=360;const ctx=canvas.getContext('2d');let frame=0;
+   const timer=setInterval(()=>{ctx.fillStyle='#071019';ctx.fillRect(0,0,640,360);ctx.fillStyle='#70e4e8';ctx.font='28px sans-serif';ctx.fillText('Yamachat multi '+(++frame),30,80)},80);
+   const stream=canvas.captureStream(12),ac=new AudioContext(),osc=ac.createOscillator(),gain=ac.createGain(),dest=ac.createMediaStreamDestination();
+   gain.gain.value=.01;osc.connect(gain).connect(dest);osc.start();stream.addTrack(dest.stream.getAudioTracks()[0]);window.__multiScreen={canvas,stream,ac,osc,timer};
+   getScreenMediaDevices=()=>({getDisplayMedia:async()=>stream});ycPrepareDesktopProcessAudio=async()=>({mode:'test'});
+   const previous=typeof ycScreenPreflightBusy==='undefined'?false:ycScreenPreflightBusy;if(typeof ycScreenPreflightBusy!=='undefined')ycScreenPreflightBusy=true;
+   try{await startScreenShare()}finally{if(typeof ycScreenPreflightBusy!=='undefined')ycScreenPreflightBusy=previous}
+ },
+ stopSyntheticScreen:async()=>{await stopScreenShare(true);const s=window.__multiScreen;if(s){clearInterval(s.timer);try{s.osc.stop()}catch{};s.stream.getTracks().forEach(t=>t.stop());await s.ac.close().catch(()=>{});window.__multiScreen=null}}
+};
+`;
+ return doc.replace(marker,bridge+marker);
+}
 function mockFor(id,name){
  let s=baseMock
   .replaceAll("'audit-user'","'"+id+"'")
