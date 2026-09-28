@@ -1,0 +1,294 @@
+name: Yamachat 1.0.107 release
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: yamachat-1.0.107-release
+  cancel-in-progress: true
+
+jobs:
+  web:
+    uses: ./.github/workflows/web-check.yml
+
+  android:
+    uses: ./.github/workflows/mobile-android.yml
+    secrets: inherit
+
+  ios:
+    uses: ./.github/workflows/mobile-ios.yml
+
+  apple:
+    runs-on: ubuntu-latest
+    outputs:
+      configured: ${{ steps.check.outputs.configured }}
+    steps:
+      - id: check
+        env:
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APP_STORE_CONNECT_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+          APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+          APP_STORE_CONNECT_API_KEY_BASE64: ${{ secrets.APP_STORE_CONNECT_API_KEY_BASE64 }}
+        run: |
+          ready=true
+          for key in APPLE_TEAM_ID APP_STORE_CONNECT_KEY_ID APP_STORE_CONNECT_ISSUER_ID APP_STORE_CONNECT_API_KEY_BASE64; do
+            if [ -z "${!key:-}" ]; then ready=false; echo "::notice::Apple distribution is not configured: $key"; fi
+          done
+          echo "configured=$ready" >> "$GITHUB_OUTPUT"
+
+  testflight:
+    needs: [ios, apple]
+    if: needs.apple.outputs.configured == 'true'
+    uses: ./.github/workflows/mobile-ios-testflight.yml
+    with:
+      marketing_version: '1.0.107'
+    secrets: inherit
+
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 70
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Preserve repository line endings for pinned reference hashes
+        shell: pwsh
+        run: |
+          git config core.autocrlf false
+          git reset --hard HEAD
+
+      - name: Verify exact release scope
+        shell: pwsh
+        run: |
+          git diff --exit-code 14dea21b72128eb6e7fbb4d829e8b4e7c3b25567 -- desktop/main.js desktop/preload.js desktop/notification-preload.js desktop/updater.js windows/process-audio web/stream-viewer.js web/stream-viewer.css scripts/voice-theme-polish.mjs scripts/interaction-notifications.mjs
+          if ($LASTEXITCODE -ne 0) { throw 'Protected shell/stream/updater files changed outside the reviewed 1.0.107 scope' }
+
+      - name: Verify legal, stream and shared client structure
+        run: |
+          node scripts/build-web.mjs
+          node scripts/check.mjs
+          node scripts/check-legal-baseline.mjs
+          node scripts/verify-stream-preview.cjs
+          node tests/legal-ui.mjs
+
+      - name: Run existing voice stream and Windows regression guards
+        shell: pwsh
+        run: |
+          node tests/voice-experience.cjs
+          node tests/windows-presence-stability.cjs
+          node tests/cross-platform-voice-interop.cjs
+          node tests/voice-scale-model.cjs
+          node tests/voice-scale-sql.cjs
+          node tests/stream-viewer.cjs
+          node tests/windows-stream-lifecycle.cjs
+          node tests/windows-process-audio.cjs
+          node tests/windows-interaction-notifications.cjs
+          node tests/windows-taskbar-restore.cjs
+
+      - name: Build native process audio
+        shell: pwsh
+        run: ./scripts/build-windows-process-audio.ps1
+
+      - name: Build WNS with unchanged production identity
+        shell: pwsh
+        env:
+          YAMACHAT_WNS_PACKAGE_VERSION: '1.0.107.0'
+        run: |
+          npm install --no-save --package-lock=false @microsoft/winappcli
+          if ($LASTEXITCODE -ne 0) { throw 'WinApp CLI install failed' }
+          ./scripts/build-windows-wns.ps1
+
+      - name: Verify WNS production identity on runner
+        shell: pwsh
+        run: |
+          & desktop/wns/WindowsAppRuntimeInstall-x64.exe --quiet
+          if ($LASTEXITCODE -ne 0) { throw 'Windows App Runtime install failed' }
+          Add-AppxPackage -Path (Resolve-Path desktop/wns/Yamachat.PushIdentity.msix) -ExternalLocation (Resolve-Path desktop) -AllowUnsigned -ForceApplicationShutdown
+          $pkg = Get-AppxPackage -Name 'yamachat.eu-7E03B8AF'
+          if ($pkg.PackageFamilyName -ne 'yamachat.eu-7E03B8AF_m02xq2dqtpa7p' -or $pkg.Version -ne '1.0.107.0') { throw 'WNS identity/version mismatch' }
+          $pkg | Remove-AppxPackage
+
+      - name: Prepare reviewed runtime
+        shell: pwsh
+        run: |
+          Copy-Item -Recurse -Force build desktop/build
+          Copy-Item -Recurse -Force audio desktop/audio
+          Copy-Item boot-guard.js desktop/boot-guard.js
+          if (Test-Path desktop/preview.json) { throw 'Preview configuration must not enter production' }
+
+      - name: Install desktop dependencies
+        run: npm ci
+        working-directory: desktop
+
+      - name: Build Windows installer
+        run: npm run release:win
+        working-directory: desktop
+
+      - name: Verify installer, runtime and legal package
+        shell: pwsh
+        run: |
+          $appRoot = 'desktop/dist/win-unpacked/resources/app'
+          foreach ($file in @('main.js','preload.js','updater.js','desktop.html','desktop-client.html')) {
+            if ((Get-FileHash "$appRoot/$file").Hash -ne (Get-FileHash "desktop/$file").Hash) { throw "Packaged source mismatch: $file" }
+          }
+          foreach ($file in @('process-audio/Yamachat.ProcessAudioCapture.exe','wns/Yamachat.WnsBridge.exe','wns/Yamachat.PushIdentity.msix','wns/WindowsAppRuntimeInstall-x64.exe','build/icon.ico')) {
+            if (-not (Test-Path "$appRoot/$file")) { throw "Missing packaged runtime: $file" }
+          }
+          $legalRoot = 'desktop/dist/win-unpacked/resources/legal'
+          foreach ($file in @('LICENSE','TERMS_OF_USE.md','PRIVACY_POLICY.md','BRAND-NOTICE.md','PROVENANCE.md','THIRD_PARTY_NOTICES.md','LEGAL-BASELINE.md','ASSET-MANIFEST.md')) {
+            if (-not (Test-Path "$legalRoot/$file")) { throw "Missing packaged legal file: $file" }
+          }
+          $client = Get-Content "$appRoot/desktop-client.html" -Raw
+          if ($client -notmatch 'data-yc-platform="pwa"') { throw 'Packaged Web app/PWA guide missing' }
+          if ($client -notmatch 'code-signing podpis') { throw 'Packaged Windows signing notice missing' }
+          if ($client -match 'pending:true.*Podmínky používání|pending:true.*Ochrana osobních údajů') { throw 'Legal placeholder leaked into release' }
+          if (Test-Path "$appRoot/preview.json") { throw 'Preview isolation leaked into release' }
+          & "$appRoot/process-audio/Yamachat.ProcessAudioCapture.exe" --version
+          if ($LASTEXITCODE -ne 0) { throw 'Native audio helper failed' }
+          if ((Get-Content desktop/dist/latest.yml -Raw) -notmatch 'version:\s*1\.0\.107') { throw 'Wrong updater version' }
+          foreach ($file in @('Yamachat-Setup-1.0.107.exe','Yamachat-Setup-1.0.107.exe.blockmap','latest.yml')) {
+            if (-not (Test-Path "desktop/dist/$file")) { throw "Missing updater asset: $file" }
+          }
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Yamachat-Windows-1.0.107
+          path: |
+            desktop/dist/Yamachat-Setup-1.0.107.exe
+            desktop/dist/Yamachat-Setup-1.0.107.exe.blockmap
+            desktop/dist/latest.yml
+          if-no-files-found: error
+          retention-days: 30
+
+  publish:
+    needs: [web, android, ios, windows, apple, testflight]
+    if: ${{ always() && needs.web.result == 'success' && needs.android.result == 'success' && needs.ios.result == 'success' && needs.windows.result == 'success' && needs.apple.result == 'success' && (needs.testflight.result == 'success' || needs.testflight.result == 'skipped') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: Yamachat-Windows-1.0.107
+          path: release-assets
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: Yamachat-Android
+          path: release-assets
+
+      - name: Validate release provenance and package hashes
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          git fetch origin tag legal-baseline-2026-09-27 --force
+          git merge-base --is-ancestor origin/main HEAD
+          git merge-base --is-ancestor legal-baseline-2026-09-27 HEAD
+          node scripts/check-legal-baseline.mjs
+          node scripts/verify-release-assets.cjs release-assets
+          cd release-assets
+          sha256sum Yamachat-Setup-1.0.107.exe Yamachat-Setup-1.0.107.exe.blockmap latest.yml Yamachat-Android.apk > SHA256SUMS.txt
+
+      - name: Integrate verified source and platform artifacts into main
+        env:
+          RELEASE_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          cp release-assets/Yamachat-Android.apk /tmp/Yamachat-Android.apk
+          cp release-assets/android-artifact.json /tmp/android-artifact.json
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git fetch origin main
+          git checkout -B publish-main origin/main
+
+          if ! git merge --no-ff --no-commit "$RELEASE_SHA"; then
+            git merge --abort || true
+            echo "Release source no longer merges cleanly into main; refusing publication."
+            exit 1
+          fi
+
+          mkdir -p download
+          cp /tmp/Yamachat-Android.apk download/Yamachat-Android.apk
+
+          python - <<'PY'
+          import json
+          from datetime import datetime, timezone
+          from pathlib import Path
+
+          report=json.loads(Path('/tmp/android-artifact.json').read_text())
+          artifact=report['artifact']
+          manifest_path=Path('update-manifest.json')
+          manifest=json.loads(manifest_path.read_text())
+
+          windows=manifest.setdefault('windows',{})
+          if windows.get('latestVersion')!='1.0.106':
+              raise SystemExit('Expected currently published Windows version 1.0.106 before 1.0.107 release')
+          windows['latestVersion']='1.0.107'
+          windows['required']=True
+          windows['releaseUrl']='https://github.com/yamboleeroy-ai/yamachat/releases/tag/v1.0.107'
+          windows['notes']='Yamachat 1.0.107: multi-user voice stability hardening, bounded reconnect/cleanup and Android Microsoft Natural voices.'
+
+          android=manifest.setdefault('android',{})
+          android['latestVersion']=artifact['versionName']
+          android['latestVersionCode']=int(artifact['versionCode'])
+          android['required']=True
+          android['apkUrl']=f"https://yamachat.eu/download/Yamachat-Android.apk?v={artifact['versionCode']}"
+          android['sha256']=artifact['sha256']
+          android['notes']=[
+              'Stability hardening pro multi-user voice, reconnect a cleanup po pádu nebo nekorektním odpojení.',
+              'Microsoft Natural Voices jsou nově dostupné i na Androidu přes zabezpečený Yamachat backend; česká Vlasta a Antonín mají přednost podle volby uživatele.',
+              'Při nedostupnosti Microsoft Natural se automaticky použije současný systémový hlas Androidu.',
+              'Voice, stream, WebRTC, chat, notifikace a mobilní rozložení zůstávají zachované.',
+          ]
+          manifest['publishedAt']=datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace('+00:00','Z')
+          manifest_path.write_text(json.dumps(manifest,ensure_ascii=False,indent=2)+'\n')
+          PY
+
+          node scripts/build-web.mjs
+          node scripts/check.mjs
+          node scripts/check-legal-baseline.mjs
+
+          git add -A
+          git commit -m "Release Yamachat 1.0.107 across platforms [skip ci]"
+          git push origin HEAD:main
+
+      - name: Verify published main before creating release
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          test "$(git show origin/main:desktop/package.json | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>process.stdout.write(JSON.parse(s).version))")" = "1.0.107"
+          git show origin/main:index.html | grep -q 'data-yc-platform="pwa"'
+          git show origin/main:index.html | grep -q 'PRIVACY_POLICY.md'
+          git show origin/main:index.html | grep -q 'TERMS_OF_USE.md'
+          git show origin/main:update-manifest.json | grep -q '"latestVersion": "1.0.107"'
+
+      - name: Publish verified Yamachat 1.0.107 release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          if gh release view v1.0.107 --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo 'Refusing to overwrite an existing release'
+            exit 1
+          fi
+          gh release create v1.0.107 release-assets/* --repo "$GITHUB_REPOSITORY" --target "$RELEASE_SHA" --title "Yamachat 1.0.107" --notes-file docs/release-1.0.107.md --latest
