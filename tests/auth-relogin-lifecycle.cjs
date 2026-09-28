@@ -62,7 +62,7 @@ function fixture(){
     assert(snap.loggedIn.active.length<=firstIn+1,cfg.platform+' realtime channels grow after relogin: '+JSON.stringify(snap));
     assert(snap.loggedOut.active.length<=firstOut,cfg.platform+' realtime channels remain after logout: '+JSON.stringify(snap));
    }
-   const listenerKeys=['focus','online','offline','visibilitychange','pointerdown','keydown','touchstart','mousemove'];
+   const listenerKeys=['focus','online','offline','visibilitychange','pointerdown','keydown','touchstart','mousemove','click'];
    const firstListeners=snapshots[0].loggedOut.listeners,lastListeners=snapshots.at(-1).loggedOut.listeners;
    for(const k of listenerKeys){
     const before=(firstListeners.window[k]||0)+(firstListeners.document[k]||0),after=(lastListeners.window[k]||0)+(lastListeners.document[k]||0);
