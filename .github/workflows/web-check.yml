@@ -31,6 +31,8 @@ jobs:
         run: node tests/legal-ui.mjs
       - name: Legal UI responsive visual checks
         run: node tests/legal-ui-visual.cjs
+      - name: Platform install and login legal portal checks
+        run: node tests/platform-install-ui.cjs
       - name: Upload legal UI screenshots
         if: always()
         uses: actions/upload-artifact@v4
