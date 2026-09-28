@@ -4922,6 +4922,7 @@ let ycHiddenInitTries=0;const ycHiddenInitTimer=setInterval(()=>{ycHiddenInitTri
     ['profileBtn','◉','Profil'],
     ['ycNotifyBtn','🔔','Oznámení'],
     ['appSettingsBtn','⚙','Nastavení'],
+    ['ycLegalAboutBtn','ⓘ','O aplikaci'],
     ['logoutBtn','↪','Odhlásit']
   ];
   function prepareButton(btn,icon,label){
@@ -7140,7 +7141,14 @@ function renderDoc(key){
  const d=DOCS[key];const body=root()?.querySelector('#ycLegalBody');if(!body||!d)return;
  body.innerHTML='<div class="yc-legal-doc-meta"><strong>'+d.title+'</strong><span>Zdroj:</span><code>'+d.file+'</code></div><pre class="yc-legal-doc"></pre><div class="yc-legal-footer">© 2026 Lukáš Hubáček. Všechna práva vyhrazena.</div>';body.querySelector('.yc-legal-doc').textContent=d.text
 }
-function open(section='about'){active=sectionById(section).id;shell()}
+function closeNavigationSurfaces(){
+ document.getElementById('ycGlobalNav')?.classList.remove('yc-mobile-open');
+ document.getElementById('side')?.classList.remove('mobile-open');
+ document.querySelector('.yc-v3-content-grid>.right')?.classList.remove('yc-mobile-open');
+ document.getElementById('app')?.classList.remove('yc-mobile-drawer-open');
+ document.querySelectorAll('[aria-controls][aria-expanded]').forEach(b=>b.setAttribute('aria-expanded','false'));
+}
+function open(section='about'){active=sectionById(section).id;closeNavigationSurfaces();shell()}
 document.addEventListener('click',e=>{
  const section=e.target.closest?.('[data-yc-legal-section]');if(section){active=section.dataset.ycLegalSection;render();return}
  const doc=e.target.closest?.('[data-yc-legal-doc]');if(doc){renderDoc(doc.dataset.ycLegalDoc);return}
