@@ -59,6 +59,8 @@ jobs:
         run: node tests/web-mobile-desktop-behavior-sync.cjs
       - name: Cross-platform voice interoperability
         run: node tests/cross-platform-voice-interop.cjs
+      - name: Voice scale model
+        run: node tests/voice-scale-model.cjs
       - name: Independent stream viewer and WebRTC lifecycle
         run: |
           node tests/stream-transport.mjs
