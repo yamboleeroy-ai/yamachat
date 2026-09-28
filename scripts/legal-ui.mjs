@@ -69,7 +69,11 @@ const SECTIONS=[
  {id:'baseline',label:'Právní baseline',icon:'✓',doc:'baseline'}
 ];
 let active='about';
-const root=()=>document.getElementById('modalRoot');
+function root(){
+ let r=document.getElementById('ycLegalPortal');
+ if(!r){r=document.createElement('div');r.id='ycLegalPortal';document.body.appendChild(r)}
+ return r
+}
 function close(){const r=root();if(r&&r.querySelector('.yc-legal-back'))r.innerHTML=''}
 function sectionById(id){return SECTIONS.find(x=>x.id===id)||SECTIONS[0]}
 function navHtml(){return SECTIONS.map(s=>'<button type="button" class="yc-legal-nav-btn '+(s.id===active?'active ':'')+(s.pending?'pending':'')+'" data-yc-legal-section="'+s.id+'"><span>'+s.icon+'</span><span>'+s.label+'</span><span class="yc-legal-status">'+(s.pending?'Připravuje se':'')+'</span></button>').join('')}
