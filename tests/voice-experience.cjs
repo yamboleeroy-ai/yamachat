@@ -5,6 +5,9 @@ const root=path.resolve(__dirname,'..');
 const target=process.env.YC_CLIENT||'index.html';
 const isDesktop=target.startsWith('desktop/');
 const html=fs.readFileSync(path.join(root,target),'utf8');
+const bootGuard=fs.readFileSync(path.join(root,'boot-guard.js'),'utf8');
+assert(bootGuard.includes('isTransientNetworkRejection'),'Boot guard must classify transient network failures');
+assert(bootGuard.includes('if (isTransientNetworkRejection(event)) return;'),'Transient fetch errors must not instantly trip the fatal boot screen');
 
 // Voice continuity when browsing another server: server navigation is not a disconnect action.
 const selectStart=html.indexOf('async function selectCommunity(id){');
@@ -29,14 +32,12 @@ if(!isDesktop){
  const rejectOther=html.indexOf("if(target.communityId&&currentCommunity?.id&&String(target.communityId)!==String(currentCommunity.id))return null;");
  assert(findLive>=0&&rejectOther>findLive,'iOS PWA must prefer the still-live voice channel before rejecting a different browsed community');
 }
-if(!isDesktop){
- assert(html.includes(".on('presence',{event:'sync'},()=>{refreshVoiceParticipants(id)}"),'Presence sync must refresh participants without re-tracking Realtime presence');
- assert(!html.includes(".on('presence',{event:'sync'},()=>{if(voiceChannel?.id===id)trackVoicePresence()"),'Presence sync must not feed back into room.track()');
- assert(html.includes("void syncVoiceParticipantRow().catch(e=>console.warn('voice participant keepalive',e))"),'Voice heartbeat must renew the database participant row');
- assert(html.includes("if(!voiceSignalSub||!voiceSignalReady)void subscribeVoiceSignals().catch(e=>console.warn('voice signal reconnect',e))"),'Voice heartbeat must recreate a dead signal subscription');
- assert(html.includes("['CHANNEL_ERROR','TIMED_OUT','CLOSED'].includes(status)){voiceSignalReady=false;voiceSignalError='Realtime '+status.toLowerCase()"),'Voice signal subscription must mark CLOSED/error channels unavailable for recovery');
- assert(!html.includes("voice presence keepalive"),'Periodic Realtime presence tracking would reintroduce the Supabase presence-rate-limit storm');
-}
+assert(html.includes(".on('presence',{event:'sync'},()=>{refreshVoiceParticipants(id)}"),'Presence sync must refresh participants without re-tracking Realtime presence');
+assert(!html.includes(".on('presence',{event:'sync'},()=>{if(voiceChannel?.id===id)trackVoicePresence()"),'Presence sync must not feed back into room.track()');
+assert(html.includes("void syncVoiceParticipantRow().catch(e=>console.warn('voice participant keepalive',e))"),'Voice heartbeat must renew the database participant row');
+assert(html.includes("if(!voiceSignalSub||!voiceSignalReady)void subscribeVoiceSignals().catch(e=>console.warn('voice signal reconnect',e))"),'Voice heartbeat must recreate a dead signal subscription');
+assert(html.includes("['CHANNEL_ERROR','TIMED_OUT','CLOSED'].includes(status)"),'Voice signal subscription must recover from CLOSED/error channels');
+assert(!html.includes("voice presence keepalive"),'Periodic Realtime presence tracking would reintroduce the Supabase presence-rate-limit storm');
 assert(html.includes("uid!==user.id&&String(voiceChannel?.id||'')===String(id||'')"),'Participant DELETE must not close the active peer because of another channel');
 assert(html.includes("if(pc?.connectionState==='connected'){voiceMissingSince.delete(id);continue}"),'Connected peers must survive transient participant metadata loss while browsing another server');
 assert(html.includes("if(now-since>60000)closeVoicePeer(id)"),'Transient participant metadata loss needs the desktop-proven peer grace period');
