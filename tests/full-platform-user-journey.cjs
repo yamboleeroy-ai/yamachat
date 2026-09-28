@@ -4,7 +4,24 @@ const root=path.resolve(__dirname,'..');
 const baseMock=fs.readFileSync(path.join(__dirname,'supabase-fixture.js'),'utf8');
 
 function html(platform){
-  return fs.readFileSync(path.join(root,platform==='desktop'?'desktop/desktop-client.html':'index.html'),'utf8');
+  const doc=fs.readFileSync(path.join(root,platform==='desktop'?'desktop/desktop-client.html':'index.html'),'utf8');
+  const marker='window.__ycClientReady=true;';
+  assert(doc.includes(marker),platform+' client-ready marker missing');
+  const bridge=`
+window.__ycE2E={
+  state:()=>({user:user?.id||'',community:currentCommunity?.id||'',channel:currentChannel?.id||'',voice:voiceChannel?.id||'',heartbeat:!!voiceHeartbeatTimer,signalReady:!!voiceSignalReady,participantSub:!!voiceParticipantSub,audio:voiceStream?.getAudioTracks?.()[0]?.readyState||'',peers:voicePeers.size,connected:[...voicePeerStates.values()].filter(x=>x==='connected').length}),
+  get user(){return user},get profile(){return profile},get voiceChannel(){return voiceChannel},get voiceStream(){return voiceStream},get voiceSessionId(){return voiceSessionId},
+  get voicePeers(){return voicePeers},get voicePeerStates(){return voicePeerStates},get voicePeerSessions(){return voicePeerSessions},get voicePresenceByChannel(){return voicePresenceByChannel},
+  get voiceScreenActiveByUser(){return voiceScreenActiveByUser},get remoteScreenStreams(){return remoteScreenStreams},
+  joinVoiceById:async id=>{const ch=voiceChannelDefs.find(x=>String(x.id)===String(id));if(!ch)throw Error('voice channel missing: '+id);return joinVoiceChannel(ch)},
+  selectChannelById:async id=>{const all=await getChannels();return selectChannel(id,all)},
+  selectCommunityById:id=>selectCommunity(id),
+  disconnectVoice:()=>ycRequestVoiceDisconnect(),
+  setRoster:(id,rows)=>{voicePresenceByChannel[id]=rows;renderVoiceChannels(voiceChannelDefs)},
+  attachVoiceScreen,ycAttachRemoteScreenAudio,ycWatchScreenShare,ycSyncStreamViewer
+};
+`;
+  return doc.replace(marker,bridge+marker);
 }
 function mock(){
   let s=baseMock
@@ -53,13 +70,14 @@ async function installSyntheticRemoteStream(page){
     const sender=new RTCPeerConnection(),receiver=new RTCPeerConnection();
     sender.onicecandidate=e=>{if(e.candidate)receiver.addIceCandidate(e.candidate).catch(()=>{})};
     receiver.onicecandidate=e=>{if(e.candidate)sender.addIceCandidate(e.candidate).catch(()=>{})};
-    voicePresenceByChannel[String(voiceChannel.id)]=[{user_id:user.id,username:profile.display_name,session_id:voiceSessionId},{user_id:'peer',username:'Druhý uživatel',session_id:'peer-session'}];
-    voicePeers.set('peer',receiver);voicePeerStates.set('peer','connected');voicePeerSessions.set('peer','peer-session');voiceScreenActiveByUser.add('peer');
-    receiver.ontrack=e=>{if(e.track.kind==='video')attachVoiceScreen('peer',e.streams[0]);else ycAttachRemoteScreenAudio('peer',e.track)};
+    const y=window.__ycE2E,vc=y.voiceChannel,u=y.user,p=y.profile;
+    y.setRoster(String(vc.id),[{user_id:u.id,username:p.display_name,session_id:y.voiceSessionId},{user_id:'peer',username:'Druhý uživatel',session_id:'peer-session'}]);
+    y.voicePeers.set('peer',receiver);y.voicePeerStates.set('peer','connected');y.voicePeerSessions.set('peer','peer-session');y.voiceScreenActiveByUser.add('peer');
+    receiver.ontrack=e=>{if(e.track.kind==='video')y.attachVoiceScreen('peer',e.streams[0]);else y.ycAttachRemoteScreenAudio('peer',e.track)};
     source.getTracks().forEach(t=>sender.addTrack(t,source));
     const offer=await sender.createOffer();await sender.setLocalDescription(offer);await receiver.setRemoteDescription(offer);
     const answer=await receiver.createAnswer();await receiver.setLocalDescription(answer);await sender.setRemoteDescription(answer);
-    await ycWatchScreenShare('peer');ycSyncStreamViewer();
+    await y.ycWatchScreenShare('peer');y.ycSyncStreamViewer();
     window.__journeyStream={canvas,source,ac,osc,timer,sender,receiver,video:document.querySelector('.yc-stream-viewer video')};
   });
   await page.waitForFunction(()=>document.querySelector('.yc-stream-viewer video')?.videoWidth>0);
@@ -104,7 +122,7 @@ async function cleanupSyntheticRemoteStream(page){
       await page.goto('http://127.0.0.1/');
       await page.waitForFunction(()=>window.__ycClientReady,{},{timeout:20000});
       await page.waitForSelector('#app:not(.hidden)');
-      let state=await page.evaluate(()=>({user:user?.id,community:currentCommunity?.id,channel:currentChannel?.id}));
+      let state=await page.evaluate(()=>window.__ycE2E.state());
       assert.equal(state.user,'audit-user',cfg.platform+' authenticated session missing');
       assert.equal(state.community,'community-a',cfg.platform+' initial community missing');
       assert.equal(state.channel,'chat-a',cfg.platform+' initial text channel missing');
@@ -116,46 +134,42 @@ async function cleanupSyntheticRemoteStream(page){
       assert.equal(await page.locator('#messageInput').inputValue(),'');
       
       // Real voice join path with a fake Chromium microphone device.
-      await page.evaluate(async()=>{const ch=voiceChannelDefs.find(x=>String(x.id)==='voice-a');if(!ch)throw Error('voice-a missing');await joinVoiceChannel(ch)});
-      await page.waitForFunction(()=>voiceChannel?.id==='voice-a'&&voiceStream?.getAudioTracks?.()[0]?.readyState==='live');
-      state=await page.evaluate(()=>({
-        voice:voiceChannel?.id,heartbeat:!!voiceHeartbeatTimer,signalReady:!!voiceSignalReady,
-        participantSub:!!voiceParticipantSub,audio:voiceStream?.getAudioTracks?.()[0]?.readyState,
-        rpcs:window.__mockRpcWrites.map(x=>x.name)
-      }));
+      await page.evaluate(()=>window.__ycE2E.joinVoiceById('voice-a'));
+      await page.waitForFunction(()=>{const s=window.__ycE2E.state();return s.voice==='voice-a'&&s.audio==='live'});
+      state=await page.evaluate(()=>({...window.__ycE2E.state(),rpcs:window.__mockRpcWrites.map(x=>x.name)}));
       assert.equal(state.voice,'voice-a');assert(state.heartbeat,cfg.platform+' heartbeat missing');assert(state.signalReady,cfg.platform+' signal subscription not ready');
       assert(state.participantSub,cfg.platform+' scoped participant subscription missing');assert.equal(state.audio,'live');
       assert(state.rpcs.includes('set_voice_participant'),cfg.platform+' did not publish voice lease');
 
       // Text navigation and sending must not tear down voice.
-      await page.evaluate(async()=>{const all=await getChannels();await selectChannel('chat-b',all)});
-      assert.equal(await page.evaluate(()=>voiceChannel?.id),'voice-a',cfg.platform+' voice dropped on channel switch');
+      await page.evaluate(()=>window.__ycE2E.selectChannelById('chat-b'));
+      assert.equal(await page.evaluate(()=>window.__ycE2E.state().voice),'voice-a',cfg.platform+' voice dropped on channel switch');
       await page.locator('#messageInput').fill('chat while in voice '+cfg.platform);await page.locator('#sendBtn').click();
       await page.waitForFunction(()=>window.__mockWrites.filter(x=>x==='messages:insert').length>=2);
 
       // Browsing another server must keep the active room alive.
-      await page.evaluate(()=>selectCommunity('community-b'));
-      await page.waitForFunction(()=>currentCommunity?.id==='community-b'&&currentChannel?.id==='chat-c');
-      assert.equal(await page.evaluate(()=>voiceChannel?.id),'voice-a',cfg.platform+' voice dropped while browsing another server');
+      await page.evaluate(()=>window.__ycE2E.selectCommunityById('community-b'));
+      await page.waitForFunction(()=>{const s=window.__ycE2E.state();return s.community==='community-b'&&s.channel==='chat-c'});
+      assert.equal(await page.evaluate(()=>window.__ycE2E.state().voice),'voice-a',cfg.platform+' voice dropped while browsing another server');
       await page.locator('#messageInput').fill('other server while voice stays '+cfg.platform);await page.locator('#sendBtn').click();
       await page.waitForFunction(()=>window.__mockWrites.filter(x=>x==='messages:insert').length>=3);
-      await page.evaluate(()=>selectCommunity('community-a'));
-      await page.waitForFunction(()=>currentCommunity?.id==='community-a');
+      await page.evaluate(()=>window.__ycE2E.selectCommunityById('community-a'));
+      await page.waitForFunction(()=>window.__ycE2E.state().community==='community-a');
 
       // Real loopback WebRTC screen video+audio viewed while the user remains in voice.
       await installSyntheticRemoteStream(page);
-      const viewerIdentity=await page.evaluate(()=>({voice:voiceChannel?.id,video:!!window.__journeyStream?.video,peer:voicePeers.get('peer')===window.__journeyStream?.receiver}));
+      const viewerIdentity=await page.evaluate(()=>({voice:window.__ycE2E.state().voice,video:!!window.__journeyStream?.video,peer:window.__ycE2E.voicePeers.get('peer')===window.__journeyStream?.receiver}));
       assert.deepEqual(viewerIdentity,{voice:'voice-a',video:true,peer:true},cfg.platform+' stream/voice identity mismatch');
 
       // Continue chatting while a stream is playing; neither peer nor video node may be replaced.
-      const before=await page.evaluate(()=>({video:window.__journeyStream.video,peer:voicePeers.get('peer')}));
+      const before=await page.evaluate(()=>({video:window.__journeyStream.video,peer:window.__ycE2E.voicePeers.get('peer')}));
       await page.evaluate(async()=>{const all=await getChannels();await selectChannel('chat-b',all)});
       await page.locator('#messageInput').fill('chat while watching stream '+cfg.platform);await page.locator('#sendBtn').click();
       await page.waitForFunction(()=>window.__mockWrites.filter(x=>x==='messages:insert').length>=4);
       const continuity=await page.evaluate(()=>({
-        voice:voiceChannel?.id,
+        voice:window.__ycE2E.state().voice,
         sameVideo:window.__journeyStream.video===document.querySelector('.yc-stream-viewer video'),
-        samePeer:window.__journeyStream.receiver===voicePeers.get('peer'),
+        samePeer:window.__journeyStream.receiver===window.__ycE2E.voicePeers.get('peer'),
         currentTime:document.querySelector('.yc-stream-viewer video')?.currentTime||0
       }));
       assert.equal(continuity.voice,'voice-a');assert(continuity.sameVideo,cfg.platform+' stream video replaced during chat');
@@ -163,12 +177,12 @@ async function cleanupSyntheticRemoteStream(page){
 
       // Short offline/online transition must preserve the live client state.
       await context.setOffline(true);await page.waitForTimeout(120);await context.setOffline(false);await page.waitForTimeout(180);
-      const recovered=await page.evaluate(()=>({voice:voiceChannel?.id,sameVideo:window.__journeyStream.video===document.querySelector('.yc-stream-viewer video'),samePeer:window.__journeyStream.receiver===voicePeers.get('peer')}));
+      const recovered=await page.evaluate(()=>({voice:window.__ycE2E.state().voice,sameVideo:window.__journeyStream.video===document.querySelector('.yc-stream-viewer video'),samePeer:window.__journeyStream.receiver===window.__ycE2E.voicePeers.get('peer')}));
       assert.deepEqual(recovered,{voice:'voice-a',sameVideo:true,samePeer:true},cfg.platform+' short reconnect destroyed voice/stream');
 
       await cleanupSyntheticRemoteStream(page);
-      await page.evaluate(()=>ycRequestVoiceDisconnect());
-      await page.waitForFunction(()=>!voiceChannel&&!voiceHeartbeatTimer&&!voiceParticipantSub);
+      await page.evaluate(()=>window.__ycE2E.disconnectVoice());
+      await page.waitForFunction(()=>{const s=window.__ycE2E.state();return !s.voice&&!s.heartbeat&&!s.participantSub});
       assert.deepEqual(errors,[],cfg.platform+' runtime page errors');
       results.push({platform:cfg.platform,authenticated:true,chatWrites:4,voice:true,stream:true,crossServerVoice:true,reconnect:true});
       await context.close();
