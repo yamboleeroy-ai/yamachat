@@ -1,0 +1,119 @@
+name: Finalize Android 1.0.107 delivery refresh
+
+on:
+  push:
+    branches: [release/android-1.0.107-refresh-20260928]
+    paths:
+      - ".github/workflows/finalize-android-1.0.107-refresh.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  finalize:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Verify published Android 200786 main state
+        run: |
+          set -euo pipefail
+          node - <<'NODE'
+          const fs=require('fs'),crypto=require('crypto');
+          const m=require('./update-manifest.json');
+          if(m.windows?.latestVersion!=='1.0.107')throw new Error('Windows release moved unexpectedly');
+          if(m.android?.latestVersionCode!==200786||m.android?.latestVersion!=='1.1.0.786')throw new Error('Android production manifest is not 1.1.0.786 / 200786');
+          const apk=fs.readFileSync('download/Yamachat-Android.apk');
+          const sha=crypto.createHash('sha256').update(apk).digest('hex');
+          if(sha!=='8dd192de9f5d9e4f78b3b9123d554db8f71d07faa399c314d8d959cdb3231d74'||sha!==m.android.sha256)throw new Error('Published main APK hash mismatch');
+          console.log('PASS main Android 1.1.0.786 / 200786');
+          NODE
+
+      - name: Download exact signed Android production artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          rm -rf release-assets android-artifact
+          mkdir -p release-assets android-artifact
+          gh run download 36484559782 -R "$GITHUB_REPOSITORY" -n Yamachat-Android -D android-artifact
+          cp android-artifact/Yamachat-Android.apk release-assets/
+          cp android-artifact/android-artifact.json release-assets/
+
+      - name: Verify Android identity and artifact hash
+        run: |
+          set -euo pipefail
+          node - <<'NODE'
+          const fs=require('fs'),crypto=require('crypto');
+          const r=JSON.parse(fs.readFileSync('release-assets/android-artifact.json','utf8'));
+          const a=r.artifact;
+          if(r.sameSigningCertificate!==true)throw new Error('Android signing certificate changed');
+          if(a.package!=='eu.yamachat.app')throw new Error('Android applicationId changed');
+          if(a.versionCode!==200786||a.versionName!=='1.1.0.786')throw new Error('Wrong Android refresh version');
+          if(a.certificateSha256!=='c51be1dd32aa046a08dcef4d60b6beb2a3a78c8919ac0f92b2135af803362288')throw new Error('Unexpected Android signing certificate');
+          const apk=fs.readFileSync('release-assets/Yamachat-Android.apk');
+          const sha=crypto.createHash('sha256').update(apk).digest('hex');
+          if(sha!==a.sha256||sha!=='8dd192de9f5d9e4f78b3b9123d554db8f71d07faa399c314d8d959cdb3231d74')throw new Error('Android artifact hash mismatch');
+          console.log('PASS signed Android release artifact');
+          NODE
+
+      - name: Download unchanged Windows release assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh release download v1.0.107 -R "$GITHUB_REPOSITORY" \
+            -p 'Yamachat-Setup-1.0.107.exe' \
+            -p 'Yamachat-Setup-1.0.107.exe.blockmap' \
+            -p 'latest.yml' \
+            -D release-assets
+
+      - name: Verify Windows release remains 1.0.107 and build checksums
+        run: |
+          set -euo pipefail
+          node - <<'NODE'
+          const fs=require('fs'),crypto=require('crypto');
+          const latest=fs.readFileSync('release-assets/latest.yml','utf8');
+          if(!/version:\s*1\.0\.107\b/.test(latest))throw new Error('Windows updater metadata changed');
+          const installer=fs.readFileSync('release-assets/Yamachat-Setup-1.0.107.exe');
+          const sha512=crypto.createHash('sha512').update(installer).digest('base64');
+          if(!latest.includes(sha512))throw new Error('Windows installer no longer matches latest.yml');
+          console.log('PASS unchanged Windows 1.0.107 assets');
+          NODE
+          cd release-assets
+          sha256sum Yamachat-Setup-1.0.107.exe Yamachat-Setup-1.0.107.exe.blockmap latest.yml Yamachat-Android.apk android-artifact.json > SHA256SUMS.txt
+
+      - name: Replace only Android assets on v1.0.107
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh release upload v1.0.107 \
+            release-assets/Yamachat-Android.apk \
+            release-assets/android-artifact.json \
+            release-assets/SHA256SUMS.txt \
+            -R "$GITHUB_REPOSITORY" --clobber
+
+      - name: Verify refreshed release assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          rm -rf verify && mkdir verify
+          gh release download v1.0.107 -R "$GITHUB_REPOSITORY" -p 'Yamachat-Android.apk' -p 'android-artifact.json' -D verify
+          node - <<'NODE'
+          const fs=require('fs'),crypto=require('crypto');
+          const report=JSON.parse(fs.readFileSync('verify/android-artifact.json','utf8'));
+          const sha=crypto.createHash('sha256').update(fs.readFileSync('verify/Yamachat-Android.apk')).digest('hex');
+          if(report.artifact.versionCode!==200786||report.artifact.versionName!=='1.1.0.786'||report.sameSigningCertificate!==true)throw new Error('GitHub Release Android metadata mismatch');
+          if(sha!=='8dd192de9f5d9e4f78b3b9123d554db8f71d07faa399c314d8d959cdb3231d74'||sha!==report.artifact.sha256)throw new Error('GitHub Release Android APK hash mismatch');
+          console.log('PASS GitHub Release v1.0.107 Android refreshed to 1.1.0.786 / 200786');
+          NODE
