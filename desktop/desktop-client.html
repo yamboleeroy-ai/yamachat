@@ -1648,18 +1648,19 @@ let ycVoiceKeepMicDuringSwitch=false
 async function loadVoiceTurnServers(){
   if(voiceTurnReady&&voiceIceServers?.length&&Date.now()-ycVoiceTurnLoadedAt<120000)return true
   voiceTurnReady=false;voiceTurnProvider='none'
-  const collected=[],providers=[]
-  const [cloudflare,metered]=await Promise.allSettled([
-    sb.functions.invoke('yamachat-turn-cloudflare',{method:'GET'}),
-    sb.functions.invoke('yamachat-turn',{method:'GET'})
-  ])
-  const add=(result,name)=>{if(result.status!=='fulfilled')return;const value=result.value;if(value?.error||!value?.data?.iceServers?.length)return;collected.push(...value.data.iceServers);providers.push(name)}
-  add(cloudflare,'cloudflare');add(metered,'metered')
-  voiceIceServers=[...collected,{urls:['stun:stun.cloudflare.com:3478','stun:stun.cloudflare.com:53','stun:stun.l.google.com:19302']}]
-  voiceTurnReady=collected.length>0;voiceTurnProvider=providers.join('+')||'stun';ycVoiceTurnLoadedAt=Date.now()
-  if(cloudflare.status==='rejected')console.warn('Cloudflare TURN credentials',cloudflare.reason)
-  if(metered.status==='rejected')console.warn('Metered TURN credentials',metered.reason)
-  return voiceTurnReady
+  const stun={urls:['stun:stun.cloudflare.com:3478','stun:stun.cloudflare.com:53','stun:stun.l.google.com:19302']}
+  try{
+    const {data,error}=await sb.functions.invoke('yamachat-turn-cloudflare',{method:'GET'})
+    if(error)throw error
+    const cloudflareIce=Array.isArray(data?.iceServers)?data.iceServers:[]
+    if(cloudflareIce.length){
+      voiceIceServers=[...cloudflareIce,stun]
+      voiceTurnReady=true;voiceTurnProvider='cloudflare';ycVoiceTurnLoadedAt=Date.now()
+      return true
+    }
+  }catch(e){console.warn('Cloudflare TURN credentials',e)}
+  voiceIceServers=[stun];voiceTurnProvider='stun'
+  return false
 }
 async function joinVoiceChannel(ch){
       if(voiceChannel?.id===ch.id){toast('Už jsi připojený v '+ch.name+'.');return}
