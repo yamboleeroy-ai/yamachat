@@ -98,7 +98,7 @@ function mockFor(id,name){
    await client.page.exposeBinding('__ycTestSignal',async(_source,packet)=>{
     deliveries.push({from:packet.from,to:packet.to,type:packet.signal_type});
     const target=clients.get(packet.to);if(!target)return false;
-    setTimeout(()=>void target.page.evaluate(msg=>handleVoiceSignal(msg),packet).catch(()=>{}),0);
+    setTimeout(()=>void target.page.evaluate(msg=>window.__ycE2E.handleSignal(msg),packet).catch(()=>{}),0);
     return true;
    });
    await client.page.route('**/*',route=>{
@@ -112,38 +112,25 @@ function mockFor(id,name){
    await client.page.goto('http://127.0.0.1/');
    await client.page.waitForFunction(()=>window.__ycClientReady,{},{timeout:20000});
    await client.page.waitForSelector('#app:not(.hidden)');
-   assert.equal(await client.page.evaluate(()=>user?.id),id,id+' authenticated identity mismatch');
-   await client.page.evaluate(async()=>{
-    const ch=voiceChannelDefs.find(x=>String(x.id)==='voice-a');if(!ch)throw Error('voice-a missing');
-    await joinVoiceChannel(ch);
-   });
-   await client.page.waitForFunction(()=>voiceChannel?.id==='voice-a'&&voiceStream?.getAudioTracks?.()[0]?.readyState==='live',{},{timeout:15000});
-   await client.page.evaluate(()=>{
-    sendVoiceSignal=async(to,data)=>{
-     if(!voiceChannel||!to||to===user.id)return;
-     const wire=JSON.parse(JSON.stringify({...data,from_session:voiceSessionId}));
-     await window.__ycTestSignal({...wire,signal_type:data.signal_type,from:user.id,to,channel_id:voiceChannel.id});
-    };
-   });
+   assert.equal(await client.page.evaluate(()=>window.__ycE2E.state().user),id,id+' authenticated identity mismatch');
+   await client.page.evaluate(()=>window.__ycE2E.joinVoiceById('voice-a'));
+   await client.page.waitForFunction(()=>{const s=window.__ycE2E.state();return s.voice==='voice-a'&&s.audio==='live'},{},{timeout:15000});
+   await client.page.evaluate(()=>window.__ycE2E.installSignalBridge());
   }
 
   const roster=[];
   for(const [id,c] of clients){
-   const sid=await c.page.evaluate(()=>voiceSessionId);
+   const sid=await c.page.evaluate(()=>window.__ycE2E.voiceSessionId);
    roster.push({user_id:id,username:c.cfg.name,session_id:sid,muted:false,deafened:false,speaking:false,channel_id:'voice-a',joined_at:new Date().toISOString(),last_seen:new Date().toISOString()});
   }
   for(const c of clients.values()){
-   await c.page.evaluate(rows=>{voicePresenceByChannel['voice-a']=rows;renderVoiceChannels(voiceChannelDefs)},roster);
+   await c.page.evaluate(rows=>window.__ycE2E.setRoster('voice-a',rows),roster);
   }
-  await Promise.all([...clients.values()].map(c=>c.page.evaluate(()=>syncVoicePeers())));
+  await Promise.all([...clients.values()].map(c=>c.page.evaluate(()=>window.__ycE2E.syncVoice())));
 
   for(const [id,c] of clients){
-   await c.page.waitForFunction(expected=>voicePeers.size===expected&&[...voicePeerStates.values()].filter(x=>x==='connected').length===expected,configs.length-1,{timeout:25000});
-   const state=await c.page.evaluate(()=>({
-    peers:voicePeers.size,connected:[...voicePeerStates.values()].filter(x=>x==='connected').length,
-    liveReceivers:[...voicePeers.values()].flatMap(pc=>pc.getReceivers()).filter(r=>r.track?.kind==='audio'&&r.track.readyState==='live').length,
-    voice:voiceChannel?.id
-   }));
+   await c.page.waitForFunction(expected=>{const s=window.__ycE2E.state();return s.peers===expected&&s.connected===expected},configs.length-1,{timeout:25000});
+   const state=await c.page.evaluate(()=>window.__ycE2E.state());
    assert.equal(state.voice,'voice-a');assert.equal(state.peers,3,id+' missing full-mesh peers');assert.equal(state.connected,3,id+' peers not connected');
    assert(state.liveReceivers>=3,id+' missing remote audio receivers');
   }
@@ -154,7 +141,7 @@ function mockFor(id,name){
    await c.page.locator('#messageInput').fill('multiclient voice chat '+id);
    await c.page.locator('#sendBtn').click();
    await c.page.waitForFunction(()=>window.__mockWrites.includes('messages:insert'));
-   assert.equal(await c.page.evaluate(()=>voiceChannel?.id),'voice-a',id+' dropped voice while sending chat');
+   assert.equal(await c.page.evaluate(()=>window.__ycE2E.state().voice),'voice-a',id+' dropped voice while sending chat');
   }
 
   // Stream from desktop through the existing voice peer graph. Viewers request the stream
