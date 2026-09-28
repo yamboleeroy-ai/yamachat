@@ -4,11 +4,16 @@ on:
   pull_request:
     paths:
       - "desktop/desktop-client.html"
+      - "desktop/package.json"
+      - "TERMS_OF_USE.md"
+      - "PRIVACY_POLICY.md"
       - "scripts/build-web.mjs"
       - "scripts/legal-ui.mjs"
       - "scripts/platform-install-ui.mjs"
       - "tests/platform-install-ui.cjs"
       - "tests/legal-ui.mjs"
+      - "mobile/scripts/sync-web.mjs"
+      - "scripts/check-legal-baseline.mjs"
       - ".github/workflows/desktop-legal-preview.yml"
   workflow_dispatch:
 
@@ -99,7 +104,7 @@ jobs:
           if ((Get-Content "$appRoot/desktop-client.html" -Raw) -notmatch 'ycLegalUiV1') { throw 'Packaged legal UI marker missing' }
           if ((Get-Content "$appRoot/desktop-client.html" -Raw) -notmatch 'id="ycLegalAboutBtn"') { throw 'Packaged About button missing' }
           if ((Get-Content "$appRoot/desktop-client.html" -Raw) -match '<small>Věk</small><strong>33 let</strong>') { throw 'Developer age still packaged' }
-          foreach ($file in @('LICENSE','BRAND-NOTICE.md','PROVENANCE.md','THIRD_PARTY_NOTICES.md','LEGAL-BASELINE.md','ASSET-MANIFEST.md')) {
+          foreach ($file in @('LICENSE','TERMS_OF_USE.md','PRIVACY_POLICY.md','BRAND-NOTICE.md','PROVENANCE.md','THIRD_PARTY_NOTICES.md','LEGAL-BASELINE.md','ASSET-MANIFEST.md')) {
             if (-not (Test-Path "$legalRoot/$file")) { throw "Missing packaged legal source: $file" }
           }
           Compress-Archive -Path 'desktop/dist/win-unpacked/*' -DestinationPath 'yamachat-windows-legal-ui-preview.zip' -Force
