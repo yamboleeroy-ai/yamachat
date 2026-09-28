@@ -71,6 +71,8 @@ function inside(b,w,h){return b&&b.width>0&&b.height>0&&b.x>=-1&&b.y>=-1&&b.x+b.
       await page.evaluate(()=>window.YamachatLegalUI.open('about'));
       await page.waitForSelector('.yc-legal-shell');
       assert(inside(await page.locator('.yc-legal-shell').boundingBox(),844,390));
+      assert.equal(await page.locator('.yc-legal-shell').evaluate(el=>getComputedStyle(el).gridTemplateColumns.split(' ').length),1);
+      assert.equal(await page.locator('.yc-legal-links-grid').evaluate(el=>getComputedStyle(el).gridTemplateColumns.split(' ').length),1);
       await page.screenshot({path:path.join(__dirname,'legal-ui-screens','mobile-about-landscape.png'),fullPage:true});
       assert.deepEqual(errors,[]);
       await page.close();
