@@ -71,6 +71,7 @@ jobs:
         run: |
           node tests/voice-experience.cjs
           node tests/cross-platform-voice-interop.cjs
+          node tests/voice-scale-model.cjs
           node tests/stream-viewer.cjs
           node tests/windows-stream-lifecycle.cjs
           node tests/windows-process-audio.cjs
