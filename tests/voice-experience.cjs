@@ -135,7 +135,11 @@ assert(html.includes("row.channel_id||''"),'Voice announcement active-channel in
 assert(html.includes("cached?.channel_id||activeChannel"),'Voice leave announcement cannot recover channel/name from cached presence');
 assert(html.includes('ycVoiceDiffAnnouncements(id,before,after)'),'Participant refresh does not diff join/leave state');
 assert(html.includes("const before=[...(voicePresenceByChannel[id]||[])]"),'Participant refresh does not preserve cached leave rows');
-assert(html.includes("const newDeleteCache=\"if(id){if(voiceChannel?.id===id)syncVoicePeers()}renderVoiceChannels(voiceChannelDefs)\"")||html.includes("if(id){if(voiceChannel?.id===id)syncVoicePeers()}renderVoiceChannels(voiceChannelDefs)"),'DELETE path removes cached participant before diff can retain the username');
+assert(
+ html.includes("if(id){if(voiceChannel?.id===id)syncVoicePeers()}renderVoiceChannels(voiceChannelDefs)")||
+ html.includes("payload=>{const uid=payload.old?.user_id;if(uid&&uid!==user.id)closeVoicePeer(uid);void refreshVoiceParticipants(id)}"),
+ 'DELETE path must preserve cached participant until refreshed roster diff can retain the username'
+);
 assert(html.includes('YC_VOICE_JOIN_CUE_SRC'),'Uploaded join cue path missing');
 assert(html.includes('YC_VOICE_LEAVE_CUE_SRC'),'Uploaded leave cue path missing');
 assert(html.includes("./audio/yamachat_join_voice.mp3"),'Exact JOIN file is not referenced');
