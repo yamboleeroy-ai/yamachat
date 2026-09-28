@@ -190,8 +190,11 @@ async function cleanupSyntheticRemoteStream(page){
       const viewerIdentity=await page.evaluate(()=>({voice:window.__ycE2E.state().voice,video:!!window.__journeyStream?.video,peer:window.__ycE2E.voicePeers.get('peer')===window.__journeyStream?.receiver}));
       assert.deepEqual(viewerIdentity,{voice:'voice-a',video:true,peer:true},cfg.platform+' stream/voice identity mismatch');
 
-      // Continue chatting while a stream is playing; neither peer nor video node may be replaced.
+      // Minimize the independent stream player, then continue chatting.
+      // The same video element / MediaStream / RTC peer must survive the UI transition.
       const before=await page.evaluate(()=>({video:window.__journeyStream.video,peer:window.__ycE2E.voicePeers.get('peer')}));
+      await page.locator('.yc-stream-viewer [data-action="minimize"]').click();
+      await page.waitForFunction(()=>document.querySelector('.yc-stream-viewer')?.dataset.mode==='mini');
       await page.evaluate(()=>window.__ycE2E.selectChannelById('chat-b'));
       await page.locator('#messageInput').fill('chat while watching stream '+cfg.platform);await page.locator('#sendBtn').click();
       await page.waitForFunction(()=>window.__mockWrites.filter(x=>x==='messages:insert').length>=4);
