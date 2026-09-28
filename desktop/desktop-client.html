@@ -4146,7 +4146,44 @@ window.__ycV3NavRegistryBridge={
   nexusJoinPrompt:()=>joinCommunityPrompt(),
   nexusLeaveCommunity:(id)=>ycLeaveCommunity(id,false),
   nexusOpenServerInfo:(id)=>ycOpenServerCardInfo(id),
-  nexusCreateCommunity:()=>createCommunity()
+  nexusCreateCommunity:()=>createCommunity(),
+  nexusVoiceUiState:()=>{
+    const connected=!!voiceChannel,switching=!!window.__ycVoiceSwitchBusy,people=connected?(voicePresenceByChannel[voiceChannel.id]||[]):[];
+    const banner=profileBannerUrl(profile);
+    return {
+      connected,
+      switching,
+      channelName:switching?(window.__ycVoiceSwitchTargetName||'Hlasový kanál'):(voiceChannel?.name||'Hlas připraven'),
+      communityName:currentCommunity?.name||'Yamachat',
+      selfName:profile?.display_name||profile?.username||'Uživatel',
+      bannerUrl:banner||'',
+      avatarUrl:avatarUrl(profile)||'',
+      speaking:!!voiceSpeaking||people.some(p=>!!p.speaking&&!p.muted),
+      speakingCount:people.filter(p=>!!p.speaking&&!p.muted).length,
+      participantCount:people.length,
+      muted:!!voiceMuted,
+      deafened:!!voiceDeafened,
+      screenShareActive:!!screenShareActive,
+      route:voiceRouteMode||'checking'
+    }
+  },
+  nexusVoiceStats:async()=>{
+    const samples=[];let connectedPeers=0;
+    for(const pc of voicePeers.values()){
+      if(!pc||pc.connectionState!=='connected')continue;
+      connectedPeers++;
+      try{
+        const stats=await pc.getStats();let pair=null;
+        stats.forEach(st=>{if(!pair&&st.type==='transport'&&st.selectedCandidatePairId){const candidate=stats.get(st.selectedCandidatePairId);if(candidate)pair=candidate}});
+        if(!pair)stats.forEach(st=>{if(!pair&&st.type==='candidate-pair'&&st.state==='succeeded'&&st.nominated)pair=st});
+        const rtt=Number(pair?.currentRoundTripTime);
+        if(Number.isFinite(rtt)&&rtt>=0)samples.push(rtt*1000);
+      }catch{}
+    }
+    const ms=samples.length?Math.round(samples.reduce((a,b)=>a+b,0)/samples.length):null;
+    const quality=ms==null?(connectedPeers?'Měřím…':'Čekám na spojení'):ms<55?'Výborná':ms<100?'Dobrá':ms<180?'Stabilní':'Slabší';
+    return {ms,quality,connectedPeers,route:voiceRouteMode||'checking'}
+  }
 };
 try{ycEnsureFriendsRailButton=function(){document.getElementById('ycFriendsRailBtn')?.remove();return null}}catch{}
 try{
