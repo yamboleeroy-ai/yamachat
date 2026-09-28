@@ -35,16 +35,17 @@ function inside(b,w,h){return b&&b.width>0&&b.height>0&&b.x>=-1&&b.y>=-1&&b.x+b.
    const fb=await forgot.boundingBox(),rb=await row.boundingBox(),lb=await legal.boundingBox();
    assert(fb&&rb&&lb&&fb.y<rb.y&&rb.y<lb.y,'Platform row must be between forgot password and legal links');
    assert(inside(rb,w,h),`Platform row must be reachable inside scrollable auth viewport at ${w}x${h}`);
-   assert.equal(await page.locator('[data-yc-platform]').count(),4);
+   assert.equal(await page.locator('[data-yc-platform]').count(),5);
    assert.equal(await page.locator('#ycAuthDownloads').count(),0,'Legacy login download block must not duplicate compact platform launcher');
 
    const expected={
     windows:`https://github.com/yamboleeroy-ai/yamachat/releases/download/v${manifest.windows.latestVersion}/Yamachat-Setup-${manifest.windows.latestVersion}.exe`,
     android:String(manifest.android.apkUrl),
     web:'https://yamachat.eu/',
+    pwa:'https://yamachat.eu/',
     ios:'https://yamachat.eu/'
    };
-   for(const id of ['windows','android','web','ios']){
+   for(const id of ['windows','android','web','pwa','ios']){
     await page.locator('[data-yc-platform="'+id+'"]').click();
     const dialog=page.locator('.yc-platform-dialog');await dialog.waitFor({state:'visible'});
     assert(inside(await dialog.boundingBox(),w,h),`${id} dialog outside viewport at ${w}x${h}`);
@@ -52,6 +53,16 @@ function inside(b,w,h){return b&&b.width>0&&b.height>0&&b.x>=-1&&b.y>=-1&&b.x+b.
     assert.equal(href,expected[id],id+' unexpected install URL');
     const text=await dialog.textContent();
     assert(!/Google Play|App Store/i.test(text)||/Není vydaný přes Google Play|Veřejná aplikace v App Store není/i.test(text),id+' must not imply store availability');
+    if(id==='windows'){
+      assert(/code-signing podpis/i.test(text),'Windows signing notice missing');
+      assert(/SmartScreen/i.test(text),'Windows SmartScreen explanation missing');
+      assert(/neznamená, že soubor je virus/i.test(text),'Windows false-positive explanation missing');
+    }
+    if(id==='pwa'){
+      assert(/webovou aplikaci \(PWA\)/i.test(text),'Desktop PWA explanation missing');
+      assert(/nabídce \/ nastavení prohlížeče/i.test(text),'Browser menu installation step missing');
+      assert(/Nainstalovat tento web jako aplikaci/i.test(text),'Install-as-app instruction missing');
+    }
     await dialog.locator('[data-yc-platform-close]').click();await dialog.waitFor({state:'detached'});
    }
    assert.deepEqual(errors,[]);
