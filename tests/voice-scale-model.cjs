@@ -31,6 +31,9 @@ assert(!desktop.includes("room?.untrack("),'Voice Presence untrack returned');
 assert(desktop.includes("function ycStartRemoteVoiceActivityDetector(peerId,stream)"),'Local remote-speaking detector missing');
 assert(!desktop.includes("syncVoiceParticipantRow().catch(()=>{});renderVoiceChannels(voiceChannelDefs)"),'Speech edges still write Postgres rows');
 assert(!desktop.includes("sb.functions.invoke('yamachat-turn',{method:'GET'})"),'Metered TURN returned');
+assert(desktop.includes("async function recoverVoiceSignals()"),'Voice signal recovery missing');
+assert(desktop.includes("lt('created_at',stale)"),'Stale voice signals are not pruned');
+assert(desktop.includes("gt('created_at',recent)"),'Recent missed voice signals are not recovered');
 
 // This test intentionally documents the remaining media-plane boundary:
 // P2P full mesh is safe only for small rooms. 100–1000 total users can be spread
