@@ -45,6 +45,8 @@ jobs:
         run: node tests/voice-scale-model.cjs
       - name: Stream scale model
         run: node tests/stream-scale.cjs
+      - name: Stream presence stop race
+        run: node tests/stream-presence-race.cjs
       - name: Stream viewer lifecycle
         run: node tests/stream-viewer.cjs
       - name: Windows taskbar restore regression
