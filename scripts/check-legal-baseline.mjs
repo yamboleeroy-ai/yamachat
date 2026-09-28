@@ -2,6 +2,8 @@ import fs from 'node:fs';
 
 const legalFiles=[
   "LICENSE",
+  "TERMS_OF_USE.md",
+  "PRIVACY_POLICY.md",
   "BRAND-NOTICE.md",
   "PROVENANCE.md",
   "THIRD_PARTY_NOTICES.md",

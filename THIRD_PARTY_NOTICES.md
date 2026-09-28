@@ -118,10 +118,31 @@ package regardless of this summary.
 
 ## External services
 
-Yamachat interoperates with hosted external services including Supabase,
-Microsoft services, Firebase/Google services and email-delivery infrastructure.
-Those hosted services are governed by their own service and privacy terms, not
-by the Yamachat Proprietary License.
+Yamachat interoperates with hosted external services. These services are not
+claimed as Yamachat-owned software merely because Yamachat connects to them,
+and they remain governed by their own service, licence and privacy terms.
+
+Current integrations verified in the project include:
+
+- **Supabase** — authentication, PostgreSQL database access, Realtime, Storage
+  and Edge Functions used by the Yamachat backend.
+- **Cloudflare Realtime TURN** — temporary ICE/TURN credentials and relay
+  infrastructure used when WebRTC connectivity requires a relay.
+- **Metered TURN** — TURN/STUN relay infrastructure used as an additional
+  WebRTC connectivity provider.
+- **Google Firebase Cloud Messaging (FCM)** — Android push-notification
+  delivery.
+- **Microsoft Windows Push Notification Services (WNS)** — Windows desktop
+  push-notification delivery.
+- **Microsoft Azure Speech** — optional text-to-speech processing for supported
+  Yamachat voice-announcement features when that integration is configured and
+  used.
+- **Web Push infrastructure** — browser/PWA push subscriptions and delivery via
+  the user's browser/platform push service.
+
+The project also relies on email-delivery infrastructure for authentication
+emails. The concrete delivery provider is configuration-dependent and is not
+asserted in this notice where it cannot be verified from the repository.
 
 ## Distribution rule
 
