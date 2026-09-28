@@ -1370,9 +1370,10 @@ $('mobileMenu').onclick=()=>$('side').classList.toggle('mobile-open')
 function ycHideBootSplash(){$('ycBootSplash')?.classList.add('hidden')}function ycShowBootSplash(){$('ycBootSplash')?.classList.remove('hidden')}function ycRevealApp(){window.YamachatBootGuard?.ready();$('auth').classList.add('hidden');$('app').classList.remove('hidden');ycHideBootSplash()}function showAuth(){window.YamachatBootGuard?.ready();ycAbortChatMediaLoad();++ycAuthGeneration;++ycChannelSelectSeq;++ycCommunitySelectSeq;++voiceActionSeq;clearChat("Pro zobrazení zpráv se přihlas.");currentChannel=currentThread=currentCommunity=null;currentRole=null;communities=[];dmThreads=[];pendingFile=null;$("messageInput").value="";$("fileInput").value="";$("pendingFile").classList.add("hidden");ycChatSignedUrlCache.clear();ycChatAttachmentCache.clear();ycChatAttachmentKnown.clear();ycChatAttachmentDirty.clear();ycChatRolePackCache.clear();cleanupVoiceRooms();if(communityRealtimeSub){sb.removeChannel(communityRealtimeSub);communityRealtimeSub=null}if(userRealtimeSub){sb.removeChannel(userRealtimeSub);userRealtimeSub=null}session=user=profile=null;$('app').classList.add('hidden');$('auth').classList.remove('hidden');ycHideBootSplash()}
 async function initApp(s){
   window.YamachatBootGuard?.begin();
-  const generation=++ycAuthGeneration,uid=s.user.id;
-  const active=()=>generation===ycAuthGeneration&&user?.id===uid;
-  session=s;user=s.user;$('auth').classList.add('hidden');$('app').classList.add('hidden');ycShowBootSplash();
+  const generation=++ycAuthGeneration,uid=s.user.id,authActive=()=>generation===ycAuthGeneration;
+  try{await ycVoiceCleanupPromise}catch(e){console.warn('previous voice cleanup',e)}
+  if(!authActive())return false;
+  session=s;user=s.user;const active=()=>generation===ycAuthGeneration&&user?.id===uid;$('auth').classList.add('hidden');$('app').classList.add('hidden');ycShowBootSplash();
   if(innerWidth<=720)$('mobileMenu').classList.remove('hidden');
   try {
     const {data,error}=await sb.from('profiles').select('*').eq('id',uid).single();
@@ -1703,9 +1704,10 @@ async function leaveVoiceChannel(silent=false){
       for(const t of screenWatchTimers.values())clearTimeout(t);screenWatchTimers.clear();voiceAudioNodes.clear();voiceScreenSenders.clear();remoteScreenStreams.clear();voiceScreenActiveByUser.clear();screenShareViewers.clear();screenWatchingByUser.clear();screenWatchPendingByUser.clear();try{for(const id of [...(window.__ycScreenAudioEls?.keys?.()||[])])ycRemoveScreenAudioElement(id)}catch{}ycSyncStreamViewer();voicePeers.clear();voicePeerStates.clear();voicePeerSessions.clear();voiceRelayCandidates.clear();voiceIceGatherDone.clear();voiceIceRestarted.clear();voiceIceQueues.clear();voiceSessionId='';
       if(voiceStream&&!ycVoiceKeepMicDuringSwitch){await ycStopManagedMicStream(voiceStream);voiceStream=null}
       voiceChannel=null;stopVoiceParticipantSubscription();voiceRouteMode='checking';renderVoiceControls();
-      if(old){setTimeout(()=>updateVoicePresence(old.id),150);if(!silent)toast('Odpojeno z hlasového kanálu.')}
+      if(old){if(!silent)setTimeout(()=>updateVoicePresence(old.id),150);if(!silent)toast('Odpojeno z hlasového kanálu.')}
     }
-function cleanupVoiceRooms(){if(typeof ycStopMicTest==='function')ycStopMicTest();stopVoiceHeartbeat();stopVoiceRosterRefresh();for(const id of [...voiceRemoteVadStops.keys()])ycStopRemoteVoiceActivityDetector(id);leaveVoiceChannel(true);for(const [,room] of voiceRooms)sb.removeChannel(room);voiceRooms.clear();voicePresenceByChannel={};voiceChannelDefs=[];voiceMissingSince.clear();if(voiceParticipantSub){sb.removeChannel(voiceParticipantSub);voiceParticipantSub=null}if(voiceSignalSub){sb.removeChannel(voiceSignalSub);voiceSignalSub=null;voiceSignalReady=false}}
+let ycVoiceCleanupPromise=Promise.resolve(),ycVoiceCleanupActive=false
+function cleanupVoiceRooms(){if(typeof ycStopMicTest==='function')ycStopMicTest();stopVoiceHeartbeat();stopVoiceRosterRefresh();for(const id of [...voiceRemoteVadStops.keys()])ycStopRemoteVoiceActivityDetector(id);if(!ycVoiceCleanupActive){ycVoiceCleanupActive=true;ycVoiceCleanupPromise=Promise.resolve(leaveVoiceChannel(true)).catch(e=>console.warn('voice cleanup',e)).finally(()=>{ycVoiceCleanupActive=false})}for(const [,room] of voiceRooms)sb.removeChannel(room);voiceRooms.clear();voicePresenceByChannel={};voiceChannelDefs=[];voiceMissingSince.clear();if(voiceParticipantSub){sb.removeChannel(voiceParticipantSub);voiceParticipantSub=null}if(voiceSignalSub){sb.removeChannel(voiceSignalSub);voiceSignalSub=null;voiceSignalReady=false}return ycVoiceCleanupPromise}
 function unlockVoiceAudio(){try{const C=window.AudioContext||window.webkitAudioContext;if(!C)return;if(!voiceAudioContext)voiceAudioContext=new C();voiceAudioContext.resume().catch(()=>{});const g=voiceAudioContext.createGain();g.gain.value=0;const o=voiceAudioContext.createOscillator();o.connect(g).connect(voiceAudioContext.destination);o.start();o.stop(voiceAudioContext.currentTime+.03);if(voiceOutputId&&typeof voiceAudioContext.setSinkId==='function')voiceAudioContext.setSinkId(voiceOutputId).catch(()=>{})}catch{}}
 
 let voiceRouteMode='checking',voiceRouteDetail=''
@@ -1819,13 +1821,13 @@ async function startScreenShare(){
   await broadcastScreenState(true);void ycStartGlobalStreamPresence();ycSyncStreamViewer();renderVoiceControls();toast('Sdílení obrazovky spuštěno · diváci se připojí až po kliknutí Sledovat stream.')
 }
 async function stopScreenShare(silent=false){
-  const stream=screenShareStream;if(!screenShareActive&&!stream)return
+  const ownerUserId=user?.id,stream=screenShareStream;if(!screenShareActive&&!stream)return
   screenShareActive=false;screenShareStream=null;screenShareViewers.clear()
   for(const [,sender] of voiceScreenSenders){try{await sender.replaceTrack(null)}catch{}}
   if(typeof ycResetScreenAudioSenders==='function')await ycResetScreenAudioSenders()
   else if(typeof ycEnsureScreenAudio==='function')await ycEnsureScreenAudio()
   await broadcastScreenState(false);await disableScreenShareAudio(true);await ycStopDesktopProcessAudio();if(stream)for(const t of stream.getTracks()){t.onended=null;try{t.stop()}catch{}}
-  void ycStopGlobalStreamPresence();ycSyncStreamViewer();renderVoiceControls();if(!silent)toast('Sdílení obrazovky ukončeno.')
+  void ycStopGlobalStreamPresence(ownerUserId);ycSyncStreamViewer();renderVoiceControls();if(!silent)toast('Sdílení obrazovky ukončeno.')
 }
 
 function ycStopRemoteVoiceActivityDetector(peerId){const stop=voiceRemoteVadStops.get(peerId);if(stop){try{stop()}catch{}voiceRemoteVadStops.delete(peerId)}voiceRemoteSpeaking.delete(peerId);const row=document.querySelector('.voice-user[data-user-id="'+CSS.escape(String(peerId))+'"]');row?.classList.remove('is-speaking')}
@@ -3308,7 +3310,7 @@ async function ycPublishStreamPresence(initial=false,withPreview=false){
 async function ycStartGlobalStreamPresence(){
   ycClearStreamPublishTimers();await ycPublishStreamPresence(true,false);setTimeout(()=>{if(screenShareActive)void ycPublishStreamPresence(false,true)},450);ycStreamPresenceTimer=setInterval(()=>{if(screenShareActive)void ycPublishStreamPresence(false,false)},12000);ycStreamPreviewTimer=setInterval(()=>{if(screenShareActive)void ycPublishStreamPresence(false,true)},15000)
 }
-async function ycStopGlobalStreamPresence(){ycClearStreamPublishTimers();if(user?.id){try{await sb.from('community_stream_presence').delete().eq('user_id',user.id)}catch{}}ycCommunityStreams.delete(String(user?.id||''));renderVoiceChannels(voiceChannelDefs)}
+async function ycStopGlobalStreamPresence(ownerUserId=user?.id){const uid=String(ownerUserId||'');ycClearStreamPublishTimers();if(uid){try{await sb.from('community_stream_presence').delete().eq('user_id',uid)}catch{}}if(uid)ycCommunityStreams.delete(uid);renderVoiceChannels(voiceChannelDefs)}
 ycOnLifecycle('init',async()=>{try{if(user?.id&&!screenShareActive)await sb.from('community_stream_presence').delete().eq('user_id',user.id)}catch{};await ycStartCommunityStreamWatch()})
 ycOnLifecycle('beforeCommunity',()=>{void ycStopCommunityStreamWatch();ycCommunityStreams.clear()})
 ycOnLifecycle('community',()=>{void ycStartCommunityStreamWatch()})
