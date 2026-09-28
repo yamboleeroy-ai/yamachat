@@ -222,6 +222,13 @@ export function withVoiceExperience(html){
  ]) if(!html.includes(part))throw Error('Voice experience insertion boundary missing: '+part);
  if(html.includes('ycVoiceExperienceStyle'))return html;
 
+ // TURN routing: keep P2P/STUN and Cloudflare TURN only. Metered stays server-side as an
+ // inactive rollback resource for this preview and is never requested or exposed to clients.
+ const oldTurn="async function loadVoiceTurnServers(){\n  if(voiceTurnReady&&voiceIceServers?.length&&Date.now()-ycVoiceTurnLoadedAt<120000)return true\n  voiceTurnReady=false;voiceTurnProvider='none'\n  try{const {data,error}=await sb.functions.invoke('yamachat-turn-cloudflare',{method:'GET'});if(!error&&data?.iceServers?.length){voiceIceServers=data.iceServers;voiceTurnReady=true;voiceTurnProvider='cloudflare';ycVoiceTurnLoadedAt=Date.now();return true}}catch(e){console.warn('Cloudflare TURN credentials',e)}\n  try{const {data,error}=await sb.functions.invoke('yamachat-turn',{method:'GET'});if(error)throw error;if(data?.iceServers?.length){voiceIceServers=data.iceServers;voiceTurnReady=true;voiceTurnProvider='metered';ycVoiceTurnLoadedAt=Date.now();return true}}catch(e){console.warn('Metered TURN credentials',e)}\n  voiceIceServers=[{urls:['stun:stun.cloudflare.com:3478','stun:stun.cloudflare.com:53','stun:stun.l.google.com:19302']}];return false\n}";
+ const newTurn="async function loadVoiceTurnServers(){\n  if(voiceTurnReady&&voiceIceServers?.length&&Date.now()-ycVoiceTurnLoadedAt<120000)return true\n  voiceTurnReady=false;voiceTurnProvider='none'\n  const stun={urls:['stun:stun.cloudflare.com:3478','stun:stun.cloudflare.com:53','stun:stun.l.google.com:19302']}\n  try{\n    const {data,error}=await sb.functions.invoke('yamachat-turn-cloudflare',{method:'GET'})\n    if(error)throw error\n    const cloudflareIce=Array.isArray(data?.iceServers)?data.iceServers:[]\n    if(cloudflareIce.length){\n      voiceIceServers=[...cloudflareIce,stun]\n      voiceTurnReady=true;voiceTurnProvider='cloudflare';ycVoiceTurnLoadedAt=Date.now()\n      return true\n    }\n  }catch(e){console.warn('Cloudflare TURN credentials',e)}\n  voiceIceServers=[stun];voiceTurnProvider='stun'\n  return false\n}";
+ if(!html.includes(oldTurn))throw Error('Cloudflare TURN routing boundary missing');
+ html=html.replace(oldTurn,newTurn);
+
  // Manual AFK/DND/invisible always wins. While voice is connected, automatic AFK is based on
  // prolonged microphone silence (or total inactivity), never merely on browsing another server or hiding the window.
  const oldPresence="function ycAutoPresenceState(){const pref=ycPresencePreference();if(pref!=='online')return pref;return document.hidden||Date.now()-ycLastInputAt>=300000?'afk':'online'}";
