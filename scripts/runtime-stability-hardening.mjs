@@ -1,0 +1,7 @@
+export function withRuntimeStabilityHardening(html){
+  if(html.includes('__ycNotifyOutsideClickInstalled'))return html;
+  const old=`if(!panel){panel=document.createElement('div');panel.id='ycNotifyPanel';panel.className='yc-notify-panel hidden';panel.innerHTML='<div class="yc-notify-head"><strong>🔔 Oznámení</strong><button id="ycNotifyMarkAll" class="yc-notify-markall" type="button">Označit vše jako přečtené</button></div><div id="ycNotifyList" class="yc-notify-list"></div>';document.body.appendChild(panel);$('ycNotifyMarkAll').onclick=async(e)=>{e.stopPropagation();await ycMarkAllNotificationsRead()};panel.onclick=e=>e.stopPropagation();document.addEventListener('click',()=>panel.classList.add('hidden'))}`;
+  const next=`if(!panel){panel=document.createElement('div');panel.id='ycNotifyPanel';panel.className='yc-notify-panel hidden';panel.innerHTML='<div class="yc-notify-head"><strong>🔔 Oznámení</strong><button id="ycNotifyMarkAll" class="yc-notify-markall" type="button">Označit vše jako přečtené</button></div><div id="ycNotifyList" class="yc-notify-list"></div>';document.body.appendChild(panel);$('ycNotifyMarkAll').onclick=async(e)=>{e.stopPropagation();await ycMarkAllNotificationsRead()};panel.onclick=e=>e.stopPropagation();if(!window.__ycNotifyOutsideClickInstalled){window.__ycNotifyOutsideClickInstalled=true;document.addEventListener('click',()=>document.getElementById('ycNotifyPanel')?.classList.add('hidden'))}}`;
+  if(!html.includes(old))throw Error('Runtime stability notification listener boundary missing');
+  return html.replace(old,next);
+}
