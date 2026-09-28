@@ -30,7 +30,15 @@
   window.addEventListener('error', event => {
     if (event.target?.tagName === 'SCRIPT' || event.error) fail();
   }, true);
-  window.addEventListener('unhandledrejection', fail);
+  function isTransientNetworkRejection(event) {
+    const reason = event?.reason;
+    const message = String(reason?.message || reason || '');
+    return /failed to fetch|networkerror|network request failed|load failed|fetch failed|err_network|internet disconnected/i.test(message);
+  }
+  window.addEventListener('unhandledrejection', event => {
+    if (isTransientNetworkRejection(event)) return;
+    fail();
+  });
   window.YamachatBootGuard = Object.freeze({begin, ready() {
     done = true;
     clearTimeout(timer);

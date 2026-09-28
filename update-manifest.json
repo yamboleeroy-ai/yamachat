@@ -1,23 +1,23 @@
 {
   "schemaVersion": 1,
-  "publishedAt": "2026-09-28T05:06:27Z",
+  "publishedAt": "2026-09-28T20:44:32Z",
   "windows": {
-    "latestVersion": "1.0.106",
+    "latestVersion": "1.0.107",
     "required": true,
-    "releaseUrl": "https://github.com/yamboleeroy-ai/yamachat/releases/tag/v1.0.106",
-    "notes": "Yamachat 1.0.106\n\n- Dokončené Podmínky používání a Ochrana osobních údajů v existujícím právním UI.\n- Právní dokumenty jsou balené pro Windows, Web/PWA, Android a iOS/PWA.\n- Karta Vývojář / Kontakt je po odstranění věku znovu vyvážená a responsivní pro desktop i mobil.\n- Přihlašovací obrazovka nabízí samostatný návod pro Web a instalovatelnou Web app/PWA.\n- Windows instalační návod upozorňuje na chybějící code-signing podpis a možné SmartScreen varování.\n- Voice, stream, WebRTC, notifikace, updater, profily, servery, kanály a ostatní funkční rozložení zůstávají beze změny.\n\nPředchozí vydání v1.0.105 zůstává dostupné pro návrat."
+    "releaseUrl": "https://github.com/yamboleeroy-ai/yamachat/releases/tag/v1.0.107",
+    "notes": "Yamachat 1.0.107: multi-user voice stability hardening, bounded reconnect/cleanup and Android Microsoft Natural voices."
   },
   "android": {
-    "latestVersion": "1.1.0.671",
-    "latestVersionCode": 200671,
+    "latestVersion": "1.1.0.672",
+    "latestVersionCode": 200672,
     "required": true,
-    "apkUrl": "https://yamachat.eu/download/Yamachat-Android.apk?v=200671",
-    "sha256": "22f7abef4bad76f470d9a756c40c8216fc387b8ab957eb0b7517717a50ab209c",
+    "apkUrl": "https://yamachat.eu/download/Yamachat-Android.apk?v=200672",
+    "sha256": "2540cd68c7789774060c22a991e8d9999c6e131d60eba2c8051880b7b55d5ae7",
     "notes": [
-      "Yamachat oznámení mají vlastní logo, ikonu a vlastní zvuk zprávy na Androidu.",
-      "Kliknutí na oznámení otevře přímo správnou DM, kanál a konkrétní zprávu.",
-      "FCM push při úplně ukončené APK je aktivní.",
-      "Současné mobilní rozložení, voice, Real Voices a ostatní funkce zůstávají beze změny."
+      "Stability hardening pro multi-user voice, reconnect a cleanup po pádu nebo nekorektním odpojení.",
+      "Microsoft Natural Voices jsou nově dostupné i na Androidu přes zabezpečený Yamachat backend; česká Vlasta a Antonín mají přednost podle volby uživatele.",
+      "Při nedostupnosti Microsoft Natural se automaticky použije současný systémový hlas Androidu.",
+      "Voice, stream, WebRTC, chat, notifikace a mobilní rozložení zůstávají zachované."
     ]
   }
 }

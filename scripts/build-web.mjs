@@ -12,6 +12,9 @@ import {withServerCardContext} from './server-card-context.mjs';
 import {withFriendsPanelRefresh} from './friends-panel-refresh.mjs';
 import {withVoiceThemePolish} from './voice-theme-polish.mjs';
 import {withVoiceExperience} from './voice-experience.mjs';
+import {withVoiceScaleHardening} from './voice-scale-hardening.mjs';
+import {withRuntimeStabilityHardening} from './runtime-stability-hardening.mjs';
+import {withStreamScaleHardening} from './stream-scale-hardening.mjs';
 import {withMessageNotificationSound} from './message-notification-sound.mjs';
 import {withInteractionNotifications} from './interaction-notifications.mjs';
 import {withStreamViewer} from './stream-viewer.mjs';
@@ -24,7 +27,8 @@ const read=p=>fs.readFileSync(path.join(root,p),'utf8');
 const ref='reference/desktop-1.0.78/';
 
 for(const [file,hash] of Object.entries(JSON.parse(read(ref+'SHA256.json')))){
-  const actual=crypto.createHash('sha256').update(fs.readFileSync(path.join(root,ref,file))).digest('hex');
+  const source=fs.readFileSync(path.join(root,ref,file),'utf8').replaceAll('\r\n','\n');
+  const actual=crypto.createHash('sha256').update(source).digest('hex');
   if(actual!==hash)throw Error('Desktop reference changed: '+file);
 }
 
@@ -157,6 +161,9 @@ html=html.replace(
  // This keeps current Android/iOS/PWA navigation and geometry authoritative.
  html=withVoiceThemePolish(withMessageNotificationSound(withVoiceExperience(html)));
  html=withInteractionNotifications(html);
+ html=withVoiceScaleHardening(html);
+ html=withRuntimeStabilityHardening(html);
+ html=withStreamScaleHardening(html);
 
 html=withStreamViewer(html);
 html=withLegalUi(html);

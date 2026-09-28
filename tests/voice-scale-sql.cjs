@@ -1,0 +1,12 @@
+const fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict');
+const sql=fs.readFileSync(path.join(__dirname,'../supabase/voice-scale-indexes.sql'),'utf8');
+assert(sql.includes('voice_participants_channel_last_seen_idx'),'composite voice roster index missing');
+assert(sql.includes('(channel_id, last_seen desc)'),'voice roster index must match channel + lease query');
+assert(sql.includes('voice_signals_created_at_idx'),'stale signal cleanup index missing');
+assert(sql.includes('prune_stale_voice_state'),'stale voice cleanup function missing');
+assert(sql.includes("last_seen < now() - interval '5 minutes'"),'stale participant cleanup bound missing');
+assert(sql.includes("created_at < now() - interval '5 minutes'"),'stale signal cleanup bound missing');
+assert(sql.includes('revoke all on function public.prune_stale_voice_state() from authenticated'),'cleanup function must not be client-callable');
+assert(!/grant\s+execute\s+on\s+function\s+public\.prune_stale_voice_state\(\)\s+to\s+authenticated/i.test(sql),'authenticated clients must not receive cleanup execute permission');
+assert(sql.includes('Do not enable/schedule it from this preview branch automatically.'),'preview SQL must not silently mutate production scheduling');
+console.log('PASS voice scale SQL review: composite roster index + secure stale voice/signaling cleanup plan, preview only.');

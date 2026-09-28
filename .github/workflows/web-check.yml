@@ -57,6 +57,26 @@ jobs:
         run: node tests/interaction-notifications.cjs
       - name: Current desktop behavior sync on shared web/mobile client
         run: node tests/web-mobile-desktop-behavior-sync.cjs
+      - name: Cross-platform login bootstrap
+        run: node tests/auth-login-flow.cjs
+      - name: Cross-platform realtime chat
+        run: node tests/cross-platform-chat-realtime.cjs
+      - name: Repeated login logout lifecycle
+        run: node tests/auth-relogin-lifecycle.cjs
+      - name: Cross-platform voice interoperability
+        run: node tests/cross-platform-voice-interop.cjs
+      - name: Full authenticated platform journey
+        run: node tests/full-platform-user-journey.cjs
+      - name: Simultaneous multi-platform voice and stream
+        run: node tests/cross-platform-multiclient-voice.cjs
+      - name: 10-client cross-platform stability stress
+        run: node tests/stability-10-client-load.cjs
+      - name: Voice scale model
+        run: node tests/voice-scale-model.cjs
+      - name: Voice scale SQL review
+        run: node tests/voice-scale-sql.cjs
+      - name: Stream presence scale model
+        run: node tests/stream-scale.cjs
       - name: Independent stream viewer and WebRTC lifecycle
         run: |
           node tests/stream-transport.mjs

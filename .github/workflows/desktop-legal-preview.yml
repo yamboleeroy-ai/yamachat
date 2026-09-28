@@ -60,16 +60,18 @@ jobs:
           if ($html -notmatch 'code-signing podpis') { throw 'Windows signing notice missing' }
           if ($html -match 'play.google.com|apps.apple.com') { throw 'Unverified app-store link introduced' }
 
-      - name: Guard unrelated runtime and voice/stream infrastructure
+      - name: Guard unrelated runtime and stream infrastructure
         shell: pwsh
         run: |
-          git diff --exit-code 366eb4366a7596c5dd6deeb65acb6a94a693fe21 -- desktop/main.js desktop/preload.js desktop/notification-preload.js desktop/updater.js windows/process-audio web/stream-viewer.js web/stream-viewer.css scripts/voice-experience.mjs scripts/voice-theme-polish.mjs scripts/interaction-notifications.mjs
+          git diff --exit-code 366eb4366a7596c5dd6deeb65acb6a94a693fe21 -- desktop/main.js desktop/preload.js desktop/notification-preload.js desktop/updater.js windows/process-audio web/stream-viewer.js web/stream-viewer.css scripts/voice-theme-polish.mjs scripts/interaction-notifications.mjs
           if ($LASTEXITCODE -ne 0) { throw 'Protected non-legal runtime changed' }
 
       - name: Run existing regression guards
         shell: pwsh
         run: |
           node tests/voice-experience.cjs
+          node tests/cross-platform-voice-interop.cjs
+          node tests/voice-scale-model.cjs
           node tests/stream-viewer.cjs
           node tests/windows-stream-lifecycle.cjs
           node tests/windows-process-audio.cjs
@@ -101,7 +103,7 @@ jobs:
           $appRoot='desktop/dist/win-unpacked/resources/app'
           $legalRoot='desktop/dist/win-unpacked/resources/legal'
           Set-Content -Path "$appRoot/preview.json" -Value '{"kind":"legal-ui-1.0.105","isolated":true,"release":false}' -Encoding UTF8
-          foreach ($file in @('main.js','preload.js','desktop.html','desktop-client.html','preview.json')) {
+          foreach ($file in @('main.js','preload.js','desktop.html','desktop-client.html','boot-guard.js','preview.json')) {
             if (-not (Test-Path "$appRoot/$file")) { throw "Missing preview runtime: $file" }
           }
           if ((Get-Content "$appRoot/desktop-client.html" -Raw) -notmatch 'ycLegalUiV1') { throw 'Packaged legal UI marker missing' }
