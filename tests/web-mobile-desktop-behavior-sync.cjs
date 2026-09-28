@@ -96,7 +96,8 @@ for(const marker of [
  "const voiceBelongsHere=!!hadVoice&&!!voiceCommunityId&&voiceCommunityId===cid",
  "const since=voiceMissingSince.get(id)||now;voiceMissingSince.set(id,since);if(now-since>60000)closeVoicePeer(id)",
  "const ycVoiceCid=ycVoiceCommunityId()",
- "community_id:ycVoiceCommunity"
+ "voiceChannel?.community_id||voiceChannel?.communityId||currentCommunity?.id",
+ "community_id:communityId"
 ]) assert(client.includes(marker),'Existing cross-platform behavior regressed: '+marker);
 assert(!client.includes("if(pc?.connectionState==='connected'){voiceMissingSince.delete(id);continue}"),'Connected ghost-peer bypass must not return');
 
