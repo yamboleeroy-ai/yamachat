@@ -108,7 +108,21 @@ attachVoiceAudio=(peerId,stream)=>{ycStartRemoteVoiceActivityDetector(peerId,str
 
   const cleanupOld="function cleanupVoiceRooms(){if(typeof ycStopMicTest==='function')ycStopMicTest();stopVoiceHeartbeat();leaveVoiceChannel(true);";
   if(!html.includes(cleanupOld))throw Error('Voice scale cleanup boundary missing');
-  html=html.replace(cleanupOld,"function cleanupVoiceRooms(){if(typeof ycStopMicTest==='function')ycStopMicTest();stopVoiceHeartbeat();stopVoiceRosterRefresh();for(const id of [...voiceRemoteVadStops.keys()])ycStopRemoteVoiceActivityDetector(id);leaveVoiceChannel(true);");
+  html=html.replace(cleanupOld,"let ycVoiceCleanupPromise=Promise.resolve(),ycVoiceCleanupActive=false\\nfunction cleanupVoiceRooms(){if(typeof ycStopMicTest==='function')ycStopMicTest();stopVoiceHeartbeat();stopVoiceRosterRefresh();for(const id of [...voiceRemoteVadStops.keys()])ycStopRemoteVoiceActivityDetector(id);if(!ycVoiceCleanupActive){ycVoiceCleanupActive=true;ycVoiceCleanupPromise=Promise.resolve(leaveVoiceChannel(true)).catch(e=>console.warn('voice cleanup',e)).finally(()=>{ycVoiceCleanupActive=false})}");
+
+  const cleanupTailOld="if(voiceSignalSub){sb.removeChannel(voiceSignalSub);voiceSignalSub=null;voiceSignalReady=false}}";
+  if(!html.includes(cleanupTailOld))throw Error('Voice cleanup tail boundary missing');
+  html=html.replace(cleanupTailOld,"if(voiceSignalSub){sb.removeChannel(voiceSignalSub);voiceSignalSub=null;voiceSignalReady=false}return ycVoiceCleanupPromise}");
+
+  const initBarrierOld="async function initApp(s){\\n  window.YamachatBootGuard?.begin();\\n  const generation=++ycAuthGeneration,uid=s.user.id;\\n  const active=()=>generation===ycAuthGeneration&&user?.id===uid;\\n  session=s;user=s.user;";
+  const initBarrierNew="async function initApp(s){\\n  window.YamachatBootGuard?.begin();\\n  const generation=++ycAuthGeneration,uid=s.user.id,authActive=()=>generation===ycAuthGeneration;\\n  try{await ycVoiceCleanupPromise}catch(e){console.warn('previous voice cleanup',e)}\\n  if(!authActive())return false;\\n  session=s;user=s.user;const active=()=>generation===ycAuthGeneration&&user?.id===uid;";
+  if(!html.includes(initBarrierOld))throw Error('Auth/voice cleanup barrier boundary missing');
+  html=html.replace(initBarrierOld,initBarrierNew);
+
+  const silentRefreshOld="if(old){setTimeout(()=>updateVoicePresence(old.id),150);if(!silent)toast('Odpojeno z hlasového kanálu.')}";
+  const silentRefreshNew="if(old){if(!silent)setTimeout(()=>updateVoicePresence(old.id),150);if(!silent)toast('Odpojeno z hlasového kanálu.')}";
+  if(!html.includes(silentRefreshOld))throw Error('Silent voice refresh boundary missing');
+  html=html.replace(silentRefreshOld,silentRefreshNew);
 
   // The participant roster diff already owns join/leave announcements.
   // Retire the older global voice_participants listener and auxiliary broadcast wrapper.
