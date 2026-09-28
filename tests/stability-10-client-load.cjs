@@ -136,7 +136,13 @@ function processSnapshot(label){
   for(const cfg of configs){
    const context=await browser.newContext({viewport:{width:cfg.width,height:cfg.height},hasTouch:!!cfg.touch,isMobile:!!cfg.touch,serviceWorkers:'block',permissions:['microphone'],...(cfg.ios?{userAgent:'Mozilla/5.0 (iPhone; CPU iPhone OS 18_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.6 Mobile/15E148 Safari/604.1'}:{})});
    if(cfg.ios)await context.addInitScript(()=>Object.defineProperty(navigator,'standalone',{value:true,configurable:true}));
-   const page=await context.newPage(),pageErrors=[];page.on('pageerror',e=>pageErrors.push(String(e.stack||e.message)));
+   const page=await context.newPage(),pageErrors=[];
+   page.on('pageerror',e=>{
+    const stack=String(e.stack||e.message),match=stack.match(/http:\/\/127\.0\.0\.1\/:(\d+):(\d+)/);
+    let detail=stack;
+    if(match){const line=Number(match[1]),column=Number(match[2]),loaded=source(cfg.platform).split(/\r?\n/);detail+='\nAUDIT_SOURCE '+cfg.platform+' '+line+':'+column+' '+String(loaded[line-1]||'').trim()}
+    pageErrors.push(detail);
+   });
    clients.set(cfg.id,{cfg,context,page,pageErrors,baselineRealtime:0,baselineHeap:0});
   }
 
