@@ -10,7 +10,7 @@ const mock=fs.readFileSync(path.join(__dirname,'supabase-fixture.js'),'utf8');
  for(const [width,height] of [[1440,960],[1024,768],[768,1024],[390,844],[320,568],[844,390]]){
  await page.setViewportSize({width,height});await page.goto('http://127.0.0.1:4173');await page.waitForFunction(()=>window.__ycClientReady,{},{timeout:20000});
  assert.deepEqual(errors,[]);if(logged&&!(await page.locator('#app').isVisible())){console.log(await page.locator('body').innerText());await page.screenshot({path:path.join(__dirname,'failed-chat.png')});}
- if(!logged){assert(await page.locator('#auth').isVisible());assert.equal(await page.locator('#ycAuthDownloads [data-download-platform]').count(),3)}
+ if(!logged){assert(await page.locator('#auth').isVisible());assert.equal(await page.locator('[data-yc-platform]').count(),5);assert.equal(await page.locator('#ycAuthDownloads').count(),0)}
  else{assert(await page.locator('#app').isVisible());if(width<=1100){await page.locator('#ycMobileNavBtn').click();assert(await page.locator('#ycGlobalNav').isVisible());await page.keyboard.press('Escape');await page.locator('#mobileMenu').click();await page.locator('[data-channel="chat-b"]').first().click();await page.waitForFunction(()=>document.getElementById('messages').dataset.ycRenderedChatKey?.includes('chat-b'));}}
  const dimensions=await page.evaluate(()=>({scroll:document.documentElement.scrollWidth,width:innerWidth,chat:document.getElementById('messages').getBoundingClientRect().toJSON(),composer:document.getElementById('messageInput').getBoundingClientRect().toJSON()}));
  await page.screenshot({path:path.join(__dirname,`ui-${logged?'chat':'login'}-${width}.png`)});
