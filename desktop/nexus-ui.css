@@ -593,6 +593,175 @@ html[data-yc-nexus="1"] .yc-v3-voice-host .voice-btn.disconnect{border-color:#ad
 html[data-yc-nexus="1"] .yc-v3-voice-host>#ycTurnUsage{grid-column:4!important;display:none!important}
 html[data-yc-nexus="1"] .yc-v3-voice-host #soundboardPanel{bottom:66px!important}
 
+
+/* ---------- DISTINCTIVE YAMACHAT NEXUS LANGUAGE ----------
+   Functional information architecture stays familiar, but the visible treatment
+   deliberately avoids a Discord clone: no server rail, no full-width bottom bar,
+   no flat member list chrome, and no Discord-like selected-channel pills. */
+
+/* Command strip: compact segmented Yamachat navigation, not a Discord toolbar. */
+html[data-yc-nexus="1"] #ycGlobalNav.yc-v3-global-nav{
+  padding:5px 12px!important;
+  background:
+    linear-gradient(90deg,rgba(6,17,28,.995),rgba(11,13,29,.995) 48%,rgba(7,18,29,.995))!important;
+}
+html[data-yc-nexus="1"] .yc-nexus-topnav{
+  flex:0 1 auto!important;
+  padding:3px!important;
+  border:1px solid rgba(82,190,234,.16);
+  border-radius:12px;
+  background:rgba(5,13,23,.62);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.018);
+}
+html[data-yc-nexus="1"] .yc-nexus-nav-btn{
+  position:relative;
+  height:34px!important;
+  padding:0 13px!important;
+  border-radius:8px!important;
+  overflow:hidden;
+}
+html[data-yc-nexus="1"] .yc-nexus-nav-btn:after{
+  content:"";position:absolute;left:50%;right:50%;bottom:2px;height:2px;border-radius:999px;
+  background:linear-gradient(90deg,var(--nx-cyan),var(--nx-purple));opacity:0;transition:.15s ease;
+}
+html[data-yc-nexus="1"] .yc-nexus-nav-btn.active:after{left:14px;right:14px;opacity:.9}
+html[data-yc-nexus="1"] .yc-nexus-nav-btn.active{
+  border-color:rgba(187,82,255,.30)!important;
+  background:linear-gradient(180deg,rgba(47,39,82,.45),rgba(15,34,51,.34))!important;
+  box-shadow:inset 0 0 16px rgba(84,205,255,.035),0 0 14px rgba(185,76,255,.08)!important;
+}
+
+/* Workspace panels use a split-shell identity with subtle cut corners. */
+html[data-yc-nexus="1"] .yc-v3-content-grid>.side,
+html[data-yc-nexus="1"] .yc-v3-content-grid>.chat,
+html[data-yc-nexus="1"] .yc-v3-content-grid>.right{
+  border-radius:12px!important;
+  clip-path:polygon(0 0,calc(100% - 10px) 0,100% 10px,100% 100%,10px 100%,0 calc(100% - 10px));
+}
+html[data-yc-nexus="1"] .yc-v3-content-grid>.chat{
+  border-color:rgba(86,211,255,.24)!important;
+  box-shadow:0 18px 44px rgba(0,0,0,.30),inset 0 0 0 1px rgba(185,76,255,.045)!important;
+}
+
+/* Active server identity is a hero strip, not a server icon list. */
+html[data-yc-nexus="1"] #side>.side-head{
+  justify-content:flex-end!important;
+  padding:48px 38px 11px 12px!important;
+  background:
+    linear-gradient(180deg,rgba(2,8,14,.16),rgba(4,10,18,.91)),
+    radial-gradient(circle at 78% 18%,color-mix(in srgb,var(--yc-server-color,#bd57ff) 30%,transparent),transparent 46%),
+    linear-gradient(120deg,#102a3c,#09141f 58%,#160f29)!important;
+}
+html[data-yc-nexus="1"] #side>.side-head:after{
+  content:"AKTIVNÍ PROSTOR";position:absolute;left:11px;top:11px;z-index:3;
+  font-size:8px;font-weight:950;letter-spacing:.16em;color:#74dff7;
+  text-shadow:0 0 10px rgba(71,210,255,.22);
+}
+
+/* Channel rows become Yamachat route tiles with a split accent rather than
+   Discord-style plain rows/pills. */
+html[data-yc-nexus="1"] .yc-v3-content-grid .channel,
+html[data-yc-nexus="1"] .yc-v3-content-grid .voice-channel{
+  position:relative!important;
+  min-height:38px!important;
+  padding:5px 8px 5px 7px!important;
+  border-radius:8px 3px 8px 3px!important;
+  border:1px solid rgba(74,185,228,.08)!important;
+  background:linear-gradient(90deg,rgba(10,28,42,.46),rgba(8,18,29,.14))!important;
+}
+html[data-yc-nexus="1"] .yc-v3-content-grid .channel:before,
+html[data-yc-nexus="1"] .yc-v3-content-grid .voice-channel:before{
+  content:"";width:3px;align-self:stretch;border-radius:4px;
+  background:linear-gradient(180deg,transparent,rgba(61,219,255,.35),transparent);
+}
+html[data-yc-nexus="1"] .yc-v3-content-grid .channel.active,
+html[data-yc-nexus="1"] .yc-v3-content-grid .voice-channel.active{
+  border-color:rgba(78,206,255,.42)!important;
+  background:
+    linear-gradient(90deg,rgba(21,105,132,.28),rgba(94,45,146,.18) 64%,rgba(12,28,43,.22))!important;
+  box-shadow:inset 0 0 18px rgba(71,214,255,.035),0 0 10px rgba(183,77,255,.08)!important;
+}
+html[data-yc-nexus="1"] .yc-v3-content-grid .channel.active:before,
+html[data-yc-nexus="1"] .yc-v3-content-grid .voice-channel.active:before{
+  background:linear-gradient(180deg,var(--nx-cyan),var(--nx-purple));
+  box-shadow:0 0 9px rgba(92,211,255,.30);
+}
+
+/* Chat header reads as a workspace title plaque, not a Discord channel header. */
+html[data-yc-nexus="1"] .yc-v3-content-grid .chat-head{
+  position:relative!important;
+  padding-left:15px!important;
+  background:
+    linear-gradient(90deg,rgba(7,23,34,.98),rgba(8,16,29,.98) 62%,rgba(20,12,36,.96))!important;
+}
+html[data-yc-nexus="1"] .yc-v3-content-grid .chat-head:before{
+  content:"";position:absolute;left:0;top:10px;bottom:10px;width:3px;border-radius:0 5px 5px 0;
+  background:linear-gradient(180deg,var(--nx-cyan),var(--nx-purple));
+  box-shadow:0 0 10px rgba(82,210,255,.22);
+}
+
+/* People Deck: explicit Yamachat utility module. */
+html[data-yc-nexus="1"] .yc-v3-content-grid>.right:before{
+  content:"PEOPLE DECK";display:block;flex:0 0 auto;
+  padding:9px 11px 4px;color:#71dff5;font-size:8px;font-weight:950;letter-spacing:.16em;
+}
+html[data-yc-nexus="1"] .yc-v3-member-shell .right-tabs{
+  flex:0 0 38px!important;min-height:38px!important;margin:0 7px 6px!important;
+}
+html[data-yc-nexus="1"] .yc-v3-member-shell .right-content{
+  padding:4px 7px 132px!important;
+}
+html[data-yc-nexus="1"] .steam-member-row,
+html[data-yc-nexus="1"] .steam-friend-row,
+html[data-yc-nexus="1"] .person{
+  position:relative!important;
+  margin:5px 0!important;
+  min-height:56px!important;
+  padding:7px 9px 7px 10px!important;
+  border-radius:9px 4px 9px 4px!important;
+  border:1px solid rgba(83,181,224,.11)!important;
+  background:
+    radial-gradient(circle at 100% 0,rgba(186,76,255,.055),transparent 52%),
+    linear-gradient(110deg,rgba(12,31,44,.93),rgba(12,20,33,.92))!important;
+}
+html[data-yc-nexus="1"] .steam-member-row:after,
+html[data-yc-nexus="1"] .steam-friend-row:after,
+html[data-yc-nexus="1"] .person:after{
+  content:"";position:absolute;right:0;top:9px;bottom:9px;width:2px;border-radius:4px;
+  background:linear-gradient(180deg,rgba(68,215,255,.12),rgba(185,76,255,.18));
+}
+html[data-yc-nexus="1"] .steam-member-row:hover,
+html[data-yc-nexus="1"] .steam-friend-row:hover,
+html[data-yc-nexus="1"] .person:hover{
+  border-color:rgba(83,213,255,.28)!important;
+  transform:translateX(-1px);
+}
+
+/* Session Card: intentionally not a Discord-style horizontal user control bar. */
+html[data-yc-nexus="1"] .yc-v3-voice-host .voice-controls{
+  clip-path:polygon(0 0,calc(100% - 10px) 0,100% 10px,100% 100%,10px 100%,0 calc(100% - 10px));
+  box-shadow:0 0 0 1px rgba(76,211,255,.15),0 0 20px rgba(184,77,255,.09),0 16px 35px rgba(0,0,0,.36)!important;
+}
+html[data-yc-nexus="1"] .yc-v3-voice-host .voice-controls:before{
+  content:"VOICE SESSION";position:absolute;right:9px;top:7px;z-index:2;
+  font-size:7px;font-weight:950;letter-spacing:.14em;color:rgba(122,222,243,.58);
+}
+html[data-yc-nexus="1"] .yc-v3-voice-host .discord-voice-buttons{
+  padding-top:2px!important;
+}
+html[data-yc-nexus="1"] .yc-v3-voice-host .voice-btn{
+  border-radius:8px 3px 8px 3px!important;
+  background:linear-gradient(180deg,#0d2433,#091722)!important;
+}
+
+/* TURN is a telemetry card, visually separate from People Deck data. */
+html[data-yc-nexus="1"] .yc-v3-voice-host>#ycTurnUsage{
+  clip-path:polygon(0 0,calc(100% - 9px) 0,100% 9px,100% 100%,9px 100%,0 calc(100% - 9px));
+  background:
+    radial-gradient(circle at 100% 0,rgba(78,217,255,.07),transparent 54%),
+    linear-gradient(150deg,rgba(9,26,38,.99),rgba(8,13,24,.99))!important;
+}
+
 /* ---------- AUTH ---------- */
 html[data-yc-nexus="1"] .auth{
   min-height:100%!important;background:
