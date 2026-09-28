@@ -27,11 +27,12 @@ const parityMarkers=[
   'async function syncVoicePeers()',
   'async function handleVoiceSignal(msg)',
   'async function refreshVoiceParticipants(id)',
-  'const ycVoiceRoomRetryTimers=new Map(),ycVoiceRoomRetryAttempts=new Map()',
-  'function ycScheduleVoiceRoomRetry(id)',
+  'async function refreshVoiceRosterSet(chs=voiceChannelDefs,force=false)',
+  'function subscribeVoiceParticipants()',
   'function ensureVoiceRooms(chs)',
   'function startVoiceHeartbeat()',
-  'async function trackVoicePresence()'
+  'async function trackVoicePresence()',
+  'function ycStartRemoteVoiceActivityDetector(peerId,stream)'
 ];
 
 for(const marker of parityMarkers){
@@ -51,15 +52,22 @@ for(const [name,source] of [['Windows',desktop],['Web/PWA',web],['Android/iOS',m
     "iceCandidatePoolSize:8",
     "bundlePolicy:'max-bundle'",
     "['CHANNEL_ERROR','TIMED_OUT','CLOSED'].includes(status)",
-    "const delay=[12000,20000,30000][attempt-1]",
+    "const YC_VOICE_HEARTBEAT_MS=15000,YC_VOICE_TTL_MS=60000,YC_VOICE_ROSTER_MS=20000",
+    "event:'INSERT',schema:'public',table:'voice_participants',filter",
+    "event:'DELETE',schema:'public',table:'voice_participants',filter",
+    ".in('channel_id',ids).gt('last_seen',cutoff)",
     "void syncVoiceParticipantRow().catch(e=>console.warn('voice participant keepalive',e))",
+    "function ycStartRemoteVoiceActivityDetector(peerId,stream)",
     "yamachat-turn-cloudflare"
   ]) assert(source.includes(marker),name+' missing interoperability marker: '+marker);
 
-  assert(!source.includes("setTimeout(()=>trackVoicePresence(attempt+1),400)"),name+' still contains dangerous 400 ms Presence retry loop');
-  assert(!source.includes("setTimeout(()=>{if(String(voiceChannel?.id||'')===String(id))ensureVoiceRooms(voiceChannelDefs)},1800)"),name+' still contains 1.8 s voice-room reconnect loop');
-  assert(!source.includes(".on('presence',{event:'sync'},()=>{if(voiceChannel?.id===id)trackVoicePresence()"),name+' still re-tracks Presence from Presence sync');
-  assert(!source.includes('voice presence keepalive'),name+' still tracks Presence from the 5 s heartbeat');
+  assert(!source.includes("event:'*',schema:'public',table:'voice_participants'"),name+' still globally fans out participant heartbeats');
+  assert(!source.includes("config:{presence:{key:user.id}"),name+' still configures voice Realtime Presence');
+  assert(!source.includes(".on('presence'"),name+' still listens to voice Realtime Presence');
+  assert(!source.includes("room.track("),name+' still calls Realtime Presence track()');
+  assert(!source.includes("room?.untrack("),name+' still calls Realtime Presence untrack()');
+  assert(!source.includes("sb.functions.invoke('yamachat-turn',{method:'GET'})"),name+' still loads Metered TURN');
+  assert(!source.includes("syncVoiceParticipantRow().catch(()=>{});renderVoiceChannels(voiceChannelDefs)"),name+' still persists speaking transitions to Postgres');
 }
 
 const pkg=JSON.parse(read('desktop/package.json'));
