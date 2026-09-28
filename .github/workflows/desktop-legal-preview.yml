@@ -6,6 +6,8 @@ on:
       - "desktop/desktop-client.html"
       - "scripts/build-web.mjs"
       - "scripts/legal-ui.mjs"
+      - "scripts/platform-install-ui.mjs"
+      - "tests/platform-install-ui.cjs"
       - "tests/legal-ui.mjs"
       - ".github/workflows/desktop-legal-preview.yml"
   workflow_dispatch:
@@ -41,6 +43,14 @@ jobs:
 
       - name: Verify legal UI
         run: node tests/legal-ui.mjs
+      - name: Verify platform install UI structure
+        shell: pwsh
+        run: |
+          $html=Get-Content index.html -Raw
+          if ($html -notmatch 'ycPlatformInstallRuntime') { throw 'Platform install runtime missing from generated client' }
+          if ($html -notmatch 'data-yc-platform="windows"') { throw 'Windows platform action missing' }
+          if ($html -notmatch 'data-yc-platform="android"') { throw 'Android platform action missing' }
+          if ($html -match 'play.google.com|apps.apple.com') { throw 'Unverified app-store link introduced' }
 
       - name: Guard unrelated runtime and voice/stream infrastructure
         shell: pwsh
