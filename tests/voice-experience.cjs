@@ -16,9 +16,9 @@ assert(selectStart>=0&&selectEnd>selectStart,'selectCommunity boundary missing')
 const selectBody=html.slice(selectStart,selectEnd);
 for(const forbidden of ['leaveVoiceChannel(','ycRequestVoiceDisconnect(','cleanupVoiceRooms('])
  assert(!selectBody.includes(forbidden),'Browsing another server must not disconnect voice: '+forbidden);
-assert(html.includes("if(voiceChannel?.id&&!defs.some(c=>String(c.id)===String(voiceChannel.id)))defs.push(voiceChannel)"),'Joined voice room must remain recreatable while browsing other channels/servers');
-assert(html.includes("['CHANNEL_ERROR','TIMED_OUT','CLOSED'].includes(status)&&String(voiceChannel?.id||'')===String(id)"),'Active voice realtime room must recover after timeout/closure while browsing another server');
-assert(html.includes("if(String(voiceChannel?.id||'')===String(id))ensureVoiceRooms(voiceChannelDefs)"),'Active voice realtime retry must not depend on the visible community channel list');
+assert(html.includes("String(voiceChannel?.id||'')].filter(Boolean)"),'Joined voice room must remain included in batched roster refresh while browsing another server');
+assert(html.includes("function subscribeVoiceParticipants(){const id=voiceChannel?.id?String(voiceChannel.id):''"),'Active voice participant subscription must follow the joined room, not the browsed server');
+assert(html.includes("if(!voiceSignalSub||!voiceSignalReady)void subscribeVoiceSignals().catch(e=>console.warn('voice signal reconnect',e))"),'Targeted signaling must recover independently of the visible community');
 assert(html.includes('function ycVoiceCommunityId()'),'Independent voice community context missing');
 assert(html.includes("const ycVoiceCid=ycVoiceCommunityId();"),'Soundboard must load from voice community context');
 assert(html.includes("String(currentCommunity.id)===ycVoiceCommunityId()"),'Soundboard admin actions must stay on the joined voice server');
