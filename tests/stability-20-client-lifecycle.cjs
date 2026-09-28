@@ -15,19 +15,23 @@ function source(platform){
 function fixture(id){
  let s=base
   .replace(
+   "function query(table){let single=false,filters={},op='read';const q=new Proxy({}, {get:(_,key)=>key==='then'?(resolve)=>{",
+   "function query(table){let single=false,filters={},op='read';const q=new Proxy({}, {get:(_,key)=>key==='then'?(resolve)=>{window.__auditDbQueries++;"
+  )
+  .replace(
    "const channel=()=>{const c={on:()=>c,subscribe:()=>c,track:async()=>{},untrack:async()=>{},send:async()=>{},presenceState:()=>({})};return c};",
    "const channel=(name)=>{const c={__name:String(name),__active:false,on:()=>c,subscribe:(cb)=>{if(!c.__active){c.__active=true;window.__auditActiveChannels.add(c.__name);window.__auditChannelCreates++}queueMicrotask(()=>cb?.('SUBSCRIBED'));return c},track:async()=>{},untrack:async()=>{},send:async()=>{},presenceState:()=>({})};return c};"
   )
   .replace(
    "return {from:query,rpc:async()=>({data:false,error:null}),channel,removeChannel:async()=>{},auth:",
-   "return {from:query,rpc:async()=>({data:false,error:null}),channel,removeChannel:async(c)=>{if(c?.__name)window.__auditActiveChannels.delete(c.__name);if(c)c.__active=false},auth:"
+   "return {from:query,rpc:async()=>{window.__auditRpcCalls++;return {data:false,error:null}},channel,removeChannel:async(c)=>{if(c?.__name)window.__auditActiveChannels.delete(c.__name);if(c)c.__active=false},auth:"
   )
   .replace(
    "getSession:async()=>({data:{session:{user:{id:'audit-user'}}}}),onAuthStateChange:()=>({data:{subscription:{unsubscribe(){}}}}),getUser:async()=>({data:{user:{id:'audit-user',identities:[]}}}),signOut:async()=>({error:null})",
    "getSession:async()=>({data:{session:null},error:null}),onAuthStateChange:(cb)=>{window.__authCb=cb;return {data:{subscription:{unsubscribe(){window.__authCb=null}}}}},getUser:async()=>({data:{user:window.__authSession?.user||null}}),signInWithPassword:async()=>{const session={user:{id:'audit-user'},access_token:'fixture'};window.__authSession=session;queueMicrotask(()=>window.__authCb?.('SIGNED_IN',session));return {data:{session},error:null}},signOut:async()=>{window.__authSession=null;queueMicrotask(()=>window.__authCb?.('SIGNED_OUT',null));return {error:null}}"
   )
   .replaceAll("'audit-user'","'"+id+"'");
- return s+";window.__authSession=null;window.__auditActiveChannels=new Set();window.__auditChannelCreates=0;";
+ return s+";window.__authSession=null;window.__auditActiveChannels=new Set();window.__auditChannelCreates=0;window.__auditDbQueries=0;window.__auditRpcCalls=0;";
 }
 function processSnapshot(label){
  try{
@@ -37,17 +41,27 @@ function processSnapshot(label){
  }catch(e){console.log('AUDIT_20_PROCESS '+JSON.stringify({label,error:e.message}))}
 }
 async function snapshot(client){
- return client.page.evaluate(()=>({
-  channels:window.__auditActiveChannels.size,
-  channelCreates:window.__auditChannelCreates,
-  observers:{...window.__auditObservers},
-  listeners:JSON.parse(JSON.stringify(window.__auditGlobalAdds)),
-  heap:performance.memory?.usedJSHeapSize||0
- }));
+ return client.page.evaluate(()=>{
+  try{globalThis.gc?.();globalThis.gc?.()}catch{}
+  return {
+   channels:window.__auditActiveChannels.size,
+   channelCreates:window.__auditChannelCreates,
+   observers:{...window.__auditObservers},
+   listeners:JSON.parse(JSON.stringify(window.__auditGlobalAdds)),
+   timers:{
+    activeTimeouts:window.__auditTimers?.timeouts.size||0,
+    activeIntervals:window.__auditTimers?.intervals.size||0,
+    timeoutCreates:window.__auditTimers?.timeoutCreates||0,
+    intervalCreates:window.__auditTimers?.intervalCreates||0
+   },
+   supabase:{queries:window.__auditDbQueries||0,rpcs:window.__auditRpcCalls||0},
+   heap:performance.memory?.usedJSHeapSize||0
+  };
+ });
 }
 
 (async()=>{
- const browser=await chromium.launch({headless:true,args:['--enable-precise-memory-info']});
+ const browser=await chromium.launch({headless:true,args:['--enable-precise-memory-info','--js-flags=--expose-gc']});
  const clients=[];
  try{
   for(const cfg of configs){
@@ -56,6 +70,12 @@ async function snapshot(client){
     if(navigator.userAgent.includes('iPhone'))Object.defineProperty(navigator,'standalone',{value:true,configurable:true});
     window.__auditGlobalAdds={window:{},document:{}};
     window.__auditObservers={created:0,observeCalls:0,disconnectCalls:0};
+    window.__auditTimers={timeouts:new Set(),intervals:new Set(),timeoutCreates:0,intervalCreates:0};
+    const nativeSetTimeout=window.setTimeout.bind(window),nativeClearTimeout=window.clearTimeout.bind(window),nativeSetInterval=window.setInterval.bind(window),nativeClearInterval=window.clearInterval.bind(window);
+    window.setTimeout=(fn,delay,...args)=>{let id;const wrapped=typeof fn==='function'?function(...cbArgs){window.__auditTimers.timeouts.delete(id);return fn.apply(this,cbArgs)}:fn;id=nativeSetTimeout(wrapped,delay,...args);window.__auditTimers.timeouts.add(id);window.__auditTimers.timeoutCreates++;return id};
+    window.clearTimeout=id=>{window.__auditTimers.timeouts.delete(id);window.__auditTimers.intervals.delete(id);return nativeClearTimeout(id)};
+    window.setInterval=(fn,delay,...args)=>{const id=nativeSetInterval(fn,delay,...args);window.__auditTimers.intervals.add(id);window.__auditTimers.intervalCreates++;return id};
+    window.clearInterval=id=>{window.__auditTimers.intervals.delete(id);window.__auditTimers.timeouts.delete(id);return nativeClearInterval(id)};
     const NativeMutationObserver=window.MutationObserver;
     window.MutationObserver=function(callback){const observer=new NativeMutationObserver(callback);window.__auditObservers.created++;const observe=observer.observe.bind(observer),disconnect=observer.disconnect.bind(observer);observer.observe=(...args)=>{window.__auditObservers.observeCalls++;return observe(...args)};observer.disconnect=(...args)=>{window.__auditObservers.disconnectCalls++;return disconnect(...args)};return observer};
     window.MutationObserver.prototype=NativeMutationObserver.prototype;
@@ -73,13 +93,16 @@ async function snapshot(client){
    clients.push({cfg,context,page,errors,snaps:[]});
   }
   processSnapshot('20_ready_auth');
+  await Promise.all(clients.map(c=>c.page.waitForTimeout(1000)));
+  const ready=await Promise.all(clients.map(snapshot));
+  clients.forEach((c,i)=>c.ready=ready[i]);
 
   for(let cycle=0;cycle<2;cycle++){
    await Promise.all(clients.map(async c=>{await c.page.locator('#email').fill('audit@example.test');await c.page.locator('#password').fill('StrongPass123!');await c.page.locator('#authSubmit').click();await c.page.waitForSelector('#app:not(.hidden)',{timeout:25000})}));
    await Promise.all(clients.map(c=>c.page.waitForTimeout(150)));
    const loggedIn=await Promise.all(clients.map(snapshot));
    processSnapshot('20_logged_in_cycle_'+(cycle+1));
-   await Promise.all(clients.map(async c=>{await c.page.evaluate(()=>document.querySelector('#logoutBtn')?.click());await c.page.waitForSelector('#auth:not(.hidden)',{timeout:20000});await c.page.waitForTimeout(120)}));
+   await Promise.all(clients.map(async c=>{await c.page.evaluate(()=>document.querySelector('#logoutBtn')?.click());await c.page.waitForSelector('#auth:not(.hidden)',{timeout:20000});await c.page.waitForTimeout(1000)}));
    const loggedOut=await Promise.all(clients.map(snapshot));
    clients.forEach((c,i)=>c.snaps.push({cycle:cycle+1,loggedIn:loggedIn[i],loggedOut:loggedOut[i]}));
   }
@@ -91,6 +114,19 @@ async function snapshot(client){
    assert(last.loggedIn.channels<=first.loggedIn.channels+1,c.cfg.id+' realtime channels grew across relogin');
    assert(last.loggedOut.channels<=first.loggedOut.channels,c.cfg.id+' realtime channels remained/grow after logout');
    assert.equal(last.loggedOut.observers.created,first.loggedOut.observers.created,c.cfg.id+' MutationObserver instances grew across relogin');
+   assert(first.loggedOut.timers.activeIntervals<=c.ready.timers.activeIntervals+2,c.cfg.id+' intervals did not return near auth baseline after first logout');
+   assert(last.loggedOut.timers.activeIntervals<=first.loggedOut.timers.activeIntervals+1,c.cfg.id+' active intervals grew across relogin');
+   assert(first.loggedOut.timers.activeTimeouts<=c.ready.timers.activeTimeouts+6,c.cfg.id+' timeouts did not settle near auth baseline after first logout');
+   assert(last.loggedOut.timers.activeTimeouts<=first.loggedOut.timers.activeTimeouts+4,c.cfg.id+' active timeouts grew across relogin');
+   const intervalCreates1=first.loggedOut.timers.intervalCreates-c.ready.timers.intervalCreates,intervalCreates2=last.loggedOut.timers.intervalCreates-first.loggedOut.timers.intervalCreates;
+   assert(intervalCreates2<=intervalCreates1+2,c.cfg.id+' interval creation accelerated '+intervalCreates1+' -> '+intervalCreates2);
+   const timeoutCreates1=first.loggedOut.timers.timeoutCreates-c.ready.timers.timeoutCreates,timeoutCreates2=last.loggedOut.timers.timeoutCreates-first.loggedOut.timers.timeoutCreates;
+   assert(timeoutCreates2<=timeoutCreates1*1.5+20,c.cfg.id+' timeout creation accelerated '+timeoutCreates1+' -> '+timeoutCreates2);
+   const query1=first.loggedOut.supabase.queries-c.ready.supabase.queries,query2=last.loggedOut.supabase.queries-first.loggedOut.supabase.queries;
+   assert(query2<=query1*1.5+12,c.cfg.id+' Supabase query work accelerated '+query1+' -> '+query2);
+   const rpc1=first.loggedOut.supabase.rpcs-c.ready.supabase.rpcs,rpc2=last.loggedOut.supabase.rpcs-first.loggedOut.supabase.rpcs;
+   assert(rpc2<=rpc1*1.5+6,c.cfg.id+' Supabase RPC work accelerated '+rpc1+' -> '+rpc2);
+   if(first.loggedOut.heap&&last.loggedOut.heap)assert(last.loggedOut.heap<=first.loggedOut.heap*1.5+2000000,c.cfg.id+' forced-GC JS heap grew excessively '+first.loggedOut.heap+' -> '+last.loggedOut.heap);
    for(const key of listenerKeys){
     const a=(first.loggedOut.listeners.window[key]||0)+(first.loggedOut.listeners.document[key]||0);
     const b=(last.loggedOut.listeners.window[key]||0)+(last.loggedOut.listeners.document[key]||0);
@@ -100,7 +136,7 @@ async function snapshot(client){
   const summary=clients.map(c=>({id:c.cfg.id,platform:c.cfg.platform,first:c.snaps[0],last:c.snaps.at(-1)}));
   console.log('AUDIT_20_CLIENTS '+JSON.stringify(summary));
   processSnapshot('20_after_cleanup');
-  console.log('PASS 20 simultaneous Chromium client lifecycle stress: five desktop, five web, five Android-layout and five iOS-PWA profiles completed two concurrent login/logout cycles with bounded realtime channels, observers and global listeners. Supabase is mocked; this validates client lifecycle/resource behavior, not production backend capacity.');
+  console.log('PASS 20 simultaneous Chromium client lifecycle stress: five desktop, five web, five Android-layout and five iOS-PWA profiles completed two concurrent login/logout cycles with bounded realtime channels, observers, global listeners, active timers, Supabase query/RPC work and forced-GC JS heap. Supabase is mocked; this validates client lifecycle/resource behavior, not production backend capacity.');
  }finally{
   await Promise.all(clients.map(c=>c.context.close().catch(()=>{})));
   await browser.close().catch(()=>{});
