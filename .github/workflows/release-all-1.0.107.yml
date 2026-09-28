@@ -1,8 +1,6 @@
 name: Yamachat 1.0.107 release
 
 on:
-  push:
-    branches: [release/1.0.107-android-natural-stability-20260928]
   workflow_dispatch:
 
 permissions:
@@ -277,11 +275,14 @@ jobs:
         run: |
           set -euo pipefail
           git fetch origin main
-          test "$(git show origin/main:desktop/package.json | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>process.stdout.write(JSON.parse(s).version))")" = "1.0.107"
-          git show origin/main:index.html | grep -q 'data-yc-platform="pwa"'
-          git show origin/main:index.html | grep -q 'PRIVACY_POLICY.md'
-          git show origin/main:index.html | grep -q 'TERMS_OF_USE.md'
-          git show origin/main:update-manifest.json | grep -q '"latestVersion": "1.0.107"'
+          git show origin/main:desktop/package.json > /tmp/yamachat-package.json
+          git show origin/main:index.html > /tmp/yamachat-index.html
+          git show origin/main:update-manifest.json > /tmp/yamachat-update-manifest.json
+          test "$(node -e "const p=require('/tmp/yamachat-package.json');process.stdout.write(p.version)")" = "1.0.107"
+          grep -q 'data-yc-platform="pwa"' /tmp/yamachat-index.html
+          grep -q 'PRIVACY_POLICY.md' /tmp/yamachat-index.html
+          grep -q 'TERMS_OF_USE.md' /tmp/yamachat-index.html
+          node -e "const m=require('/tmp/yamachat-update-manifest.json');if(m.windows?.latestVersion!=='1.0.107')process.exit(1)"
 
       - name: Publish verified Yamachat 1.0.107 release
         env:
