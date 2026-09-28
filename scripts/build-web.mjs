@@ -25,7 +25,8 @@ const read=p=>fs.readFileSync(path.join(root,p),'utf8');
 const ref='reference/desktop-1.0.78/';
 
 for(const [file,hash] of Object.entries(JSON.parse(read(ref+'SHA256.json')))){
-  const actual=crypto.createHash('sha256').update(fs.readFileSync(path.join(root,ref,file))).digest('hex');
+  const source=fs.readFileSync(path.join(root,ref,file),'utf8').replaceAll('\r\n','\n');
+  const actual=crypto.createHash('sha256').update(source).digest('hex');
   if(actual!==hash)throw Error('Desktop reference changed: '+file);
 }
 
