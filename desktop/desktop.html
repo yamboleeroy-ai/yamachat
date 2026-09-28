@@ -1802,21 +1802,25 @@
       }
     });
 
-    fetch(
-      "./desktop-client.html",
-      {
-        cache: "no-store"
-      }
-    )
-    .then(response => {
-      if (!response.ok) {
-        throw new Error("HTTP " + response.status);
-      }
-
-      return response.text();
-    })
-    .then(html => {
-      iframe.srcdoc = html;
+    Promise.all([
+      fetch("./desktop-client.html", { cache: "no-store" }).then(response => {
+        if (!response.ok) throw new Error("desktop-client HTTP " + response.status);
+        return response.text();
+      }),
+      fetch("./nexus-ui.css", { cache: "no-store" }).then(response => {
+        if (!response.ok) throw new Error("nexus-ui.css HTTP " + response.status);
+        return response.text();
+      }),
+      fetch("./nexus-ui.js", { cache: "no-store" }).then(response => {
+        if (!response.ok) throw new Error("nexus-ui.js HTTP " + response.status);
+        return response.text();
+      })
+    ])
+    .then(([html, nexusCss, nexusJs]) => {
+      const cssTag = "<style id=\"ycNexusDesktopPreviewStyle\">" + nexusCss + "</style>";
+      const safeJs = nexusJs.replace(/<\\\/script/gi, "<\\\\/script");
+      const jsTag = "<script id=\"ycNexusDesktopPreviewScript\">" + safeJs + "<\\/script>";
+      iframe.srcdoc = html.replace("</head>", cssTag + "</head>").replace("</body>", jsTag + "</body>");
     })
     .catch(error => {
       console.error(error);
