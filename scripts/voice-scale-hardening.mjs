@@ -62,6 +62,11 @@ attachVoiceAudio=(peerId,stream)=>{ycStartRemoteVoiceActivityDetector(peerId,str
   if(!html.includes(closeOld))throw Error('Voice scale peer cleanup boundary missing');
   html=html.replace(closeOld,'function closeVoicePeer(peerId){ycStopRemoteVoiceActivityDetector(peerId);const pc=voicePeers.get(peerId);');
 
+  const presenceLeaveOld="const sid=voiceSessionId,room=voiceRooms.get(old.id);\n        const clearPromise=(async()=>{try{const {error}=await sb.rpc('clear_voice_participant',{p_session_id:sid});if(error)console.warn('clear voice participant',error)}catch(e){console.warn('clear voice participant',e)}})();\n        const untrackPromise=(async()=>{try{const pending=room?.untrack();if(pending&&typeof pending.then==='function')await pending}catch(e){console.warn('voice untrack',e)}})();\n        const cleanupSettled=Promise.allSettled([clearPromise,untrackPromise]);";
+  const presenceLeaveNew="const sid=voiceSessionId;\n        const clearPromise=(async()=>{try{const {error}=await sb.rpc('clear_voice_participant',{p_session_id:sid});if(error)console.warn('clear voice participant',error)}catch(e){console.warn('clear voice participant',e)}})();\n        const cleanupSettled=Promise.allSettled([clearPromise]);";
+  if(!html.includes(presenceLeaveOld))throw Error('Voice scale leave Presence cleanup boundary missing');
+  html=html.replace(presenceLeaveOld,presenceLeaveNew);
+
   const leaveOld="voiceChannel=null;voiceRouteMode='checking';renderVoiceControls();";
   if(!html.includes(leaveOld))throw Error('Voice scale leave boundary missing');
   html=html.replace(leaveOld,"voiceChannel=null;stopVoiceParticipantSubscription();voiceRouteMode='checking';renderVoiceControls();");
