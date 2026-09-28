@@ -1,23 +1,22 @@
 {
   "schemaVersion": 1,
-  "publishedAt": "2026-09-27T10:59:56Z",
+  "publishedAt": "2026-09-28T05:06:27Z",
   "windows": {
-    "latestVersion": "1.0.101",
+    "latestVersion": "1.0.106",
     "required": true,
-    "releaseUrl": "https://github.com/yamboleeroy-ai/yamachat/releases/tag/v1.0.101",
-    "notes": "Yamachat 1.0.101\n\n- Opravené odpojování z aktivního voice při procházení nebo psaní v jiné komunitě. Kontrola skrytých/zaheslovaných kanálů teď smí ukončit voice jen v komunitě, ke které aktivní voice skutečně patří.\n- Desktopový stream používá skutečný Windows fullscreen na první kliknutí. Fullscreen obraz vyplní displej a spodní ovládací lišta se po neaktivitě automaticky skryje.\n- Hlasitost streamu na 0 % nyní znamená skutečné úplné ztlumení a stream audio je oddělené od běžného voice audia.\n- Po ukončení a novém spuštění streamu se znovu vytvoří stream-audio WebRTC cesta, takže divák nemusí opouštět a znovu připojovat voice kvůli obnovení zvuku.\n- Opravené bliknutí desktopového okna při práci s Windows lištou / změně fokusu po pádu GPU procesu; Windows klient používá stabilnější vykreslovací cestu.\n- Na iOS/PWA a Androidu prvky s dlouhým podržením (serverové karty, kanály a uživatelé) neoznačují text při otevření kontextové nabídky.\n- Zachované současné notifikace, FCM/WNS, updater, voice nastavení a ostatní funkce z 1.0.100.\n\nPoznámka: nativní TestFlight build se publikuje jen pokud jsou v GitHubu nakonfigurované Apple distribuční secrets; web/PWA a iOS kontrola tím nejsou blokované.\n\nPředchozí vydání v1.0.100 zůstává dostupné pro návrat."
+    "releaseUrl": "https://github.com/yamboleeroy-ai/yamachat/releases/tag/v1.0.106",
+    "notes": "Yamachat 1.0.106\n\n- Dokončené Podmínky používání a Ochrana osobních údajů v existujícím právním UI.\n- Právní dokumenty jsou balené pro Windows, Web/PWA, Android a iOS/PWA.\n- Karta Vývojář / Kontakt je po odstranění věku znovu vyvážená a responsivní pro desktop i mobil.\n- Přihlašovací obrazovka nabízí samostatný návod pro Web a instalovatelnou Web app/PWA.\n- Windows instalační návod upozorňuje na chybějící code-signing podpis a možné SmartScreen varování.\n- Voice, stream, WebRTC, notifikace, updater, profily, servery, kanály a ostatní funkční rozložení zůstávají beze změny.\n\nPředchozí vydání v1.0.105 zůstává dostupné pro návrat."
   },
   "android": {
-    "latestVersion": "1.1.0.605",
-    "latestVersionCode": 200605,
+    "latestVersion": "1.1.0.606",
+    "latestVersionCode": 200606,
     "required": true,
-    "apkUrl": "https://yamachat.eu/download/Yamachat-Android.apk?v=200605",
-    "sha256": "2257e3587d1cb494aac9b2ab3b84e892b0cfba13c21279654c265fae7229d69f",
+    "apkUrl": "https://yamachat.eu/download/Yamachat-Android.apk?v=200606",
+    "sha256": "1a20fdfbefb079ddbf0ab058ba55a88d5857ce519472c301629f52ac271f4fc3",
     "notes": [
-      "Yamachat oznámení mají vlastní logo, ikonu a vlastní zvuk zprávy na Androidu.",
-      "Kliknutí na oznámení otevře přímo správnou DM, kanál a konkrétní zprávu.",
-      "FCM push při úplně ukončené APK je aktivní.",
-      "Současné mobilní rozložení, voice, Real Voices a ostatní funkce zůstávají beze změny."
+      "Dokončené právní UI, Podmínky používání a Ochrana osobních údajů.",
+      "Srovnaná responsivní karta Vývojář / Kontakt a nové instalační návody Web / Web app.",
+      "Současné mobilní rozložení, voice, stream, WebRTC, notifikace a Real Voices zůstávají beze změny."
     ]
   }
 }

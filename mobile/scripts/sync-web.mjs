@@ -7,7 +7,7 @@ const out=path.join(root,'mobile/www');
 fs.mkdirSync(out,{recursive:true});
 // Do not package previous APKs or source archives.
 for(const asset of ['icons','audio','vendor','build','boot-guard.js','favicon.ico'])fs.cpSync(path.join(root,asset),path.join(out,asset),{recursive:true});
-const legalFiles=["LICENSE","BRAND-NOTICE.md","PROVENANCE.md","THIRD_PARTY_NOTICES.md","LEGAL-BASELINE.md","ASSET-MANIFEST.md"];
+const legalFiles=["LICENSE","TERMS_OF_USE.md","PRIVACY_POLICY.md","BRAND-NOTICE.md","PROVENANCE.md","THIRD_PARTY_NOTICES.md","LEGAL-BASELINE.md","ASSET-MANIFEST.md"];
 const legalOut=path.join(out,'legal');
 fs.mkdirSync(legalOut,{recursive:true});
 for(const file of legalFiles)fs.copyFileSync(path.join(root,file),path.join(legalOut,file));
