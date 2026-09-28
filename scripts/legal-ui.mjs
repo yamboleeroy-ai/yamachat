@@ -92,7 +92,14 @@ function renderDoc(key){
  const d=DOCS[key];const body=root()?.querySelector('#ycLegalBody');if(!body||!d)return;
  body.innerHTML='<div class="yc-legal-doc-meta"><strong>'+d.title+'</strong><span>Zdroj:</span><code>'+d.file+'</code></div><pre class="yc-legal-doc"></pre><div class="yc-legal-footer">© 2026 Lukáš Hubáček. Všechna práva vyhrazena.</div>';body.querySelector('.yc-legal-doc').textContent=d.text
 }
-function open(section='about'){active=sectionById(section).id;shell()}
+function closeNavigationSurfaces(){
+ document.getElementById('ycGlobalNav')?.classList.remove('yc-mobile-open');
+ document.getElementById('side')?.classList.remove('mobile-open');
+ document.querySelector('.yc-v3-content-grid>.right')?.classList.remove('yc-mobile-open');
+ document.getElementById('app')?.classList.remove('yc-mobile-drawer-open');
+ document.querySelectorAll('[aria-controls][aria-expanded]').forEach(b=>b.setAttribute('aria-expanded','false'));
+}
+function open(section='about'){active=sectionById(section).id;closeNavigationSurfaces();shell()}
 document.addEventListener('click',e=>{
  const section=e.target.closest?.('[data-yc-legal-section]');if(section){active=section.dataset.ycLegalSection;render();return}
  const doc=e.target.closest?.('[data-yc-legal-doc]');if(doc){renderDoc(doc.dataset.ycLegalDoc);return}
@@ -114,6 +121,10 @@ export function withLegalUi(html){
  if(html.includes('id="ycLegalUiV1"'))return html;
  html=html.replace('<button id="logoutBtn" class="ghost">Odhlásit</button>','<button id="ycLegalAboutBtn" class="yc-v3-nav-btn yc-legal-nav-entry" type="button" aria-label="O aplikaci"><span class="ico">ⓘ</span><span>O aplikaci</span></button>\n    <button id="logoutBtn" class="ghost">Odhlásit</button>');
  html=html.replace("for(const id of ['profileBtn','appSettingsBtn','logoutBtn'])","for(const id of ['profileBtn','appSettingsBtn','ycLegalAboutBtn','logoutBtn'])");
+ const navRegistryBefore="    ['appSettingsBtn','⚙','Nastavení'],\n    ['logoutBtn','↪','Odhlásit']";
+ const navRegistryAfter="    ['appSettingsBtn','⚙','Nastavení'],\n    ['ycLegalAboutBtn','ⓘ','O aplikaci'],\n    ['logoutBtn','↪','Odhlásit']";
+ if(!html.includes(navRegistryBefore))throw Error('Legal UI: final nav registry boundary not found');
+ html=html.replace(navRegistryBefore,navRegistryAfter);
  html=html.replace('<button id="ycForgotPassword" type="button" style="display:block;width:100%;border:0;background:transparent;text-align:center;margin-top:14px;font-size:13px;color:inherit;cursor:pointer">Zapomenuté heslo?</button>','<button id="ycForgotPassword" type="button" style="display:block;width:100%;border:0;background:transparent;text-align:center;margin-top:14px;font-size:13px;color:inherit;cursor:pointer">Zapomenuté heslo?</button><div class="yc-auth-legal-links" aria-label="Právní odkazy"><button type="button" data-yc-auth-legal="terms" aria-label="Podmínky používání">Podmínky</button><span aria-hidden="true">•</span><button type="button" data-yc-auth-legal="privacy" aria-label="Ochrana osobních údajů">Soukromí</button></div>');
  html=html.replace(/<div class="yc-dev-info"><small>Věk<\/small><strong>33 let<\/strong><\/div>/g,'');
  html=html.replace('<div class="yc-dev-info"><small>Projekt</small><strong>Yamachat</strong></div></div><div class="yc-dev-section"><h4>Kontaktovat vývojáře</h4>','<div class="yc-dev-info"><small>Projekt</small><strong>Yamachat</strong></div></div><div class="yc-dev-legal-card"><strong>🛡 Yamachat — proprietární projekt</strong><small>© 2026 Lukáš Hubáček<br>✓ Digitálně podepsaná právní baseline – podpis ověřen</small><button id="ycDevLegalOpen" type="button">Zobrazit právní informace</button></div><div class="yc-dev-section"><h4>Kontaktovat vývojáře</h4>');
@@ -121,5 +132,6 @@ export function withLegalUi(html){
  if(!html.includes('data-yc-auth-legal="terms"'))throw Error('Legal UI: auth legal boundary not found');
  if(html.includes('<small>Věk</small><strong>33 let</strong>'))throw Error('Legal UI: developer age must not remain');
  if(!html.includes('id="ycDevLegalOpen"'))throw Error('Legal UI: developer legal card boundary not found');
+ if(!html.includes("['ycLegalAboutBtn','ⓘ','O aplikaci']"))throw Error('Legal UI: About missing from final nav registry');
  return html.replace('</body>',legalRuntime()+'\n</body>')
 }
