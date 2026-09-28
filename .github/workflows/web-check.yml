@@ -75,6 +75,8 @@ jobs:
         run: node tests/voice-scale-model.cjs
       - name: Voice scale SQL review
         run: node tests/voice-scale-sql.cjs
+      - name: Stream presence scale model
+        run: node tests/stream-scale.cjs
       - name: Independent stream viewer and WebRTC lifecycle
         run: |
           node tests/stream-transport.mjs
