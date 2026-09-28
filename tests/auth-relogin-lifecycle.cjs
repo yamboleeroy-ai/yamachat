@@ -33,6 +33,16 @@ function fixture(){
    await context.addInitScript(()=>{
     if(navigator.userAgent.includes('iPhone'))Object.defineProperty(navigator,'standalone',{value:true,configurable:true});
     window.__auditGlobalAdds={window:{},document:{}};
+    window.__auditObservers={created:0,observeCalls:0,disconnectCalls:0};
+    const NativeMutationObserver=window.MutationObserver;
+    window.MutationObserver=function(callback){
+      const observer=new NativeMutationObserver(callback);window.__auditObservers.created++;
+      const observe=observer.observe.bind(observer),disconnect=observer.disconnect.bind(observer);
+      observer.observe=(...args)=>{window.__auditObservers.observeCalls++;return observe(...args)};
+      observer.disconnect=(...args)=>{window.__auditObservers.disconnectCalls++;return disconnect(...args)};
+      return observer;
+    };
+    window.MutationObserver.prototype=NativeMutationObserver.prototype;
     const base=EventTarget.prototype.addEventListener;
     EventTarget.prototype.addEventListener=function(type,fn,opts){
       const bucket=this===window?window.__auditGlobalAdds.window:this===document?window.__auditGlobalAdds.document:null;
@@ -52,9 +62,9 @@ function fixture(){
    for(let cycle=0;cycle<5;cycle++){
     await page.locator('#email').fill('audit@example.test');await page.locator('#password').fill('StrongPass123!');await page.locator('#authSubmit').click();await page.waitForSelector('#app:not(.hidden)',{timeout:20000});
     await page.waitForTimeout(100);
-    const loggedIn=await page.evaluate(()=>({active:[...window.__auditActiveChannels].sort(),creates:window.__auditChannelCreates,listeners:JSON.parse(JSON.stringify(window.__auditGlobalAdds)),heap:performance.memory?.usedJSHeapSize||0}));
+    const loggedIn=await page.evaluate(()=>({active:[...window.__auditActiveChannels].sort(),creates:window.__auditChannelCreates,listeners:JSON.parse(JSON.stringify(window.__auditGlobalAdds)),observers:{...window.__auditObservers},heap:performance.memory?.usedJSHeapSize||0}));
     await page.evaluate(()=>document.querySelector('#logoutBtn')?.click());await page.waitForSelector('#auth:not(.hidden)',{timeout:15000});await page.waitForTimeout(100);
-    const loggedOut=await page.evaluate(()=>({active:[...window.__auditActiveChannels].sort(),creates:window.__auditChannelCreates,listeners:JSON.parse(JSON.stringify(window.__auditGlobalAdds)),heap:performance.memory?.usedJSHeapSize||0}));
+    const loggedOut=await page.evaluate(()=>({active:[...window.__auditActiveChannels].sort(),creates:window.__auditChannelCreates,listeners:JSON.parse(JSON.stringify(window.__auditGlobalAdds)),observers:{...window.__auditObservers},heap:performance.memory?.usedJSHeapSize||0}));
     snapshots.push({cycle:cycle+1,loggedIn,loggedOut});
    }
    const firstIn=snapshots[0].loggedIn.active.length,firstOut=snapshots[0].loggedOut.active.length;
@@ -68,10 +78,12 @@ function fixture(){
     const before=(firstListeners.window[k]||0)+(firstListeners.document[k]||0),after=(lastListeners.window[k]||0)+(lastListeners.document[k]||0);
     assert(after<=before+1,cfg.platform+' global '+k+' listener count grows across relogins: '+before+' -> '+after);
    }
+   const firstObserverCreates=snapshots[0].loggedOut.observers.created,lastObserverCreates=snapshots.at(-1).loggedOut.observers.created;
+   assert.equal(lastObserverCreates,firstObserverCreates,cfg.platform+' MutationObserver instances grow across relogins: '+firstObserverCreates+' -> '+lastObserverCreates);
    assert.deepEqual(errors,[],cfg.platform+' relogin runtime errors');
    console.log('AUDIT_RELOGIN '+cfg.platform+' '+JSON.stringify(snapshots));
    await context.close();
   }
  }finally{await browser.close()}
- console.log('PASS 5x login/logout lifecycle on desktop, web, Android and iOS-PWA: realtime subscriptions and global lifecycle listeners do not grow across relogins.');
+ console.log('PASS 5x login/logout lifecycle on desktop, web, Android and iOS-PWA: realtime subscriptions, global lifecycle listeners and MutationObserver instances do not grow across relogins.');
 })().catch(e=>{console.error(e);process.exit(1)});
