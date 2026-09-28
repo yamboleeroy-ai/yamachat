@@ -45,6 +45,12 @@ jobs:
       - name: Generate shared Web/PWA and mobile client
         run: node scripts/build-web.mjs
 
+      - name: Install browser test runtime
+        shell: pwsh
+        run: |
+          npm install --no-save --package-lock=false playwright@1.62.1
+          npx playwright install chromium
+
       - name: Verify Cloudflare-only TURN routing
         shell: pwsh
         run: |
