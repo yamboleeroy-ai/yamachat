@@ -148,6 +148,7 @@ async function cleanupSyntheticRemoteStream(page){
       const body='journey '+cfg.platform+' '+Date.now();
       await page.locator('#messageInput').fill(body);await page.locator('#sendBtn').click();
       await page.waitForFunction(()=>window.__mockWrites.filter(x=>x==='messages:insert').length>=1);
+      await page.waitForFunction(()=>document.querySelector('#messageInput')?.value===''&&!document.querySelector('#sendBtn')?.disabled);
       assert.equal(await page.locator('#messageInput').inputValue(),'');
       
       // Real voice join path with a fake Chromium microphone device.
