@@ -8,16 +8,16 @@
     "notes": "Yamachat 1.0.107: multi-user voice stability hardening, bounded reconnect/cleanup and Android Microsoft Natural voices."
   },
   "android": {
-    "latestVersion": "1.1.0.672",
-    "latestVersionCode": 200672,
+    "latestVersion": "1.1.0.786",
+    "latestVersionCode": 200786,
     "required": true,
-    "apkUrl": "https://yamachat.eu/download/Yamachat-Android.apk?v=200672",
-    "sha256": "2540cd68c7789774060c22a991e8d9999c6e131d60eba2c8051880b7b55d5ae7",
+    "apkUrl": "https://yamachat.eu/download/Yamachat-Android.apk?v=200786",
+    "sha256": "8dd192de9f5d9e4f78b3b9123d554db8f71d07faa399c314d8d959cdb3231d74",
     "notes": [
-      "Stability hardening pro multi-user voice, reconnect a cleanup po pádu nebo nekorektním odpojení.",
-      "Microsoft Natural Voices jsou nově dostupné i na Androidu přes zabezpečený Yamachat backend; česká Vlasta a Antonín mají přednost podle volby uživatele.",
-      "Při nedostupnosti Microsoft Natural se automaticky použije současný systémový hlas Androidu.",
-      "Voice, stream, WebRTC, chat, notifikace a mobilní rozložení zůstávají zachované."
+      "Yamachat oznámení mají vlastní logo, ikonu a vlastní zvuk zprávy na Androidu.",
+      "Kliknutí na oznámení otevře přímo správnou DM, kanál a konkrétní zprávu.",
+      "FCM push při úplně ukončené APK je aktivní.",
+      "Současné mobilní rozložení, voice, Real Voices a ostatní funkce zůstávají beze změny."
     ]
   }
 }
