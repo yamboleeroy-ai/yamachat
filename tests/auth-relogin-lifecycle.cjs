@@ -2,7 +2,28 @@ const fs=require('node:fs'),path=require('node:path'),assert=require('node:asser
 const {chromium}=require('playwright');
 const root=path.resolve(__dirname,'..'),base=fs.readFileSync(path.join(__dirname,'supabase-fixture.js'),'utf8');
 
-function source(platform){return fs.readFileSync(path.join(root,platform==='desktop'?'desktop/desktop-client.html':'index.html'),'utf8')}
+function source(platform){
+ const doc=fs.readFileSync(path.join(root,platform==='desktop'?'desktop/desktop-client.html':'index.html'),'utf8'),marker='window.__ycClientReady=true;';
+ assert(doc.includes(marker),platform+' client-ready marker missing');
+ const bridge=`
+window.__ycAuthCleanupRace={
+ arm(){
+  window.__ycRaceObservedUser=null;
+  const baseStop=stopScreenShare;let restored=false;
+  stopScreenShare=async function(...args){
+   await new Promise(resolve=>setTimeout(resolve,900));
+   window.__ycRaceObservedUser=user?.id||'';
+   if(!restored){restored=true;stopScreenShare=baseStop}
+   return baseStop.apply(this,args)
+  };
+  voiceChannel={id:'voice-race-room',name:'Race room',community_id:'community-a'};
+  voiceSessionId='voice-race-session';
+ },
+ observed:()=>window.__ycRaceObservedUser
+};
+`;
+ return doc.replace(marker,bridge+marker)
+}
 function fixture(){
  let s=base
   .replace(
@@ -72,6 +93,18 @@ function fixture(){
     assert(snap.loggedIn.active.length<=firstIn+1,cfg.platform+' realtime channels grow after relogin: '+JSON.stringify(snap));
     assert(snap.loggedOut.active.length<=firstOut,cfg.platform+' realtime channels remain after logout: '+JSON.stringify(snap));
    }
+   // Deliberately keep the old voice cleanup pending while a new login starts.
+   await page.locator('#email').fill('audit@example.test');await page.locator('#password').fill('StrongPass123!');await page.locator('#authSubmit').click();
+   await page.waitForSelector('#app:not(.hidden)',{timeout:20000});
+   await page.evaluate(()=>window.__ycAuthCleanupRace.arm());
+   await page.evaluate(()=>document.querySelector('#logoutBtn')?.click());
+   await page.waitForSelector('#auth:not(.hidden)',{timeout:15000});
+   await page.locator('#email').fill('audit@example.test');await page.locator('#password').fill('StrongPass123!');await page.locator('#authSubmit').click();
+   await page.waitForSelector('#app:not(.hidden)',{timeout:20000});
+   const raceObservedUser=await page.evaluate(()=>window.__ycAuthCleanupRace.observed());
+   assert.equal(raceObservedUser,'',cfg.platform+' previous voice cleanup observed the new auth user: '+raceObservedUser);
+   await page.evaluate(()=>document.querySelector('#logoutBtn')?.click());await page.waitForSelector('#auth:not(.hidden)',{timeout:15000});
+
    const listenerKeys=['focus','online','offline','visibilitychange','pointerdown','keydown','touchstart','mousemove','click'];
    const firstListeners=snapshots[0].loggedOut.listeners,lastListeners=snapshots.at(-1).loggedOut.listeners;
    for(const k of listenerKeys){
@@ -85,5 +118,5 @@ function fixture(){
    await context.close();
   }
  }finally{await browser.close()}
- console.log('PASS 5x login/logout lifecycle on desktop, web, Android and iOS-PWA: realtime subscriptions, global lifecycle listeners and MutationObserver instances do not grow across relogins.');
+ console.log('PASS repeated login/logout lifecycle on desktop, web, Android and iOS-PWA: realtime subscriptions, global lifecycle listeners and MutationObserver instances remain bounded, and previous voice cleanup cannot cross into a new auth session.');
 })().catch(e=>{console.error(e);process.exit(1)});
