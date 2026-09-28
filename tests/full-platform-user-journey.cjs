@@ -192,7 +192,7 @@ async function cleanupSyntheticRemoteStream(page){
 
       // Continue chatting while a stream is playing; neither peer nor video node may be replaced.
       const before=await page.evaluate(()=>({video:window.__journeyStream.video,peer:window.__ycE2E.voicePeers.get('peer')}));
-      await page.evaluate(async()=>{const all=await getChannels();await selectChannel('chat-b',all)});
+      await page.evaluate(()=>window.__ycE2E.selectChannelById('chat-b'));
       await page.locator('#messageInput').fill('chat while watching stream '+cfg.platform);await page.locator('#sendBtn').click();
       await page.waitForFunction(()=>window.__mockWrites.filter(x=>x==='messages:insert').length>=4);
       const continuity=await page.evaluate(()=>({
