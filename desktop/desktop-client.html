@@ -4079,6 +4079,7 @@ saveProfile=async function(...args){
 
 
 // NAV REGISTRY FUNCTION BRIDGE v3.0.8.1 — keep Atlas layout, restore module-scoped actions
+// Nexus consumes this presentation bridge only; voice/stream lifecycle remains private to the existing module.
 window.__ycV3NavRegistryBridge={
   openUiMenu:(opts)=>ycOpenUiMenu(opts),
   createCommunity:()=>createCommunity(),
@@ -4089,7 +4090,28 @@ window.__ycV3NavRegistryBridge={
   goHome:()=>{try{ycShowServerSidebar()}catch{};if(currentCommunity)return selectCommunity(currentCommunity.id);if(communities?.[0])return selectCommunity(communities[0].id)},
   isPlatformAdmin:()=>!!window.__ycPlatformAdmin,
   openPlatformAdmin:()=>ycOpenPlatformAdmin(),
-  refreshAdminBadges:()=>{try{void ycRefreshPlatformReportBadge()}catch{};try{void ycRefreshPlatformFeedbackBadge()}catch{}}
+  refreshAdminBadges:()=>{try{void ycRefreshPlatformReportBadge()}catch{};try{void ycRefreshPlatformFeedbackBadge()}catch{}},
+  nexusState:()=>({
+    currentCommunityId:currentCommunity?.id||null,
+    communities:(communities||[]).map(c=>({id:c.id,name:c.name||'',description:c.description||'',created_at:c.created_at||null,is_public:!!c.is_public,server_color:c.server_color||'',role:c.role||'member',member_count:Number(c.member_count||0),__platformAdmin:!!c.__platformAdmin}))
+  }),
+  nexusListPublicCommunities:async()=>{
+    const {data,error}=await sb.rpc('list_public_communities');
+    if(error)throw error;
+    return (data||[]).map(c=>({...c,is_public:true}))
+  },
+  nexusOpenCommunity:(id)=>selectCommunity(id),
+  nexusJoinPublicCommunity:async(id)=>{
+    const {error}=await sb.rpc('join_public_community',{p_community_id:id});
+    if(error)throw error;
+    await loadCommunities();
+    await selectCommunity(id);
+    return true
+  },
+  nexusJoinByCode:(value)=>joinCommunityByCode(value),
+  nexusLeaveCommunity:(id)=>ycLeaveCommunity(id,false),
+  nexusOpenServerInfo:(id)=>ycOpenServerCardInfo(id),
+  nexusCreateCommunity:()=>createCommunity()
 };
 try{ycEnsureFriendsRailButton=function(){document.getElementById('ycFriendsRailBtn')?.remove();return null}}catch{}
 try{
