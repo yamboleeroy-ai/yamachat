@@ -75,13 +75,21 @@ function inside(b,w,h){return b&&b.width>0&&b.height>0&&b.x>=-1&&b.y>=-1&&b.x+b.
         .sort((a,b)=>a.getBoundingClientRect().top-b.getBoundingClientRect().top)
         .map(el=>el.id));
       assert.equal(visualOrder[visualOrder.indexOf('ycLegalAboutBtn')+1],'logoutBtn','Mobile About must be visually directly above logout');
-      await page.screenshot({path:path.join(__dirname,'legal-ui-screens','mobile-nav-about.png'),fullPage:true});
+      await page.screenshot({path:path.join(__dirname,'legal-ui-screens','mobile-nav-about.png')});
       await about.click();
       await page.waitForSelector('.yc-legal-shell');
       assert.equal(await page.locator('#ycGlobalNav').evaluate(el=>el.classList.contains('yc-mobile-open')),false,'About must close mobile drawer');
       assert(inside(await page.locator('.yc-legal-shell').boundingBox(),390,844));
       assert.equal(await page.locator('.yc-legal-links-grid').evaluate(el=>getComputedStyle(el).gridTemplateColumns.split(' ').length),1);
-      await page.screenshot({path:path.join(__dirname,'legal-ui-screens','mobile-about-portrait.png'),fullPage:true});
+      const portraitFit=await page.evaluate(()=>{
+        const body=document.getElementById('ycLegalBody'),hero=document.querySelector('.yc-legal-hero'),title=hero?.querySelector('h3'),sig=document.querySelector('.yc-legal-signature');
+        const box=el=>{const r=el?.getBoundingClientRect();return r?{x:r.x,right:r.right,width:r.width}:null};
+        return {body:{clientWidth:body?.clientWidth||0,scrollWidth:body?.scrollWidth||0},title:box(title),signature:box(sig),heading:title?.textContent||''};
+      });
+      assert(portraitFit.body.scrollWidth<=portraitFit.body.clientWidth+1,JSON.stringify(portraitFit));
+      assert.equal(portraitFit.heading,'Yamachat');
+      for(const b of [portraitFit.title,portraitFit.signature])assert(b&&b.x>=-1&&b.right<=391,JSON.stringify(portraitFit));
+      await page.screenshot({path:path.join(__dirname,'legal-ui-screens','mobile-about-portrait.png')});
       assert.deepEqual(errors,[]);
       await page.close();
     }
@@ -93,7 +101,9 @@ function inside(b,w,h){return b&&b.width>0&&b.height>0&&b.x>=-1&&b.y>=-1&&b.x+b.
       assert(inside(await page.locator('.yc-legal-shell').boundingBox(),844,390));
       assert.equal(await page.locator('.yc-legal-shell').evaluate(el=>getComputedStyle(el).gridTemplateColumns.split(' ').length),1);
       assert.equal(await page.locator('.yc-legal-links-grid').evaluate(el=>getComputedStyle(el).gridTemplateColumns.split(' ').length),1);
-      await page.screenshot({path:path.join(__dirname,'legal-ui-screens','mobile-about-landscape.png'),fullPage:true});
+      const landscapeFit=await page.locator('#ycLegalBody').evaluate(el=>({clientWidth:el.clientWidth,scrollWidth:el.scrollWidth}));
+      assert(landscapeFit.scrollWidth<=landscapeFit.clientWidth+1,JSON.stringify(landscapeFit));
+      await page.screenshot({path:path.join(__dirname,'legal-ui-screens','mobile-about-landscape.png')});
       assert.deepEqual(errors,[]);
       await page.close();
     }
@@ -106,7 +116,9 @@ function inside(b,w,h){return b&&b.width>0&&b.height>0&&b.x>=-1&&b.y>=-1&&b.x+b.
       });
       assert.equal(await page.locator('[data-yc-auth-legal="terms"]').textContent(),'Podmínky');
       assert.equal(await page.locator('[data-yc-auth-legal="privacy"]').textContent(),'Soukromí');
-      await page.screenshot({path:path.join(__dirname,'legal-ui-screens','mobile-login-legal-links.png'),fullPage:true});
+      await page.locator('#auth').waitFor({state:'visible'});
+      await page.locator('[data-yc-auth-legal="terms"]').waitFor({state:'visible'});
+      await page.screenshot({path:path.join(__dirname,'legal-ui-screens','mobile-login-legal-links.png')});
       assert.deepEqual(errors,[]);
       await page.close();
     }
