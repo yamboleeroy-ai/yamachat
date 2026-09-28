@@ -6,16 +6,22 @@ const desktop=fs.readFileSync(new URL('../desktop/desktop-client.html',import.me
 const generated=fs.readFileSync(new URL('../index.html',import.meta.url),'utf8');
 
 function verify(html,label){
-  assert.match(html,/id="ycLegalAboutBtn"[^>]*>O aplikaci<\/button>/,label+': missing About button');
+  assert.match(html,/id="ycLegalAboutBtn" class="yc-v3-nav-btn yc-legal-nav-entry"[^>]*>[\s\S]*?<span>O aplikaci<\/span><\/button>/,label+': About must be a full navigation item');
   assert.ok(html.indexOf('id="ycLegalAboutBtn"')<html.indexOf('id="logoutBtn"'),label+': About must be before logout');
-  assert.match(html,/data-yc-auth-legal="terms"[^>]*>Podmínky používání<\/button>/,label+': missing Terms link');
-  assert.match(html,/data-yc-auth-legal="privacy"[^>]*>Ochrana osobních údajů<\/button>/,label+': missing Privacy link');
+  assert.ok(html.includes("['profileBtn','appSettingsBtn','ycLegalAboutBtn','logoutBtn']"),label+': About must mount directly above logout in global/mobile navigation');
+  assert.match(html,/data-yc-auth-legal="terms"[^>]*>Podmínky<\/button>/,label+': missing Terms link');
+  assert.match(html,/data-yc-auth-legal="privacy"[^>]*>Soukromí<\/button>/,label+': missing Privacy link');
   assert.ok(!html.includes('<small>Věk</small><strong>33 let</strong>'),label+': developer age still present');
   assert.match(html,/id="ycDevLegalOpen"[^>]*>Zobrazit právní informace<\/button>/,label+': missing developer legal card');
   assert.ok(html.includes('Yamachat — proprietární projekt'),label+': proprietary project label missing');
   assert.ok(html.includes('© 2026 Lukáš Hubáček. Všechna práva vyhrazena.'),label+': copyright footer missing');
   assert.ok(html.includes('legal-baseline-2026-09-27'),label+': legal baseline tag missing');
+  assert.ok(html.includes('Digitálně podepsaná právní baseline – podpis ověřen'),label+': verified signature wording missing');
   assert.ok(html.includes("Nejde o právní certifikaci ani právní ověření obsahu."),label+': signature limitation missing');
+  assert.ok(html.includes('class="yc-legal-links-grid"'),label+': About legal document cards missing');
+  assert.ok(html.includes('class="yc-legal-signature"'),label+': signature status card missing');
+  assert.ok(html.includes('@media(max-width:720px)'),label+': responsive legal layout missing');
+  assert.ok(html.includes('env(safe-area-inset-bottom)'),label+': legal safe-area support missing');
   assert.ok(html.includes("{id:'terms',label:'Podmínky používání',icon:'§',pending:true}"),label+': Terms must be pending');
   assert.ok(html.includes("{id:'privacy',label:'Ochrana osobních údajů',icon:'◈',pending:true}"),label+': Privacy must be pending');
   for(const file of ['LICENSE','THIRD_PARTY_NOTICES.md','BRAND-NOTICE.md','PROVENANCE.md','ASSET-MANIFEST.md','LEGAL-BASELINE.md']){
