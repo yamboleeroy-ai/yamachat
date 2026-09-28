@@ -3769,17 +3769,17 @@ function ycEnsureNotifyUi(){
 function ycNotifyTime(v){try{return new Intl.DateTimeFormat('cs-CZ',{day:'numeric',month:'numeric',hour:'2-digit',minute:'2-digit'}).format(new Date(v))}catch{return''}}
 async function ycLoadNotifyReadKeys(){if(!user?.id){ycNotifyReadKeys=new Set();return}try{const {data}=await sb.from('user_notification_reads').select('event_key').eq('user_id',user.id);ycNotifyReadKeys=new Set((data||[]).map(x=>x.event_key))}catch(e){console.warn('notification reads',e)}}
 async function ycBuildNotificationItems(){
- if(!user?.id)return[]
+ const uid=String(user?.id||'');if(!uid)return[]
  const items=[]
  for(const t of dmThreads||[]){const n=Number(ycDmUnreadByThread?.[t.id]||0);if(n>0)items.push({key:'dm:'+t.id,type:'dm',threadId:t.id,unread:true,count:n,icon:'💬',title:t.peer?.display_name||t.peer?.username||'Soukromá zpráva',text:n===1?'1 nová zpráva':n+' nové zprávy',time:''})}
  try{
-  const {data:fr}=await sb.from('friendships').select('*').or('requester_id.eq.'+user.id+',addressee_id.eq.'+user.id).order('updated_at',{ascending:false}).limit(60)
-  const rows=fr||[],otherIds=[...new Set(rows.map(x=>x.requester_id===user.id?x.addressee_id:x.requester_id))];let ps=[];if(otherIds.length){const {data}=await sb.from('profiles').select('id,username,display_name').in('id',otherIds);ps=data||[]}const pm=Object.fromEntries(ps.map(p=>[p.id,p]))
+  const {data:fr}=await sb.from('friendships').select('*').or('requester_id.eq.'+uid+',addressee_id.eq.'+uid).order('updated_at',{ascending:false}).limit(60)
+  const rows=fr||[],otherIds=[...new Set(rows.map(x=>x.requester_id===uid?x.addressee_id:x.requester_id))];let ps=[];if(otherIds.length){const {data}=await sb.from('profiles').select('id,username,display_name').in('id',otherIds);ps=data||[]}const pm=Object.fromEntries(ps.map(p=>[p.id,p]))
   for(const f of rows){
-   const incoming=f.status==='pending'&&f.addressee_id===user.id
-   const acceptedMine=f.status==='accepted'&&f.requester_id===user.id
+   const incoming=f.status==='pending'&&f.addressee_id===uid
+   const acceptedMine=f.status==='accepted'&&f.requester_id===uid
    if(!incoming&&!acceptedMine)continue
-   const otherId=f.requester_id===user.id?f.addressee_id:f.requester_id,p=pm[otherId]||{username:'Uživatel'},name=p.display_name||p.username
+   const otherId=f.requester_id===uid?f.addressee_id:f.requester_id,p=pm[otherId]||{username:'Uživatel'},name=p.display_name||p.username
    const stamp=f.updated_at||f.created_at||''
    const key=(incoming?'friend-request:':'friend-accepted:')+otherId+':'+stamp
    const unread=!ycNotifyReadKeys.has(key)
