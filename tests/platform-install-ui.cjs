@@ -31,9 +31,10 @@ function inside(b,w,h){return b&&b.width>0&&b.height>0&&b.x>=-1&&b.y>=-1&&b.x+b.
    const {page,errors}=await boot(browser,w,h,mobile);
    const forgot=page.locator('#ycForgotPassword'),row=page.locator('.yc-platform-login'),legal=page.locator('.yc-auth-legal-links');
    await row.waitFor({state:'visible'});
+   await row.scrollIntoViewIfNeeded();
    const fb=await forgot.boundingBox(),rb=await row.boundingBox(),lb=await legal.boundingBox();
    assert(fb&&rb&&lb&&fb.y<rb.y&&rb.y<lb.y,'Platform row must be between forgot password and legal links');
-   assert(inside(rb,w,h),`Platform row outside viewport at ${w}x${h}`);
+   assert(inside(rb,w,h),`Platform row must be reachable inside scrollable auth viewport at ${w}x${h}`);
    assert.equal(await page.locator('[data-yc-platform]').count(),4);
    assert.equal(await page.locator('#ycAuthDownloads').count(),0,'Legacy login download block must not duplicate compact platform launcher');
 
