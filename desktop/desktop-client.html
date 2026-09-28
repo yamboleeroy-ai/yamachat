@@ -2661,9 +2661,6 @@ ycLinkDiscord=async function(){
 // The active-room voice_participants roster diff is authoritative.
 // Do not open a second global Postgres Changes listener or an auxiliary broadcast room.
 try{joinVoiceChannel=ycOriginalJoinVoiceChannel;leaveVoiceChannel=ycOriginalLeaveVoiceChannel;void ycVoiceUnsubscribeAnnouncement()}catch{}
-let ycVoiceNamesSub=null
-function ycEnsureVoiceNamesRealtime(){}
-async function ycStopVoiceNamesRealtime(){}
 
 
 // hover user profile cards
