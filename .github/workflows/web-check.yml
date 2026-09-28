@@ -57,6 +57,8 @@ jobs:
         run: node tests/interaction-notifications.cjs
       - name: Current desktop behavior sync on shared web/mobile client
         run: node tests/web-mobile-desktop-behavior-sync.cjs
+      - name: Cross-platform login bootstrap
+        run: node tests/auth-login-flow.cjs
       - name: Cross-platform voice interoperability
         run: node tests/cross-platform-voice-interop.cjs
       - name: Full authenticated platform journey
