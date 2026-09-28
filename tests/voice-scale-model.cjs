@@ -32,6 +32,12 @@ assert(!desktop.includes("room?.untrack("),'Voice Presence untrack returned');
 assert(desktop.includes("function ycStartRemoteVoiceActivityDetector(peerId,stream)"),'Local remote-speaking detector missing');
 assert(!desktop.includes("syncVoiceParticipantRow().catch(()=>{});renderVoiceChannels(voiceChannelDefs)"),'Speech edges still write Postgres rows');
 assert(!desktop.includes("sb.functions.invoke('yamachat-turn',{method:'GET'})"),'Metered TURN returned');
+assert(!desktop.includes('yc-voice-name-events-'),'Global voice-name participant subscription returned');
+assert(!desktop.includes("table:'user_presence'},payload=>ycHandlePresenceRealtime"),'Global social presence subscription returned');
+assert(desktop.includes("table:'profiles',filter:'id=eq.'+user.id"),'Own-profile realtime must remain targeted to the signed-in user');
+assert(!desktop.includes('yc-dm-global-'),'Global desktop DM message listener returned');
+assert(!desktop.includes("sb.channel('yc-win-notify-'+user.id"),'Global Windows message listener returned');
+
 assert(scaleSql.includes('voice_participants_channel_last_seen_idx'),'Voice roster composite index definition missing');
 assert(scaleSql.includes('(channel_id, last_seen desc)'),'Voice roster index must match channel + lease cutoff query');
 assert(scaleSql.includes('voice_signals_created_at_idx'),'Stale signaling cleanup index missing');
