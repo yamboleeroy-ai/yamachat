@@ -1,6 +1,8 @@
 name: Yamachat 1.0.107 release
 
 on:
+  push:
+    branches: [release/1.0.107-android-natural-stability-20260928]
   workflow_dispatch:
 
 permissions:
