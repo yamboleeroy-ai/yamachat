@@ -24,11 +24,15 @@ function verify(html,label){
   assert.ok(html.includes('(max-width:1100px) and (max-height:560px)'),label+': phone-landscape legal layout missing');
   assert.ok(html.includes('env(safe-area-inset-bottom)'),label+': legal safe-area support missing');
   assert.ok(html.includes("id='ycLegalPortal'")||html.includes("r.id='ycLegalPortal'"),label+': legal dialog must use body-level portal for login access');
-  assert.ok(html.includes("{id:'terms',label:'Podmínky používání',icon:'§',pending:true}"),label+': Terms must be pending');
-  assert.ok(html.includes("{id:'privacy',label:'Ochrana osobních údajů',icon:'◈',pending:true}"),label+': Privacy must be pending');
-  for(const file of ['LICENSE','THIRD_PARTY_NOTICES.md','BRAND-NOTICE.md','PROVENANCE.md','ASSET-MANIFEST.md','LEGAL-BASELINE.md']){
+  assert.ok(html.includes("{id:'terms',label:'Podmínky používání',icon:'§',doc:'terms'}"),label+': Terms must be final document');
+  assert.ok(html.includes("{id:'privacy',label:'Ochrana osobních údajů',icon:'◈',doc:'privacy'}"),label+': Privacy must be final document');
+  for(const file of ['LICENSE','TERMS_OF_USE.md','PRIVACY_POLICY.md','THIRD_PARTY_NOTICES.md','BRAND-NOTICE.md','PROVENANCE.md','ASSET-MANIFEST.md','LEGAL-BASELINE.md']){
     assert.ok(html.includes(file),label+': legal source missing '+file);
   }
+  assert.ok(html.includes('TERMS_OF_USE.md'),label+': Terms source label missing');
+  assert.ok(html.includes('PRIVACY_POLICY.md'),label+': Privacy source label missing');
+  assert.ok(!html.includes("label:'Podmínky používání',icon:'§',pending:true"),label+': Terms still marked pending');
+  assert.ok(!html.includes("label:'Ochrana osobních údajů',icon:'◈',pending:true"),label+': Privacy still marked pending');
   assert.ok(!html.includes('®'),label+': registered trademark symbol must not be introduced by legal UI');
 }
 
