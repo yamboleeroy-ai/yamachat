@@ -120,14 +120,15 @@ assert(!html.includes("if(next&&ycLastPresenceSig.startsWith('afk|'))void ycTouc
 assert(html.includes("if(pref!=='online')return pref"),'Manual AFK/DND/invisible preference must remain authoritative');
 
 // Voice participant announcements have one authoritative source: refreshed participant diffs.
-assert(!html.includes("ycVoiceAnnounceOnce(row,'join')"),'Direct participant INSERT must not announce outside the refreshed participant diff');
-assert(!html.includes("ycVoiceAnnounceOnce(row,'leave')"),'Direct participant DELETE must not announce outside the refreshed participant diff');
+assert(html.includes("function ycVoiceDiffAnnouncements(channelId,before,after)"),'Participant roster diff must remain the single join/leave announcement source');
+assert(html.includes("event:'INSERT',schema:'public',table:'voice_participants',filter},()=>{void refreshVoiceParticipants(id)}"),'Participant INSERT must refresh the roster instead of announcing directly');
+assert(html.includes("event:'DELETE',schema:'public',table:'voice_participants',filter},payload=>{const uid=payload.old?.user_id;if(uid&&uid!==user.id)closeVoicePeer(uid);void refreshVoiceParticipants(id)}"),'Participant DELETE must clean the peer and refresh the roster instead of announcing directly');
 assert(html.includes("event:'INSERT',schema:'public',table:'voice_participants',filter"),'Joined room INSERT subscription missing');
 assert(html.includes("event:'DELETE',schema:'public',table:'voice_participants',filter"),'Joined room DELETE subscription missing');
 assert(html.includes("const uid=payload.old?.user_id;if(uid&&uid!==user.id)closeVoicePeer(uid)"),'Scoped DELETE must close only the departed peer from the joined room');
 assert(html.includes("ycVoiceDiffAnnouncements(id,before,after)"),'Participant diff announcement source missing');
 assert(html.includes("function ycVoiceHandleAnnouncement(payload){\n  if(window.__ycVoiceParticipantAnnouncements)return;"),'Legacy broadcast TTS path is not suppressed');
-assert(html.includes("function ycVoiceSpeakPerson(row,action){\n  if(window.__ycVoiceParticipantAnnouncements)return;"),'Legacy participant TTS path is not suppressed');
+assert(!html.includes("function ycVoiceSpeakPerson(row,action){")||html.includes("function ycVoiceSpeakPerson(row,action){\n  if(window.__ycVoiceParticipantAnnouncements)return;"),'Legacy participant TTS path must be absent or suppressed');
 assert(html.includes("if(now-last<6000)return"),'Voice announcement duplicate guard is too short or missing');
 assert(html.includes("row.username||cached?.username||cached?.display_name||'Uživatel'"),'Voice announcement username/fallback source missing');
 assert(html.includes("row.channel_id||''"),'Voice announcement active-channel inference missing');
