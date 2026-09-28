@@ -30,6 +30,12 @@ jobs:
         with:
           dotnet-version: '8.0.x'
 
+      - name: Preserve repository line endings for pinned reference hashes
+        shell: pwsh
+        run: |
+          git config core.autocrlf false
+          git reset --hard HEAD
+
       - name: Generate shared Web/PWA and mobile client
         run: node scripts/build-web.mjs
 
