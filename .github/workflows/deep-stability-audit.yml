@@ -7,5 +7,41 @@ on:
 permissions:
   contents: read
 jobs:
-  full-check:
-    uses: ./.github/workflows/web-check.yml
+  baseline:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Generate shared client
+        run: node scripts/build-web.mjs
+      - name: Static project checks
+        run: node scripts/check.mjs
+      - name: Install browser runtime
+        run: |
+          npm install --no-save --package-lock=false playwright@1.62.1
+          npx playwright install --with-deps chromium
+      - name: Auth bootstrap
+        run: node tests/auth-login-flow.cjs
+      - name: Auth relogin lifecycle
+        run: node tests/auth-relogin-lifecycle.cjs
+      - name: Realtime chat
+        run: node tests/cross-platform-chat-realtime.cjs
+      - name: Voice interoperability
+        run: node tests/cross-platform-voice-interop.cjs
+      - name: Full platform journey
+        run: node tests/full-platform-user-journey.cjs
+      - name: Multi-client voice and stream
+        run: node tests/cross-platform-multiclient-voice.cjs
+      - name: Ten-client stability stress
+        run: node tests/stability-10-client-load.cjs
+      - name: Voice scale model
+        run: node tests/voice-scale-model.cjs
+      - name: Stream scale model
+        run: node tests/stream-scale.cjs
+      - name: Stream viewer lifecycle
+        run: node tests/stream-viewer.cjs
+      - name: Windows taskbar restore regression
+        run: node tests/windows-taskbar-restore.cjs
