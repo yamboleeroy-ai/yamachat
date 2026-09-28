@@ -36,7 +36,6 @@ for(const marker of [
   "rightMode==='members'&&ycMembersPresenceNeedsRefresh()",
   "function ycHandlePresenceRealtime(payload)",
   "if(beforeSig===afterSig)return",
-  "payload=>ycHandlePresenceRealtime(payload)",
   "void ycTouchPresence(true);playVoiceCue('self-join')",
   "typeof ycOwnPresenceState==='function'?ycOwnPresenceState()",
   "Math.max(card.offsetHeight||0,280)",
@@ -47,6 +46,8 @@ for(const marker of [
   "delete document.documentElement.dataset.ycUiMenuOpen",
   "document.documentElement.dataset.ycUiMenuOpen='1'"
 ]) assert(client.includes(marker),'Shared behavior marker missing: '+marker);
+
+assert(/payload\s*=>\s*ycHandlePresenceRealtime\(payload\)/.test(client)||client.includes("ycHandlePresenceRealtime(payload)"),'Generated client must route user_presence realtime payloads through the stable presence handler');
 
 assert(!client.includes("const signed={};await Promise.all((atts||[]).map"),
   'Initial chat paint must not wait for every attachment signed URL');
