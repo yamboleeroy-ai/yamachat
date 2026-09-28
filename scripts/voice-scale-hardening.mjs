@@ -132,9 +132,6 @@ attachVoiceAudio=(peerId,stream)=>{ycStartRemoteVoiceActivityDetector(peerId,str
   const scaleVoiceNames=`// scale-safe voice join/leave announcements
 // The active-room voice_participants roster diff is authoritative.
 try{joinVoiceChannel=ycOriginalJoinVoiceChannel;leaveVoiceChannel=ycOriginalLeaveVoiceChannel;void ycVoiceUnsubscribeAnnouncement()}catch{}
-let ycVoiceNamesSub=null
-function ycEnsureVoiceNamesRealtime(){}
-async function ycStopVoiceNamesRealtime(){}
 `;
   html=html.slice(0,voiceNamesStart)+scaleVoiceNames+html.slice(voiceNamesEnd);
 
