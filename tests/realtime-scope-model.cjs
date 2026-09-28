@@ -5,12 +5,11 @@ for(const file of ['desktop/desktop-client.html','index.html']){
   const html=fs.readFileSync(path.join(root,file),'utf8');
   assert(html.includes("filter:'requester_id=eq.'+user.id"),file+' friendship requester scope missing');
   assert(html.includes("filter:'addressee_id=eq.'+user.id"),file+' friendship addressee scope missing');
-  assert(html.includes("const onFriendChange=()=>void ycRefreshNotificationCenter()"),file+' notification-center friendship handler missing');
-  const notifyStart=html.indexOf("async function ycStartFriendNotificationSub()");
-  const notifyEnd=html.indexOf("async function ycStopFriendNotificationSub()",notifyStart);
-  const notifyBlock=html.slice(notifyStart,notifyEnd);
-  assert(notifyBlock.includes("filter:'requester_id=eq.'+user.id"),file+' friend notification requester scope missing');
-  assert(notifyBlock.includes("filter:'addressee_id=eq.'+user.id"),file+' friend notification addressee scope missing');
+  const userRealtimeStart=html.indexOf('function subscribeUserRealtime()');
+  const userRealtimeBlock=html.slice(userRealtimeStart,userRealtimeStart+3200);
+  assert(userRealtimeBlock.includes("typeof ycRefreshNotificationCenter==='function'"),file+' friendship realtime no longer refreshes notification center');
+  assert(!html.includes('yc-notify-friends-'),file+' duplicate notification-center friendship realtime channel remains');
+  assert(!html.includes('ycStartFriendNotificationSub'),file+' duplicate friendship subscription lifecycle remains');
 
   assert(html.includes("let realtime=null,realtimeCommunityId=''"),file+' role/social community ownership missing');
   for(const table of ['community_members','community_member_roles','community_roles','desktop_server_role_layout']){
