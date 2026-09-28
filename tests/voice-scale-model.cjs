@@ -34,6 +34,10 @@ assert(!desktop.includes("syncVoiceParticipantRow().catch(()=>{});renderVoiceCha
 assert(!desktop.includes("sb.functions.invoke('yamachat-turn',{method:'GET'})"),'Metered TURN returned');
 assert(scaleSql.includes('voice_participants_channel_last_seen_idx'),'Voice roster composite index definition missing');
 assert(scaleSql.includes('(channel_id, last_seen desc)'),'Voice roster index must match channel + lease cutoff query');
+assert(scaleSql.includes('voice_signals_created_at_idx'),'Stale signaling cleanup index missing');
+assert(scaleSql.includes('prune_stale_voice_signals'),'Server-side stale signaling cleanup function missing');
+assert(scaleSql.includes("created_at < now() - interval '5 minutes'"),'Signal cleanup TTL must remain bounded');
+
 
 assert(desktop.includes("async function recoverVoiceSignals()"),'Voice signal recovery missing');
 assert(desktop.includes("lt('created_at',stale)"),'Stale voice signals are not pruned');
