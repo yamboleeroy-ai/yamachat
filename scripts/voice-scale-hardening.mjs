@@ -76,6 +76,24 @@ attachVoiceAudio=(peerId,stream)=>{ycStartRemoteVoiceActivityDetector(peerId,str
   if(!html.includes(leaveOld))throw Error('Voice scale leave boundary missing');
   html=html.replace(leaveOld,"voiceChannel=null;stopVoiceParticipantSubscription();voiceRouteMode='checking';renderVoiceControls();");
 
+  const altHeadOld="const old=voiceChannel,sid=voiceSessionId,room=old?voiceRooms.get(old.id):null,pendingParticipantSync=ycVoiceParticipantSyncQueue;";
+  const altHeadNew="const old=voiceChannel,sid=voiceSessionId,pendingParticipantSync=ycVoiceParticipantSyncQueue;";
+  if(!html.includes(altHeadOld))throw Error('Voice scale alternate disconnect head missing');
+  html=html.replace(altHeadOld,altHeadNew);
+
+  const altAudioOld="try{for(const [,nodes] of voiceAudioNodes){nodes.src?.disconnect();nodes.compressor?.disconnect();nodes.gain?.disconnect()}}catch{}";
+  if(!html.includes(altAudioOld))throw Error('Voice scale alternate audio cleanup missing');
+  html=html.replace(altAudioOld,altAudioOld+";try{for(const id of [...voiceRemoteVadStops.keys()])ycStopRemoteVoiceActivityDetector(id)}catch{}");
+
+  const altStateOld="voiceSessionId='';voiceChannel=null;voiceMuted=false;voiceDeafened=false;voiceRouteMode='checking';";
+  if(!html.includes(altStateOld))throw Error('Voice scale alternate state cleanup missing');
+  html=html.replace(altStateOld,"voiceSessionId='';voiceChannel=null;stopVoiceParticipantSubscription();voiceMuted=false;voiceDeafened=false;voiceRouteMode='checking';");
+
+  const altBgOld="if(old){toast('Odpojeno z hlasového kanálu.');setTimeout(()=>{try{updateVoicePresence(old.id)}catch{}},80);void (async()=>{try{await pendingParticipantSync}catch{}try{if(sid)await sb.rpc('clear_voice_participant',{p_session_id:sid})}catch(e){console.warn('background voice clear',e)}try{const p=room?.untrack();if(p&&typeof p.then==='function')await p}catch(e){console.warn('background voice untrack',e)}})()}";
+  const altBgNew="if(old){toast('Odpojeno z hlasového kanálu.');setTimeout(()=>{try{updateVoicePresence(old.id)}catch{}},80);void (async()=>{try{await pendingParticipantSync}catch{}try{if(sid)await sb.rpc('clear_voice_participant',{p_session_id:sid})}catch(e){console.warn('background voice clear',e)}})()}";
+  if(!html.includes(altBgOld))throw Error('Voice scale alternate Presence cleanup missing');
+  html=html.replace(altBgOld,altBgNew);
+
   const cleanupOld="function cleanupVoiceRooms(){if(typeof ycStopMicTest==='function')ycStopMicTest();stopVoiceHeartbeat();leaveVoiceChannel(true);";
   if(!html.includes(cleanupOld))throw Error('Voice scale cleanup boundary missing');
   html=html.replace(cleanupOld,"function cleanupVoiceRooms(){if(typeof ycStopMicTest==='function')ycStopMicTest();stopVoiceHeartbeat();stopVoiceRosterRefresh();for(const id of [...voiceRemoteVadStops.keys()])ycStopRemoteVoiceActivityDetector(id);leaveVoiceChannel(true);");
