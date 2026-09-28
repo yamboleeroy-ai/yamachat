@@ -211,6 +211,7 @@ function processSnapshot(label){
   const churn=clients.get('w1'),baseRt=churn.baselineRealtime;
   for(let cycle=0;cycle<3;cycle++){
    await churn.page.evaluate(()=>window.__ycAudit.disconnectVoice());await churn.page.waitForFunction(()=>{const s=window.__ycAudit.state();return !s.voice&&!s.heartbeat&&!s.participantSub&&s.peers===0},{},{timeout:10000});
+   const rejoinMic=await churn.page.evaluate(()=>window.__ycAudit.installSyntheticMic());assert.equal(rejoinMic,'live','w1 rejoin mic cycle '+cycle);
    await churn.page.evaluate(()=>window.__ycAudit.joinVoiceById('voice-a1'));await churn.page.waitForFunction(()=>{const s=window.__ycAudit.state();return s.voice==='voice-a1'&&s.audio==='live'&&s.signalReady},{},{timeout:10000});await churn.page.evaluate(()=>window.__ycAudit.installSignalBridge());
    const roster=[];for(const id of ['d1','w1','a1','i1']){const c=clients.get(id),sid=await c.page.evaluate(()=>window.__ycAudit.voiceSessionId);roster.push({user_id:id,username:id,session_id:sid,channel_id:'voice-a1',last_seen:new Date().toISOString()})}
    for(const id of ['d1','w1','a1','i1'])await clients.get(id).page.evaluate(({roster})=>window.__ycAudit.setRoster('voice-a1',roster),{roster});
