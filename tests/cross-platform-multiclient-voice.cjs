@@ -62,6 +62,10 @@ function mockFor(id,name){
    "if(filters.id)data=data.filter(x=>x.id===filters.id);if(filters.community_id)data=data.filter(x=>x.community_id===filters.community_id);if(filters.channel_id)data=data.filter(x=>x.channel_id===filters.channel_id);"
   )
   .replace(
+   "if(table==='messages')data=Array.from({length:60},",
+   "if(table==='voice_participants')data=window.__testVoiceRows||[];if(table==='messages')data=Array.from({length:60},"
+  )
+  .replace(
    "const channel=()=>{const c={on:()=>c,subscribe:()=>c,track:async()=>{},untrack:async()=>{},send:async()=>{},presenceState:()=>({})};return c};",
    "const channel=()=>{const c={on:()=>c,subscribe:(cb)=>{queueMicrotask(()=>cb?.('SUBSCRIBED'));return c},track:async()=>{},untrack:async()=>{},send:async()=>{},presenceState:()=>({})};return c};"
   )
