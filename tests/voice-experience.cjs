@@ -38,6 +38,10 @@ assert(html.includes("event:'DELETE',schema:'public',table:'voice_participants',
 assert(!html.includes("event:'*',schema:'public',table:'voice_participants'"),'Voice participants must not fan out globally to every client');
 assert(html.includes(".in('channel_id',ids).gt('last_seen',cutoff)"),'Visible voice rosters must refresh in one batched query');
 assert(html.includes("void syncVoiceParticipantRow().catch(e=>console.warn('voice participant keepalive',e))"),'Voice heartbeat must renew only the database lease');
+assert(html.includes("ycVoiceParticipantSyncBusy=false,ycVoiceParticipantSyncDirty=false"),'Voice participant sync must coalesce rapid state changes');
+assert(html.includes("if(ycVoiceParticipantSyncBusy)return ycVoiceParticipantSyncQueue"),'Rapid mute/deafen writes must share the in-flight participant sync');
+assert(html.includes("while(ycVoiceParticipantSyncDirty)"),'Participant sync must flush only the latest dirty state');
+assert(!html.includes("ycVoiceParticipantSyncQueue=ycVoiceParticipantSyncQueue.catch(()=>{}).then(run)"),'Unbounded participant RPC queue must not return');
 assert(html.includes("if(!voiceSignalSub||!voiceSignalReady)void subscribeVoiceSignals().catch(e=>console.warn('voice signal reconnect',e))"),'Voice heartbeat must recreate a dead targeted signal subscription');
 assert(html.includes("['CHANNEL_ERROR','TIMED_OUT','CLOSED'].includes(status)"),'Realtime subscriptions must recover from CLOSED/error channels');
 assert(!html.includes("config:{presence:{key:user.id}"),'Voice must not depend on Supabase Presence');
