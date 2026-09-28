@@ -72,6 +72,8 @@ for(const [name,source] of [['Windows',desktop],['Web/PWA',web],['Android/iOS',m
   assert(!source.includes("room?.untrack("),name+' still calls Realtime Presence untrack()');
   assert(!source.includes("sb.functions.invoke('yamachat-turn',{method:'GET'})"),name+' still loads Metered TURN');
   assert(!source.includes("syncVoiceParticipantRow().catch(()=>{});renderVoiceChannels(voiceChannelDefs)"),name+' still persists speaking transitions to Postgres');
+  assert(!source.includes("if(pc?.connectionState==='connected'){voiceMissingSince.delete(id);continue}"),name+' keeps ghost peers alive while RTC still reports connected');
+  assert(source.includes("const since=voiceMissingSince.get(id)||now;voiceMissingSince.set(id,since);if(now-since>60000)closeVoicePeer(id)"),name+' missing roster-lease peer cleanup grace');
 }
 
 const pkg=JSON.parse(read('desktop/package.json'));
