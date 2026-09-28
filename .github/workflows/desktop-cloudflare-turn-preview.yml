@@ -1,0 +1,125 @@
+name: Yamachat Windows Cloudflare TURN Preview
+
+on:
+  push:
+    branches: [preview/cloudflare-turn-only-20260928]
+    paths:
+      - "desktop/desktop-client.html"
+      - "scripts/voice-experience.mjs"
+      - "tests/voice-experience.cjs"
+      - ".github/workflows/desktop-cloudflare-turn-preview.yml"
+  pull_request:
+    paths:
+      - "desktop/desktop-client.html"
+      - "scripts/voice-experience.mjs"
+      - "tests/voice-experience.cjs"
+      - ".github/workflows/desktop-cloudflare-turn-preview.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify-and-build:
+    runs-on: windows-latest
+    timeout-minutes: 55
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Preserve repository line endings for pinned reference hashes
+        shell: pwsh
+        run: |
+          git config core.autocrlf false
+          git reset --hard HEAD
+
+      - name: Generate shared Web/PWA and mobile client
+        run: node scripts/build-web.mjs
+
+      - name: Install browser test runtime
+        shell: pwsh
+        run: |
+          npm install --no-save --package-lock=false playwright@1.62.1
+          npx playwright install chromium
+
+      - name: Verify Cloudflare-only TURN routing
+        shell: pwsh
+        run: |
+          node tests/voice-experience.cjs
+          $env:YC_CLIENT='desktop/desktop-client.html'
+          node tests/voice-experience.cjs
+          Remove-Item Env:YC_CLIENT
+
+          $desktop=Get-Content 'desktop/desktop-client.html' -Raw
+          $web=Get-Content 'index.html' -Raw
+
+          if ($desktop -notmatch "sb\.functions\.invoke\('yamachat-turn-cloudflare'") { throw 'desktop Cloudflare TURN provider missing' }
+          if ($desktop -match "sb\.functions\.invoke\('yamachat-turn'\s*,") { throw 'desktop still invokes Metered TURN' }
+          if ($desktop -match "add\(metered,'metered'\)|voiceTurnProvider='metered'|providers\.join\('\+'\)") { throw 'desktop still contains Metered TURN routing' }
+          if ($desktop -notmatch "iceTransportPolicy:'all'") { throw 'desktop WebRTC transport policy changed' }
+
+          if ($web -notmatch "sb\.functions\.invoke\('yamachat-turn-cloudflare'") { throw 'web Cloudflare TURN provider missing' }
+          if ($web -match "sb\.functions\.invoke\('yamachat-turn'\s*,") { throw 'web still invokes Metered TURN' }
+          if ($web -match "voiceTurnProvider='metered'") { throw 'web still contains Metered TURN provider state' }
+          if ($web -notmatch "iceTransportPolicy:'all'") { throw 'web WebRTC transport policy changed' }
+
+      - name: Run voice and stream regression guards
+        shell: pwsh
+        run: |
+          node scripts/check.mjs
+          node tests/stream-transport.mjs
+          node tests/stream-viewer.cjs
+          node tests/stream-preview.cjs
+          node tests/windows-stream-lifecycle.cjs
+          node tests/windows-process-audio.cjs
+          node tests/windows-interaction-notifications.cjs
+          node tests/windows-taskbar-restore.cjs
+
+      - name: Build native process audio helper
+        shell: pwsh
+        run: ./scripts/build-windows-process-audio.ps1
+
+      - name: Prepare desktop runtime
+        shell: pwsh
+        run: |
+          Copy-Item -Recurse -Force build desktop/build
+          Copy-Item -Recurse -Force audio desktop/audio
+          Copy-Item boot-guard.js desktop/boot-guard.js
+
+      - name: Install desktop dependencies
+        run: npm ci
+        working-directory: desktop
+
+      - name: Build unpacked Windows preview
+        run: npx electron-builder --win dir --x64 --publish never
+        working-directory: desktop
+
+      - name: Isolate preview and verify packaged runtime
+        shell: pwsh
+        run: |
+          $appRoot='desktop/dist/win-unpacked/resources/app'
+          Set-Content -Path "$appRoot/preview.json" -Value '{"kind":"cloudflare-turn-only","isolated":true,"release":false}' -Encoding UTF8
+          foreach ($file in @('main.js','preload.js','desktop.html','desktop-client.html','preview.json')) {
+            if (-not (Test-Path "$appRoot/$file")) { throw "Missing preview runtime: $file" }
+          }
+          $client=Get-Content "$appRoot/desktop-client.html" -Raw
+          if ($client -notmatch "sb\.functions\.invoke\('yamachat-turn-cloudflare'") { throw 'Packaged Cloudflare TURN provider missing' }
+          if ($client -match "sb\.functions\.invoke\('yamachat-turn'\s*,") { throw 'Packaged preview still invokes Metered TURN' }
+          if ($client -notmatch "iceTransportPolicy:'all'") { throw 'Packaged WebRTC transport policy changed' }
+          Compress-Archive -Path 'desktop/dist/win-unpacked/*' -DestinationPath 'yamachat-windows-cloudflare-turn-only-preview.zip' -Force
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: yamachat-windows-cloudflare-turn-only-preview
+          path: yamachat-windows-cloudflare-turn-only-preview.zip
+          if-no-files-found: error
+          retention-days: 7

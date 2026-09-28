@@ -86,10 +86,12 @@ if(!isDesktop){
   assert.equal(baseContext.disconnects,1,'Voice should still disconnect when its actual joined channel disappears from its own community');
  })();
 }
-if(isDesktop){
- assert(html.includes("Promise.allSettled([\n    sb.functions.invoke('yamachat-turn-cloudflare'"),'TURN providers must be loaded in parallel');
- assert(html.includes("providers.join('+')||'stun'"),'TURN provider fallback state missing');
-}
+assert(html.includes("sb.functions.invoke('yamachat-turn-cloudflare',{method:'GET'})"),'Cloudflare TURN provider missing');
+assert(!html.includes("sb.functions.invoke('yamachat-turn',{method:'GET'})"),'Metered TURN must not be requested by the client');
+assert(!html.includes("voiceTurnProvider='metered'"),'Metered TURN provider state must not be present');
+assert(!html.includes("add(metered,'metered')"),'Metered TURN must not enter iceServers');
+assert(!html.includes("providers.join('+')||'stun'"),'Parallel Metered TURN routing must not return');
+assert(html.includes("iceTransportPolicy:'all'"),'WebRTC must keep normal P2P/TURN candidate selection');
 
 // Presence: manual status wins. In voice, AFK may appear only after prolonged microphone/UI inactivity,
  // and real microphone activity must wake the presence immediately.
