@@ -142,7 +142,7 @@ function syncNotificationBadge(){
 }
 
 function injectSettingsAbout(){
-  const modal=q('#modalRoot .modal');if(!modal||q('[data-yc-nexus-settings-about]',modal))return;
+  const modal=q('#modalRoot .yc-app-settings-modal');if(!modal||q('[data-yc-nexus-settings-about]',modal))return;
   const b=document.createElement('button');b.type='button';b.dataset.ycNexusSettingsAbout='1';b.className='ghost';
   b.textContent='ⓘ O aplikaci / administrace';
   b.style.cssText='width:100%;margin-top:10px;min-height:40px';
