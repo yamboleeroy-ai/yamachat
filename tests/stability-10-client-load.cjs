@@ -33,7 +33,7 @@ window.__ycAudit={
  spamVoiceControls:async(mutes=0,deafens=0)=>{for(let i=0;i<mutes;i++)void toggleVoiceMute();for(let i=0;i<deafens;i++)void toggleVoiceDeafen();await ycVoiceParticipantSyncQueue;await Promise.resolve();return window.__mockRpcWrites.filter(x=>x.name==='set_voice_participant').length},
  setMix:(id,patch)=>setVoiceUserMix(id,patch),
  getMix:id=>voiceMixFor(id),
- forceExpirePeer:async id=>{voiceMissingSince.set(id,Date.now()-61000);const rows=voicePresenceByChannel[voiceChannel?.id]||[];voicePresenceByChannel[voiceChannel?.id]=rows.filter(x=>x.user_id!==id);await syncVoicePeers()},
+ forceExpirePeer:async id=>{voiceMissingSince.set(id,Date.now()-61000);window.__testVoiceRows=(window.__testVoiceRows||[]).filter(x=>x.user_id!==id);const rows=voicePresenceByChannel[voiceChannel?.id]||[];voicePresenceByChannel[voiceChannel?.id]=rows.filter(x=>x.user_id!==id);await syncVoicePeers()},
  setRoster:(id,rows)=>{window.__testVoiceRows=rows;voicePresenceByChannel[id]=rows;renderVoiceChannels(voiceChannelDefs)},
  syncVoice:()=>syncVoicePeers(),
  handleSignal:msg=>handleVoiceSignal(msg),
