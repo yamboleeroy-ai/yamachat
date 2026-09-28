@@ -94,10 +94,11 @@ for(const marker of [
  "for(const type of ['pointermove','pointerdown','touchstart'])panel.addEventListener",
  "if(voiceChannel?.id&&!defs.some(c=>String(c.id)===String(voiceChannel.id)))defs.push(voiceChannel)",
  "const voiceBelongsHere=!!hadVoice&&!!voiceCommunityId&&voiceCommunityId===cid",
- "if(pc?.connectionState==='connected'){voiceMissingSince.delete(id);continue}",
+ "const since=voiceMissingSince.get(id)||now;voiceMissingSince.set(id,since);if(now-since>60000)closeVoicePeer(id)",
  "const ycVoiceCid=ycVoiceCommunityId()",
  "community_id:ycVoiceCommunity"
 ]) assert(client.includes(marker),'Existing cross-platform behavior regressed: '+marker);
+assert(!client.includes("if(pc?.connectionState==='connected'){voiceMissingSince.delete(id);continue}"),'Connected ghost-peer bypass must not return');
 
 const communityStart=client.indexOf('async function selectCommunity(id){');
 const communityEnd=client.indexOf('function renderChannels(chs)',communityStart);
