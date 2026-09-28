@@ -16,6 +16,7 @@ import {withMessageNotificationSound} from './message-notification-sound.mjs';
 import {withInteractionNotifications} from './interaction-notifications.mjs';
 import {withStreamViewer} from './stream-viewer.mjs';
 import {withVerifiedDesktopBehaviorSync} from './verified-desktop-behavior-sync.mjs';
+import {withLegalUi} from './legal-ui.mjs';
 
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
 const read=p=>fs.readFileSync(path.join(root,p),'utf8');
@@ -157,6 +158,7 @@ html=html.replace(
  html=withInteractionNotifications(html);
 
 html=withStreamViewer(html);
+html=withLegalUi(html);
 fs.writeFileSync(path.join(root,'index.html'),html);
 console.log('Web generated from verified desktop 1.0.78 reference; desktop files were not modified.');
 
