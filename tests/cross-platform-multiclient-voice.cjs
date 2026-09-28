@@ -185,8 +185,10 @@ function mockFor(id,name){
    assert.equal(state.voice,'voice-a',id+' voice dropped while watching desktop stream');assert.equal(state.connected,3,id+' peer graph changed while streaming');assert(state.watching,id+' did not enter stream-watch state');
   }
 
-  // A client can browse another server and keep the active call + stream alive.
+  // A client can minimize the independent player, browse another server and keep the active call + stream alive.
   const android=clients.get('u-android');
+  await android.page.locator('.yc-stream-viewer [data-action="minimize"]').click();
+  await android.page.waitForFunction(()=>document.querySelector('.yc-stream-viewer')?.dataset.mode==='mini');
   await android.page.evaluate(()=>window.__ycE2E.selectCommunityById('community-b'));
   await android.page.waitForFunction(()=>window.__ycE2E.state().community==='community-b');
   await android.page.locator('#messageInput').fill('android other server during stream');await android.page.locator('#sendBtn').click();
