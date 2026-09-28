@@ -27,6 +27,18 @@ jobs:
         run: |
           npm install --no-save --package-lock=false playwright@1.62.1
           npx playwright install --with-deps chromium
+      - name: Legal UI structural checks
+        run: node tests/legal-ui.mjs
+      - name: Legal UI responsive visual checks
+        run: node tests/legal-ui-visual.cjs
+      - name: Upload legal UI screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: yamachat-legal-ui-screens
+          path: tests/legal-ui-screens/*.png
+          if-no-files-found: warn
+          retention-days: 7
       - name: Profile action tests
         run: node tests/profile-actions.cjs
       - name: Profile layout tests
