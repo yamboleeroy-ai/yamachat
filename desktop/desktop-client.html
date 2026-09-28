@@ -5525,6 +5525,13 @@ setTimeout(ycFriendsRefreshDecorate,350);
 
 // Voice experience preferences: local per-user choices, no new backend schema.
 window.__ycVoiceParticipantAnnouncements=true;
+// Participant-roster announcements replaced the legacy voice-announcement broadcast.
+// Keep the legacy functions available for older builds, but do not allocate a second
+// Realtime channel or send duplicate join/leave traffic in the current client.
+const ycLegacyVoiceSubscribeAnnouncement=ycVoiceSubscribeAnnouncement;
+ycVoiceSubscribeAnnouncement=async function(roomId){if(window.__ycVoiceParticipantAnnouncements)return false;return ycLegacyVoiceSubscribeAnnouncement(roomId)};
+const ycLegacyVoiceBroadcastAnnouncement=ycVoiceBroadcastAnnouncement;
+ycVoiceBroadcastAnnouncement=async function(action,roomId){if(window.__ycVoiceParticipantAnnouncements)return;return ycLegacyVoiceBroadcastAnnouncement(action,roomId)};
 const YC_VOICE_ANNOUNCE_MODE_KEY='yc_voice_announce_mode';
 const YC_VOICE_GENDER_KEY='yc_voice_gender_v1';
 const YC_VOICE_ANNOUNCE_VOICE_KEY='yc_voice_announce_voice';
