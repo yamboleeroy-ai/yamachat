@@ -9,6 +9,7 @@ function verify(html,label){
   assert.match(html,/id="ycLegalAboutBtn" class="yc-v3-nav-btn yc-legal-nav-entry"[^>]*>[\s\S]*?<span>O aplikaci<\/span><\/button>/,label+': About must be a full navigation item');
   assert.ok(html.indexOf('id="ycLegalAboutBtn"')<html.indexOf('id="logoutBtn"'),label+': About must be before logout');
   assert.ok(html.includes("['profileBtn','appSettingsBtn','ycLegalAboutBtn','logoutBtn']"),label+': About must mount directly above logout in global/mobile navigation');
+  assert.ok(html.includes("['ycLegalAboutBtn','ⓘ','O aplikaci']"),label+': About must be registered in the final Atlas nav actions');
   assert.match(html,/data-yc-auth-legal="terms"[^>]*>Podmínky<\/button>/,label+': missing Terms link');
   assert.match(html,/data-yc-auth-legal="privacy"[^>]*>Soukromí<\/button>/,label+': missing Privacy link');
   assert.ok(!html.includes('<small>Věk</small><strong>33 let</strong>'),label+': developer age still present');
