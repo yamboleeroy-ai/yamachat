@@ -21,6 +21,7 @@ function lineWith(source,marker,label){
 const parityMarkers=[
   'async function restartVoicePeer(peerId)',
   'function voicePeer(peerId)',
+  'async function recoverVoiceSignals()',
   'async function subscribeVoiceSignals()',
   'async function consumeVoiceSignalRow(row)',
   'async function sendVoiceSignal(to,data)',
@@ -58,6 +59,9 @@ for(const [name,source] of [['Windows',desktop],['Web/PWA',web],['Android/iOS',m
     ".in('channel_id',ids).gt('last_seen',cutoff)",
     "void syncVoiceParticipantRow().catch(e=>console.warn('voice participant keepalive',e))",
     "function ycStartRemoteVoiceActivityDetector(peerId,stream)",
+    "lt('created_at',stale)",
+    "gt('created_at',recent)",
+    "void recoverVoiceSignals()",
     "yamachat-turn-cloudflare"
   ]) assert(source.includes(marker),name+' missing interoperability marker: '+marker);
 
