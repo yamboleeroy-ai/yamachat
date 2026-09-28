@@ -114,7 +114,7 @@ attachVoiceAudio=(peerId,stream)=>{ycStartRemoteVoiceActivityDetector(peerId,str
   if(!html.includes(cleanupTailOld))throw Error('Voice cleanup tail boundary missing');
   html=html.replace(cleanupTailOld,"if(voiceSignalSub){sb.removeChannel(voiceSignalSub);voiceSignalSub=null;voiceSignalReady=false}return ycVoiceCleanupPromise}");
 
-  const initBarrierOld="async function initApp(s){\n  window.YamachatBootGuard?.begin();\n  const generation=++ycAuthGeneration,uid=s.user.id;\\n  const active=()=>generation===ycAuthGeneration&&user?.id===uid;\\n  session=s;user=s.user;";
+  const initBarrierOld="async function initApp(s){\n  window.YamachatBootGuard?.begin();\n  const generation=++ycAuthGeneration,uid=s.user.id;\n  const active=()=>generation===ycAuthGeneration&&user?.id===uid;\n  session=s;user=s.user;";
   const initBarrierNew="async function initApp(s){\n  window.YamachatBootGuard?.begin();\n  const generation=++ycAuthGeneration,uid=s.user.id,authActive=()=>generation===ycAuthGeneration;\n  try{await ycVoiceCleanupPromise}catch(e){console.warn('previous voice cleanup',e)}\n  if(!authActive())return false;\n  session=s;user=s.user;const active=()=>generation===ycAuthGeneration&&user?.id===uid;";
   if(!html.includes(initBarrierOld))throw Error('Auth/voice cleanup barrier boundary missing');
   html=html.replace(initBarrierOld,initBarrierNew);
