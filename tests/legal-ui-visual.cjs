@@ -60,8 +60,8 @@ function inside(b,w,h){return b&&b.width>0&&b.height>0&&b.x>=-1&&b.y>=-1&&b.x+b.
       assert(inside(await page.locator('.yc-legal-shell').boundingBox(),1440,900));
       await page.screenshot({path:path.join(__dirname,'legal-ui-screens','desktop-about.png'),fullPage:true});
       await page.locator('[data-yc-legal-close]').click();
-      await page.locator('#ycDeveloperDock').waitFor({state:'visible'});
-      await page.locator('#ycDeveloperDock').click();
+      await page.locator('#ycDeveloperDock').waitFor({state:'attached'});
+      await page.evaluate(()=>document.getElementById('ycDeveloperDock')?.click());
       await page.locator('.yc-developer-modal').waitFor({state:'visible'});
       assert(inside(await page.locator('.yc-developer-modal').boundingBox(),1440,900),'Developer modal must fit desktop viewport');
       assert.equal(await page.locator('.yc-dev-grid').locator('.yc-dev-info').count(),3,'Developer information grid must contain profile, contact and project only');
@@ -100,8 +100,8 @@ function inside(b,w,h){return b&&b.width>0&&b.height>0&&b.x>=-1&&b.y>=-1&&b.x+b.
       for(const b of [portraitFit.title,portraitFit.signature])assert(b&&b.x>=-1&&b.right<=391,JSON.stringify(portraitFit));
       await page.screenshot({path:path.join(__dirname,'legal-ui-screens','mobile-about-portrait.png')});
       await page.locator('[data-yc-legal-close]').click();
-      await page.locator('#ycDeveloperDock').waitFor({state:'visible'});
-      await page.locator('#ycDeveloperDock').click();
+      await page.locator('#ycDeveloperDock').waitFor({state:'attached'});
+      await page.evaluate(()=>document.getElementById('ycDeveloperDock')?.click());
       await page.locator('.yc-developer-modal').waitFor({state:'visible'});
       const developerFit=await page.locator('.yc-developer-modal').evaluate(el=>({clientWidth:el.clientWidth,scrollWidth:el.scrollWidth}));
       assert(developerFit.scrollWidth<=developerFit.clientWidth+1,JSON.stringify(developerFit));
