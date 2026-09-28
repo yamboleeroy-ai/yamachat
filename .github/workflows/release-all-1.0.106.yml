@@ -10,7 +10,7 @@ permissions:
 
 concurrency:
   group: yamachat-1.0.106-release
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   web:
@@ -64,6 +64,12 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '8.0.x'
+
+      - name: Preserve repository line endings for pinned reference hashes
+        shell: pwsh
+        run: |
+          git config core.autocrlf false
+          git reset --hard HEAD
 
       - name: Verify exact release scope
         shell: pwsh
