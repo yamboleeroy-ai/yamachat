@@ -6024,7 +6024,8 @@ const YC_CONTEXT_LONGPRESS_SELECTOR=[
  '.voice-user[data-user-id]',
  '#rightContent .steam-member-row[data-member-id]',
  '#rightContent .steam-friend-row[data-profile-user]',
- '.yc-dm-social-row[data-profile-user]'
+ '.yc-dm-social-row[data-profile-user]',
+ '.message[data-message-id]'
 ].join(',');
 let ycContextLongPress=null,ycContextLongPressSuppressUntil=0;
 
@@ -6043,6 +6044,8 @@ function ycOpenLongPressContext(target,x,y){
  if(member){window.__ycLongPressLastOpen={kind:'member',id:member.dataset.memberId,at:Date.now()};void ycOpenMemberMenu(member,{clientX:x,clientY:y});return true}
  const social=target.matches?.('#rightContent .steam-friend-row[data-profile-user],.yc-dm-social-row[data-profile-user]')?target:null;
  if(social){window.__ycLongPressLastOpen={kind:'social-user',id:social.dataset.profileUser,at:Date.now()};void ycOpenFriendUserMenu(social,{clientX:x,clientY:y});return true}
+ const message=target.matches?.('.message[data-message-id]')?target:null;
+ if(message){const mid=String(message.dataset.messageId||'');if(mid){window.__ycLongPressLastOpen={kind:'message',id:mid,at:Date.now()};ycOpenMessageMenu(mid,x,y)}return true}
  return false;
 }
 window.YamachatLongPressContext=Object.freeze({open:ycOpenLongPressContext});

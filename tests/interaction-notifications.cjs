@@ -11,7 +11,10 @@ assert(interactionSource.includes('.message,.message *'),'Chat message selection
 assert(interactionSource.includes('-webkit-user-select:text;user-select:text'),'Copyable content must explicitly remain selectable on coarse pointers');
 assert(!/body\\s*\\{[^}]*user-select\\s*:\\s*none/i.test(interactionSource),'Do not disable text selection globally on body');
 assert(serverCardSource.includes('#ycMobileServerMenuBtn{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}'),'Server-card long press must disable text selection');
-assert(fs.readFileSync(path.join(root,'web/interaction-notifications.js'),'utf8').includes("window.getSelection?.()?.removeAllRanges?.()"),'Long-press runtime must clear an already-started selection');
+const interactionRuntime=fs.readFileSync(path.join(root,'web/interaction-notifications.js'),'utf8');
+assert(interactionRuntime.includes("window.getSelection?.()?.removeAllRanges?.()"),'Long-press runtime must clear an already-started selection');
+assert(interactionRuntime.includes("'.message[data-message-id]'"),'Chat messages must share the app long-press context lifecycle');
+assert(interactionRuntime.includes("kind:'message'"),'Chat message long-press must open the existing message menu');
 // Exercise the reviewed current client without regenerating it.
 
 function interactionMock(){
@@ -79,6 +82,16 @@ async function longPress(page,selector){
   // Close the left mobile drawer through its existing toggle; pointer hit-testing of the scrim varies by layout.
   await page.evaluate(()=>document.getElementById('mobileMenu')?.click());
   await page.waitForTimeout(250);
+  // Chat messages use the same deliberate touch hold instead of relying on a browser-specific
+  // contextmenu gesture. Keep message text selectable; the hold only opens the existing app menu.
+  await page.waitForSelector('.message[data-message-id="chat-a-0"]',{timeout:10000});
+  await page.waitForSelector('[data-yc-react="chat-a-0"]',{state:'attached',timeout:10000});
+  await longPress(page,'.message[data-message-id="chat-a-0"]');
+  await page.waitForFunction(()=>window.__ycLongPressLastOpen?.kind==='message'&&window.__ycLongPressLastOpen?.id==='chat-a-0',null,{timeout:3000});
+  await page.waitForSelector('[data-yc-menu-reply="chat-a-0"]',{timeout:3000});
+  assert.equal(await page.locator('[data-yc-menu-react="chat-a-0"]').count()>0,true,'message long-press reaction actions missing');
+  await page.evaluate(()=>document.body.dispatchEvent(new MouseEvent('click',{bubbles:true,clientX:2,clientY:2})));
+
   // A touch hold on another user must invoke that user's menu and expose notification control.
   await page.locator('#ycMobileMembersBtn').click();
   await page.waitForSelector('#rightContent .steam-member-row[data-member-id="peer"]');

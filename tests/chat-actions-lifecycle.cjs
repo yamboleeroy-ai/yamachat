@@ -3,6 +3,13 @@ const {chromium}=require('playwright');
 const root=path.resolve(__dirname,'..'),base=fs.readFileSync(path.join(__dirname,'supabase-fixture.js'),'utf8');
 
 function html(platform){return fs.readFileSync(path.join(root,platform==='desktop'?'desktop/desktop-client.html':'index.html'),'utf8')}
+async function longPressMessage(page,id,pointerId){
+ const selector='.message[data-message-id="'+id+'"]';
+ await page.evaluate(({selector,pointerId})=>{const el=document.querySelector(selector);if(!el)throw Error('Missing long-press message '+selector);const r=el.getBoundingClientRect(),x=r.left+Math.min(30,Math.max(6,r.width/2)),y=r.top+Math.min(24,Math.max(6,r.height/2));el.dispatchEvent(new PointerEvent('pointerdown',{bubbles:true,cancelable:true,pointerId,pointerType:'touch',isPrimary:true,button:0,buttons:1,clientX:x,clientY:y}))},{selector,pointerId});
+ await page.waitForTimeout(620);
+ await page.evaluate(({selector,pointerId})=>{const el=document.querySelector(selector);if(!el)return;const r=el.getBoundingClientRect(),x=r.left+Math.min(30,Math.max(6,r.width/2)),y=r.top+Math.min(24,Math.max(6,r.height/2));el.dispatchEvent(new PointerEvent('pointerup',{bubbles:true,cancelable:true,pointerId,pointerType:'touch',isPrimary:true,button:0,buttons:0,clientX:x,clientY:y}))},{selector,pointerId});
+}
+
 function mock(){
  let s=base
   .replace("function query(table){let single=false,filters={},op='read';","function query(table){let single=false,filters={},op='read',payload=null;")
@@ -51,7 +58,9 @@ function mock(){
    // context-menu actions on touch layouts.
    const sourceMessage=page.locator('.message[data-message-id="chat-a-0"]');
    if(cfg.touch){
-    await sourceMessage.dispatchEvent('contextmenu',{clientX:120,clientY:180});
+    await page.waitForSelector('[data-yc-react="chat-a-0"]',{state:'attached',timeout:10000});
+    await longPressMessage(page,'chat-a-0',81);
+    await page.waitForFunction(()=>window.__ycLongPressLastOpen?.kind==='message'&&window.__ycLongPressLastOpen?.id==='chat-a-0',null,{timeout:3000});
     await page.waitForSelector('[data-yc-menu-react="chat-a-0"]',{timeout:10000});
     await page.locator('[data-yc-menu-react="chat-a-0"]').first().click();
    }else{
@@ -63,7 +72,7 @@ function mock(){
 
    // Reply through the matching platform UI path, then verify reply_to on send.
    if(cfg.touch){
-    await sourceMessage.dispatchEvent('contextmenu',{clientX:120,clientY:180});
+    await longPressMessage(page,'chat-a-0',82);
     await page.waitForSelector('[data-yc-menu-reply="chat-a-0"]',{timeout:10000});
     await page.locator('[data-yc-menu-reply="chat-a-0"]').click();
    }else{
@@ -81,7 +90,7 @@ function mock(){
    assert.equal(await page.locator('#ycReplyCompose').isHidden(),true,cfg.platform+' reply target not cleared after send');
 
    // Delete through context menu; only mocked row deletion is allowed.
-   if(cfg.touch)await sourceMessage.dispatchEvent('contextmenu',{clientX:120,clientY:180});
+   if(cfg.touch)await longPressMessage(page,'chat-a-0',83);
    else await sourceMessage.click({button:'right'});
    await page.waitForSelector('[data-yc-delete-message="chat-a-0"]');
    await page.locator('[data-yc-delete-message="chat-a-0"]').click({force:true});
