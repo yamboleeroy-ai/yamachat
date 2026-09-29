@@ -115,6 +115,20 @@ jobs:
           print('FCM server credential configured:', ready)
           PY
 
+      - name: Resolve previous Android release for update continuity
+        run: |
+          set -euo pipefail
+          PREVIOUS="$RUNNER_TEMP/yamachat-previous.apk"
+          if [ -f download/Yamachat-Android.apk ]; then
+            cp download/Yamachat-Android.apk "$PREVIOUS"
+          elif curl --fail --location --silent --show-error --retry 3 --retry-all-errors             https://updates.yamachat.eu/android/Yamachat-Android.apk -o "$PREVIOUS"; then
+            echo "Previous Android APK loaded from Cloudflare R2."
+          else
+            echo "Cloudflare Android object not published yet; using the pre-cutover Yamachat URL once."
+            curl --fail --location --silent --show-error --retry 3 --retry-all-errors               https://yamachat.eu/download/Yamachat-Android.apk -o "$PREVIOUS"
+          fi
+          test -s "$PREVIOUS"
+
       - name: Build with permanent Android identity
         working-directory: mobile/android
         env:
@@ -146,7 +160,7 @@ jobs:
           "$BUILD_TOOLS/zipalign" -c -P 16 -v 4 ../../Yamachat-Android.apk
           python ../../scripts/verify-android-apk.py \
             --aapt "$BUILD_TOOLS/aapt" --apksigner "$BUILD_TOOLS/apksigner" \
-            --apk ../../Yamachat-Android.apk --previous ../../download/Yamachat-Android.apk \
+            --apk ../../Yamachat-Android.apk --previous "$RUNNER_TEMP/yamachat-previous.apk" \
             --expected-code "$ANDROID_VERSION_CODE" --report ../../android-artifact.json
 
       - name: Report killed-app FCM readiness
