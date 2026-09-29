@@ -15,5 +15,8 @@ assert(client.includes('clearTimeout(ycScreenAudioNegotiationTimer);ycScreenAudi
 assert(client.includes('ycScreenAudioNegotiationTimer=setTimeout(async()=>{ycScreenAudioNegotiationTimer=null;'),'screen-audio timer must clear its active handle before renegotiation');
 for(const marker of ["const since=voiceMissingSince.get(id)||now;voiceMissingSince.set(id,since);if(now-since>60000)closeVoicePeer(id)","secondaryAudio=!!e.transceiver&&audioTx.indexOf(e.transceiver)>0","voiceNodes?.trackId===track.id","audio.muted=v<=0","panel.dataset.desktop=String(YC_STREAM_DESKTOP)"])assert(client.includes(marker),marker);
 assert(!client.includes("if(pc?.connectionState==='connected'){voiceMissingSince.delete(id);continue}"),'connected ghost peer bypass must not return');
+assert(!client.includes('ycSyncScreenAudioVolumes'),'redundant 300ms stream-volume polling must not return');
+assert(client.includes("const audio=window.__ycScreenAudioEls?.get(id);if(audio){audio.volume=v;audio.muted=v<=0"),'viewer volume slider must update the live screen-audio element directly');
+assert(client.includes("setInterval(()=>{if(voiceChannel&&(screenShareActive||screenWatchingByUser.size||screenShareViewers.size))void ycEnsureScreenAudio()},900)"),'screen-audio receiver/sender recovery cadence must remain');
 assert(!client.includes('id="screenShareStage"'));
 console.log('PASS Windows viewer lifecycle: native fullscreen, stable software compositor, no visible restore flash, fresh screen-audio transceiver after stream restart.');
