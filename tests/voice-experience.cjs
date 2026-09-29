@@ -164,6 +164,11 @@ assert(html.includes("previewRun(done=>void ycPlayVoiceFileCue('join',done),2600
 assert(html.includes("previewRun(done=>void ycPlayVoiceFileCue('leave',done),2600)"),'LEAVE preview cooldown is too short or missing');
 assert(html.includes('function ycVoiceSelectedVoice(voices)'),'Real system voice selector missing');
 assert(html.includes('u.voice=selected'),'Speech does not use the selected real system voice');
+assert(html.includes("if(!text||ycVoiceAnnounceMode()!=='speech'||voiceDeafened||!('speechSynthesis' in window))"),'Shared speech announcements must respect deafen');
+const deafenStart=html.indexOf('async function toggleVoiceDeafen(){');
+const deafenEnd=html.indexOf('let ycInputSwitch=',deafenStart);
+assert(deafenStart>=0&&deafenEnd>deafenStart,'Deafen function boundary missing');
+assert(html.slice(deafenStart,deafenEnd).includes('!voiceDeafened&&!voiceMuted&&!ycMicTestVoiceHold'),'Deafen must never re-enable the outbound track during microphone test hold');
 assert(html.includes("u.rate=1;u.pitch=1"),'Speech must not fake different voices with rate/pitch profiles');
 assert(html.includes('ycVoiceOptionsHtml(voices)'),'Real system voice option renderer missing');
 assert(!html.includes('male-deep')&&!html.includes('female-bright'),'Fake male/female pitch profiles must not remain');
