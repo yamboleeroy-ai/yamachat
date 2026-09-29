@@ -1364,7 +1364,16 @@ function toast(t,err=false){const el=$('toast');el.textContent=t;el.style.border
 function setAuthMode(next){mode=next;$('loginTab').classList.toggle('active',next==='login');$('registerTab').classList.toggle('active',next==='register');$('usernameField').classList.toggle('hidden',next==='login');$('username').required=next==='register';$('confirmPasswordField').classList.toggle('hidden',next==='login');$('confirmPassword').required=next==='register';$('authSubmit').textContent=next==='login'?'Přihlásit':'Vytvořit účet';$('password').autocomplete=next==='login'?'current-password':'new-password';$('confirmPassword').autocomplete='new-password';$('authMsg').textContent=''}
 $('loginTab').onclick=()=>setAuthMode('login');$('registerTab').onclick=()=>setAuthMode('register')
 $('authForm').onsubmit=async(e)=>{e.preventDefault();const email=$('email').value.trim();const password=$('password').value;const confirmPassword=$('confirmPassword').value;const username=$('username').value.trim();$('authSubmit').disabled=true;$('authMsg').textContent='';try{if(mode==='login'){const {error}=await sb.auth.signInWithPassword({email,password});if(error)throw error}else{if(password!==confirmPassword)throw new Error('Hesla se neshodují.');if(!/^[a-zA-Z0-9_.-]{3,32}$/.test(username))throw new Error('Jméno může obsahovat písmena, čísla, _, . a -.');const {data,error}=await sb.auth.signUp({email,password,options:{data:{username,display_name:username}}});if(error)throw error;if(data.session){$('authMsg').textContent='Účet vytvořen. Přihlašuji…'}else{$('authMsg').textContent='Účet byl vytvořen. Můžeš se přihlásit.';setAuthMode('login')}}}catch(err){$('authMsg').textContent=err.message||String(err)}finally{$('authSubmit').disabled=false}}
-$('logoutBtn').onclick=async()=>{await ycPresenceOffline();sb.auth.signOut()}
+async function ycPrepareExplicitAuthExit(){
+  const uid=user?.id,hadStream=!!screenShareActive;
+  try{
+    if(voiceChannel)await leaveVoiceChannel(true);
+    else if(screenShareActive)await stopScreenShare(true);
+    if(uid&&!hadStream)await ycStopGlobalStreamPresence(uid);
+    await ycStopCommunityStreamWatch();
+  }catch(e){console.warn('logout cleanup',e)}
+}
+$('logoutBtn').onclick=async()=>{await ycPrepareExplicitAuthExit();await ycPresenceOffline();await sb.auth.signOut()}
 $('profileBtn').onclick=()=>openProfile()
 $('mobileMenu').onclick=()=>$('side').classList.toggle('mobile-open')
 function ycHideBootSplash(){$('ycBootSplash')?.classList.add('hidden')}function ycShowBootSplash(){$('ycBootSplash')?.classList.remove('hidden')}function ycRevealApp(){window.YamachatBootGuard?.ready();$('auth').classList.add('hidden');$('app').classList.remove('hidden');ycHideBootSplash()}function showAuth(){window.YamachatBootGuard?.ready();ycAbortChatMediaLoad();++ycAuthGeneration;++ycChannelSelectSeq;++ycCommunitySelectSeq;++voiceActionSeq;clearChat("Pro zobrazení zpráv se přihlas.");currentChannel=currentThread=currentCommunity=null;currentRole=null;communities=[];dmThreads=[];pendingFile=null;$("messageInput").value="";$("fileInput").value="";$("pendingFile").classList.add("hidden");ycChatSignedUrlCache.clear();ycChatAttachmentCache.clear();ycChatAttachmentKnown.clear();ycChatAttachmentDirty.clear();ycChatRolePackCache.clear();cleanupVoiceRooms();if(communityRealtimeSub){sb.removeChannel(communityRealtimeSub);communityRealtimeSub=null}if(userRealtimeSub){sb.removeChannel(userRealtimeSub);userRealtimeSub=null}session=user=profile=null;$('app').classList.add('hidden');$('auth').classList.remove('hidden');ycHideBootSplash()}
@@ -2599,7 +2608,7 @@ ycOpenPlatformAdmin=async function(...args){const out=await ycAccountOpenPlatfor
 
 async function ycCheckOwnBanStatus(){
   if(!user?.id)return;
-  try{const state=await ycAdminInvoke({action:'self-status'});if(!state?.is_banned)return;const until=state.banned_until;try{await sb.auth.signOut({scope:'local'})}catch{};showAuth();const msg=$('authMsg');if(msg){msg.textContent='Tento účet je zablokovaný'+(until?' do '+ycAccountMessageDate(until):'')+'.';msg.classList.add('error')} }catch(e){console.warn('account ban status',e)}
+  try{const state=await ycAdminInvoke({action:'self-status'});if(!state?.is_banned)return;const until=state.banned_until;try{await ycPrepareExplicitAuthExit();await sb.auth.signOut({scope:'local'})}catch{};showAuth();const msg=$('authMsg');if(msg){msg.textContent='Tento účet je zablokovaný'+(until?' do '+ycAccountMessageDate(until):'')+'.';msg.classList.add('error')} }catch(e){console.warn('account ban status',e)}
 }
 async function ycStartAccountMessages(){
   if(ycAccountMessagesSub){try{await sb.removeChannel(ycAccountMessagesSub)}catch{}ycAccountMessagesSub=null}
@@ -3305,7 +3314,7 @@ setTimeout(()=>void ycEnsureScreenAudio(),100)
 
 // community-wide stream discovery + lightweight preview.
 const ycCommunityStreams=new Map()
-let ycCommunityStreamSub=null,ycCommunityStreamPollTimer=null,ycCommunityStreamLoadBusy=null,ycStreamPresenceTimer=null,ycStreamPreviewTimer=null,ycStreamPublishEpoch=0,ycStreamPublishQueue=Promise.resolve()
+let ycCommunityStreamSub=null,ycCommunityStreamPollTimer=null,ycCommunityStreamLoadBusy=null,ycStreamPresenceTimer=null,ycStreamPreviewTimer=null,ycStreamPublishEpoch=0,ycStreamPublishQueue=Promise.resolve(),ycStreamPresenceClearedUserId=''
 function ycStreamPresenceFresh(row){if(!row?.updated_at)return false;const age=Date.now()-new Date(row.updated_at).getTime();return Number.isFinite(age)&&age<50000}
 function ycStreamInfo(uid){const row=ycCommunityStreams.get(String(uid));if(row&&!ycStreamPresenceFresh(row)){ycCommunityStreams.delete(String(uid));return null}return row||null}
 async function ycLoadCommunityStreams(){
@@ -3359,7 +3368,7 @@ async function ycPublishStreamPresence(initial=false,withPreview=false){
       const {data,error}=await sb.from('community_stream_presence').upsert(row,{onConflict:'user_id'}).select().maybeSingle();
       if(error)throw error;
       if(!owns())return false;
-      if(data)ycCommunityStreams.set(uid,data);renderVoiceChannels(voiceChannelDefs);return true;
+      if(data){ycStreamPresenceClearedUserId='';ycCommunityStreams.set(uid,data)}renderVoiceChannels(voiceChannelDefs);return true;
     }catch(e){if(owns())console.warn('stream presence publish',e);return false}
   };
   const task=ycStreamPublishQueue.catch(()=>{}).then(run);
@@ -3377,10 +3386,12 @@ async function ycStartGlobalStreamPresence(){
 async function ycStopGlobalStreamPresence(ownerUserId=user?.id){
   const uid=String(ownerUserId||'');++ycStreamPublishEpoch;ycClearStreamPublishTimers();
   try{await ycStreamPublishQueue}catch{}
-  if(uid){try{await sb.from('community_stream_presence').delete().eq('user_id',uid)}catch{}}
+  if(uid&&ycStreamPresenceClearedUserId!==uid){
+    try{const {error}=await sb.from('community_stream_presence').delete().eq('user_id',uid);if(!error)ycStreamPresenceClearedUserId=uid}catch{}
+  }
   if(uid)ycCommunityStreams.delete(uid);renderVoiceChannels(voiceChannelDefs);
 }
-ycOnLifecycle('init',async()=>{try{if(user?.id&&!screenShareActive)await sb.from('community_stream_presence').delete().eq('user_id',user.id)}catch{};await ycStartCommunityStreamWatch()})
+ycOnLifecycle('init',async()=>{ycStreamPresenceClearedUserId='';try{if(user?.id&&!screenShareActive){const {error}=await sb.from('community_stream_presence').delete().eq('user_id',user.id);if(!error)ycStreamPresenceClearedUserId=String(user.id)}}catch{};await ycStartCommunityStreamWatch()})
 ycOnLifecycle('beforeCommunity',()=>{void ycStopCommunityStreamWatch();ycCommunityStreams.clear()})
 ycOnLifecycle('community',()=>{void ycStartCommunityStreamWatch()})
 ycOnLifecycle('beforeAuth',()=>{void ycStopCommunityStreamWatch();void ycStopGlobalStreamPresence()})
