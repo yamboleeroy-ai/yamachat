@@ -8,7 +8,7 @@ export function withStreamScaleHardening(html){
   if(html.includes('STREAM SCALE HARDENING 2026-09-28'))return html;
 
   const stateOld="let ycCommunityStreamSub=null,ycStreamPresenceTimer=null,ycStreamPreviewTimer=null";
-  const stateNew="let ycCommunityStreamSub=null,ycCommunityStreamPollTimer=null,ycCommunityStreamLoadBusy=null,ycCommunityStreamLoadCid='',ycCommunityStreamWatchGeneration=0,ycStreamPresenceTimer=null,ycStreamPreviewTimer=null,ycStreamPublishEpoch=0,ycStreamPublishQueue=Promise.resolve(),ycStreamPresenceClearedUserId=''";
+  const stateNew="let ycCommunityStreamSub=null,ycCommunityStreamPollTimer=null,ycCommunityStreamLoadBusy=null,ycCommunityStreamLoadCid='',ycCommunityStreamWatchGeneration=0,ycCommunityStreamFreshnessTimer=null,ycStreamPresenceTimer=null,ycStreamPreviewTimer=null,ycStreamPublishEpoch=0,ycStreamPublishQueue=Promise.resolve(),ycStreamPresenceClearedUserId=''";
   if(!html.includes(stateOld))throw Error('Stream discovery state boundary missing');
   html=html.replace(stateOld,stateNew);
 
@@ -128,6 +128,11 @@ async function ycStopGlobalStreamPresence(ownerUserId=user?.id){
   if(/\bvoid\s+ycStopGlobalStreamPresence\s*\(\s*ownerUserId\s*\)\s*;/.test(stopBlock))stopBlock=stopBlock.replace(/\bvoid\s+ycStopGlobalStreamPresence\s*\(\s*ownerUserId\s*\)\s*;/,'await ycStopGlobalStreamPresence(ownerUserId);');
   else if(!/\bawait\s+ycStopGlobalStreamPresence\s*\(\s*ownerUserId\s*\)/.test(stopBlock))throw Error('Stream stop await boundary missing');
   html=html.slice(0,stopStart)+stopBlock+html.slice(stopEnd);
+
+  const freshnessOld="setInterval(()=>{let changed=false;for(const [uid,row] of [...ycCommunityStreams])if(!ycStreamPresenceFresh(row)){ycCommunityStreams.delete(uid);changed=true}if(changed)renderVoiceChannels(voiceChannelDefs)},10000)";
+  const freshnessNew="function ycStartCommunityStreamFreshnessTimer(){if(ycCommunityStreamFreshnessTimer)return;ycCommunityStreamFreshnessTimer=setInterval(()=>{let changed=false;for(const [uid,row] of [...ycCommunityStreams])if(!ycStreamPresenceFresh(row)){ycCommunityStreams.delete(uid);changed=true}if(changed)renderVoiceChannels(voiceChannelDefs)},10000)}\nfunction ycStopCommunityStreamFreshnessTimer(){if(ycCommunityStreamFreshnessTimer){clearInterval(ycCommunityStreamFreshnessTimer);ycCommunityStreamFreshnessTimer=null}}\nycOnLifecycle('init',ycStartCommunityStreamFreshnessTimer)\nycOnLifecycle('beforeAuth',ycStopCommunityStreamFreshnessTimer)";
+  if(!html.includes(freshnessOld))throw Error('Stream freshness timer boundary missing');
+  html=html.replace(freshnessOld,freshnessNew);
 
   if(html.includes(".on('postgres_changes',{event:'*',schema:'public',table:'community_stream_presence',filter:'community_id=eq.'+cid}"))
     throw Error('Global stream heartbeat UPDATE fanout remains');
