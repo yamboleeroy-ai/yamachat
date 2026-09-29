@@ -33,6 +33,14 @@ if(!isDesktop){
  assert(findLive>=0&&rejectOther>findLive,'iOS PWA must prefer the still-live voice channel before rejecting a different browsed community');
 }
 assert(html.includes("const YC_VOICE_HEARTBEAT_MS=15000,YC_VOICE_TTL_MS=60000,YC_VOICE_ROSTER_MS=20000"),'Voice lease timing must be scale-safe');
+assert(html.includes("let voiceRosterRefreshDelay=0,voiceRosterContextKey=''"),'Voice roster scheduler state missing');
+assert(html.includes("const delay=voiceChannel?YC_VOICE_HEARTBEAT_MS:YC_VOICE_ROSTER_MS"),'Voice roster scheduler must use one active/idle cadence');
+assert(html.includes("voiceRosterRefreshTimer=setTimeout(async()=>"),'Voice roster scheduler must use one self-rescheduling timeout');
+assert(html.includes("if(contextChanged)void refreshVoiceRosterSet(defs)"),'Unchanged channel renders must not refetch the whole voice roster');
+assert(!html.includes("voiceRosterRefreshTimer=setInterval"),'Legacy parallel voice roster interval remains');
+const heartbeat=html.slice(html.indexOf('function startVoiceHeartbeat()'),html.indexOf('function stopVoiceHeartbeat()'));
+assert(!heartbeat.includes('refreshVoiceParticipants(')&&!heartbeat.includes("from('voice_participants')"),'Voice heartbeat must not perform a second roster read');
+assert(!html.includes("try{if(voiceChannel?.id)void refreshVoiceParticipants(voiceChannel.id)}catch{}"),'Desktop wake must not perform an extra roster DB read');
 assert(html.includes("event:'INSERT',schema:'public',table:'voice_participants',filter"),'Active room must receive scoped participant INSERT events');
 assert(html.includes("event:'DELETE',schema:'public',table:'voice_participants',filter"),'Active room must receive scoped participant DELETE events');
 assert(!html.includes("event:'*',schema:'public',table:'voice_participants'"),'Voice participants must not fan out globally to every client');
