@@ -1,0 +1,47 @@
+name: Voice offer retry hypothesis
+on:
+  push:
+    branches:
+      - audit/load-stress-20260929
+    paths:
+      - tests/stability-active-offer-retry.cjs
+      - .github/workflows/voice-offer-retry-hypothesis.yml
+permissions:
+  contents: read
+jobs:
+  retryfix:
+    name: offer-retry-${{ matrix.users }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        users: [200, 225]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Generate shared client
+        run: node scripts/build-web.mjs
+      - name: Install Chromium test runtime
+        run: |
+          npm install --no-save --package-lock=false playwright@1.62.1
+          npx playwright install --with-deps chromium
+      - name: Run longer-offer-retry hypothesis
+        env:
+          YC_ACTIVE_USERS: ${{ matrix.users }}
+          YC_SOAK_SECONDS: '60'
+          YC_VOICE_FRACTION: '0.40'
+          YC_VOICE_ROOM_SIZE: '4'
+        run: |
+          set -o pipefail
+          node tests/stability-active-offer-retry.cjs 2>&1 | tee offer-retry-${{ matrix.users }}.log
+      - name: Upload hypothesis log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: offer-retry-${{ matrix.users }}
+          path: offer-retry-${{ matrix.users }}.log
+          retention-days: 3
