@@ -1,0 +1,31 @@
+name: Verify live iOS PWA clean echo-off hotfix
+on:
+  push:
+    branches: [fix/ios-pwa-echo-off-track-constraints-20260929]
+    paths: ['.github/workflows/ios-pwa-echo-off-live-verify.yml']
+permissions:
+  contents: read
+jobs:
+  live:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: Verify live Cloudflare iOS/PWA microphone path
+        run: |
+          set -euo pipefail
+          for i in $(seq 1 36); do
+            if curl -fsS --max-time 20 "https://yamachat.eu/?verify_ios_echo_off=$(date +%s)" -o /tmp/yamachat.html; then
+              if grep -q "async function ycIosApplyEchoConstraint(stream,echo)" /tmp/yamachat.html &&
+                 grep -q "await track.applyConstraints({echoCancellation:!!echo})" /tmp/yamachat.html &&
+                 grep -q "if(ycIosWebMicRuntime()){let cleaned=raw;try{if(mode==='ai')cleaned=await ycBuildAiMicStream(raw,options)" /tmp/yamachat.html &&
+                 grep -q "setTimeout(resolve,1600)" /tmp/yamachat.html &&
+                 grep -q "iOS AudioWorklet load timeout')),2800" /tmp/yamachat.html; then
+                echo "PASS: live iOS/PWA uses the restored clean path and echo-off workaround."
+                exit 0
+              fi
+            fi
+            echo "Cloudflare production not updated yet ($i/36), retrying..."
+            sleep 10
+          done
+          echo "Live yamachat.eu did not expose the expected iOS/PWA hotfix in time."
+          exit 1
