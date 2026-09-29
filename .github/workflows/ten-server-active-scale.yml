@@ -1,4 +1,4 @@
-name: Ten-server active scale 750
+name: Twenty-five-server active scale 5000
 
 on:
   push:
@@ -13,15 +13,15 @@ permissions:
 
 jobs:
   server:
-    name: server-${{ matrix.server }}-75-active
+    name: server-${{ matrix.server }}-200-active
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
-        server: [1,2,3,4,5,6,7,8,9,10]
+        server: [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25]
     env:
-      YC_ACTIVE_USERS: 75
+      YC_ACTIVE_USERS: 200
       YC_SOAK_SECONDS: 60
       YC_VOICE_FRACTION: 0.40
       YC_VOICE_ROOM_SIZE: 4
@@ -41,11 +41,11 @@ jobs:
         run: |
           set -o pipefail
           echo "YC_SERVER_SHARD server=${YC_SERVER_INDEX} active=${YC_ACTIVE_USERS}"
-          node tests/stability-active-candidate-pool.cjs 2>&1 | tee "server-${YC_SERVER_INDEX}-75.log"
+          node tests/stability-active-candidate-pool.cjs 2>&1 | tee "server-${YC_SERVER_INDEX}-200.log"
       - name: Upload shard log
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: ten-server-750-server-${{ matrix.server }}
-          path: server-${{ matrix.server }}-75.log
+          name: twenty-five-server-5000-server-${{ matrix.server }}
+          path: server-${{ matrix.server }}-200.log
           retention-days: 3
