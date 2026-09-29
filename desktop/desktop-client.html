@@ -3308,9 +3308,7 @@ async function ycEnsureScreenAudio(){
  }finally{ycScreenAudioBusy=false}
  for(const peerId of negotiatePeers)ycScheduleScreenAudioNegotiation(peerId)
 }
-function ycSyncScreenAudioVolumes(){for(const [peerId,a] of window.__ycScreenAudioEls){try{const v=ycScreenAudioStoredVolume(peerId);a.volume=v;a.muted=v<=0}catch{}}}
 setInterval(()=>{if(voiceChannel&&(screenShareActive||screenWatchingByUser.size||screenShareViewers.size))void ycEnsureScreenAudio()},900)
-setInterval(()=>{if(window.__ycScreenAudioEls?.size)ycSyncScreenAudioVolumes()},300)
 setTimeout(()=>void ycEnsureScreenAudio(),100)
 
 // community-wide stream discovery + lightweight preview.
