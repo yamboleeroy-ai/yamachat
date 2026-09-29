@@ -3663,7 +3663,7 @@ ycHoverShow=async function(anchor,uid){
 }
 
 // native Windows notifications for new messages and mentions.
-let ycWinNotifySub=null
+let ycWinNotifySub=null,ycWinNotifyGeneration=0
 const ycWinNotifyCache=new Map()
 function ycWinHasFocus(){
  try{return !!(document.hasFocus()||window.parent?.document?.hasFocus?.())}catch{return document.hasFocus()}
@@ -3748,18 +3748,19 @@ window.ycOpenDesktopNotificationTarget=async function(target){
   await ycWinOpenTarget(m,ch)
  }catch(e){console.warn('desktop notification target',e)}
 }
-async function ycWinShowMessage(m){
+async function ycWinShowMessage(m,ownerUserId=user?.id){
+ const uid=String(ownerUserId||''),current=()=>!!uid&&String(user?.id||'')===uid
  try{
-  if(!m||!user?.id||m.author_id===user.id)return
-  if(!await ycShouldNotifyMessage(m))return
+  if(!m||!current()||String(m.author_id||'')===uid)return
+  if(!await ycShouldNotifyMessage(m)||!current())return
   if(typeof ycPresencePreference==='function'&&ycPresencePreference()==='dnd')return
   if(window.__ycWnsActive===true)return
   const mentioned=ycWinMentioned(m.body)
   if(ycWinHasFocus()&&!mentioned)return
-  const p=await ycWinProfile(m.author_id)
+  const p=await ycWinProfile(m.author_id);if(!current())return
   const sender=p?.display_name||p?.username||'Uživatel'
   let ch=null,where='Yamachat'
-  if(m.channel_id){ch=await ycWinChannel(m.channel_id);if(!ch)return;where='#'+ch.name}
+  if(m.channel_id){ch=await ycWinChannel(m.channel_id);if(!current()||!ch)return;where='#'+ch.name}
   else if(m.direct_thread_id)where='Soukromá zpráva'
   const bodyText=String(m.body||'Nová zpráva').replace(/\s+/g,' ').trim().slice(0,180)||'Nová zpráva'
   const icon=ycWinAvatar(p)
@@ -3767,13 +3768,13 @@ async function ycWinShowMessage(m){
   const target={messageId:m.id||'',channelId:m.channel_id||'',threadId:m.direct_thread_id||'',communityId:ch?.community_id||'',channelName:ch?.name||''}
   const desktopNotify=window.parent?.yamachatDesktop?.showNotification
   if(typeof desktopNotify==='function'){
-   try{const accent=(currentCommunity&&String(currentCommunity.id)===String(ch?.community_id)&&typeof ycCommunityColor==='function')?ycCommunityColor(currentCommunity):undefined;const shown=await desktopNotify({title,sender,where,body:bodyText,avatar:icon||'',mentioned,accent,target});if(shown)return}catch(e){console.warn('custom desktop notification',e)}
+   try{const accent=(currentCommunity&&String(currentCommunity.id)===String(ch?.community_id)&&typeof ycCommunityColor==='function')?ycCommunityColor(currentCommunity):undefined;const shown=await desktopNotify({title,sender,where,body:bodyText,avatar:icon||'',mentioned,accent,target});if(!current())return;if(shown)return}catch(e){if(current())console.warn('custom desktop notification',e)}
   }
-  if(!(await ycWinPermission()))return
+  if(!(await ycWinPermission())||!current())return
   const opts={body:where+' · '+bodyText,tag:'yamachat-msg-'+String(m.id||Date.now())};if(icon)opts.icon=icon
   const n=new Notification(title,opts)
-  n.onclick=()=>{void ycWinOpenTarget(m,ch);try{n.close()}catch{}}
- }catch(e){console.warn('windows notification',e)}
+  n.onclick=()=>{if(current())void ycWinOpenTarget(m,ch);try{n.close()}catch{}}
+ }catch(e){if(current())console.warn('windows notification',e)}
 }
 async function ycWinNotificationTargets(){
  const communityIds=[...new Set((communities||[]).map(c=>String(c.id||'')).filter(Boolean))],dmIds=[...new Set((dmThreads||[]).map(t=>String(t.id||'')).filter(Boolean))];let channelIds=[]
@@ -3781,15 +3782,14 @@ async function ycWinNotificationTargets(){
  return{channelIds:[...new Set(channelIds)],dmIds}
 }
 async function ycStartWinNotifications(){
- if(!user?.id)return
- if(ycWinNotifySub){try{await sb.removeChannel(ycWinNotifySub)}catch{}ycWinNotifySub=null}
- const {channelIds,dmIds}=await ycWinNotificationTargets();if(!channelIds.length&&!dmIds.length)return
- let sub=sb.channel('yc-win-notify-targeted-'+user.id+'-'+Date.now()),handler=payload=>{void ycWinShowMessage(payload.new||{})}
+ const uid=String(user?.id||'');if(!uid)return;const generation=++ycWinNotifyGeneration,old=ycWinNotifySub;ycWinNotifySub=null;if(old)try{await sb.removeChannel(old)}catch{};if(generation!==ycWinNotifyGeneration||String(user?.id||'')!==uid)return
+ const {channelIds,dmIds}=await ycWinNotificationTargets();if(generation!==ycWinNotifyGeneration||String(user?.id||'')!==uid||(!channelIds.length&&!dmIds.length))return
+ let sub=sb.channel('yc-win-notify-targeted-'+uid+'-'+Date.now()),current=()=>generation===ycWinNotifyGeneration&&ycWinNotifySub===sub&&String(user?.id||'')===uid,handler=payload=>{if(current())void ycWinShowMessage(payload.new||{},uid)}
  for(const id of channelIds)sub=sub.on('postgres_changes',{event:'INSERT',schema:'public',table:'messages',filter:'channel_id=eq.'+id},handler)
  for(const id of dmIds)sub=sub.on('postgres_changes',{event:'INSERT',schema:'public',table:'messages',filter:'direct_thread_id=eq.'+id},handler)
- ycWinNotifySub=sub.subscribe()
+ ycWinNotifySub=sub;sub.subscribe(status=>{if(!current())return;if(['CHANNEL_ERROR','TIMED_OUT','CLOSED'].includes(status)&&ycWinNotifySub===sub){ycWinNotifySub=null;try{void sb.removeChannel(sub)}catch{}}})
 }
-async function ycStopWinNotifications(){const ch=ycWinNotifySub;ycWinNotifySub=null;if(ch)try{await sb.removeChannel(ch)}catch{}}
+async function ycStopWinNotifications(){++ycWinNotifyGeneration;const ch=ycWinNotifySub;ycWinNotifySub=null;if(ch)try{await sb.removeChannel(ch)}catch{}}
 ycOnLifecycle('init',()=>{void ycStartWinNotifications()})
 ycOnLifecycle('beforeAuth',()=>{void ycStopWinNotifications()})
 ycOnLifecycle('beforeAuth',()=>{
@@ -3801,7 +3801,7 @@ ycOnLifecycle('beforeAuth',()=>{
 ycOnLifecycle('beforeCommunity',()=>{
  ycPresenceRowsByUser.clear();ycPresenceRenderedStateByUser.clear();ycVisibleMemberIds.clear();
 })
-setTimeout(()=>{if(user)void ycStartWinNotifications()},1200)
+
 
 
 
