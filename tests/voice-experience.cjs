@@ -34,6 +34,11 @@ if(!isDesktop){
 }
 assert(html.includes("const YC_VOICE_HEARTBEAT_MS=15000,YC_VOICE_TTL_MS=60000,YC_VOICE_ROSTER_MS=20000"),'Voice lease timing must be scale-safe');
 assert(html.includes("let voiceRosterRefreshDelay=0,voiceRosterContextKey=''"),'Voice roster scheduler state missing');
+assert(html.includes('voiceRosterGeneration=0'),'Voice roster generation guard state missing');
+assert(html.includes("if(generation!==voiceRosterGeneration||String(user?.id||'')!==uid)return"),'Stale voice roster results must be discarded after auth/context changes');
+assert(html.includes("if(contextChanged){++voiceRosterGeneration;voiceRosterRefreshBusy=null;voiceRosterLastRefresh=0}"),'Changing roster context must invalidate the previous in-flight query');
+assert(html.includes("function stopVoiceRosterRefresh(){++voiceRosterGeneration;voiceRosterRefreshBusy=null;voiceRosterLastRefresh=0"),'Logout cleanup must invalidate in-flight voice roster work');
+assert(html.includes("const clear=()=>{if(voiceRosterRefreshBusy===task)voiceRosterRefreshBusy=null};task.then(clear,clear)"),'Old roster completion must not clear a newer in-flight task');
 assert(html.includes("const delay=voiceChannel?YC_VOICE_HEARTBEAT_MS:YC_VOICE_ROSTER_MS"),'Voice roster scheduler must use one active/idle cadence');
 assert(html.includes("voiceRosterRefreshTimer=setTimeout(async()=>"),'Voice roster scheduler must use one self-rescheduling timeout');
 assert(html.includes("if(contextChanged)void refreshVoiceRosterSet(defs)"),'Unchanged channel renders must not refetch the whole voice roster');
