@@ -58,6 +58,7 @@ jobs:
           node tests/password-recovery.cjs
           node tests/platform-install-ui.cjs
           node tests/profile-actions.cjs
+          node tests/profile-schema-contract.cjs
           node tests/profile-layout.cjs
           node tests/social-release-web.cjs
           node tests/stream-preview.cjs
