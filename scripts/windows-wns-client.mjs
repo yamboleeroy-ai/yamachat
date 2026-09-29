@@ -4,7 +4,7 @@ export function withWindowsWnsClient(html){
   if(!html.includes(marker)) throw new Error('Windows WNS client insertion boundary missing');
 
   const patch=String.raw`
-let ycWnsRegistering=false,ycWnsLastRegisteredAt=0;
+let ycWnsRegistering=false,ycWnsLastRegisteredAt=0,ycWnsEndpoint='',ycWnsGeneration=0;
 window.__ycWnsActive=false;
 
 function ycWnsDesktopRequest(action){
@@ -23,9 +23,17 @@ function ycWnsDesktopRequest(action){
   });
 }
 
+async function ycWnsUnregisterEndpoint(endpoint,access){
+  const value=String(endpoint||'').trim();if(!value||!access)return false;
+  const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),3000);
+  try{const response=await fetch(SUPABASE_URL+'/functions/v1/yamachat-source/push',{method:'POST',signal:controller.signal,headers:{'Content-Type':'application/json','Authorization':'Bearer '+access,'apikey':SUPABASE_KEY},body:JSON.stringify({action:'unregister',endpoint:value})});return response.ok}
+  catch(e){if(e?.name!=='AbortError')console.warn('Windows WNS detach',e);return false}
+  finally{clearTimeout(timer)}
+}
 async function ycRegisterWindowsWnsPush(force=false){
   if(!user?.id||ycWnsRegistering)return false;
   if(!force&&window.__ycWnsActive&&Date.now()-ycWnsLastRegisteredAt<6*60*60*1000)return true;
+  const ownerId=String(user.id),generation=ycWnsGeneration;
   ycWnsRegistering=true;
   try{
     const channel=await ycWnsDesktopRequest('get-wns-channel');
@@ -33,6 +41,7 @@ async function ycRegisterWindowsWnsPush(force=false){
       window.__ycWnsActive=false;
       return false;
     }
+    if(generation!==ycWnsGeneration||String(user?.id||'')!==ownerId)return false;
     const {data}=await sb.auth.getSession();
     const token=data?.session?.access_token||'';
     if(!token){window.__ycWnsActive=false;return false;}
@@ -49,7 +58,9 @@ async function ycRegisterWindowsWnsPush(force=false){
       })
     });
     if(!response.ok)throw new Error('WNS subscription HTTP '+response.status);
-    window.__ycWnsActive=true;
+    const endpoint=String(channel.channelUri);
+    if(generation!==ycWnsGeneration||String(user?.id||'')!==ownerId){await ycWnsUnregisterEndpoint(endpoint,token);return false}
+    ycWnsEndpoint=endpoint;window.__ycWnsActive=true;
     ycWnsLastRegisteredAt=Date.now();
     return true;
   }catch(e){
@@ -60,9 +71,17 @@ async function ycRegisterWindowsWnsPush(force=false){
     ycWnsRegistering=false;
   }
 }
+async function ycDetachWindowsWnsPush(){
+  ++ycWnsGeneration;
+  const endpoint=ycWnsEndpoint;ycWnsEndpoint='';window.__ycWnsActive=false;ycWnsLastRegisteredAt=0;
+  if(!endpoint)return false;
+  try{const {data}=await sb.auth.getSession(),access=data?.session?.access_token;if(!access)return false;return await ycWnsUnregisterEndpoint(endpoint,access)}catch{return false}
+}
+const ycPreviousPushDetach=window.ycDetachPushBeforeLogout;
+window.ycDetachPushBeforeLogout=async()=>{try{await ycPreviousPushDetach?.()}catch{};await ycDetachWindowsWnsPush()};
 
 ycOnLifecycle('init',()=>setTimeout(()=>void ycRegisterWindowsWnsPush(true),900));
-ycOnLifecycle('beforeAuth',()=>{window.__ycWnsActive=false;ycWnsLastRegisteredAt=0});
+ycOnLifecycle('beforeAuth',()=>{ycWnsGeneration++;ycWnsEndpoint='';window.__ycWnsActive=false;ycWnsLastRegisteredAt=0});
 window.addEventListener('online',()=>setTimeout(()=>void ycRegisterWindowsWnsPush(false),1200));
 setInterval(()=>{if(user?.id)void ycRegisterWindowsWnsPush(false)},60*60*1000);
 `;

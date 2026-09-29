@@ -2,22 +2,42 @@ if(window.Capacitor?.isNativePlatform?.()){
  ycAppSettingsSections.delete('web');
  ycWinPermission=async()=>await window.ycNativeNotificationPermission?.()||false;
  window.yamachatDesktop.showNotification=async payload=>await window.ycNativeShowNotification?.(payload)||false;
- const ycNativePushStatus={text:'',token:''};
+ const ycNativePushStatus={text:'',token:'',userId:''};
+ let ycNativePushGeneration=0;
+ async function ycNativeUnregisterPushToken(token,access){
+  const value=String(token||'').trim();if(!value||!access)return false;
+  const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),3000);
+  try{const res=await fetch(YC_PUSH_API,{method:'POST',signal:controller.signal,headers:{'Content-Type':'application/json','Authorization':'Bearer '+access},body:JSON.stringify({action:'unregister',token:value})});return res.ok}
+  catch(e){if(e?.name!=='AbortError')console.warn('native push detach',e);return false}
+  finally{clearTimeout(timer)}
+ }
  async function ycNativeRegisterPushToken(token,platform){
   try{
    const value=String(token||'').trim();if(!value)return false;
-   const {data}=await sb.auth.getSession();const access=data?.session?.access_token;if(!access)return false;
+   const generation=ycNativePushGeneration,{data}=await sb.auth.getSession(),session=data?.session,access=session?.access_token,uid=String(session?.user?.id||'');if(!access||!uid)return false;
+   if(ycNativePushStatus.token===value&&ycNativePushStatus.userId===uid)return true;
    const transport=platform==='android'?'fcm':'apns';
    const res=await fetch(YC_PUSH_API,{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+access},body:JSON.stringify({action:'register',transport,platform:platform==='android'?'android':'ios-native',token:value,userAgent:navigator.userAgent})});
    if(!res.ok)throw new Error('Push registrace '+res.status);
-   ycNativePushStatus.token=value;
+   if(generation!==ycNativePushGeneration||String(user?.id||'')!==uid){await ycNativeUnregisterPushToken(value,access);return false}
+   ycNativePushStatus.token=value;ycNativePushStatus.userId=uid;
    ycNativePushStatus.text=platform==='android'?'Android push token je registrovaný.':'iOS push token je registrovaný.';
    return true
   }catch(e){console.warn('native push registration',e);ycNativePushStatus.text='Push token se nepodařilo uložit.';return false}
  }
+ async function ycNativeDetachPushToken(){
+  ++ycNativePushGeneration;
+  const value=String(ycNativePushStatus.token||window.__ycNativePushToken||'').trim();
+  ycNativePushStatus.userId='';ycNativePushStatus.text='';
+  if(!value)return false;
+  try{const {data}=await sb.auth.getSession(),access=data?.session?.access_token;if(!access)return false;return await ycNativeUnregisterPushToken(value,access)}catch{return false}
+ }
  window.addEventListener('yamachat:native-push-token',e=>{const d=e.detail||{};void ycNativeRegisterPushToken(d.token,d.platform)});
  window.addEventListener('yamachat:native-push-action',e=>{const n=e.detail?.notification||e.detail||{},target=n.data?.target||n.data||n.extra||{};void window.ycOpenDesktopNotificationTarget?.(target)});
  ycOnLifecycle('init',()=>{const token=window.__ycNativePushToken;if(token)setTimeout(()=>void ycNativeRegisterPushToken(token,window.__YAMACHAT_MOBILE__?.platform||'android'),700)});
+ ycOnLifecycle('beforeAuth',()=>{ycNativePushGeneration++;ycNativePushStatus.userId=''});
+ const ycNativePreviousPushDetach=window.ycDetachPushBeforeLogout;
+ window.ycDetachPushBeforeLogout=async()=>{try{await ycNativePreviousPushDetach?.()}catch{};await ycNativeDetachPushToken()};
  ycRegisterAppSettingsSection({
   id:'native',title:'Telefon a oznámení',
   description:'Yamachat systémová oznámení s logem a otevřením přímo do zprávy.',
