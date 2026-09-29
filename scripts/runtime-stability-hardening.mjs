@@ -59,5 +59,10 @@ export function withRuntimeStabilityHardening(html){
   if(out.includes(friendPresenceTimerOld))out=out.replace(friendPresenceTimerOld,friendPresenceTimerNew);
   else if(!out.includes(friendPresenceTimerNew))throw Error('Runtime stability friend presence timer boundary missing');
 
+  const badMentionProfileSelect=".select('id,username,display_name,avatar_path,avatar_url')";
+  const goodMentionProfileSelect=".select('id,username,display_name,avatar_path,discord_avatar_url,use_discord_avatar')";
+  if(out.includes(badMentionProfileSelect))out=out.replaceAll(badMentionProfileSelect,goodMentionProfileSelect);
+  if(out.includes(badMentionProfileSelect))throw Error('Runtime stability stale profile avatar_url select remains');
+
   return out;
 }
