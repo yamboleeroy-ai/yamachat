@@ -51,7 +51,7 @@ function ycNoiseConstraints(mode=ycNoiseMode,deviceId='',echo=voiceEcho,agc=voic
   html=replaceOnce(html,joinOld,joinNew,'join microphone prewarm');
 
   const micTestCleanupStart="function ycCleanupMicTest({restoreVoice=false,clearWanted=false}={}){";
-  const micTestCleanupNew=String.raw\`
+  const micTestCleanupNew=String.raw`
 function ycIosMicTestAudioSession(phase){
  if(!ycIosWebMicRuntime()||!navigator.audioSession)return;
  try{
@@ -61,7 +61,7 @@ function ycIosMicTestAudioSession(phase){
  }catch(e){console.warn('iOS Web/PWA mic-test audio route',e)}
 }
 function ycCleanupMicTest({restoreVoice=false,clearWanted=false,preserveAudio=false}={}){
-\`.trim();
+`.trim();
   html=replaceOnce(html,micTestCleanupStart,micTestCleanupNew,'mic-test audio-session helper');
 
   const micTestAudioCleanup=" if(ycMicTestAudio){try{ycMicTestAudio.pause();ycMicTestAudio.srcObject=null;ycMicTestAudio.remove()}catch{}ycMicTestAudio=null}";
@@ -76,15 +76,15 @@ function ycCleanupMicTest({restoreVoice=false,clearWanted=false,preserveAudio=fa
   const micTestAudioCreateNew="  ycMicTestStream=processed;if(!ycMicTestAudio){ycMicTestAudio=document.createElement('audio');ycMicTestAudio.autoplay=true;ycMicTestAudio.playsInline=true;ycMicTestAudio.volume=.85;ycMicTestAudio.style.display='none';document.body.appendChild(ycMicTestAudio)}ycMicTestAudio.srcObject=ycMicTestStream;if(ycIosWebMicRuntime())ycIosMicTestAudioSession('monitor');";
   html=replaceOnce(html,micTestAudioCreate,micTestAudioCreateNew,'mic-test reuse unlocked audio element');
 
-  const micTestRestart=String.raw\`
+  const micTestRestart=String.raw`
 function ycRestartMicTest(){
  if(!ycMicTestWanted)return;
  clearTimeout(ycMicTestRestartTimer);ycCleanupMicTest({restoreVoice:false,clearWanted:false});ycSetMicTestVoiceHold(true);
  const b=$('voiceMicTestBtn');if(b){b.disabled=true;b.textContent='Aktualizuji test…'}
  ycMicTestRestartTimer=setTimeout(()=>{ycMicTestRestartTimer=null;void ycStartMicTestInternal()},90);
 }
-\`.trim();
-  const micTestRestartNew=String.raw\`
+`.trim();
+  const micTestRestartNew=String.raw`
 function ycRestartMicTest(){
  if(!ycMicTestWanted)return;
  clearTimeout(ycMicTestRestartTimer);
@@ -95,7 +95,7 @@ function ycRestartMicTest(){
  if(ycIosWebMicRuntime()){ycMicTestRestartTimer=null;void ycStartMicTestInternal();return}
  ycMicTestRestartTimer=setTimeout(()=>{ycMicTestRestartTimer=null;void ycStartMicTestInternal()},90);
 }
-\`.trim();
+`.trim();
   html=replaceOnce(html,micTestRestart,micTestRestartNew,'mic-test iOS restart playback');
 
   return html;
