@@ -3116,11 +3116,19 @@ function ycApplyMicTestVoiceHold(){
  else if(voiceChannel){void trackVoicePresence().catch(()=>{});renderVoiceControls()}
 }
 function ycSetMicTestVoiceHold(active){ycMicTestVoiceHold=!!active;ycApplyMicTestVoiceHold()}
-function ycCleanupMicTest({restoreVoice=false,clearWanted=false}={}){
+function ycIosMicTestAudioSession(phase){
+ if(!ycIosWebMicRuntime()||!navigator.audioSession)return;
+ try{
+  if(phase==='before-capture'){if(!voiceChannel)navigator.audioSession.type='auto';return}
+  if(phase==='monitor'){navigator.audioSession.type='play-and-record';return}
+  if(phase==='stop'&&!voiceChannel){navigator.audioSession.type='playback';navigator.audioSession.type='auto'}
+ }catch(e){console.warn('iOS Web/PWA mic-test audio route',e)}
+}
+function ycCleanupMicTest({restoreVoice=false,clearWanted=false,preserveAudio=false}={}){
  ++ycMicTestGeneration;if(clearWanted)ycMicTestWanted=false;
  ycResetThresholdMeter();
  if(ycMicTestMeterStop){try{ycMicTestMeterStop()}catch{}ycMicTestMeterStop=null}
- if(ycMicTestAudio){try{ycMicTestAudio.pause();ycMicTestAudio.srcObject=null;ycMicTestAudio.remove()}catch{}ycMicTestAudio=null}
+ if(ycMicTestAudio&&!preserveAudio){try{ycMicTestAudio.pause();ycMicTestAudio.srcObject=null;ycMicTestAudio.remove()}catch{}ycMicTestAudio=null;ycIosMicTestAudioSession('stop')}
  if(ycMicTestStream){const old=ycMicTestStream;ycMicTestStream=null;void ycStopManagedMicStream(old)}
  ycMicTestStarting=false;
  const b=$('voiceMicTestBtn');if(b){b.classList.remove('active');b.disabled=false;b.textContent='🎙 Spustit test mikrofonu'}
@@ -3133,11 +3141,11 @@ async function ycStartMicTestInternal(){
  const generation=++ycMicTestGeneration,btn=$('voiceMicTestBtn');ycMicTestStarting=true;ycSetMicTestVoiceHold(true);
  if(btn){btn.disabled=true;btn.textContent='Spouštím test…'}
  try{
-  const media=getVoiceMediaDevices();if(!media?.getUserMedia)throw new Error('Mikrofon není dostupný');
+  const media=getVoiceMediaDevices();if(!media?.getUserMedia)throw new Error('Mikrofon není dostupný');if(ycIosWebMicRuntime())ycIosMicTestAudioSession('before-capture');
   const device=$('voiceMicSelect')?.value||voiceDeviceId||'',mode=ycNoiseModeFromUi(),audio=ycNoiseConstraints(mode,device,$('voiceEchoCheck')?.checked??voiceEcho,$('voiceAgcCheck')?.checked??voiceAgc),raw=await media.getUserMedia({audio});
   const processed=await ycPrepareMicStream(raw,mode,ycMicDraft());
   if(generation!==ycMicTestGeneration||!ycMicTestWanted||!$('voiceMicTestBtn')){await ycStopManagedMicStream(processed);return}
-  ycMicTestStream=processed;ycMicTestAudio=document.createElement('audio');ycMicTestAudio.autoplay=true;ycMicTestAudio.playsInline=true;ycMicTestAudio.volume=.85;ycMicTestAudio.srcObject=ycMicTestStream;ycMicTestAudio.style.display='none';document.body.appendChild(ycMicTestAudio);
+  ycMicTestStream=processed;if(!ycMicTestAudio){ycMicTestAudio=document.createElement('audio');ycMicTestAudio.autoplay=true;ycMicTestAudio.playsInline=true;ycMicTestAudio.volume=.85;ycMicTestAudio.style.display='none';document.body.appendChild(ycMicTestAudio)}ycMicTestAudio.srcObject=ycMicTestStream;if(ycIosWebMicRuntime())ycIosMicTestAudioSession('monitor');
   const sink=$('voiceOutputSelect')?.value||voiceOutputId||'default';if(typeof ycMicTestAudio.setSinkId==='function')try{await ycMicTestAudio.setSinkId(sink)}catch{}
   await ycMicTestAudio.play().catch(()=>{});ycStartMicTestMeter(ycMicTestStream);ycApplyMicTestVoiceHold();
   if(btn){btn.classList.add('active');btn.textContent='⏹ Zastavit test mikrofonu'}
@@ -3148,8 +3156,12 @@ async function ycStartMicTestInternal(){
 async function ycToggleMicTest(){if(ycMicTestWanted){ycStopMicTest();return}ycMicTestWanted=true;ycSetMicTestVoiceHold(true);await ycStartMicTestInternal()}
 function ycRestartMicTest(){
  if(!ycMicTestWanted)return;
- clearTimeout(ycMicTestRestartTimer);ycCleanupMicTest({restoreVoice:false,clearWanted:false});ycSetMicTestVoiceHold(true);
+ clearTimeout(ycMicTestRestartTimer);
+ const preserveAudio=ycIosWebMicRuntime()&&!!ycMicTestAudio;
+ if(preserveAudio){try{ycMicTestAudio.autoplay=true;void ycMicTestAudio.play().catch(()=>{})}catch{}}
+ ycCleanupMicTest({restoreVoice:false,clearWanted:false,preserveAudio});ycSetMicTestVoiceHold(true);
  const b=$('voiceMicTestBtn');if(b){b.disabled=true;b.textContent='Aktualizuji test…'}
+ if(ycIosWebMicRuntime()){ycMicTestRestartTimer=null;void ycStartMicTestInternal();return}
  ycMicTestRestartTimer=setTimeout(()=>{ycMicTestRestartTimer=null;void ycStartMicTestInternal()},90);
 }
 function ycMicTestSettingChanged(event){
