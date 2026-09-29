@@ -10,7 +10,7 @@ function ycInstalledPlatform(){
 function ycDownloadOffers(){
  const installed=ycInstalledPlatform();
  const cards=[
- ['windows','Desktop · Windows','Stáhni instalátor, otevři jej a dokonči instalaci. Pak se přihlas stejným účtem. Další aktualizace nabídne desktopová aplikace.','<a class="ghost" data-yc-windows-download href="https://github.com/yamboleeroy-ai/yamachat/releases/latest" target="_blank" rel="noopener noreferrer">Stáhnout pro Windows</a><small data-yc-windows-status></small>'],
+ ['windows','Desktop · Windows','Stáhni instalátor, otevři jej a dokonči instalaci. Pak se přihlas stejným účtem. Další aktualizace nabídne desktopová aplikace.','<a class="ghost" data-yc-windows-download href="https://yamachat.eu/download/" target="_blank" rel="noopener noreferrer">Stáhnout pro Windows</a><small data-yc-windows-status></small>'],
  ['android','Android','Stáhni APK a otevři stažený soubor. Pokud Android požádá, povol instalaci z tohoto zdroje a zvol Nainstalovat.','<a class="ghost" href="https://yamachat.eu/download/Yamachat-Android.apk" target="_blank" rel="noopener noreferrer">Stáhnout Android APK</a>'],
  ['ios','iPhone / iPad','V Safari otevři yamachat.eu, klepni na Sdílet → Přidat na plochu → Přidat. Aktuálně je k dispozici webová aplikace na plochu; veřejný odkaz na nativní iOS aplikaci zatím není zveřejněný.','<a class="ghost" href="https://yamachat.eu/download/#ios" target="_blank" rel="noopener noreferrer">Návod pro iPhone / iPad</a>']
  ];
