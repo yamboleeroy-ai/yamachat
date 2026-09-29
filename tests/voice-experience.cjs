@@ -38,6 +38,14 @@ if(!isDesktop){
  assert(html.includes("function ycIosVoiceCommunityId(channel=voiceChannel)"),'iOS PWA voice target must track the joined channel community');
  assert(html.includes("communityId:ycIosVoiceCommunityId(channel)"),'iOS PWA saved voice target must not use the browsed community');
  assert(html.includes("communityId:ycIosVoiceCommunityId(live)"),'iOS PWA live reconnect target must not use the browsed community');
+ assert(html.includes('ycIosVoiceReconnectTimer=null'),'iOS PWA reconnect debounce state missing');
+ assert(html.includes("function ycIosScheduleVoiceReconnect(reason='resume',delay=250)"),'iOS PWA reconnect scheduler missing');
+ assert(html.includes("ycIosScheduleVoiceReconnect('visibility',220)"),'iOS PWA visibility reconnect must use the shared scheduler');
+ assert(html.includes("ycIosScheduleVoiceReconnect('pageshow',260)"),'iOS PWA pageshow reconnect must use the shared scheduler');
+ assert(html.includes("ycIosScheduleVoiceReconnect('focus',320)"),'iOS PWA focus reconnect must use the shared scheduler');
+ assert(html.includes("ycIosScheduleVoiceReconnect('online',420)"),'iOS PWA online reconnect must use the shared scheduler');
+ assert(html.includes("ycIosScheduleVoiceReconnect('community',500)"),'iOS PWA community reconnect must use the shared scheduler');
+ assert(!html.includes("setTimeout(()=>void ycIosVoiceReconnect('visibility')"),'Parallel iOS reconnect timeouts must not return');
  const findLive=html.indexOf("if(voiceChannel&&String(voiceChannel.id)===String(target.channelId))return voiceChannel;");
  const rejectOther=html.indexOf("if(target.communityId&&currentCommunity?.id&&String(target.communityId)!==String(currentCommunity.id))return null;");
  assert(findLive>=0&&rejectOther>findLive,'iOS PWA must prefer the still-live voice channel before rejecting a different browsed community');
