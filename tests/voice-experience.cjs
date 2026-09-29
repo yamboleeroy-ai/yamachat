@@ -165,6 +165,8 @@ assert(html.includes("previewRun(done=>void ycPlayVoiceFileCue('leave',done),260
 assert(html.includes('function ycVoiceSelectedVoice(voices)'),'Real system voice selector missing');
 assert(html.includes('u.voice=selected'),'Speech does not use the selected real system voice');
 assert(html.includes("if(!text||ycVoiceAnnounceMode()!=='speech'||voiceDeafened||!('speechSynthesis' in window))"),'Shared speech announcements must respect deafen');
+assert(html.includes('window.YamachatStopVoiceAnnouncements=ycStopVoiceAnnouncementAudio'),'Voice experience must expose one announcement cleanup path');
+assert(html.includes('if(voiceDeafened)window.YamachatStopVoiceAnnouncements?.()'),'Deafen must immediately stop queued/current announcement audio');
 const deafenStart=html.indexOf('async function toggleVoiceDeafen(){');
 const deafenEnd=html.indexOf('let ycInputSwitch=',deafenStart);
 assert(deafenStart>=0&&deafenEnd>deafenStart,'Deafen function boundary missing');
