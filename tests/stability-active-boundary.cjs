@@ -42,7 +42,7 @@ function source(platform){
  " stopSyntheticScreen:async()=>{await stopScreenShare(true);const s=window.__rampScreen;if(s){clearInterval(s.timer);try{s.osc.stop()}catch{};s.stream.getTracks().forEach(t=>t.stop());await s.ac.close().catch(()=>{});window.__rampScreen=null}},",
  " watchScreen:id=>ycWatchScreenShare(id),",
  " screenActive:id=>voiceScreenActiveByUser.has(id),",
- " async rtc(){const out=[];for(const [id,pc] of voicePeers){const stats=await pc.getStats();let sent=0,received=0,lost=0,jitter=0,rtt=0,localType='',remoteType='';let pair=null;stats.forEach(x=>{if(x.type==='outbound-rtp')sent+=Number(x.bytesSent||0);if(x.type==='inbound-rtp'){received+=Number(x.bytesReceived||0);lost+=Number(x.packetsLost||0);jitter=Math.max(jitter,Number(x.jitter||0))}if(!pair&&x.type==='candidate-pair'&&x.state==='succeeded'&&x.nominated)pair=x});if(pair){rtt=Number(pair.currentRoundTripTime||0);localType=stats.get(pair.localCandidateId)?.candidateType||'';remoteType=stats.get(pair.remoteCandidateId)?.candidateType||''}out.push({id,connection:pc.connectionState,ice:pc.iceConnectionState,sent,received,lost,jitter,rtt,localType,remoteType})}return out},",
+ " async rtc(){const out=[];for(const [id,pc] of voicePeers){const stats=await pc.getStats();let sent=0,received=0,lost=0,jitter=0,rtt=0,localType='',remoteType='';let pair=null;stats.forEach(x=>{if(x.type==='outbound-rtp')sent+=Number(x.bytesSent||0);if(x.type==='inbound-rtp'){received+=Number(x.bytesReceived||0);lost+=Number(x.packetsLost||0);jitter=Math.max(jitter,Number(x.jitter||0))}if(!pair&&x.type==='candidate-pair'&&x.state==='succeeded'&&x.nominated)pair=x});if(pair){rtt=Number(pair.currentRoundTripTime||0);localType=stats.get(pair.localCandidateId)?.candidateType||'';remoteType=stats.get(pair.remoteCandidateId)?.candidateType||''}out.push({id,connection:pc.connectionState,ice:pc.iceConnectionState,signaling:pc.signalingState,hasLocal:!!pc.localDescription,hasRemote:!!pc.remoteDescription,sent,received,lost,jitter,rtt,localType,remoteType})}return out},",
  " heap:()=>({used:performance.memory?.usedJSHeapSize||0,total:performance.memory?.totalJSHeapSize||0}),",
  " errors:()=>window.__rampErrors||[]",
  "};",
@@ -160,7 +160,7 @@ async function inBatches(items,size,fn){
    try{
     await c.page.waitForFunction(expected=>{const s=window.__ycRamp.state();return s.peers===expected&&s.connected===expected},expected,{timeout:45000});
    }catch(e){
-    const diag=await c.page.evaluate(async({id,expected})=>({id,expected,state:window.__ycRamp.state(),rtc:await window.__ycRamp.rtc(),errors:window.__ycRamp.errors()}),{id:c.cfg.id,expected}).catch(err=>({id:c.cfg.id,expected,diagnostic_error:String(err)}));diag.signalDeliveryErrors=signalDeliveryErrors.slice(-20);
+    const diag=await c.page.evaluate(async({id,expected})=>({id,expected,state:window.__ycRamp.state(),rtc:await window.__ycRamp.rtc(),errors:window.__ycRamp.errors()}),{id:c.cfg.id,expected}).catch(err=>({id:c.cfg.id,expected,diagnostic_error:String(err)}));diag.signalDeliveryErrors=signalDeliveryErrors.slice(-20);diag.signals=deliveries.filter(x=>x.from===c.cfg.id||x.to===c.cfg.id).slice(-120);
     console.error('YC_VOICE_CONNECT_TIMEOUT '+JSON.stringify(diag));throw e;
    }
   });
