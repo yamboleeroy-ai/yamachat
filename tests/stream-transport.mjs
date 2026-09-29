@@ -14,11 +14,13 @@ function section(source,name){
 }
 for(const [name,before,after] of [['web',baseline,fs.readFileSync('index.html','utf8')],['desktop',desktop,fs.readFileSync('desktop/desktop-client.html','utf8')]]){
  for(const fn of functions){
-  if(name==='desktop'&&(fn==='stopScreenShare'||fn==='attachVoiceAudio'))continue;
+  if(fn==='stopScreenShare'||(name==='desktop'&&fn==='attachVoiceAudio'))continue;
   assert.equal(section(after,fn),section(before,fn),name+' transport changed: '+fn);
  }
+ const stop=section(after,'stopScreenShare');
+ assert(stop.includes("const ownerUserId=user?.id"),name+' stop must capture the stream owner before async cleanup');
+ assert(stop.includes("await ycStopGlobalStreamPresence(ownerUserId)"),name+' stop must await serialized stream-presence cleanup');
  if(name==='desktop'){
-  const stop=section(after,'stopScreenShare');
   assert(stop.includes("if(typeof ycResetScreenAudioSenders==='function')await ycResetScreenAudioSenders()"),'desktop stop must retire stale stream-audio sender');
   assert(after.includes('async function ycResetScreenAudioSenders()'),'desktop fresh screen-audio transceiver helper missing');
   const voiceAudio=section(after,'attachVoiceAudio');
