@@ -30,6 +30,7 @@ assert(!shared.includes('YC_ANDROID_NATURAL_PREFIX'),'Android Natural TTS leaked
 assert(!source.includes('YC_ANDROID_NATURAL_PREFIX'),'Android Natural TTS leaked into generated Web/PWA source');
 assert(edge.includes("if(ycTtsRate.size>256)")&&edge.includes("ycTtsRate.delete(id)"),'TTS rate-limit memory must prune stale inactive users');
 assert(android.includes("if(!text||ycVoiceAnnounceMode()!=='speech'||voiceDeafened)"),'Android Natural TTS must respect deafen before starting');
+assert(android.includes('ycAndroidStopAnnouncementsBase=window.YamachatStopVoiceAnnouncements'),'Android Natural audio must extend the shared deafen cleanup');
 assert(android.includes("if(voiceDeafened){finish();return null}"),'Android Natural TTS must re-check deafen around async synthesis');
 assert(android.includes("if(ycAndroidNaturalState!=='ready'){ycAndroidNaturalState='loading';fillVoices()}await ycAndroidNaturalVoiceLoad()"),'Android Natural voice list must reuse the ready cache when settings reopen');
 assert(!android.includes("const loadNatural=async()=>{ycAndroidNaturalState='loading';fillVoices();await ycAndroidNaturalVoiceLoad()"),'Android settings must not force a Natural voice refetch when already ready');
