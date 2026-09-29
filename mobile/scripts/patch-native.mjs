@@ -115,6 +115,8 @@ function patchAndroidNaturalVoices(html) {
     "const YC_ANDROID_NATURAL_PREFIX='azure:';",
     "let ycAndroidNaturalVoices=[],ycAndroidNaturalState='idle',ycAndroidNaturalPromise=null;",
     "const ycAndroidNaturalPlayers=new Set();",
+    "const ycAndroidStopAnnouncementsBase=window.YamachatStopVoiceAnnouncements;",
+    "window.YamachatStopVoiceAnnouncements=function(){try{ycAndroidStopAnnouncementsBase?.()}catch{}for(const audio of [...ycAndroidNaturalPlayers]){try{audio.pause();audio.onended?.()}catch{}ycAndroidNaturalPlayers.delete(audio)}};",
     "function ycAndroidNaturalValue(voice){return YC_ANDROID_NATURAL_PREFIX+String(voice?.shortName||'')}",
     "function ycAndroidNaturalGender(voice){const g=String(voice?.gender||'').toLowerCase();return g==='female'?'female':g==='male'?'male':''}",
     "function ycAndroidNaturalLabel(voice){const name=String(voice?.displayName||voice?.localName||voice?.shortName||'Microsoft Natural'),locale=String(voice?.locale||''),localeName=String(voice?.localeName||locale),g=ycAndroidNaturalGender(voice),gender=g==='female'?' · ženský':g==='male'?' · mužský':'';return 'Microsoft '+name+' Online (Natural) - '+localeName+' · '+locale+gender}",
