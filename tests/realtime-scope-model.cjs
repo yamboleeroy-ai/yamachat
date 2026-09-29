@@ -30,6 +30,11 @@ for(const file of ['desktop/desktop-client.html','index.html']){
   const watchdog=roleBlock.slice(roleBlock.indexOf('setInterval(()=>{if(user?.id)'),roleBlock.indexOf('setTimeout(()=>',roleBlock.indexOf('setInterval(()=>{if(user?.id)')));
   assert(!watchdog.includes('refreshSocialTabCounts()'),file+' realtime watchdog still polls social counts');
   assert(!watchdog.includes('applyMessageRoleColors()'),file+' realtime watchdog still reloads role data');
+  const hiddenBlock=html.slice(html.indexOf('const ycHiddenBaseSubscribeCommunityRealtime'),html.indexOf('// Password entry guards:'));
+  assert(hiddenBlock.includes('function ycStartHiddenChannelRealtime(communityId)'),file+' hidden-channel realtime recovery helper missing');
+  assert(hiddenBlock.includes("status==='SUBSCRIBED'"),file+' hidden-channel reconnect resync missing');
+  assert(hiddenBlock.includes("['CHANNEL_ERROR','TIMED_OUT','CLOSED'].includes(status)"),file+' hidden-channel dead subscription recovery missing');
+  assert(hiddenBlock.includes("if(!ycHiddenChannelSub)ycStartHiddenChannelRealtime(currentCommunity.id)"),file+' hidden-channel polling fallback does not restore realtime');
 }
 
 function oldGlobalDeliveries(clients,changes){return clients*changes}

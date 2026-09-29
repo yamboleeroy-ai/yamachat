@@ -4776,19 +4776,23 @@ async function ycRefreshChannelsSecure(){
   return all;
 }
 const ycHiddenBaseSubscribeCommunityRealtime=subscribeCommunityRealtime;
+function ycStopHiddenChannelRealtime(){const ch=ycHiddenChannelSub;ycHiddenChannelSub=null;if(ch)try{void sb.removeChannel(ch)}catch{}}
+function ycStartHiddenChannelRealtime(communityId){
+  const uid=String(user?.id||''),cid=String(communityId||'');ycStopHiddenChannelRealtime();if(!uid||!cid)return;
+  const current=()=>String(user?.id||'')===uid&&String(currentCommunity?.id||'')===cid;
+  const sub=sb.channel('yc-hidden-channels-'+uid+'-'+cid+'-'+Date.now())
+    .on('postgres_changes',{event:'UPDATE',schema:'public',table:'channels',filter:'community_id=eq.'+cid},()=>{if(current())void ycRefreshChannelsSecure()})
+    .on('postgres_changes',{event:'DELETE',schema:'public',table:'channels'},()=>{if(current())void ycRefreshChannelsSecure()})
+    .on('postgres_changes',{event:'*',schema:'public',table:'channel_visible_roles'},()=>{if(current())void ycRefreshChannelsSecure()})
+    .on('postgres_changes',{event:'*',schema:'public',table:'community_member_roles',filter:'user_id=eq.'+uid},p=>{const r=p.new||p.old||{};if(String(r.community_id)===cid&&current())void ycRefreshChannelsSecure()})
+    .on('postgres_changes',{event:'UPDATE',schema:'public',table:'community_members',filter:'user_id=eq.'+uid},p=>{const r=p.new||p.old||{};if(String(r.community_id)===cid&&current())void ycRefreshChannelsSecure()});
+  ycHiddenChannelSub=sub;
+  sub.subscribe(status=>{if(!current())return;if(status==='SUBSCRIBED'){void ycRefreshChannelsSecure();return}if(['CHANNEL_ERROR','TIMED_OUT','CLOSED'].includes(status)&&ycHiddenChannelSub===sub){ycHiddenChannelSub=null;try{void sb.removeChannel(sub)}catch{}}});
+}
 subscribeCommunityRealtime=function(communityId){
   const out=ycHiddenBaseSubscribeCommunityRealtime.call(this,communityId);
-  if(ycHiddenChannelSub){try{sb.removeChannel(ycHiddenChannelSub)}catch{}ycHiddenChannelSub=null}
-  if(user?.id){
-    ycHiddenChannelSub=sb.channel('yc-hidden-channels-'+user.id+'-'+Date.now())
-      .on('postgres_changes',{event:'UPDATE',schema:'public',table:'channels',filter:'community_id=eq.'+communityId},()=>{if(String(currentCommunity?.id)===String(communityId))void ycRefreshChannelsSecure()})
-      .on('postgres_changes',{event:'DELETE',schema:'public',table:'channels'},()=>{if(String(currentCommunity?.id)===String(communityId))void ycRefreshChannelsSecure()})
-      .on('postgres_changes',{event:'*',schema:'public',table:'channel_visible_roles'},()=>{if(String(currentCommunity?.id)===String(communityId))void ycRefreshChannelsSecure()})
-      .on('postgres_changes',{event:'*',schema:'public',table:'community_member_roles',filter:'user_id=eq.'+user.id},p=>{const r=p.new||p.old||{};if(String(r.community_id)===String(communityId)&&String(currentCommunity?.id)===String(communityId))void ycRefreshChannelsSecure()})
-      .on('postgres_changes',{event:'UPDATE',schema:'public',table:'community_members',filter:'user_id=eq.'+user.id},p=>{const r=p.new||p.old||{};if(String(r.community_id)===String(communityId)&&String(currentCommunity?.id)===String(communityId))void ycRefreshChannelsSecure()})
-      .subscribe();
-  }
-  clearInterval(ycHiddenChannelPoll);ycHiddenChannelPoll=setInterval(()=>{if(currentCommunity&&!document.hidden)void ycRefreshChannelsSecure()},15000);
+  ycStartHiddenChannelRealtime(communityId);
+  clearInterval(ycHiddenChannelPoll);ycHiddenChannelPoll=setInterval(()=>{if(currentCommunity&&!document.hidden){if(!ycHiddenChannelSub)ycStartHiddenChannelRealtime(currentCommunity.id);void ycRefreshChannelsSecure()}},15000);
   return out;
 };
 // Password entry guards: visible locked channels stay listed, but chat/voice opens only after unlock.
