@@ -3184,7 +3184,7 @@ ycSetupThemeLogo()
 
 
 // persistent DM unread state and notification sound
-let ycDmNotifySub=null,ycDmMembershipSub=null,ycDmUnreadByThread={},ycDmAudioCtx=null,ycDmAudioArmed=false
+let ycDmNotifySub=null,ycDmMembershipSub=null,ycDmUnreadByThread={},ycDmNotifyGeneration=0,ycDmMembershipGeneration=0,ycDmUnreadGeneration=0,ycDmAudioCtx=null,ycDmAudioArmed=false
 function ycUnreadLabel(n){n=Number(n||0);return n>9?'9+':String(n)}
 function ycDmUnreadTotal(){return Object.values(ycDmUnreadByThread).reduce((a,b)=>a+Number(b||0),0)}
 function ycEnsureDmAudio(){
@@ -3211,7 +3211,7 @@ async function ycPlayDmSound(){
   ycEnsureDmAudio();const ctx=ycDmAudioCtx;if(!ctx||ctx.state!=='running')return
   const buffer=await ycLoadMessageSound();if(!buffer)return
   const src=ctx.createBufferSource(),gain=ctx.createGain();gain.gain.value=.88
-  src.buffer=buffer;src.connect(gain).connect(ctx.destination);src.start()
+  src.buffer=buffer;src.connect(gain).connect(ctx.destination);src.onended=()=>{try{src.disconnect()}catch{}try{gain.disconnect()}catch{}};src.start()
  }catch(e){console.warn('dm sound',e)}
 }
 function ycUpdateDmBadge(){
@@ -3222,27 +3222,39 @@ function ycDecorateDmRows(){
  const root=$('dmList');if(!root)return;root.querySelectorAll('[data-thread]').forEach(b=>{const n=Number(ycDmUnreadByThread[b.dataset.thread]||0);b.querySelector('.yc-dm-row-badge')?.remove();if(n>0){const s=document.createElement('span');s.className='yc-dm-row-badge';s.textContent=ycUnreadLabel(n);b.appendChild(s)}})
 }
 async function ycLoadDmUnread(){
- if(!user?.id)return;const ids=(dmThreads||[]).map(t=>t.id);ycDmUnreadByThread={};if(!ids.length){ycUpdateDmBadge();ycDecorateDmRows();return}
- try{const [{data:reads},{data:msgs}]=await Promise.all([sb.from('direct_thread_reads').select('thread_id,last_read_at').eq('user_id',user.id).in('thread_id',ids),sb.from('messages').select('direct_thread_id,author_id,created_at').in('direct_thread_id',ids).neq('author_id',user.id).order('created_at',{ascending:false}).limit(1000)]);const rm=Object.fromEntries((reads||[]).map(x=>[x.thread_id,new Date(x.last_read_at).getTime()]));for(const id of ids)ycDmUnreadByThread[id]=0;for(const m of msgs||[]){const t=m.direct_thread_id;if(!t)continue;const when=new Date(m.created_at).getTime();if(when>(rm[t]||0))ycDmUnreadByThread[t]=(ycDmUnreadByThread[t]||0)+1}if(currentThread?.id)ycDmUnreadByThread[currentThread.id]=0;ycUpdateDmBadge();ycDecorateDmRows()}catch(e){console.warn('dm unread load',e)}
+ const uid=String(user?.id||'');if(!uid)return;const generation=++ycDmUnreadGeneration,ids=(dmThreads||[]).map(t=>String(t.id||'')).filter(Boolean),current=()=>generation===ycDmUnreadGeneration&&String(user?.id||'')===uid;
+ if(!ids.length){if(!current())return;ycDmUnreadByThread={};ycUpdateDmBadge();ycDecorateDmRows();return}
+ try{
+  const [{data:reads},{data:msgs}]=await Promise.all([
+   sb.from('direct_thread_reads').select('thread_id,last_read_at').eq('user_id',uid).in('thread_id',ids),
+   sb.from('messages').select('direct_thread_id,author_id,created_at').in('direct_thread_id',ids).neq('author_id',uid).order('created_at',{ascending:false}).limit(1000)
+  ]);
+  if(!current())return;
+  const rm=Object.fromEntries((reads||[]).map(x=>[x.thread_id,new Date(x.last_read_at).getTime()])),next={};for(const id of ids)next[id]=0;
+  for(const m of msgs||[]){const t=String(m.direct_thread_id||'');if(!t||!(t in next))continue;const when=new Date(m.created_at).getTime();if(when>(rm[t]||0))next[t]=(next[t]||0)+1}
+  if(currentThread?.id&&String(currentThread.id) in next)next[String(currentThread.id)]=0;
+  if(!current())return;ycDmUnreadByThread=next;ycUpdateDmBadge();ycDecorateDmRows()
+ }catch(e){if(current())console.warn('dm unread load',e)}
 }
 async function ycMarkDmRead(threadId){
- if(!threadId||!user?.id)return;ycDmUnreadByThread[threadId]=0;ycUpdateDmBadge();ycDecorateDmRows();const now=new Date().toISOString();try{await sb.from('direct_thread_reads').upsert({thread_id:threadId,user_id:user.id,last_read_at:now,updated_at:now},{onConflict:'thread_id,user_id'})}catch(e){console.warn('dm mark read',e)}
+ const uid=String(user?.id||'');if(!threadId||!uid)return;if(String(user?.id||'')===uid){ycDmUnreadByThread[threadId]=0;ycUpdateDmBadge();ycDecorateDmRows()}const now=new Date().toISOString();try{await sb.from('direct_thread_reads').upsert({thread_id:threadId,user_id:uid,last_read_at:now,updated_at:now},{onConflict:'thread_id,user_id'})}catch(e){if(String(user?.id||'')===uid)console.warn('dm mark read',e)}
 }
 async function ycStartDmNotifications(rebuildMembership=true){
- if(!user?.id)return;ycArmDmAudio();if(ycDmNotifySub){try{await sb.removeChannel(ycDmNotifySub)}catch{}ycDmNotifySub=null}
+ const uid=String(user?.id||'');if(!uid)return;ycArmDmAudio();const notifyGeneration=++ycDmNotifyGeneration,oldNotify=ycDmNotifySub;ycDmNotifySub=null;if(oldNotify)try{await sb.removeChannel(oldNotify)}catch{};if(notifyGeneration!==ycDmNotifyGeneration||String(user?.id||'')!==uid)return;
  const ids=[...new Set((dmThreads||[]).map(t=>String(t.id||'')).filter(Boolean))]
  if(ids.length){
-  let sub=sb.channel('yc-dm-targeted-'+user.id+'-'+Date.now())
-  const onMessage=async payload=>{const m=payload.new||{};if(!m.direct_thread_id||m.author_id===user.id)return;const tid=m.direct_thread_id;if(currentThread?.id===tid){await ycMarkDmRead(tid);return}ycDmUnreadByThread[tid]=(ycDmUnreadByThread[tid]||0)+1;ycUpdateDmBadge();ycDecorateDmRows();if(await ycShouldNotifyMessage(m))ycPlayDmSound()}
+  let sub=sb.channel('yc-dm-targeted-'+uid+'-'+Date.now())
+  const current=()=>notifyGeneration===ycDmNotifyGeneration&&ycDmNotifySub===sub&&String(user?.id||'')===uid;
+  const onMessage=async payload=>{if(!current())return;const m=payload.new||{};if(!m.direct_thread_id||String(m.author_id||'')===uid)return;const tid=String(m.direct_thread_id);if(currentThread?.id===tid){await ycMarkDmRead(tid);return}if(!current())return;ycDmUnreadByThread[tid]=(ycDmUnreadByThread[tid]||0)+1;ycUpdateDmBadge();ycDecorateDmRows();if(await ycShouldNotifyMessage(m)){if(current())void ycPlayDmSound()}}
   for(const tid of ids)sub=sub.on('postgres_changes',{event:'INSERT',schema:'public',table:'messages',filter:'direct_thread_id=eq.'+tid},onMessage)
-  ycDmNotifySub=sub.subscribe()
+  ycDmNotifySub=sub;sub.subscribe(status=>{if(!current())return;if(['CHANNEL_ERROR','TIMED_OUT','CLOSED'].includes(status)&&ycDmNotifySub===sub){ycDmNotifySub=null;try{void sb.removeChannel(sub)}catch{}}})
  }
  if(rebuildMembership){
-  if(ycDmMembershipSub){try{await sb.removeChannel(ycDmMembershipSub)}catch{}ycDmMembershipSub=null}
-  ycDmMembershipSub=sb.channel('yc-dm-membership-'+user.id+'-'+Date.now()).on('postgres_changes',{event:'*',schema:'public',table:'direct_thread_members',filter:'user_id=eq.'+user.id},async()=>{try{await loadDmThreads();await ycLoadDmUnread();await ycStartDmNotifications(false);ycUpdateDmBadge();ycDecorateDmRows()}catch(e){console.warn('dm membership refresh',e)}}).subscribe()
+  const membershipGeneration=++ycDmMembershipGeneration,oldMembership=ycDmMembershipSub;ycDmMembershipSub=null;if(oldMembership)try{await sb.removeChannel(oldMembership)}catch{};if(membershipGeneration!==ycDmMembershipGeneration||String(user?.id||'')!==uid)return;
+  const sub=sb.channel('yc-dm-membership-'+uid+'-'+Date.now()).on('postgres_changes',{event:'*',schema:'public',table:'direct_thread_members',filter:'user_id=eq.'+uid},async()=>{if(membershipGeneration!==ycDmMembershipGeneration||ycDmMembershipSub!==sub||String(user?.id||'')!==uid)return;try{await loadDmThreads();if(membershipGeneration!==ycDmMembershipGeneration||String(user?.id||'')!==uid)return;await ycLoadDmUnread();await ycStartDmNotifications(false);if(membershipGeneration!==ycDmMembershipGeneration||String(user?.id||'')!==uid)return;ycUpdateDmBadge();ycDecorateDmRows()}catch(e){if(String(user?.id||'')===uid)console.warn('dm membership refresh',e)}});ycDmMembershipSub=sub;sub.subscribe(status=>{if(membershipGeneration!==ycDmMembershipGeneration||ycDmMembershipSub!==sub||String(user?.id||'')!==uid)return;if(['CHANNEL_ERROR','TIMED_OUT','CLOSED'].includes(status)){ycDmMembershipSub=null;try{void sb.removeChannel(sub)}catch{}}})
  }
 }
-async function ycStopDmNotifications(){const channels=[ycDmNotifySub,ycDmMembershipSub];ycDmNotifySub=null;ycDmMembershipSub=null;for(const ch of channels)if(ch)try{await sb.removeChannel(ch)}catch{};ycDmUnreadByThread={};ycUpdateDmBadge()}
+async function ycStopDmNotifications(){++ycDmNotifyGeneration;++ycDmMembershipGeneration;++ycDmUnreadGeneration;const channels=[ycDmNotifySub,ycDmMembershipSub];ycDmNotifySub=null;ycDmMembershipSub=null;ycDmUnreadByThread={};ycUpdateDmBadge();for(const ch of channels)if(ch)try{await sb.removeChannel(ch)}catch{}}
 const ycBridgeRenderDmListUnread=renderDmList
 renderDmList=function(...args){const out=ycBridgeRenderDmListUnread.apply(this,args);ycDecorateDmRows();ycUpdateDmBadge();return out}
 const ycBridgeEnsureFriendsRailButtonUnread=ycEnsureFriendsRailButton
@@ -3251,7 +3263,7 @@ const ycBridgeSelectThreadUnread=selectThread
 selectThread=async function(id,...rest){const out=await ycBridgeSelectThreadUnread.call(this,id,...rest);if(currentThread?.id===id)await ycMarkDmRead(id);return out}
 ycOnLifecycle('init',async()=>{await ycLoadDmUnread();await ycStartDmNotifications();ycUpdateDmBadge()})
 ycOnLifecycle('beforeAuth',()=>{void ycStopDmNotifications()})
-setTimeout(()=>{ycArmDmAudio();if(user){void ycLoadDmUnread();void ycStartDmNotifications()}},900)
+setTimeout(()=>ycArmDmAudio(),900)
 
 
 // choose screen quality before browser share picker
