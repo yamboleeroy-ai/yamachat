@@ -29,6 +29,9 @@ assert.equal(meshPairs(1000),499500);
 
 assert(desktop.includes("const YC_VOICE_HEARTBEAT_MS=15000,YC_VOICE_TTL_MS=60000,YC_VOICE_ROSTER_MS=20000"),'Scale timings missing');
 assert(desktop.includes("const delay=voiceChannel?YC_VOICE_HEARTBEAT_MS:YC_VOICE_ROSTER_MS"),'Roster scale model must match the 15s active / 20s idle scheduler');
+assert(desktop.includes('voiceRosterGeneration=0'),'Voice roster generation state missing');
+assert(desktop.includes("if(generation!==voiceRosterGeneration||String(user?.id||'')!==uid)return"),'Stale voice roster response guard missing');
+assert(desktop.includes("if(contextChanged){++voiceRosterGeneration;voiceRosterRefreshBusy=null;voiceRosterLastRefresh=0}"),'Voice roster context switch must invalidate an old query');
 assert(desktop.includes("event:'INSERT',schema:'public',table:'voice_participants',filter"),'Scoped INSERT subscription missing');
 assert(desktop.includes("event:'DELETE',schema:'public',table:'voice_participants',filter"),'Scoped DELETE subscription missing');
 assert(desktop.includes(".in('channel_id',ids).gt('last_seen',cutoff)"),'Batched roster query missing');
