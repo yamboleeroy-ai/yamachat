@@ -8,7 +8,7 @@ export function withStreamScaleHardening(html){
   if(html.includes('STREAM SCALE HARDENING 2026-09-28'))return html;
 
   const stateOld="let ycCommunityStreamSub=null,ycStreamPresenceTimer=null,ycStreamPreviewTimer=null";
-  const stateNew="let ycCommunityStreamSub=null,ycCommunityStreamPollTimer=null,ycCommunityStreamLoadBusy=null,ycStreamPresenceTimer=null,ycStreamPreviewTimer=null,ycStreamPublishEpoch=0,ycStreamPublishQueue=Promise.resolve()";
+  const stateNew="let ycCommunityStreamSub=null,ycCommunityStreamPollTimer=null,ycCommunityStreamLoadBusy=null,ycStreamPresenceTimer=null,ycStreamPreviewTimer=null,ycStreamPublishEpoch=0,ycStreamPublishQueue=Promise.resolve(),ycStreamPresenceClearedUserId=''";
   if(!html.includes(stateOld))throw Error('Stream discovery state boundary missing');
   html=html.replace(stateOld,stateNew);
 
@@ -79,7 +79,7 @@ async function ycStartCommunityStreamWatch(){
       const {data,error}=await sb.from('community_stream_presence').upsert(row,{onConflict:'user_id'}).select().maybeSingle();
       if(error)throw error;
       if(!owns())return false;
-      if(data)ycCommunityStreams.set(uid,data);renderVoiceChannels(voiceChannelDefs);return true;
+      if(data){ycStreamPresenceClearedUserId='';ycCommunityStreams.set(uid,data)}renderVoiceChannels(voiceChannelDefs);return true;
     }catch(e){if(owns())console.warn('stream presence publish',e);return false}
   };
   const task=ycStreamPublishQueue.catch(()=>{}).then(run);
@@ -97,11 +97,18 @@ async function ycStartGlobalStreamPresence(){
 async function ycStopGlobalStreamPresence(ownerUserId=user?.id){
   const uid=String(ownerUserId||'');++ycStreamPublishEpoch;ycClearStreamPublishTimers();
   try{await ycStreamPublishQueue}catch{}
-  if(uid){try{await sb.from('community_stream_presence').delete().eq('user_id',uid)}catch{}}
+  if(uid&&ycStreamPresenceClearedUserId!==uid){
+    try{const {error}=await sb.from('community_stream_presence').delete().eq('user_id',uid);if(!error)ycStreamPresenceClearedUserId=uid}catch{}
+  }
   if(uid)ycCommunityStreams.delete(uid);renderVoiceChannels(voiceChannelDefs);
 }
 `;
   html=replaceBetween(html,'async function ycPublishStreamPresence','ycOnLifecycle(\'init\'',publishBlock,'serialized stream presence');
+
+  const streamInitOld="ycOnLifecycle('init',async()=>{try{if(user?.id&&!screenShareActive)await sb.from('community_stream_presence').delete().eq('user_id',user.id)}catch{};await ycStartCommunityStreamWatch()})";
+  const streamInitNew="ycOnLifecycle('init',async()=>{ycStreamPresenceClearedUserId='';try{if(user?.id&&!screenShareActive){const {error}=await sb.from('community_stream_presence').delete().eq('user_id',user.id);if(!error)ycStreamPresenceClearedUserId=String(user.id)}}catch{};await ycStartCommunityStreamWatch()})";
+  if(html.includes(streamInitOld))html=html.replace(streamInitOld,streamInitNew);
+  else if(!html.includes(streamInitNew))throw Error('Stream init cleanup idempotency boundary missing');
 
   const stopStart=html.indexOf('async function stopScreenShare(silent=false){'),stopEnd=html.indexOf('\n}\n',stopStart);
   if(stopStart<0||stopEnd<0)throw Error('Stream stop await function boundary missing');
