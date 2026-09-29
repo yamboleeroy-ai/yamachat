@@ -1,0 +1,47 @@
+name: Isolated active load boundary
+on:
+  push:
+    branches:
+      - audit/load-stress-20260929
+    paths:
+      - tests/stability-active-boundary.cjs
+      - .github/workflows/active-load-boundary.yml
+permissions:
+  contents: read
+jobs:
+  boundary:
+    name: boundary-${{ matrix.users }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        users: [30, 35, 40, 45, 50]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Generate shared client
+        run: node scripts/build-web.mjs
+      - name: Install Chromium test runtime
+        run: |
+          npm install --no-save --package-lock=false playwright@1.62.1
+          npx playwright install --with-deps chromium
+      - name: Run isolated boundary load
+        env:
+          YC_ACTIVE_USERS: ${{ matrix.users }}
+          YC_SOAK_SECONDS: '60'
+          YC_VOICE_FRACTION: '0.40'
+          YC_VOICE_ROOM_SIZE: '4'
+        run: |
+          set -o pipefail
+          node tests/stability-active-boundary.cjs 2>&1 | tee boundary-${{ matrix.users }}.log
+      - name: Upload boundary log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: active-boundary-${{ matrix.users }}
+          path: boundary-${{ matrix.users }}.log
+          retention-days: 3
