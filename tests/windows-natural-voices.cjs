@@ -39,5 +39,6 @@ for(const marker of [
 ]) assert(edge.includes(marker),'Secure yamachat-source TTS marker missing: '+marker);
 
 assert(!/Ocp-Apim-Subscription-Key['"]?\s*:\s*['"][^'"]{8,}/.test(edge),'Azure Speech key must come only from server environment');
+assert(edge.includes("if(ycTtsRate.size>256)" )&&edge.includes("ycTtsRate.delete(id)"),'TTS rate-limit memory must prune stale inactive users');
 
 console.log('PASS Windows Microsoft Natural voices: Azure-backed real voice list/synthesis, Czech Vlasta/Antonin preference, secure server secret and local Jakub fallback.');
