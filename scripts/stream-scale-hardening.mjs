@@ -87,7 +87,7 @@ async function ycStartCommunityStreamWatch(){
   return task;
 }
 async function ycStartGlobalStreamPresence(){
-  const epoch=++ycStreamPublishEpoch;ycClearStreamPublishTimers();
+  const epoch=++ycStreamPublishEpoch;ycStreamPresenceClearedUserId='';ycClearStreamPublishTimers();
   await ycPublishStreamPresence(true,false);
   if(epoch!==ycStreamPublishEpoch||!screenShareActive)return;
   setTimeout(()=>{if(epoch===ycStreamPublishEpoch&&screenShareActive)void ycPublishStreamPresence(false,true)},450);

@@ -12,6 +12,9 @@ window.__ycStreamPresenceRace={
   ycCaptureStreamPreviewData=async()=>{await gate;return 'data:image/webp;base64,preview'};
   voiceChannel={id:'voice-race',community_id:'community-a',name:'Race'};
   screenShareStream={getVideoTracks:()=>[]};screenShareActive=true;
+  // Mirror a real active stream: starting a stream clears the login-time
+  // idempotent cleanup marker before any publish can race with stop.
+  ycStreamPresenceClearedUserId='';
   const publish=ycPublishStreamPresence(false,true);
   await new Promise(r=>setTimeout(r,40));
   const stop=ycStopGlobalStreamPresence('audit-user');
@@ -42,7 +45,8 @@ window.__ycStreamPresenceRace={
    await page.evaluate(()=>window.__mockWrites.splice(0));
    const result=await page.evaluate(()=>window.__ycStreamPresenceRace.run());
    const streamWrites=result.writes.filter(x=>x.startsWith('community_stream_presence:'));
-   assert.deepEqual(streamWrites,['community_stream_presence:delete'],platform+' stale preview publish escaped stop barrier: '+JSON.stringify(streamWrites));
+   assert.equal(streamWrites.filter(x=>x==='community_stream_presence:upsert').length,0,platform+' stale preview publish escaped stop barrier: '+JSON.stringify(streamWrites));
+   assert.equal(streamWrites.filter(x=>x==='community_stream_presence:delete').length,1,platform+' active stream cleanup must delete presence exactly once: '+JSON.stringify(streamWrites));
    assert.deepEqual(errors,[],platform+' runtime errors');
    await page.close();
   }
