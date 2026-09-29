@@ -20,6 +20,7 @@ assert(!client.includes("AZURE_SPEECH_KEY"),'Azure Speech secret must never be e
 assert(client.includes("root.querySelector('#ycVoiceAnnounceTest').onclick"),'Vyzkoušet hlas button binding missing');
 assert(client.includes("ycVoiceSpeakEnhanced((profile?.display_name||profile?.username||'Yamachat')+' se připojil do místnosti'"),'Voice preview must use the same selected Natural/local voice path');
 assert(client.includes("if(!text||ycVoiceAnnounceMode()!=='speech'||voiceDeafened)"),'Desktop Natural TTS must respect deafen before starting');
+assert(client.includes('ycDesktopStopAnnouncementsBase=window.YamachatStopVoiceAnnouncements'),'Desktop Natural audio must extend the shared deafen cleanup');
 assert(client.includes("if(voiceDeafened){finish();return null}"),'Desktop Natural TTS must re-check deafen around async synthesis');
 assert(client.includes("if(ycDesktopNaturalState!=='ready'){ycDesktopNaturalState='loading';fillVoices()}await ycDesktopNaturalVoiceLoad()"),'Desktop Natural voice list must reuse the ready cache when settings reopen');
 assert(!client.includes("const loadNatural=async()=>{ycDesktopNaturalState='loading';fillVoices();await ycDesktopNaturalVoiceLoad()"),'Desktop settings must not force a Natural voice refetch when already ready');
