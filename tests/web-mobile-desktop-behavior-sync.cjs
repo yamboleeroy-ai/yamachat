@@ -3,6 +3,10 @@ const root=path.resolve(__dirname,'..');
 const client=fs.readFileSync(path.join(root,'index.html'),'utf8');
 const friends=fs.readFileSync(path.join(root,'scripts/friends-panel-refresh.mjs'),'utf8');
 const interaction=fs.readFileSync(path.join(root,'scripts/interaction-notifications.mjs'),'utf8');
+assert(client.includes('let ycWebUiPulseTimer=null'),'Web UI pulse lifecycle state missing');
+assert(client.includes("ycOnLifecycle('init',ycWebStartUiPulse)"),'Web UI pulse must start only after authentication');
+assert(client.includes("ycWebStopUiPulse();document.title='Yamachat'"),'Web UI pulse must stop/reset on logout');
+assert(!client.includes("setInterval(()=>{void ycWebSyncWakeLock();const count="),'Always-on pre-auth web UI interval must not return');
 
 // These are behavior-only deltas verified in preview/social-hover-context-7.
 // The generated Web/PWA/Android client must contain them without inheriting desktop layout.
