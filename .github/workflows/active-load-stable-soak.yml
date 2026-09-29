@@ -1,0 +1,46 @@
+name: Isolated stable active soak
+on:
+  push:
+    branches:
+      - audit/load-stress-20260929
+    paths:
+      - .github/workflows/active-load-stable-soak.yml
+permissions:
+  contents: read
+jobs:
+  soak:
+    name: stable-soak-${{ matrix.users }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        users: [100, 125]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Generate shared client
+        run: node scripts/build-web.mjs
+      - name: Install Chromium test runtime
+        run: |
+          npm install --no-save --package-lock=false playwright@1.62.1
+          npx playwright install --with-deps chromium
+      - name: Run ten-minute active soak
+        env:
+          YC_ACTIVE_USERS: ${{ matrix.users }}
+          YC_SOAK_SECONDS: '600'
+          YC_VOICE_FRACTION: '0.40'
+          YC_VOICE_ROOM_SIZE: '4'
+        run: |
+          set -o pipefail
+          node tests/stability-active-boundary.cjs 2>&1 | tee stable-soak-${{ matrix.users }}.log
+      - name: Upload soak log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: stable-soak-${{ matrix.users }}
+          path: stable-soak-${{ matrix.users }}.log
+          retention-days: 3
