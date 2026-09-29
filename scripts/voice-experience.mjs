@@ -341,6 +341,24 @@ export function withVoiceExperience(html){
  if(!html.includes(oldRefresh))throw Error('Voice participant refresh boundary missing');
  html=html.replace(oldRefresh,newRefresh);
 
+
+ // Release short Web Audio nodes deterministically and bound decoded custom-sound memory.
+ const sbStateOld="soundboardBuffers=new Map(),soundboardLastPlay=0";
+ const sbStateNew="soundboardBuffers=new Map(),soundboardBufferLoads=new Map(),soundboardLastPlay=0";
+ if(!html.includes(sbStateOld))throw Error('Soundboard buffer state boundary missing');
+ html=html.replace(sbStateOld,sbStateNew);
+ const unlockOld="function unlockVoiceAudio(){try{const C=window.AudioContext||window.webkitAudioContext;if(!C)return;if(!voiceAudioContext)voiceAudioContext=new C();voiceAudioContext.resume().catch(()=>{});const g=voiceAudioContext.createGain();g.gain.value=0;const o=voiceAudioContext.createOscillator();o.connect(g).connect(voiceAudioContext.destination);o.start();o.stop(voiceAudioContext.currentTime+.03);if(voiceOutputId&&typeof voiceAudioContext.setSinkId==='function')voiceAudioContext.setSinkId(voiceOutputId).catch(()=>{})}catch{}}";
+ const unlockNew="function ycReleaseShortAudioNodes(source,gain){if(!source)return;source.onended=()=>{try{source.disconnect()}catch{}try{gain?.disconnect()}catch{}}}\\nfunction unlockVoiceAudio(){try{const C=window.AudioContext||window.webkitAudioContext;if(!C)return;if(!voiceAudioContext)voiceAudioContext=new C();voiceAudioContext.resume().catch(()=>{});const g=voiceAudioContext.createGain();g.gain.value=0;const o=voiceAudioContext.createOscillator();o.connect(g).connect(voiceAudioContext.destination);ycReleaseShortAudioNodes(o,g);o.start();o.stop(voiceAudioContext.currentTime+.03);if(voiceOutputId&&typeof voiceAudioContext.setSinkId==='function')voiceAudioContext.setSinkId(voiceOutputId).catch(()=>{})}catch{}}";
+ if(!html.includes(unlockOld))throw Error('Voice audio unlock boundary missing');
+ html=html.replace(unlockOld,unlockNew);
+ html=html.replace("o.connect(g).connect(ctx.destination);o.start(now+delay);o.stop(now+delay+dur+.02)","o.connect(g).connect(ctx.destination);ycReleaseShortAudioNodes(o,g);o.start(now+delay);o.stop(now+delay+dur+.02)");
+ html=html.replace("o.connect(g).connect(ctx.destination);o.start(now+start);o.stop(now+start+dur+.03)","o.connect(g).connect(ctx.destination);ycReleaseShortAudioNodes(o,g);o.start(now+start);o.stop(now+start+dur+.03)");
+ const getBufferOld="async function getSoundboardBuffer(sound){if(soundboardBuffers.has(sound.id))return soundboardBuffers.get(sound.id);const {data,error}=await sb.storage.from('soundboard').createSignedUrl(sound.storage_path,3600);if(error||!data?.signedUrl)throw error||new Error('Zvuk není dostupný');unlockVoiceAudio();const res=await fetch(data.signedUrl);const arr=await res.arrayBuffer();const buf=await voiceAudioContext.decodeAudioData(arr.slice(0));soundboardBuffers.set(sound.id,buf);return buf}";
+ const getBufferNew="function ycSoundboardBufferGet(id){if(!soundboardBuffers.has(id))return null;const buf=soundboardBuffers.get(id);soundboardBuffers.delete(id);soundboardBuffers.set(id,buf);return buf}\\nasync function getSoundboardBuffer(sound){const id=String(sound?.id||'');if(!id)throw new Error('Zvuk není dostupný');const cached=ycSoundboardBufferGet(id);if(cached)return cached;if(soundboardBufferLoads.has(id))return soundboardBufferLoads.get(id);const task=(async()=>{const {data,error}=await sb.storage.from('soundboard').createSignedUrl(sound.storage_path,3600);if(error||!data?.signedUrl)throw error||new Error('Zvuk není dostupný');unlockVoiceAudio();const res=await fetch(data.signedUrl);if(!res.ok)throw new Error('Zvuk se nepodařilo stáhnout');const arr=await res.arrayBuffer(),buf=await voiceAudioContext.decodeAudioData(arr.slice(0));soundboardBuffers.set(id,buf);while(soundboardBuffers.size>24)soundboardBuffers.delete(soundboardBuffers.keys().next().value);return buf})();soundboardBufferLoads.set(id,task);try{return await task}finally{if(soundboardBufferLoads.get(id)===task)soundboardBufferLoads.delete(id)}}";
+ if(!html.includes(getBufferOld))throw Error('Soundboard buffer loader boundary missing');
+ html=html.replace(getBufferOld,getBufferNew);
+ html=html.replace("src.buffer=buf;src.connect(g).connect(voiceAudioContext.destination);src.start()","src.buffer=buf;src.connect(g).connect(voiceAudioContext.destination);ycReleaseShortAudioNodes(src,g);src.start()");
+
  // Soundboard global volume + per-sender mute, while preserving existing presets/custom loading.
  html=html.replace("function playPresetSound(key){","function playPresetSound(key,gainScale=1){");
  html=html.replace("g.gain.exponentialRampToValueAtTime(gain,now+start+.015);","g.gain.exponentialRampToValueAtTime(gain*Math.max(0,Number(gainScale)||0),now+start+.015);");
