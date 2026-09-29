@@ -8,6 +8,9 @@ for(const file of ['desktop/desktop-client.html','index.html']){
   assert(html.includes("ycCommunityStreamPollTimer=setInterval(()=>{if(!current())return;if(!ycCommunityStreamSub){void ycStartCommunityStreamWatch();return}if(ycCommunityStreams.size)void ycLoadCommunityStreams()},20000)"),file+' adaptive stream watchdog missing');
   assert(html.includes("ycCommunityStreamLoadCid=''"),file+' stream load community key missing');
   assert(html.includes('ycCommunityStreamWatchGeneration=0'),file+' stream watch generation state missing');
+  assert(html.includes('ycCommunityStreamFreshnessTimer=null'),file+' stream freshness timer state missing');
+  assert(html.includes("ycOnLifecycle('init',ycStartCommunityStreamFreshnessTimer)"),file+' stream freshness timer must start only with authenticated lifecycle');
+  assert(html.includes("ycOnLifecycle('beforeAuth',ycStopCommunityStreamFreshnessTimer)"),file+' stream freshness timer must stop on logout');
   assert(html.includes('const generation=++ycCommunityStreamWatchGeneration'),file+' stream watch start must own a generation token');
   assert(html.includes('await ycStopCommunityStreamWatch(false)'),file+' stream watch restart must retire the old channel without invalidating itself');
   assert(html.includes("const cid=String(currentCommunity.id),current=()=>generation===ycCommunityStreamWatchGeneration"),file+' stale stream subscriptions must be context-guarded');
