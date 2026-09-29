@@ -3,6 +3,24 @@ const root=path.resolve(__dirname,'..');
 const client=fs.readFileSync(path.join(root,'index.html'),'utf8');
 const friends=fs.readFileSync(path.join(root,'scripts/friends-panel-refresh.mjs'),'utf8');
 const interaction=fs.readFileSync(path.join(root,'scripts/interaction-notifications.mjs'),'utf8');
+assert(client.includes('ycDmNotifyGeneration=0')&&client.includes('ycDmMembershipGeneration=0')&&client.includes('ycDmUnreadGeneration=0'),
+  'DM notification lifecycle generation guards missing');
+assert(client.includes("const uid=String(user?.id||'');if(!uid)return;const generation=++ycDmUnreadGeneration"),
+  'DM unread loads must bind to one account/generation');
+assert(client.includes("notifyGeneration!==ycDmNotifyGeneration||String(user?.id||'')!==uid"),
+  'DM targeted subscription must reject stale-account starts');
+assert(client.includes("ycDmNotifySub===sub&&String(user?.id||'')===uid"),
+  'DM message callbacks must belong to the current subscription/account');
+assert(client.includes("membershipGeneration!==ycDmMembershipGeneration||ycDmMembershipSub!==sub"),
+  'DM membership callbacks must reject stale subscriptions');
+assert(client.includes("++ycDmNotifyGeneration;++ycDmMembershipGeneration;++ycDmUnreadGeneration"),
+  'DM stop must invalidate all in-flight notification work before async channel removal');
+assert(client.includes("setTimeout(()=>ycArmDmAudio(),900)"),
+  'DM startup timeout must only arm audio and must not duplicate subscription initialization');
+assert(!client.includes("setTimeout(()=>{ycArmDmAudio();if(user){void ycLoadDmUnread();void ycStartDmNotifications()}},900)"),
+  'Legacy duplicate DM startup initialization must not return');
+assert(client.includes("src.onended=()=>{try{src.disconnect()}catch{}try{gain.disconnect()}catch{}}"),
+  'DM notification Web Audio nodes must disconnect after playback');
 assert(client.includes('let ycWebUiPulseTimer=null'),'Web UI pulse lifecycle state missing');
 assert(client.includes("ycOnLifecycle('init',ycWebStartUiPulse)"),'Web UI pulse must start only after authentication');
 assert(client.includes("ycWebStopUiPulse();document.title='Yamachat'"),'Web UI pulse must stop/reset on logout');
