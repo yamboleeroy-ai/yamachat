@@ -173,6 +173,15 @@ async function inBatches(items,size,fn){
    for(const viewer of sameRoom){
     await viewer.page.waitForFunction(id=>window.__ycRamp.screenActive(id),streamer.cfg.id,{timeout:15000});
     await viewer.page.evaluate(id=>window.__ycRamp.watchScreen(id),streamer.cfg.id);streamViewers++;
+    await viewer.page.waitForFunction(()=>document.querySelector('.yc-stream-viewer video')?.videoWidth>0,{},{timeout:20000});
+   }
+  }
+  // Keep the stream playing while chat/navigation remains usable, matching the real mini-player workflow.
+  for(const c of active){
+   const minimize=c.page.locator('.yc-stream-viewer [data-action="minimize"]');
+   if(await minimize.count()&&await minimize.first().isVisible().catch(()=>false)){
+    await minimize.first().click();
+    await c.page.waitForFunction(()=>document.querySelector('.yc-stream-viewer')?.dataset.mode==='mini',{},{timeout:10000});
    }
   }
 
