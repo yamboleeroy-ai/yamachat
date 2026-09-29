@@ -5,7 +5,7 @@ const base=fs.readFileSync(path.join(__dirname,'supabase-fixture.js'),'utf8');
 const N=Math.max(1,Math.min(1000,Number(process.env.YC_ACTIVE_USERS||10)));
 const SOAK_SECONDS=Math.max(15,Math.min(600,Number(process.env.YC_SOAK_SECONDS||60)));
 const VOICE_FRACTION=Math.max(0,Math.min(0.8,Number(process.env.YC_VOICE_FRACTION||0.4)));
-const ROOM_SIZE=Math.max(2,Math.min(8,Number(process.env.YC_VOICE_ROOM_SIZE||4)));
+const ROOM_SIZE=Math.max(2,Math.min(8,Number(process.env.YC_VOICE_ROOM_SIZE||4)));\nconst VOICE_CONNECT_TIMEOUT_MS=Math.max(45000,Math.min(180000,Number(process.env.YC_VOICE_CONNECT_TIMEOUT_MS||45000)));\nconst RENDERER_PROCESS_LIMIT=Math.max(0,Math.min(128,Number(process.env.YC_RENDERER_PROCESS_LIMIT||0)));
 const voiceTarget=Math.min(N,Math.floor(N*VOICE_FRACTION));
 const profiles=[
  {platform:'desktop',width:1280,height:800},
@@ -95,7 +95,7 @@ async function inBatches(items,size,fn){
 
 (async()=>{
  const started=Date.now();
- const browser=await chromium.launch({headless:true,args:['--use-fake-ui-for-media-stream','--autoplay-policy=no-user-gesture-required','--enable-precise-memory-info','--js-flags=--expose-gc']});
+ const launchArgs=['--use-fake-ui-for-media-stream','--autoplay-policy=no-user-gesture-required','--enable-precise-memory-info','--js-flags=--expose-gc'];\n if(RENDERER_PROCESS_LIMIT>0)launchArgs.push('--renderer-process-limit='+RENDERER_PROCESS_LIMIT);\n const browser=await chromium.launch({headless:true,args:launchArgs});
  const clients=new Map(),deliveries=[],signalQueues=new Map(),signalDeliveryErrors=[];let streamsStarted=0,streamViewers=0,messagesSent=0,navigations=0,reconnects=0;
  let beforeSoak=null,afterSoak=null,summary=null;
  try{
@@ -159,7 +159,7 @@ async function inBatches(items,size,fn){
   await inBatches(voiceClients,10,async c=>{
    const expected=rosters.get(c.cfg.room).length-1;
    try{
-    await c.page.waitForFunction(expected=>{const s=window.__ycRamp.state();return s.peers===expected&&s.connected===expected},expected,{timeout:45000});
+    await c.page.waitForFunction(expected=>{const s=window.__ycRamp.state();return s.peers===expected&&s.connected===expected},expected,{timeout:VOICE_CONNECT_TIMEOUT_MS});
    }catch(e){
     const diag=await c.page.evaluate(async({id,expected})=>({id,expected,state:window.__ycRamp.state(),rtc:await window.__ycRamp.rtc(),errors:window.__ycRamp.errors()}),{id:c.cfg.id,expected}).catch(err=>({id:c.cfg.id,expected,diagnostic_error:String(err)}));diag.signalDeliveryErrors=signalDeliveryErrors.slice(-20);diag.signals=deliveries.filter(x=>x.from===c.cfg.id||x.to===c.cfg.id).slice(-120);
     console.error('YC_VOICE_CONNECT_TIMEOUT '+JSON.stringify(diag));throw e;
