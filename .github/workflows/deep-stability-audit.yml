@@ -47,6 +47,7 @@ jobs:
           node tests/windows-process-audio.cjs
           node tests/windows-social-hover-context.cjs
           node tests/windows-stream-lifecycle.cjs
+          node tests/windows-shared-header-scale.cjs
           node tests/windows-turn-usage-scale.cjs
           node tests/windows-wns-desktop.cjs
       - name: Extended browser regressions
