@@ -3,6 +3,13 @@ const {chromium}=require('playwright');
 const fixture=require('./stream-viewer-fixture.cjs');
 const out=process.env.STREAM_TEST_OUTPUT||path.join(fixture.root,'test-results');fs.mkdirSync(out,{recursive:true});
 const results=[];
+const viewerSource=fs.readFileSync(path.join(fixture.root,'web/stream-viewer.js'),'utf8');
+assert(viewerSource.includes('let layer=null,safe=null,layoutFrame=0,monitorTimer=0'),'Stream viewer monitor state missing');
+assert(viewerSource.includes('function syncMonitor()'),'Stream viewer demand-driven monitor missing');
+assert(viewerSource.includes('const needed=!!sessions.size&&!document.hidden'),'Stream viewer monitor must stop when idle/hidden');
+assert(viewerSource.includes('sessions.set(id,session);syncMonitor()'),'Opening a viewer must start its monitor');
+assert(viewerSource.includes('sessions.delete(session.id);syncMonitor()'),'Closing the last viewer must stop its monitor');
+assert(!viewerSource.includes("setInterval(()=>{if(!sessions.size||document.hidden)return;scheduleLayout();for(const s of sessions.values())update(s)},500)"),'Permanent 500ms stream viewer timer must not return');
 (async()=>{
  const browser=await chromium.launch({headless:true,...(process.env.BROWSER_EXECUTABLE?{executablePath:process.env.BROWSER_EXECUTABLE}:{})});
  try{
