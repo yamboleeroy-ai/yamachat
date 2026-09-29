@@ -2,7 +2,44 @@ const fs=require('node:fs'),path=require('node:path'),assert=require('node:asser
 const {chromium}=require('playwright');
 const root=path.resolve(__dirname,'..'),base=fs.readFileSync(path.join(__dirname,'supabase-fixture.js'),'utf8');
 
-function source(platform){return fs.readFileSync(path.join(root,platform==='desktop'?'desktop/desktop-client.html':'index.html'),'utf8')}
+function source(platform){
+ const doc=fs.readFileSync(path.join(root,platform==='desktop'?'desktop/desktop-client.html':'index.html'),'utf8'),marker='window.__ycClientReady=true;';
+ assert(doc.includes(marker),platform+' client-ready marker missing');
+ assert(doc.includes("while(ycHoverCache.size>=128)"),platform+' hover cache must stay bounded');
+ assert(doc.includes("ycWinNotifyCache.size>=256"),platform+' notification lookup cache must stay bounded');
+ assert(doc.includes("ycChatScrollMemory.clear();ycChatLastRendered.clear();ycLastGoodChannelsByCommunity.clear()"),platform+' auth exit must clear session caches');
+ const bridge=`
+window.__ycAuthCleanupRace={
+ arm(){
+  window.__ycRaceObservedUser=null;
+  window.__ycRaceArmGeneration=ycAuthGeneration;
+  window.__ycRaceObservedGeneration=null;
+  const baseStop=stopScreenShare;let restored=false;
+  stopScreenShare=async function(...args){
+   await new Promise(resolve=>setTimeout(resolve,900));
+   window.__ycRaceObservedUser=user?.id||'';
+   window.__ycRaceObservedGeneration=ycAuthGeneration;
+   if(!restored){restored=true;stopScreenShare=baseStop}
+   return baseStop.apply(this,args)
+  };
+  voiceChannel={id:'voice-race-room',name:'Race room',community_id:'community-a'};
+  voiceSessionId='voice-race-session';
+ },
+ observed:()=>({user:window.__ycRaceObservedUser,generation:window.__ycRaceObservedGeneration,armedGeneration:window.__ycRaceArmGeneration}),
+ seedCaches(){
+  ycChatScrollMemory.set('audit-scroll',{top:1});ycChatLastRendered.set('audit-scroll','message-a');
+  ycLastGoodChannelsByCommunity.set('audit-community',[{id:'audit-channel'}]);
+  ycHoverCache.set('audit-user',{ts:Date.now(),data:{p:{id:'audit-user'}}});
+  ycWinNotifyCache.set('profile:audit-user',{id:'audit-user'});
+  ycPresenceRowsByUser.set('audit-user',{user_id:'audit-user',state:'online',last_seen_at:new Date().toISOString()});
+  ycPresenceRenderedStateByUser.set('audit-user','online');ycVisibleMemberIds.add('audit-user');
+  return this.cacheSizes();
+ },
+ cacheSizes(){return{scroll:ycChatScrollMemory.size,lastRendered:ycChatLastRendered.size,channels:ycLastGoodChannelsByCommunity.size,hover:ycHoverCache.size,notify:ycWinNotifyCache.size,presence:ycPresenceRowsByUser.size,presenceRendered:ycPresenceRenderedStateByUser.size,visibleMembers:ycVisibleMemberIds.size}}
+};
+`;
+ return doc.replace(marker,bridge+marker)
+}
 function fixture(){
  let s=base
   .replace(
@@ -33,6 +70,16 @@ function fixture(){
    await context.addInitScript(()=>{
     if(navigator.userAgent.includes('iPhone'))Object.defineProperty(navigator,'standalone',{value:true,configurable:true});
     window.__auditGlobalAdds={window:{},document:{}};
+    window.__auditObservers={created:0,observeCalls:0,disconnectCalls:0};
+    const NativeMutationObserver=window.MutationObserver;
+    window.MutationObserver=function(callback){
+      const observer=new NativeMutationObserver(callback);window.__auditObservers.created++;
+      const observe=observer.observe.bind(observer),disconnect=observer.disconnect.bind(observer);
+      observer.observe=(...args)=>{window.__auditObservers.observeCalls++;return observe(...args)};
+      observer.disconnect=(...args)=>{window.__auditObservers.disconnectCalls++;return disconnect(...args)};
+      return observer;
+    };
+    window.MutationObserver.prototype=NativeMutationObserver.prototype;
     const base=EventTarget.prototype.addEventListener;
     EventTarget.prototype.addEventListener=function(type,fn,opts){
       const bucket=this===window?window.__auditGlobalAdds.window:this===document?window.__auditGlobalAdds.document:null;
@@ -52,9 +99,11 @@ function fixture(){
    for(let cycle=0;cycle<5;cycle++){
     await page.locator('#email').fill('audit@example.test');await page.locator('#password').fill('StrongPass123!');await page.locator('#authSubmit').click();await page.waitForSelector('#app:not(.hidden)',{timeout:20000});
     await page.waitForTimeout(100);
-    const loggedIn=await page.evaluate(()=>({active:[...window.__auditActiveChannels].sort(),creates:window.__auditChannelCreates,listeners:JSON.parse(JSON.stringify(window.__auditGlobalAdds)),heap:performance.memory?.usedJSHeapSize||0}));
+    const loggedIn=await page.evaluate(()=>({active:[...window.__auditActiveChannels].sort(),creates:window.__auditChannelCreates,listeners:JSON.parse(JSON.stringify(window.__auditGlobalAdds)),observers:{...window.__auditObservers},heap:performance.memory?.usedJSHeapSize||0}));
+    const seeded=await page.evaluate(()=>window.__ycAuthCleanupRace.seedCaches());assert(Object.values(seeded).every(n=>n>0),cfg.platform+' cache seed failed: '+JSON.stringify(seeded));
     await page.evaluate(()=>document.querySelector('#logoutBtn')?.click());await page.waitForSelector('#auth:not(.hidden)',{timeout:15000});await page.waitForTimeout(100);
-    const loggedOut=await page.evaluate(()=>({active:[...window.__auditActiveChannels].sort(),creates:window.__auditChannelCreates,listeners:JSON.parse(JSON.stringify(window.__auditGlobalAdds)),heap:performance.memory?.usedJSHeapSize||0}));
+    const loggedOut=await page.evaluate(()=>({active:[...window.__auditActiveChannels].sort(),creates:window.__auditChannelCreates,listeners:JSON.parse(JSON.stringify(window.__auditGlobalAdds)),observers:{...window.__auditObservers},heap:performance.memory?.usedJSHeapSize||0,caches:window.__ycAuthCleanupRace.cacheSizes()}));
+    assert(Object.values(loggedOut.caches).every(n=>n===0),cfg.platform+' session caches survive logout: '+JSON.stringify(loggedOut.caches));
     snapshots.push({cycle:cycle+1,loggedIn,loggedOut});
    }
    const firstIn=snapshots[0].loggedIn.active.length,firstOut=snapshots[0].loggedOut.active.length;
@@ -62,16 +111,31 @@ function fixture(){
     assert(snap.loggedIn.active.length<=firstIn+1,cfg.platform+' realtime channels grow after relogin: '+JSON.stringify(snap));
     assert(snap.loggedOut.active.length<=firstOut,cfg.platform+' realtime channels remain after logout: '+JSON.stringify(snap));
    }
+   // Deliberately keep the old voice cleanup pending while a new login starts.
+   await page.locator('#email').fill('audit@example.test');await page.locator('#password').fill('StrongPass123!');await page.locator('#authSubmit').click();
+   await page.waitForSelector('#app:not(.hidden)',{timeout:20000});
+   await page.evaluate(()=>window.__ycAuthCleanupRace.arm());
+   await page.evaluate(()=>document.querySelector('#logoutBtn')?.click());
+   await page.waitForSelector('#auth:not(.hidden)',{timeout:15000});
+   await page.locator('#email').fill('audit@example.test');await page.locator('#password').fill('StrongPass123!');await page.locator('#authSubmit').click();
+   await page.waitForSelector('#app:not(.hidden)',{timeout:20000});
+   const raceObserved=await page.evaluate(()=>window.__ycAuthCleanupRace.observed());
+   assert(raceObserved&&raceObserved.generation!==null,cfg.platform+' previous voice cleanup did not finish before the new app became ready');
+   assert.equal(raceObserved.generation,raceObserved.armedGeneration,cfg.platform+' previous voice cleanup crossed into a newer auth generation: '+JSON.stringify(raceObserved));
+   await page.evaluate(()=>document.querySelector('#logoutBtn')?.click());await page.waitForSelector('#auth:not(.hidden)',{timeout:15000});
+
    const listenerKeys=['focus','online','offline','visibilitychange','pointerdown','keydown','touchstart','mousemove','click'];
    const firstListeners=snapshots[0].loggedOut.listeners,lastListeners=snapshots.at(-1).loggedOut.listeners;
    for(const k of listenerKeys){
     const before=(firstListeners.window[k]||0)+(firstListeners.document[k]||0),after=(lastListeners.window[k]||0)+(lastListeners.document[k]||0);
     assert(after<=before+1,cfg.platform+' global '+k+' listener count grows across relogins: '+before+' -> '+after);
    }
+   const firstObserverCreates=snapshots[0].loggedOut.observers.created,lastObserverCreates=snapshots.at(-1).loggedOut.observers.created;
+   assert.equal(lastObserverCreates,firstObserverCreates,cfg.platform+' MutationObserver instances grow across relogins: '+firstObserverCreates+' -> '+lastObserverCreates);
    assert.deepEqual(errors,[],cfg.platform+' relogin runtime errors');
    console.log('AUDIT_RELOGIN '+cfg.platform+' '+JSON.stringify(snapshots));
    await context.close();
   }
  }finally{await browser.close()}
- console.log('PASS 5x login/logout lifecycle on desktop, web, Android and iOS-PWA: realtime subscriptions and global lifecycle listeners do not grow across relogins.');
+ console.log('PASS repeated login/logout lifecycle on desktop, web, Android and iOS-PWA: realtime subscriptions, global lifecycle listeners and MutationObserver instances remain bounded, and previous voice cleanup cannot cross into a new auth session.');
 })().catch(e=>{console.error(e);process.exit(1)});

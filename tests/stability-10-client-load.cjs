@@ -21,7 +21,7 @@ function source(platform){
  assert(doc.includes(marker),platform+' client-ready marker missing');
  const bridge=`
 window.__ycAudit={
- state:()=>({user:user?.id||'',community:currentCommunity?.id||'',channel:currentChannel?.id||'',voice:voiceChannel?.id||'',heartbeat:!!voiceHeartbeatTimer,signalReady:!!voiceSignalReady,participantSub:!!voiceParticipantSub,audio:voiceStream?.getAudioTracks?.()[0]?.readyState||'',peers:voicePeers.size,connected:[...voicePeerStates.values()].filter(x=>x==='connected').length,realtime:window.__activeRealtimeChannels?.size||0,remoteVad:voiceRemoteVadStops.size,screenSenders:voiceScreenSenders.size,remoteScreens:remoteScreenStreams.size,watching:screenWatchingByUser.size,screenTimers:screenWatchTimers.size,muted:voiceMuted,deafened:voiceDeafened}),
+ state:()=>({user:user?.id||'',community:currentCommunity?.id||'',channel:currentChannel?.id||'',voice:voiceChannel?.id||'',heartbeat:!!voiceHeartbeatTimer,signalReady:!!voiceSignalReady,participantSub:!!voiceParticipantSub,audio:voiceStream?.getAudioTracks?.()[0]?.readyState||'',peers:voicePeers.size,connected:[...voicePeerStates.values()].filter(x=>x==='connected').length,realtime:window.__activeRealtimeChannels?.size||0,remoteVad:voiceRemoteVadStops.size,screenSenders:voiceScreenSenders.size,remoteScreens:remoteScreenStreams.size,watching:screenWatchingByUser.size,screenTimers:screenWatchTimers.size,missingPeers:voiceMissingSince.size,watchEpochs:ycStreamWatchEpoch.size,watchStarts:ycStreamWatchStarts.size,watchSignals:ycStreamWatchSignals.size,muted:voiceMuted,deafened:voiceDeafened}),
  get voiceSessionId(){return voiceSessionId},
  joinVoiceById:async id=>{const ch=voiceChannelDefs.find(x=>String(x.id)===String(id));if(!ch)throw Error('voice channel missing: '+id);return joinVoiceChannel(ch)},
  selectCommunityById:id=>selectCommunity(id),
@@ -33,7 +33,7 @@ window.__ycAudit={
  spamVoiceControls:async(mutes=0,deafens=0)=>{for(let i=0;i<mutes;i++)void toggleVoiceMute();for(let i=0;i<deafens;i++)void toggleVoiceDeafen();await ycVoiceParticipantSyncQueue;await Promise.resolve();return window.__mockRpcWrites.filter(x=>x.name==='set_voice_participant').length},
  setMix:(id,patch)=>setVoiceUserMix(id,patch),
  getMix:id=>voiceMixFor(id),
- forceExpirePeer:async id=>{voiceMissingSince.set(id,Date.now()-61000);const rows=voicePresenceByChannel[voiceChannel?.id]||[];voicePresenceByChannel[voiceChannel?.id]=rows.filter(x=>x.user_id!==id);await syncVoicePeers()},
+ forceExpirePeer:async id=>{voiceMissingSince.set(id,Date.now()-61000);window.__testVoiceRows=(window.__testVoiceRows||[]).filter(x=>x.user_id!==id);const rows=voicePresenceByChannel[voiceChannel?.id]||[];voicePresenceByChannel[voiceChannel?.id]=rows.filter(x=>x.user_id!==id);await syncVoicePeers()},
  setRoster:(id,rows)=>{window.__testVoiceRows=rows;voicePresenceByChannel[id]=rows;renderVoiceChannels(voiceChannelDefs)},
  syncVoice:()=>syncVoicePeers(),
  handleSignal:msg=>handleVoiceSignal(msg),
@@ -136,7 +136,13 @@ function processSnapshot(label){
   for(const cfg of configs){
    const context=await browser.newContext({viewport:{width:cfg.width,height:cfg.height},hasTouch:!!cfg.touch,isMobile:!!cfg.touch,serviceWorkers:'block',permissions:['microphone'],...(cfg.ios?{userAgent:'Mozilla/5.0 (iPhone; CPU iPhone OS 18_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.6 Mobile/15E148 Safari/604.1'}:{})});
    if(cfg.ios)await context.addInitScript(()=>Object.defineProperty(navigator,'standalone',{value:true,configurable:true}));
-   const page=await context.newPage(),pageErrors=[];page.on('pageerror',e=>pageErrors.push(String(e.stack||e.message)));
+   const page=await context.newPage(),pageErrors=[];
+   page.on('pageerror',e=>{
+    const stack=String(e.stack||e.message),match=stack.match(/http:\/\/127\.0\.0\.1\/:(\d+):(\d+)/);
+    let detail=stack;
+    if(match){const line=Number(match[1]),column=Number(match[2]),loaded=source(cfg.platform).split(/\r?\n/);detail+='\nAUDIT_SOURCE '+cfg.platform+' '+line+':'+column+' '+String(loaded[line-1]||'').trim()}
+    pageErrors.push(detail);
+   });
    clients.set(cfg.id,{cfg,context,page,pageErrors,baselineRealtime:0,baselineHeap:0});
   }
 
@@ -262,7 +268,7 @@ function processSnapshot(label){
 
   // Hard-close i2 without Leave Voice. Remaining room-B clients simulate lease expiry and must remove the ghost peer cleanly.
   const hard=clients.get('i2');hardClosedId='i2';await hard.context.close();hard.context=null;
-  for(const id of ['d2','w2','a2']){const c=clients.get(id);await c.page.evaluate(id=>window.__ycAudit.forceExpirePeer(id),hardClosedId);await c.page.waitForFunction(()=>window.__ycAudit.state().peers===2,{},{timeout:10000})}
+  for(const id of ['d2','w2','a2']){const c=clients.get(id);await c.page.evaluate(id=>window.__ycAudit.forceExpirePeer(id),hardClosedId);await c.page.waitForFunction(()=>{const s=window.__ycAudit.state();return s.peers===2&&s.missingPeers===0},{},{timeout:10000})}
 
   // Short signaling reconnect on a live room must not create duplicate peers.
   const reconnect=clients.get('a2');await reconnect.page.evaluate(()=>window.__ycAudit.reconnectSignals());await reconnect.page.waitForFunction(()=>window.__ycAudit.state().signalReady);assert.equal(await reconnect.page.evaluate(()=>window.__ycAudit.state().peers),2,'signal reconnect duplicated peers');
@@ -272,15 +278,17 @@ function processSnapshot(label){
   for(const [id,c] of clients){
    if(!c.context)continue;
    const state=await c.page.evaluate(()=>window.__ycAudit.state()),heap=await c.page.evaluate(()=>window.__ycAudit.heap()),rtc=await c.page.evaluate(()=>window.__ycAudit.rtc()),runtime=await c.page.evaluate(()=>window.__ycAudit.runtimeErrors());
-   audit.push({id,platform:c.cfg.platform,room:c.cfg.room,state,heap,rtc,runtime,pageErrors:c.pageErrors});
+   audit.push({id,platform:c.cfg.platform,room:c.cfg.room,baseline:{realtime:c.baselineRealtime,heap_used:c.baselineHeap},state,heap,rtc,runtime,pageErrors:c.pageErrors});
    assert.deepEqual(c.pageErrors,[],id+' page errors');assert.deepEqual(runtime,[],id+' runtime errors');
   }
   console.log('AUDIT_CLIENTS '+JSON.stringify(audit));
   console.log('AUDIT_SIGNAL '+JSON.stringify({packets:deliveries.length,bytes:deliveries.reduce((n,x)=>n+x.bytes,0),offers:deliveries.filter(x=>x.type==='offer').length,answers:deliveries.filter(x=>x.type==='answer').length,ice:deliveries.filter(x=>x.type==='ice').length}));
 
   // Clean disconnect every surviving voice client and assert no ghost media/subscriptions/timers/peers.
-  for(const [id,c] of clients){if(!c.context||!c.cfg.room)continue;await c.page.evaluate(()=>window.__ycAudit.disconnectVoice());await c.page.waitForFunction(()=>{const s=window.__ycAudit.state();return !s.voice&&!s.heartbeat&&!s.participantSub&&s.peers===0&&s.remoteVad===0&&s.remoteScreens===0&&s.screenSenders===0&&s.screenTimers===0},{},{timeout:12000});await c.page.evaluate(()=>window.__ycAudit.stopSyntheticMic())}
-  for(const [id,c] of clients){if(!c.context)continue;const st=await c.page.evaluate(()=>window.__ycAudit.state());assert(st.realtime<=c.baselineRealtime+1,id+' realtime subscription leak after cleanup '+JSON.stringify(st));}
+  for(const [id,c] of clients){if(!c.context||!c.cfg.room)continue;await c.page.evaluate(()=>window.__ycAudit.disconnectVoice());await c.page.waitForFunction(()=>{const s=window.__ycAudit.state();return !s.voice&&!s.heartbeat&&!s.participantSub&&!s.signalReady&&s.peers===0&&s.missingPeers===0&&s.watchEpochs===0&&s.watchStarts===0&&s.watchSignals===0&&s.remoteVad===0&&s.remoteScreens===0&&s.screenSenders===0&&s.screenTimers===0},{},{timeout:12000});await c.page.waitForTimeout(300);const settled=await c.page.evaluate(()=>window.__ycAudit.state());assert.equal(settled.remoteVad,0,id+' late remote VAD restarted after voice leave '+JSON.stringify(settled));assert.equal(settled.signalReady,false,id+' voice signaling remained ready after leave '+JSON.stringify(settled));await c.page.evaluate(()=>window.__ycAudit.stopSyntheticMic())}
+  const cleanupAudit=[];
+  for(const [id,c] of clients){if(!c.context)continue;const st=await c.page.evaluate(()=>window.__ycAudit.state()),heap=await c.page.evaluate(()=>window.__ycAudit.heap());assert.equal(st.realtime,c.baselineRealtime,id+' realtime subscriptions did not return to baseline '+c.baselineRealtime+' -> '+st.realtime+' '+JSON.stringify(st));cleanupAudit.push({id,platform:c.cfg.platform,baseline:{realtime:c.baselineRealtime,heap_used:c.baselineHeap},after_cleanup:{realtime:st.realtime,heap_used:heap.used},state:st})}
+  console.log('AUDIT_CLEANUP '+JSON.stringify(cleanupAudit));
   processSnapshot('after_cleanup');
   console.log('PASS 10-client Yamachat stability stress: 10 authenticated clients across desktop/web/Android/iOS-PWA; 8 concurrent voice users split across two isolated rooms/servers, 2 chat-only users, real SDP/ICE/audio, simultaneous chat, mute/deafen spam, local volume/mute, cross-server browsing, room-scoped stream, repeated leave/rejoin, lifecycle background/foreground handlers, hard web refresh/session replacement, hard-close ghost cleanup and signaling reconnect. elapsed_ms='+(Date.now()-started));
  }finally{

@@ -23,7 +23,7 @@ assert(html.includes('function ycVoiceCommunityId()'),'Independent voice communi
 assert(html.includes("const ycVoiceCid=ycVoiceCommunityId();"),'Soundboard must load from voice community context');
 assert(html.includes("String(currentCommunity.id)===ycVoiceCommunityId()"),'Soundboard admin actions must stay on the joined voice server');
 assert(!html.includes("speechSynthesis.cancel();speechSynthesis.speak(u);"),'Rapid voice announcements must not cancel the previous username');
-assert(html.includes("community_id:ycVoiceCommunity"),'Stream presence must remain on the joined voice community');
+assert(html.includes("voiceChannel?.community_id||voiceChannel?.communityId||currentCommunity?.id")&&html.includes("community_id:communityId"),'Stream presence must remain on the joined voice community');
 if(!isDesktop){
  assert(html.includes("function ycIosVoiceCommunityId(channel=voiceChannel)"),'iOS PWA voice target must track the joined channel community');
  assert(html.includes("communityId:ycIosVoiceCommunityId(channel)"),'iOS PWA saved voice target must not use the browsed community');
@@ -33,6 +33,14 @@ if(!isDesktop){
  assert(findLive>=0&&rejectOther>findLive,'iOS PWA must prefer the still-live voice channel before rejecting a different browsed community');
 }
 assert(html.includes("const YC_VOICE_HEARTBEAT_MS=15000,YC_VOICE_TTL_MS=60000,YC_VOICE_ROSTER_MS=20000"),'Voice lease timing must be scale-safe');
+assert(html.includes("let voiceRosterRefreshDelay=0,voiceRosterContextKey=''"),'Voice roster scheduler state missing');
+assert(html.includes("const delay=voiceChannel?YC_VOICE_HEARTBEAT_MS:YC_VOICE_ROSTER_MS"),'Voice roster scheduler must use one active/idle cadence');
+assert(html.includes("voiceRosterRefreshTimer=setTimeout(async()=>"),'Voice roster scheduler must use one self-rescheduling timeout');
+assert(html.includes("if(contextChanged)void refreshVoiceRosterSet(defs)"),'Unchanged channel renders must not refetch the whole voice roster');
+assert(!html.includes("voiceRosterRefreshTimer=setInterval"),'Legacy parallel voice roster interval remains');
+const heartbeat=html.slice(html.indexOf('function startVoiceHeartbeat()'),html.indexOf('function stopVoiceHeartbeat()'));
+assert(!heartbeat.includes('refreshVoiceParticipants(')&&!heartbeat.includes("from('voice_participants')"),'Voice heartbeat must not perform a second roster read');
+assert(!html.includes("try{if(voiceChannel?.id)void refreshVoiceParticipants(voiceChannel.id)}catch{}"),'Desktop wake must not perform an extra roster DB read');
 assert(html.includes("event:'INSERT',schema:'public',table:'voice_participants',filter"),'Active room must receive scoped participant INSERT events');
 assert(html.includes("event:'DELETE',schema:'public',table:'voice_participants',filter"),'Active room must receive scoped participant DELETE events');
 assert(!html.includes("event:'*',schema:'public',table:'voice_participants'"),'Voice participants must not fan out globally to every client');
@@ -59,6 +67,8 @@ assert(!html.includes("sb.functions.invoke('yamachat-turn',{method:'GET'})"),'Me
 assert(html.includes("const filter='channel_id=eq.'+id"),'Participant realtime must be filtered to the joined voice channel');
 assert(!html.includes("if(pc?.connectionState==='connected'){voiceMissingSince.delete(id);continue}"),'Connected ghost peers must not bypass the participant-lease expiry cleanup');
 assert(html.includes("if(now-since>60000)closeVoicePeer(id)"),'Transient participant metadata loss needs the desktop-proven peer grace period');
+assert(html.includes("function closeVoicePeer(peerId){ycStopRemoteVoiceActivityDetector(peerId);voiceMissingSince.delete(peerId);const pc=voicePeers.get(peerId);"),'Closed ghost peers must release voiceMissingSince state');
+assert(html.includes("voiceMissingSince.clear();try{ycStreamWatchEpoch.clear();ycStreamWatchStarts.clear();ycStreamWatchSignals.clear()}catch{}"),'Leaving voice must release stream-watch lifecycle maps');
 assert(html.includes("const voiceBelongsHere=!!hadVoice&&!!voiceCommunityId&&voiceCommunityId===cid"),'Secure channel refresh must scope voice validation to the joined voice community');
 assert(html.includes("if(voiceBelongsHere&&!activeVoice){try{await ycRequestVoiceDisconnect()}catch{}}"),'Voice disconnect on channel removal must be gated by the joined voice community');
 assert(!html.includes("if(hadVoice&&!activeVoice){try{await ycRequestVoiceDisconnect()}catch{}}"),'Browsing another community must not be treated as a removed voice channel');

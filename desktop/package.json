@@ -1,6 +1,6 @@
 {
   "name": "yamachat-windows",
-  "version": "1.0.107",
+  "version": "1.0.108",
   "description": "Yamachat desktop — stream audio, viewer and voice announcements",
   "main": "main.js",
   "productName": "Yamachat",
@@ -71,10 +71,8 @@
     },
     "publish": [
       {
-        "provider": "github",
-        "owner": "yamboleeroy-ai",
-        "repo": "yamachat",
-        "releaseType": "release"
+        "provider": "generic",
+        "url": "https://updates.yamachat.eu/windows/"
       }
     ],
     "protocols": [

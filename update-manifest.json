@@ -1,23 +1,23 @@
 {
   "schemaVersion": 1,
-  "publishedAt": "2026-09-28T20:44:32Z",
+  "publishedAt": "2026-09-29T13:06:14Z",
   "windows": {
-    "latestVersion": "1.0.107",
+    "latestVersion": "1.0.108",
     "required": true,
-    "releaseUrl": "https://github.com/yamboleeroy-ai/yamachat/releases/tag/v1.0.107",
-    "notes": "Yamachat 1.0.107: multi-user voice stability hardening, bounded reconnect/cleanup and Android Microsoft Natural voices."
+    "notes": "Yamachat 1.0.108: dokončený deep stability audit, cleanup voice/stream/realtime lifecycle a veřejná distribuce Windows mimo GitHub přes Cloudflare.",
+    "feedUrl": "https://updates.yamachat.eu/windows/",
+    "installerUrl": "https://updates.yamachat.eu/windows/Yamachat-Setup-1.0.108.exe"
   },
   "android": {
-    "latestVersion": "1.1.0.786",
-    "latestVersionCode": 200786,
+    "latestVersion": "1.1.0.787",
+    "latestVersionCode": 200787,
     "required": true,
-    "apkUrl": "https://yamachat.eu/download/Yamachat-Android.apk?v=200786",
-    "sha256": "8dd192de9f5d9e4f78b3b9123d554db8f71d07faa399c314d8d959cdb3231d74",
+    "apkUrl": "https://updates.yamachat.eu/android/Yamachat-Android-200787.apk",
+    "sha256": "0fc44ab0bd88a7d108a8350858fe8c5fd9af45d8004913e01a1827922c9d7fd3",
     "notes": [
-      "Yamachat oznámení mají vlastní logo, ikonu a vlastní zvuk zprávy na Androidu.",
-      "Kliknutí na oznámení otevře přímo správnou DM, kanál a konkrétní zprávu.",
-      "FCM push při úplně ukončené APK je aktivní.",
-      "Současné mobilní rozložení, voice, Real Voices a ostatní funkce zůstávají beze změny."
+      "Deep stability audit: voice, stream, WebRTC, reconnect a cleanup lifecycle byly zpevněné.",
+      "Android zachovává současné mobilní rozložení, Microsoft Natural Voices a interoperabilitu s webem a Windows.",
+      "Windows i Android veřejná distribuce běží přes Cloudflare R2 a nevyžaduje GitHub Releases."
     ]
   }
 }

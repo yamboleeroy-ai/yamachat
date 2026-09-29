@@ -1,0 +1,111 @@
+name: Deep stability audit
+on:
+  push:
+    branches:
+      - audit/deep-stability-20260929
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  baseline:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Generate shared client
+        run: node scripts/build-web.mjs
+      - name: Static project checks
+        run: node scripts/check.mjs
+      - name: Install browser runtime
+        run: |
+          npm install --no-save --package-lock=false playwright@1.62.1
+          npx playwright install --with-deps chromium
+      - name: Prepare Android audit bundle
+        working-directory: mobile
+        run: |
+          npm ci
+          npm run prepare:web
+          if [ ! -d android ]; then
+            npx cap add android
+          fi
+          npx cap sync android
+          node scripts/patch-native.mjs android
+      - name: Android Natural Voices regression
+        run: node tests/android-natural-voices.cjs
+      - name: Extended static regressions
+        run: |
+          node tests/account-messages.cjs
+          node tests/control-binding-audit.cjs
+          node tests/dead-code-audit.cjs
+          node tests/service-worker-guard.cjs
+          node tests/moderator-permission-lifecycle.cjs
+          node tests/push-registration-lifecycle.cjs
+          node tests/voice-scale-sql.cjs
+          node tests/web-mobile-desktop-behavior-sync.cjs
+          node tests/windows-dm-media-performance.cjs
+          node tests/windows-interaction-notifications.cjs
+          node tests/windows-natural-voices.cjs
+          node tests/windows-presence-stability.cjs
+          node tests/windows-process-audio.cjs
+          node tests/windows-social-hover-context.cjs
+          node tests/windows-stream-lifecycle.cjs
+          node tests/windows-shared-header-scale.cjs
+          node tests/windows-turn-usage-scale.cjs
+          node tests/windows-wns-desktop.cjs
+      - name: Extended browser regressions
+        run: |
+          node tests/interaction-notifications.cjs
+          node tests/chat-actions-lifecycle.cjs
+          node tests/legal-ui-visual.cjs
+          node tests/mobile-friends-drawer.cjs
+          node tests/password-recovery.cjs
+          node tests/platform-install-ui.cjs
+          node tests/profile-actions.cjs
+          node tests/profile-schema-contract.cjs
+          node tests/server-settings-lifecycle.cjs
+          node tests/logout-cleanup-order.cjs
+          node tests/profile-layout.cjs
+          node tests/social-release-web.cjs
+          node tests/stream-preview.cjs
+          node tests/voice-experience.cjs
+          YC_CLIENT=desktop/desktop-client.html node tests/voice-experience.cjs
+      - name: Responsive UI matrix
+        run: |
+          python3 -m http.server 4173 >/tmp/yamachat-ui-server.log 2>&1 &
+          SERVER_PID=$!
+          trap 'kill $SERVER_PID 2>/dev/null || true' EXIT
+          sleep 1
+          node tests/ui.cjs
+      - name: Auth bootstrap
+        run: node tests/auth-login-flow.cjs
+      - name: Auth relogin lifecycle
+        run: node tests/auth-relogin-lifecycle.cjs
+      - name: Realtime chat
+        run: node tests/cross-platform-chat-realtime.cjs
+      - name: Voice interoperability
+        run: node tests/cross-platform-voice-interop.cjs
+      - name: Full platform journey
+        run: node tests/full-platform-user-journey.cjs
+      - name: Multi-client voice and stream
+        run: node tests/cross-platform-multiclient-voice.cjs
+      - name: Ten-client stability stress
+        run: node tests/stability-10-client-load.cjs
+      - name: Twenty-client lifecycle stress
+        run: node tests/stability-20-client-lifecycle.cjs
+      - name: Hundred-client signaling model
+        run: node tests/stability-100-signaling-model.cjs
+      - name: Realtime scope model
+        run: node tests/realtime-scope-model.cjs
+      - name: Voice scale model
+        run: node tests/voice-scale-model.cjs
+      - name: Stream scale model
+        run: node tests/stream-scale.cjs
+      - name: Stream presence stop race
+        run: node tests/stream-presence-race.cjs
+      - name: Stream viewer lifecycle
+        run: node tests/stream-viewer.cjs
+      - name: Windows taskbar restore regression
+        run: node tests/windows-taskbar-restore.cjs

@@ -1260,7 +1260,6 @@ function ycCountMessagesAfter(msgs,lastId){if(!lastId)return 0;const i=msgs.find
 function ycBeforeChatContextChange(){clearTimeout(ycChatScrollSaveTimer);ycCaptureChatScroll();ycAbortChatMediaLoad();++ycMessageLoadSeq;chatFollowBottomUntil=0;ycSetChatJump(false)}
 function ycHoldChatSwitch(){const el=$('messages');if(!el)return 0;const token=++ycChatSwitchToken;clearTimeout(ycChatSwitchLockTimer);el.classList.add('yc-scroll-switch-lock');ycChatSwitchLockTimer=setTimeout(()=>ycReleaseChatSwitch(token),5000);return token}
 function ycReleaseChatSwitch(token=ycChatSwitchToken){if(token&&token!==ycChatSwitchToken)return;clearTimeout(ycChatSwitchLockTimer);ycChatSwitchLockTimer=null;$('messages')?.classList.remove('yc-scroll-switch-lock')}
-function ycAfterLayoutStable(){return new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)))}
 function ycInstallChatScrollUi(){const el=$('messages'),b=$('chatJumpLatest');if(el&&!el.dataset.ycScrollMemory){el.dataset.ycScrollMemory='1';for(const type of ['wheel','touchstart','pointerdown','keydown'])el.addEventListener(type,()=>{++ycChatInteractionSeq;chatFollowBottomUntil=0},{passive:true});el.addEventListener('scroll',()=>{const atBottom=ycChatNearBottom(el);if(atBottom){chatFollowBottomUntil=0;ycSetChatJump(false)}ycScheduleChatScrollSave()},{passive:true})}if(b&&!b.dataset.bound){b.dataset.bound='1';b.onclick=()=>{const m=$('messages');if(!m)return;chatFollowBottomUntil=performance.now()+1600;m.scrollTo({top:m.scrollHeight,behavior:'smooth'});ycSetChatJump(false);setTimeout(()=>ycCaptureChatScroll(),450)}}}
 ycInstallChatScrollUi();
 
@@ -1364,15 +1363,26 @@ function toast(t,err=false){const el=$('toast');el.textContent=t;el.style.border
 function setAuthMode(next){mode=next;$('loginTab').classList.toggle('active',next==='login');$('registerTab').classList.toggle('active',next==='register');$('usernameField').classList.toggle('hidden',next==='login');$('username').required=next==='register';$('confirmPasswordField').classList.toggle('hidden',next==='login');$('confirmPassword').required=next==='register';$('authSubmit').textContent=next==='login'?'Přihlásit':'Vytvořit účet';$('password').autocomplete=next==='login'?'current-password':'new-password';$('confirmPassword').autocomplete='new-password';$('authMsg').textContent=''}
 $('loginTab').onclick=()=>setAuthMode('login');$('registerTab').onclick=()=>setAuthMode('register')
 $('authForm').onsubmit=async(e)=>{e.preventDefault();const email=$('email').value.trim();const password=$('password').value;const confirmPassword=$('confirmPassword').value;const username=$('username').value.trim();$('authSubmit').disabled=true;$('authMsg').textContent='';try{if(mode==='login'){const {error}=await sb.auth.signInWithPassword({email,password});if(error)throw error}else{if(password!==confirmPassword)throw new Error('Hesla se neshodují.');if(!/^[a-zA-Z0-9_.-]{3,32}$/.test(username))throw new Error('Jméno může obsahovat písmena, čísla, _, . a -.');const {data,error}=await sb.auth.signUp({email,password,options:{data:{username,display_name:username}}});if(error)throw error;if(data.session){$('authMsg').textContent='Účet vytvořen. Přihlašuji…'}else{$('authMsg').textContent='Účet byl vytvořen. Můžeš se přihlásit.';setAuthMode('login')}}}catch(err){$('authMsg').textContent=err.message||String(err)}finally{$('authSubmit').disabled=false}}
-$('logoutBtn').onclick=async()=>{await ycPresenceOffline();sb.auth.signOut()}
+async function ycPrepareExplicitAuthExit(){
+  const uid=user?.id,hadStream=!!screenShareActive;
+  try{
+    if(voiceChannel)await leaveVoiceChannel(true);
+    else if(screenShareActive)await stopScreenShare(true);
+    if(uid&&!hadStream)await ycStopGlobalStreamPresence(uid);
+    await ycStopCommunityStreamWatch();
+  }catch(e){console.warn('logout cleanup',e)}
+  try{await window.ycDetachPushBeforeLogout?.()}catch(e){console.warn('push logout cleanup',e)}
+}
+$('logoutBtn').onclick=async()=>{await ycPrepareExplicitAuthExit();await ycPresenceOffline();await sb.auth.signOut()}
 $('profileBtn').onclick=()=>openProfile()
 $('mobileMenu').onclick=()=>$('side').classList.toggle('mobile-open')
 function ycHideBootSplash(){$('ycBootSplash')?.classList.add('hidden')}function ycShowBootSplash(){$('ycBootSplash')?.classList.remove('hidden')}function ycRevealApp(){window.YamachatBootGuard?.ready();$('auth').classList.add('hidden');$('app').classList.remove('hidden');ycHideBootSplash()}function showAuth(){window.YamachatBootGuard?.ready();ycAbortChatMediaLoad();++ycAuthGeneration;++ycChannelSelectSeq;++ycCommunitySelectSeq;++voiceActionSeq;clearChat("Pro zobrazení zpráv se přihlas.");currentChannel=currentThread=currentCommunity=null;currentRole=null;communities=[];dmThreads=[];pendingFile=null;$("messageInput").value="";$("fileInput").value="";$("pendingFile").classList.add("hidden");ycChatSignedUrlCache.clear();ycChatAttachmentCache.clear();ycChatAttachmentKnown.clear();ycChatAttachmentDirty.clear();ycChatRolePackCache.clear();cleanupVoiceRooms();if(communityRealtimeSub){sb.removeChannel(communityRealtimeSub);communityRealtimeSub=null}if(userRealtimeSub){sb.removeChannel(userRealtimeSub);userRealtimeSub=null}session=user=profile=null;$('app').classList.add('hidden');$('auth').classList.remove('hidden');ycHideBootSplash()}
 async function initApp(s){
   window.YamachatBootGuard?.begin();
-  const generation=++ycAuthGeneration,uid=s.user.id;
-  const active=()=>generation===ycAuthGeneration&&user?.id===uid;
-  session=s;user=s.user;$('auth').classList.add('hidden');$('app').classList.add('hidden');ycShowBootSplash();
+  const generation=++ycAuthGeneration,uid=s.user.id,authActive=()=>generation===ycAuthGeneration;
+  try{await ycVoiceCleanupPromise}catch(e){console.warn('previous voice cleanup',e)}
+  if(!authActive())return false;
+  session=s;user=s.user;const active=()=>generation===ycAuthGeneration&&user?.id===uid;$('auth').classList.add('hidden');$('app').classList.add('hidden');ycShowBootSplash();
   if(innerWidth<=720)$('mobileMenu').classList.remove('hidden');
   try {
     const {data,error}=await sb.from('profiles').select('*').eq('id',uid).single();
@@ -1611,8 +1621,64 @@ function rankForXP(xp){xp=Number(xp||0);if(xp>=60000)return'Mythic';if(xp>=42000
 function rankAvatarHtml(p,st,cls='avatar',presenceState=''){const rank=rankForXP(st?.xp||0),rc=rank.toLowerCase(),size=cls==='m-avatar'?'rank-crest-message':'rank-crest-small',state=['online','afk','dnd','offline'].includes(String(presenceState))?String(presenceState):'',presenceClass=state?' yc-status-avatar yc-presence-'+state:'',presenceDot=state?'<span class="yc-avatar-presence-dot" aria-hidden="true"></span>':'';return '<span class="rank-crest rank-'+rc+' '+size+presenceClass+'" title="'+esc(rank)+(state?' · '+esc(ycPresenceLabel(state)):'')+'">'+avatarHtml(p,cls)+presenceDot+'</span>'}
 function ycPatchOwnMemberStats(){if(!user?.id)return;const row=document.querySelector('#rightContent [data-member-id="'+CSS.escape(String(user.id))+'"]');if(!row)return;const xp=Number(myStats?.xp||0),rank=rankForXP(xp),badge=row.querySelector('.rank-badge'),line=row.querySelector('.yc-lastseen');if(badge&&badge.textContent!==rank)badge.textContent=rank;if(line)line.textContent=String(line.textContent||'').replace(/·\s*\d+\s*XP\b/,'· '+xp+' XP');const crest=row.querySelector('.rank-crest');if(crest){for(const c of [...crest.classList])if(c.startsWith('rank-')&&!['rank-crest','rank-crest-small','rank-crest-message','rank-crest-top'].includes(c))crest.classList.remove(c);crest.classList.add('rank-'+rank.toLowerCase())}}
 async function loadMyStats(){if(!user)return;const oldRank=rankForXP(myStats?.xp||0),{data}=await sb.from('profile_stats').select('xp,message_count').eq('user_id',user.id).maybeSingle();myStats=data||{xp:0,message_count:0};ycPatchOwnMemberStats();if(profile&&(!$('topAvatar')||rankForXP(myStats.xp)!==oldRank))renderMe()}
-function subscribeCommunityRealtime(communityId){if(communityRealtimeSub){sb.removeChannel(communityRealtimeSub);communityRealtimeSub=null}communityRealtimeSub=sb.channel('yc-community-'+communityId+'-'+Date.now()).on('postgres_changes',{event:'INSERT',schema:'public',table:'community_members',filter:'community_id=eq.'+communityId},async()=>{if(currentCommunity?.id!==communityId)return;await loadCommunities();currentCommunity=communities.find(c=>c.id===communityId)||currentCommunity;currentRole=currentCommunity?.role||currentRole;await loadCurrentModeratorPermissions();applyCommunityPermissionUI();await renderRight()}).on('postgres_changes',{event:'UPDATE',schema:'public',table:'community_members',filter:'community_id=eq.'+communityId},async payload=>{if(currentCommunity?.id!==communityId)return;if(payload.new?.user_id===user.id){await loadCommunities();currentCommunity=communities.find(c=>c.id===communityId)||currentCommunity;currentRole=currentCommunity?.role||currentRole;await loadCurrentModeratorPermissions();applyCommunityPermissionUI()}await renderRight()}).on('postgres_changes',{event:'INSERT',schema:'public',table:'channels',filter:'community_id=eq.'+communityId},async()=>{if(currentCommunity?.id!==communityId)return;const ch=await getChannels();renderChannels(ch)}).on('postgres_changes',{event:'DELETE',schema:'public',table:'community_members'},async payload=>{if(payload.old?.community_id!==communityId||currentCommunity?.id!==communityId)return;if(payload.old?.user_id===user.id){await loadCommunities();if(communities.length)await selectCommunity(communities[0].id);else{currentCommunity=null;currentChannel=null;renderRail();clearChat('Byl jsi odebrán z komunity.')}toast('Byl jsi odebrán z komunity.',true);return}await renderRight()}).subscribe()}
-function subscribeUserRealtime(){if(userRealtimeSub){sb.removeChannel(userRealtimeSub);userRealtimeSub=null}userRealtimeSub=sb.channel('yc-user-'+user.id+'-'+Date.now()).on('postgres_changes',{event:'*',schema:'public',table:'friendships'},payload=>{const n=payload.new||{},o=payload.old||{};if([n.requester_id,n.addressee_id,o.requester_id,o.addressee_id].includes(user.id)&&rightMode==='friends')renderFriends()}).on('postgres_changes',{event:'*',schema:'public',table:'profile_stats',filter:'user_id=eq.'+user.id},payload=>{const n=payload.new||{},oldRank=rankForXP(myStats?.xp||0);myStats={xp:Number(n.xp??myStats?.xp??0),message_count:Number(n.message_count??myStats?.message_count??0)};ycPatchOwnMemberStats();if(profile&&rankForXP(myStats.xp)!==oldRank)renderMe()}).on('postgres_changes',{event:'*',schema:'public',table:'community_member_permissions',filter:'user_id=eq.'+user.id},async()=>{await loadCurrentModeratorPermissions();if(currentCommunity)applyCommunityPermissionUI();if(rightMode==='members')renderRight()}).subscribe()}
+// COMMUNITY REALTIME CONSOLIDATED 2026-09-29
+function subscribeCommunityRealtime(communityId){
+  const cid=String(communityId||''),uid=String(user?.id||'');
+  if(communityRealtimeSub){try{sb.removeChannel(communityRealtimeSub)}catch{}communityRealtimeSub=null}
+  if(!cid||!uid)return;
+  const current=()=>String(user?.id||'')===uid&&String(currentCommunity?.id||'')===cid;
+  const refreshMemberVisuals=()=>{
+    if(!current())return;
+    try{window.__ycInvalidateRoleVisuals?.()}catch{}
+    try{window.__ycRefreshSocialTabCounts?.(true)}catch{}
+    if(currentChannel&&typeof applyMessageRoleColors==='function')void applyMessageRoleColors();
+  };
+  const reloadSelfContext=async(forcePermissions=false)=>{
+    await loadCommunities();if(!current())return false;
+    currentCommunity=communities.find(c=>String(c.id)===cid)||currentCommunity;
+    currentRole=currentCommunity?.role||currentRole;
+    await loadCurrentModeratorPermissions(forcePermissions);if(!current())return false;
+    applyCommunityPermissionUI();return true;
+  };
+  const resync=async()=>{
+    try{if(!await reloadSelfContext(true))return;refreshMemberVisuals();await renderRight()}
+    catch(e){console.warn('community realtime resync',e)}
+  };
+  let subscribedOnce=false;
+  const sub=sb.channel('yc-community-'+cid+'-'+Date.now())
+    .on('postgres_changes',{event:'INSERT',schema:'public',table:'community_members',filter:'community_id=eq.'+cid},async payload=>{
+      if(!current())return;
+      if(String(payload.new?.user_id||'')===uid&&!await reloadSelfContext(true))return;
+      refreshMemberVisuals();await renderRight();
+    })
+    .on('postgres_changes',{event:'UPDATE',schema:'public',table:'community_members',filter:'community_id=eq.'+cid},async payload=>{
+      if(!current())return;
+      if(String(payload.new?.user_id||'')===uid&&!await reloadSelfContext(true))return;
+      refreshMemberVisuals();await renderRight();
+    })
+    .on('postgres_changes',{event:'INSERT',schema:'public',table:'channels',filter:'community_id=eq.'+cid},async()=>{
+      if(!current())return;const ch=await getChannels();if(current())renderChannels(ch);
+    })
+    .on('postgres_changes',{event:'DELETE',schema:'public',table:'community_members'},async payload=>{
+      if(String(payload.old?.community_id||'')!==cid||!current())return;
+      if(String(payload.old?.user_id||'')===uid){
+        await loadCommunities();if(!current())return;
+        if(communities.length)await selectCommunity(communities[0].id);
+        else{currentCommunity=null;currentChannel=null;renderRail();clearChat('Byl jsi odebrán z komunity.')}
+        toast('Byl jsi odebrán z komunity.',true);return;
+      }
+      refreshMemberVisuals();await renderRight();
+    });
+  communityRealtimeSub=sub;
+  sub.subscribe(status=>{
+    if(!current())return;
+    if(status==='SUBSCRIBED'){if(subscribedOnce)void resync();else subscribedOnce=true;return}
+    if(['CHANNEL_ERROR','TIMED_OUT','CLOSED'].includes(status)&&communityRealtimeSub===sub){
+      communityRealtimeSub=null;try{void sb.removeChannel(sub)}catch{}
+    }
+  });
+}
+function subscribeUserRealtime(){const uid=user?.id;if(!uid)return;if(userRealtimeSub){try{sb.removeChannel(userRealtimeSub)}catch{}userRealtimeSub=null}const owns=()=>String(user?.id||'')===String(uid),handleFriendshipRealtime=payload=>{if(!owns())return;const n=payload.new||{},o=payload.old||{};if(![n.requester_id,n.addressee_id,o.requester_id,o.addressee_id].includes(uid))return;if(typeof window.__ycRefreshSocialTabCounts==='function')void window.__ycRefreshSocialTabCounts(true);if(typeof ycRefreshNotificationCenter==='function')void ycRefreshNotificationCenter();if(rightMode==='friends')void renderFriends()};const sub=sb.channel('yc-user-'+uid+'-'+Date.now()).on('postgres_changes',{event:'*',schema:'public',table:'friendships',filter:'requester_id=eq.'+uid},handleFriendshipRealtime).on('postgres_changes',{event:'*',schema:'public',table:'friendships',filter:'addressee_id=eq.'+uid},handleFriendshipRealtime).on('postgres_changes',{event:'*',schema:'public',table:'profile_stats',filter:'user_id=eq.'+uid},payload=>{if(!owns())return;const n=payload.new||{},oldRank=rankForXP(myStats?.xp||0);myStats={xp:Number(n.xp??myStats?.xp??0),message_count:Number(n.message_count??myStats?.message_count??0)};ycPatchOwnMemberStats();if(profile&&rankForXP(myStats.xp)!==oldRank)renderMe()}).on('postgres_changes',{event:'*',schema:'public',table:'community_member_permissions',filter:'user_id=eq.'+uid},async()=>{if(!owns())return;await loadCurrentModeratorPermissions(true);if(!owns())return;if(currentCommunity)applyCommunityPermissionUI();if(rightMode==='members')renderRight()});userRealtimeSub=sub;sub.subscribe(status=>{if(!owns())return;if(status==='SUBSCRIBED'){if(typeof window.__ycRefreshSocialTabCounts==='function')void window.__ycRefreshSocialTabCounts();if(typeof ycRefreshNotificationCenter==='function')void ycRefreshNotificationCenter();if(rightMode==='friends')void renderFriends();return}if(['CHANNEL_ERROR','TIMED_OUT','CLOSED'].includes(status)&&userRealtimeSub===sub){userRealtimeSub=null;try{void sb.removeChannel(sub)}catch{}}})}
 
 
 function loadVoiceUserMix(){try{const raw=JSON.parse(localStorage.getItem('yc_voice_user_mix')||'{}');voiceUserMix=raw&&typeof raw==='object'?raw:{}}catch{voiceUserMix={}}}
@@ -1637,13 +1703,14 @@ window.addEventListener('dblclick',e=>{if(e.target.closest?.('.voice-channel[dat
 window.addEventListener('blur',ycFlushVoiceGesture);
 function renderVoiceChannels(chs){voiceChannelDefs=chs||[];const root=$('voiceChannelList');if(!root)return;const activeId=(window.__ycVoiceSwitchBusy&&window.__ycVoiceSwitchTargetId)?String(window.__ycVoiceSwitchTargetId):String(voiceChannel?.id||'');root.innerHTML=voiceChannelDefs.map(c=>{const people=voicePresenceByChannel[c.id]||[];return '<div class="voice-block"><button class="voice-channel '+(activeId===String(c.id)?'active':'')+'" data-voice="'+c.id+'"><span>🔊</span><span>'+esc(c.name)+'</span><span class="voice-count">'+people.length+'</span></button><div class="voice-users">'+people.map(p=>{const mix=voiceMixFor(p.user_id),remote=p.user_id!==user?.id;return '<div class="voice-user '+(p.user_id===user?.id?'me-voice':'')+' '+(((p.user_id===user?.id?voiceSpeaking:voiceRemoteSpeaking.has(p.user_id))&&!p.muted)?'is-speaking':'')+' '+(remote&&mix.muted?'local-muted':'')+'" data-user-id="'+esc(p.user_id)+'" data-user-name="'+esc(p.username||'Uživatel')+'" title="'+(remote?'Pravým tlačítkem: hlasitost / lokální mute':'Ty')+'"><span class="voice-talk-dot"></span><span>'+(p.muted?'🔇':'🎙')+'</span><span>'+esc(p.username||'Uživatel')+'</span><span class="voice-user-icons">'+(remote&&mix.muted?'🔇':remote&&mix.volume!==100?'🔈 '+mix.volume+'%':'')+(p.deafened?' 🎧':'')+'</span></div>'}).join('')+'</div></div>'}).join('')}
 const YC_VOICE_HEARTBEAT_MS=15000,YC_VOICE_TTL_MS=60000,YC_VOICE_ROSTER_MS=20000
+let voiceRosterRefreshDelay=0,voiceRosterContextKey=''
 function stopVoiceParticipantSubscription(){if(voiceParticipantSub){try{sb.removeChannel(voiceParticipantSub)}catch{}voiceParticipantSub=null}voiceParticipantSubChannelId=''}
 function subscribeVoiceParticipants(){const id=voiceChannel?.id?String(voiceChannel.id):'';if(!id){stopVoiceParticipantSubscription();return}if(voiceParticipantSub&&voiceParticipantSubChannelId===id)return;stopVoiceParticipantSubscription();const filter='channel_id=eq.'+id,sub=sb.channel('yc-voice-participants-'+user.id+'-'+id+'-'+Date.now()).on('postgres_changes',{event:'INSERT',schema:'public',table:'voice_participants',filter},()=>{void refreshVoiceParticipants(id)}).on('postgres_changes',{event:'DELETE',schema:'public',table:'voice_participants',filter},payload=>{const uid=payload.old?.user_id;if(uid&&uid!==user.id)closeVoicePeer(uid);void refreshVoiceParticipants(id)}).subscribe(status=>{if(['CHANNEL_ERROR','TIMED_OUT','CLOSED'].includes(status)&&voiceParticipantSub===sub){try{sb.removeChannel(sub)}catch{}voiceParticipantSub=null;voiceParticipantSubChannelId=''}});voiceParticipantSub=sub;voiceParticipantSubChannelId=id}
 async function refreshVoiceParticipants(id){if(!id)return;const before=[...(voicePresenceByChannel[id]||[])],cutoff=new Date(Date.now()-YC_VOICE_TTL_MS).toISOString();const {data,error}=await sb.from('voice_participants').select('channel_id,user_id,session_id,username,muted,deafened,speaking,joined_at,last_seen').eq('channel_id',id).gt('last_seen',cutoff).order('joined_at');if(error){console.warn('voice participants',error);return}const after=data||[];voicePresenceByChannel[id]=after;ycVoiceDiffAnnouncements(id,before,after);renderVoiceChannels(voiceChannelDefs);if(voiceChannel?.id===id)syncVoicePeers()}
 async function refreshVoiceRosterSet(chs=voiceChannelDefs,force=false){const ids=[...new Set([...(chs||[]).map(c=>String(c.id||'')),String(voiceChannel?.id||'')].filter(Boolean))];if(!ids.length)return;const now=Date.now();if(!force&&now-voiceRosterLastRefresh<3000)return;if(voiceRosterRefreshBusy)return voiceRosterRefreshBusy;voiceRosterLastRefresh=now;voiceRosterRefreshBusy=(async()=>{const cutoff=new Date(Date.now()-YC_VOICE_TTL_MS).toISOString(),{data,error}=await sb.from('voice_participants').select('channel_id,user_id,session_id,username,muted,deafened,speaking,joined_at,last_seen').in('channel_id',ids).gt('last_seen',cutoff).order('joined_at');if(error){console.warn('voice roster refresh',error);return}const grouped=new Map(ids.map(id=>[id,[]]));for(const row of data||[]){const id=String(row.channel_id||'');if(grouped.has(id))grouped.get(id).push(row)}for(const id of ids){const before=[...(voicePresenceByChannel[id]||[])],after=grouped.get(id)||[];voicePresenceByChannel[id]=after;if(String(voiceChannel?.id||'')===id)ycVoiceDiffAnnouncements(id,before,after)}renderVoiceChannels(voiceChannelDefs);if(voiceChannel?.id)syncVoicePeers()})().finally(()=>{voiceRosterRefreshBusy=null});return voiceRosterRefreshBusy}
-function startVoiceRosterRefresh(){if(voiceRosterRefreshTimer)return;voiceRosterRefreshTimer=setInterval(()=>{void refreshVoiceRosterSet(voiceChannelDefs,true)},YC_VOICE_ROSTER_MS)}
-function stopVoiceRosterRefresh(){if(voiceRosterRefreshTimer){clearInterval(voiceRosterRefreshTimer);voiceRosterRefreshTimer=null}}
-function ensureVoiceRooms(chs){const defs=[...(chs||[])];if(voiceChannel?.id&&!defs.some(c=>String(c.id)===String(voiceChannel.id)))defs.push(voiceChannel);const wanted=new Set(defs.map(c=>String(c.id)));for(const id of Object.keys(voicePresenceByChannel))if(!wanted.has(String(id)))delete voicePresenceByChannel[id];subscribeVoiceParticipants();startVoiceRosterRefresh();void refreshVoiceRosterSet(defs)}
+function startVoiceRosterRefresh(){const delay=voiceChannel?YC_VOICE_HEARTBEAT_MS:YC_VOICE_ROSTER_MS;if(voiceRosterRefreshTimer&&voiceRosterRefreshDelay===delay)return;if(voiceRosterRefreshTimer)clearTimeout(voiceRosterRefreshTimer);voiceRosterRefreshDelay=delay;voiceRosterRefreshTimer=setTimeout(async()=>{voiceRosterRefreshTimer=null;voiceRosterRefreshDelay=0;try{await refreshVoiceRosterSet(voiceChannelDefs,true)}finally{if(voiceChannelDefs.length||voiceChannel?.id)startVoiceRosterRefresh()}},delay)}
+function stopVoiceRosterRefresh(){if(voiceRosterRefreshTimer){clearTimeout(voiceRosterRefreshTimer);voiceRosterRefreshTimer=null}voiceRosterRefreshDelay=0;voiceRosterContextKey=''}
+function ensureVoiceRooms(chs){const defs=[...(chs||[])];if(voiceChannel?.id&&!defs.some(c=>String(c.id)===String(voiceChannel.id)))defs.push(voiceChannel);const ids=[...new Set(defs.map(c=>String(c.id||'')).filter(Boolean))].sort(),contextKey=String(voiceChannel?.id||'')+'|'+ids.join(',');const contextChanged=contextKey!==voiceRosterContextKey;voiceRosterContextKey=contextKey;const wanted=new Set(ids);for(const id of Object.keys(voicePresenceByChannel))if(!wanted.has(String(id)))delete voicePresenceByChannel[id];subscribeVoiceParticipants();startVoiceRosterRefresh();if(contextChanged)void refreshVoiceRosterSet(defs)}
 function updateVoicePresence(id){refreshVoiceParticipants(id)}
 function getVoiceMediaDevices(){try{const f=window.frameElement;if(f){f.setAttribute('allow','microphone; camera; display-capture; autoplay; fullscreen; clipboard-read; clipboard-write; speaker-selection; picture-in-picture');f.setAttribute('allowfullscreen','')}}catch{}try{if(window.parent&&window.parent!==window&&window.parent.navigator?.mediaDevices)return window.parent.navigator.mediaDevices}catch{}return navigator.mediaDevices}
 async function voiceConstraints(){return ycNoiseConstraints(ycNoiseMode,voiceDeviceId,voiceEcho,voiceAgc)}
@@ -1684,7 +1751,7 @@ async function joinVoiceChannel(ch){
 // VOICE PRESENCE CLEANUP v2.0.2
 let ycVoiceParticipantSyncQueue=Promise.resolve(),ycVoiceParticipantSyncBusy=false,ycVoiceParticipantSyncDirty=false
 function syncVoiceParticipantRow(){if(!voiceChannel||!voiceSessionId||!user)return Promise.resolve();ycVoiceParticipantSyncDirty=true;if(ycVoiceParticipantSyncBusy)return ycVoiceParticipantSyncQueue;ycVoiceParticipantSyncBusy=true;ycVoiceParticipantSyncQueue=(async()=>{try{while(ycVoiceParticipantSyncDirty){ycVoiceParticipantSyncDirty=false;if(!voiceChannel||!voiceSessionId||!user)break;const channelId=voiceChannel.id,sid=voiceSessionId,username=profile.display_name||profile.username||'Uživatel',muted=voiceMuted||ycMicTestVoiceHold,deafened=voiceDeafened,speaking=voiceSpeaking;const {error}=await sb.rpc('set_voice_participant',{p_channel_id:channelId,p_session_id:sid,p_username:username,p_muted:muted,p_deafened:deafened,p_speaking:speaking});if(error)console.warn('voice heartbeat',error);if(!voiceChannel||voiceSessionId!==sid||String(voiceChannel.id)!==String(channelId))ycVoiceParticipantSyncDirty=!!voiceChannel&&!!voiceSessionId}}finally{ycVoiceParticipantSyncBusy=false}})();return ycVoiceParticipantSyncQueue}
-function startVoiceHeartbeat(){stopVoiceHeartbeat();const beat=()=>{if(!voiceChannel)return;subscribeVoiceParticipants();void syncVoiceParticipantRow().catch(e=>console.warn('voice participant keepalive',e));if(!voiceSignalSub||!voiceSignalReady)void subscribeVoiceSignals().catch(e=>console.warn('voice signal reconnect',e));void refreshVoiceParticipants(voiceChannel.id)};beat();voiceHeartbeatTimer=setInterval(beat,YC_VOICE_HEARTBEAT_MS)}
+function startVoiceHeartbeat(){stopVoiceHeartbeat();const beat=()=>{if(!voiceChannel)return;subscribeVoiceParticipants();startVoiceRosterRefresh();void syncVoiceParticipantRow().catch(e=>console.warn('voice participant keepalive',e));if(!voiceSignalSub||!voiceSignalReady)void subscribeVoiceSignals().catch(e=>console.warn('voice signal reconnect',e))};beat();voiceHeartbeatTimer=setInterval(beat,YC_VOICE_HEARTBEAT_MS)}
 function stopVoiceHeartbeat(){if(voiceHeartbeatTimer){clearInterval(voiceHeartbeatTimer);voiceHeartbeatTimer=null}}
 async function trackVoicePresence(){await syncVoiceParticipantRow()}
 function renderVoiceControls(){const box=$('voiceControls');if(!box)return;const switching=!!window.__ycVoiceSwitchBusy,connected=!!voiceChannel;box.classList.remove('hidden');box.classList.toggle('is-idle',!connected&&!switching);box.classList.toggle('is-connected',connected);box.classList.toggle('is-switching',switching);const voicePresence=(typeof ycOwnPresenceState==='function'?ycOwnPresenceState():(typeof ycAutoPresenceState==='function'?ycAutoPresenceState():String(profile?.status||'online').toLowerCase()));box.dataset.presence=voicePresence==='busy'?'dnd':voicePresence==='away'?'afk':voicePresence;const panel=$('voiceConnectionPanel');panel?.classList.toggle('hidden',!connected&&!switching);const selfName=profile?.display_name||profile?.username||'Uživatel',selfState=$('voiceSelfState'),selfAvatar=$('voiceSelfAvatar');if($('voiceSelfName'))$('voiceSelfName').textContent=selfName;if(selfState)selfState.textContent=switching?'Připojuji…':connected?(voiceDeafened?'Zvuk i mikrofon vypnutý':voiceMuted?'Mikrofon ztlumený':'Připojen k hlasu'):(voiceDeafened?'Zvuk vypnutý pro další připojení':voiceMuted?'Mikrofon ztlumený pro další připojení':'Hlas připraven');if(selfAvatar){const selfPresenceState=(voicePresence==='dnd'?'dnd':voicePresence==='afk'?'afk':voicePresence==='online'?'online':'offline');if(profile)selfAvatar.innerHTML=rankAvatarHtml(profile,myStats,'avatar',selfPresenceState);else selfAvatar.textContent=initials(selfName)}if($('voiceMuteBtn')){$('voiceMuteBtn').classList.toggle('active',voiceMuted);$('voiceMuteBtn').innerHTML=voiceMuted?'<span>🔇</span>':'<span>🎙</span>';$('voiceMuteBtn').title=voiceMuted?'Zapnout mikrofon':'Ztlumit mikrofon'}if($('voiceDeafenBtn')){$('voiceDeafenBtn').classList.toggle('active',voiceDeafened);$('voiceDeafenBtn').innerHTML=voiceDeafened?'<span>🔕</span>':'<span>🎧</span>';$('voiceDeafenBtn').title=voiceDeafened?'Zapnout zvuk':'Ztlumit zvuk'}if(switching){$('soundboardPanel')?.classList.add('hidden');if($('voiceStatusName'))$('voiceStatusName').textContent='Přepínám hlas';if($('voiceRoomName'))$('voiceRoomName').textContent=window.__ycVoiceSwitchTargetName||'Hlasový kanál';const sub=$('voiceStatusSub');if(sub)sub.textContent=(voiceChannel?.id&&String(voiceChannel.id)===String(window.__ycVoiceSwitchTargetId))?'Dokončuji připojení…':'Připojuji…';renderVoiceChannels(voiceChannelDefs);return}if(!voiceChannel){$('soundboardPanel')?.classList.add('hidden');if($('voiceScreenBtn')){$('voiceScreenBtn').classList.remove('screen-active');$('voiceScreenBtn').innerHTML='<span>🖥️</span>'}renderVoiceChannels(voiceChannelDefs);return}if($('voiceStatusName'))$('voiceStatusName').textContent='Hlas připojen';if($('voiceRoomName'))$('voiceRoomName').textContent=voiceChannel.name;updateVoiceConnectionStatus();if($('voiceScreenBtn')){$('voiceScreenBtn').classList.toggle('screen-active',screenShareActive);$('voiceScreenBtn').innerHTML=screenShareActive?'<span>⏹️</span>':'<span>🖥️</span>';$('voiceScreenBtn').title=screenShareActive?'Přestat sdílet':'Sdílet obrazovku'}renderVoiceChannels(voiceChannelDefs)}
@@ -1698,14 +1765,15 @@ async function leaveVoiceChannel(silent=false){
         const cleanupSettled=Promise.allSettled([clearPromise]);if(ycVoiceKeepMicDuringSwitch){void cleanupSettled.catch(e=>console.warn('voice switch cleanup',e))}else{await cleanupSettled}
         for(const id of Object.keys(voicePresenceByChannel)){voicePresenceByChannel[id]=(voicePresenceByChannel[id]||[]).filter(p=>p.user_id!==leavingUserId)}renderVoiceChannels(voiceChannelDefs)
       }
-      for(const [id,pc] of voicePeers){try{pc.close()}catch{}const a=$('voice-audio-'+id);if(a)a.remove()}
+      for(const id of [...voiceRemoteVadStops.keys()])ycStopRemoteVoiceActivityDetector(id);for(const [id,pc] of voicePeers){try{pc.close()}catch{}const a=$('voice-audio-'+id);if(a)a.remove()}
       for(const [,nodes] of voiceAudioNodes){try{nodes.src?.disconnect()}catch{}try{nodes.gain?.disconnect()}catch{}}
-      for(const t of screenWatchTimers.values())clearTimeout(t);screenWatchTimers.clear();voiceAudioNodes.clear();voiceScreenSenders.clear();remoteScreenStreams.clear();voiceScreenActiveByUser.clear();screenShareViewers.clear();screenWatchingByUser.clear();screenWatchPendingByUser.clear();try{for(const id of [...(window.__ycScreenAudioEls?.keys?.()||[])])ycRemoveScreenAudioElement(id)}catch{}ycSyncStreamViewer();voicePeers.clear();voicePeerStates.clear();voicePeerSessions.clear();voiceRelayCandidates.clear();voiceIceGatherDone.clear();voiceIceRestarted.clear();voiceIceQueues.clear();voiceSessionId='';
+      for(const t of screenWatchTimers.values())clearTimeout(t);screenWatchTimers.clear();voiceAudioNodes.clear();voiceScreenSenders.clear();remoteScreenStreams.clear();voiceScreenActiveByUser.clear();screenShareViewers.clear();screenWatchingByUser.clear();screenWatchPendingByUser.clear();try{for(const id of [...(window.__ycScreenAudioEls?.keys?.()||[])])ycRemoveScreenAudioElement(id)}catch{}ycSyncStreamViewer();voiceMissingSince.clear();try{ycStreamWatchEpoch.clear();ycStreamWatchStarts.clear();ycStreamWatchSignals.clear()}catch{};voicePeers.clear();voicePeerStates.clear();voicePeerSessions.clear();voiceRelayCandidates.clear();voiceIceGatherDone.clear();voiceIceRestarted.clear();voiceIceQueues.clear();voiceSessionId='';
       if(voiceStream&&!ycVoiceKeepMicDuringSwitch){await ycStopManagedMicStream(voiceStream);voiceStream=null}
-      voiceChannel=null;stopVoiceParticipantSubscription();voiceRouteMode='checking';renderVoiceControls();
-      if(old){setTimeout(()=>updateVoicePresence(old.id),150);if(!silent)toast('Odpojeno z hlasového kanálu.')}
+      voiceChannel=null;stopVoiceParticipantSubscription();await stopVoiceSignals();voiceRouteMode='checking';renderVoiceControls();
+      if(old){if(!silent)setTimeout(()=>updateVoicePresence(old.id),150);if(!silent)toast('Odpojeno z hlasového kanálu.')}
     }
-function cleanupVoiceRooms(){if(typeof ycStopMicTest==='function')ycStopMicTest();stopVoiceHeartbeat();stopVoiceRosterRefresh();for(const id of [...voiceRemoteVadStops.keys()])ycStopRemoteVoiceActivityDetector(id);leaveVoiceChannel(true);for(const [,room] of voiceRooms)sb.removeChannel(room);voiceRooms.clear();voicePresenceByChannel={};voiceChannelDefs=[];voiceMissingSince.clear();if(voiceParticipantSub){sb.removeChannel(voiceParticipantSub);voiceParticipantSub=null}if(voiceSignalSub){sb.removeChannel(voiceSignalSub);voiceSignalSub=null;voiceSignalReady=false}}
+let ycVoiceCleanupPromise=Promise.resolve(),ycVoiceCleanupActive=false
+function cleanupVoiceRooms(){if(typeof ycStopMicTest==='function')ycStopMicTest();stopVoiceHeartbeat();stopVoiceRosterRefresh();for(const id of [...voiceRemoteVadStops.keys()])ycStopRemoteVoiceActivityDetector(id);if(!ycVoiceCleanupActive){ycVoiceCleanupActive=true;ycVoiceCleanupPromise=(async()=>{await leaveVoiceChannel(true);for(const [,room] of voiceRooms)try{await sb.removeChannel(room)}catch{};voiceRooms.clear();voicePresenceByChannel={};voiceChannelDefs=[];voiceMissingSince.clear();stopVoiceParticipantSubscription();await stopVoiceSignals()})().catch(e=>console.warn('voice cleanup',e)).finally(()=>{ycVoiceCleanupActive=false})}return ycVoiceCleanupPromise}
 function unlockVoiceAudio(){try{const C=window.AudioContext||window.webkitAudioContext;if(!C)return;if(!voiceAudioContext)voiceAudioContext=new C();voiceAudioContext.resume().catch(()=>{});const g=voiceAudioContext.createGain();g.gain.value=0;const o=voiceAudioContext.createOscillator();o.connect(g).connect(voiceAudioContext.destination);o.start();o.stop(voiceAudioContext.currentTime+.03);if(voiceOutputId&&typeof voiceAudioContext.setSinkId==='function')voiceAudioContext.setSinkId(voiceOutputId).catch(()=>{})}catch{}}
 
 let voiceRouteMode='checking',voiceRouteDetail=''
@@ -1743,8 +1811,9 @@ function updateVoiceConnectionStatus(){
 }
 async function restartVoicePeer(peerId){const pc=voicePeers.get(peerId);if(!pc||!voiceChannel||String(user.id)>=String(peerId))return;try{const offer=await pc.createOffer({iceRestart:true});await pc.setLocalDescription(offer);await sendVoiceSignal(peerId,{signal_type:'offer',sdp:pc.localDescription})}catch{}}
 function voicePeer(peerId){if(voicePeers.has(peerId))return voicePeers.get(peerId);const pc=new RTCPeerConnection({iceServers:voiceIceServers,iceTransportPolicy:'all',iceCandidatePoolSize:8,bundlePolicy:'max-bundle'});if(voiceStream)voiceStream.getTracks().forEach(t=>pc.addTrack(t,voiceStream));if(screenAudioMixedTrack){const aSender=pc.getSenders().find(s=>s.track?.kind==='audio');if(aSender)aSender.replaceTrack(screenAudioMixedTrack).catch(()=>{})}try{const tx=pc.addTransceiver('video',{direction:'sendrecv'});voiceScreenSenders.set(peerId,tx.sender);const st=screenShareViewers.has(peerId)?screenShareStream?.getVideoTracks?.()[0]:null;if(st)tx.sender.replaceTrack(st).then(()=>tuneScreenSender(tx.sender)).catch(()=>{})}catch(e){console.warn('screen transceiver',e)}pc.onicecandidate=e=>{if(e.candidate){const cs=e.candidate.candidate||'';if(/ typ relay(?: |$)/.test(cs))voiceRelayCandidates.add(peerId);sendVoiceSignal(peerId,{signal_type:'ice',candidate:e.candidate});updateVoiceConnectionStatus()}else{voiceIceGatherDone.add(peerId);updateVoiceConnectionStatus()}};pc.ontrack=e=>{const s=e.streams?.[0]||new MediaStream([e.track]);if(e.track.kind==='video')attachVoiceScreen(peerId,s);else attachVoiceAudio(peerId,s)};pc.onconnectionstatechange=()=>{voicePeerStates.set(peerId,pc.connectionState);updateVoiceConnectionStatus();if(pc.connectionState==='connected'){voiceIceRestarted.delete(peerId);voiceMissingSince.delete(peerId);scheduleVoiceRouteCheck();if(screenShareActive)void sendVoiceSignal(peerId,{signal_type:'screen-state',active:true});if(screenShareViewers.has(peerId))void ycApplyScreenViewer(peerId,true)}else if(pc.connectionState==='disconnected'){setTimeout(()=>{if(voicePeers.get(peerId)===pc&&pc.connectionState==='disconnected'){voiceIceRestarted.delete(peerId);restartVoicePeer(peerId)}},4000)}else if(pc.connectionState==='failed'&&!voiceIceRestarted.has(peerId)){voiceIceRestarted.add(peerId);setTimeout(()=>restartVoicePeer(peerId),350)}if(pc.connectionState==='closed')closeVoicePeer(peerId)};pc.oniceconnectionstatechange=()=>{if(pc.iceConnectionState==='connected'||pc.iceConnectionState==='completed')voiceIceRestarted.delete(peerId);if(pc.iceConnectionState==='failed'){voicePeerStates.set(peerId,'failed');updateVoiceConnectionStatus();if(!voiceIceRestarted.has(peerId)){voiceIceRestarted.add(peerId);setTimeout(()=>restartVoicePeer(peerId),350)}}};if(typeof ycWrapScreenAudioPc==='function')ycWrapScreenAudioPc(peerId,pc);pc.addEventListener('connectionstatechange',()=>{if(pc.connectionState==='connected')void ycApplyVoiceQuality(voiceChannel?.id)});ycTuneMicPc(pc);voicePeers.set(peerId,pc);voicePeerStates.set(peerId,'connecting');updateVoiceConnectionStatus();return pc}
-function closeVoicePeer(peerId){ycStopRemoteVoiceActivityDetector(peerId);const pc=voicePeers.get(peerId);if(pc){try{pc.close()}catch{}voicePeers.delete(peerId)}const nodes=voiceAudioNodes.get(peerId);if(nodes){try{nodes.src?.disconnect()}catch{}try{nodes.gain?.disconnect()}catch{}voiceAudioNodes.delete(peerId)}voiceScreenSenders.delete(peerId);screenShareViewers.delete(peerId);ycClearScreenWatchTimer(peerId);screenWatchingByUser.delete(peerId);screenWatchPendingByUser.delete(peerId);remoteScreenStreams.delete(peerId);voiceScreenActiveByUser.delete(peerId);try{ycRemoveScreenAudioElement(peerId)}catch{}ycSyncStreamViewer();renderVoiceChannels(voiceChannelDefs);voicePeerStates.delete(peerId);voicePeerSessions.delete(peerId);voiceRelayCandidates.delete(peerId);voiceIceGatherDone.delete(peerId);voiceIceRestarted.delete(peerId);voiceIceQueues.delete(peerId);const a=$('voice-audio-'+peerId);if(a)a.remove();updateVoiceConnectionStatus()}
+function closeVoicePeer(peerId){ycStopRemoteVoiceActivityDetector(peerId);voiceMissingSince.delete(peerId);const pc=voicePeers.get(peerId);if(pc){try{pc.close()}catch{}voicePeers.delete(peerId)}const nodes=voiceAudioNodes.get(peerId);if(nodes){try{nodes.src?.disconnect()}catch{}try{nodes.gain?.disconnect()}catch{}voiceAudioNodes.delete(peerId)}voiceScreenSenders.delete(peerId);screenShareViewers.delete(peerId);ycClearScreenWatchTimer(peerId);screenWatchingByUser.delete(peerId);screenWatchPendingByUser.delete(peerId);remoteScreenStreams.delete(peerId);voiceScreenActiveByUser.delete(peerId);try{ycRemoveScreenAudioElement(peerId)}catch{}ycSyncStreamViewer();renderVoiceChannels(voiceChannelDefs);voicePeerStates.delete(peerId);voicePeerSessions.delete(peerId);voiceRelayCandidates.delete(peerId);voiceIceGatherDone.delete(peerId);voiceIceRestarted.delete(peerId);voiceIceQueues.delete(peerId);const a=$('voice-audio-'+peerId);if(a)a.remove();updateVoiceConnectionStatus()}
 async function recoverVoiceSignals(){if(!user?.id)return;try{const stale=new Date(Date.now()-60000).toISOString();await sb.from('voice_signals').delete().eq('to_user',user.id).lt('created_at',stale);const recent=new Date(Date.now()-30000).toISOString(),{data,error}=await sb.from('voice_signals').select('id,channel_id,from_user,to_user,signal_type,payload,created_at').eq('to_user',user.id).gt('created_at',recent).order('created_at').limit(200);if(error){console.warn('voice signal recovery',error);return}for(const row of data||[])await consumeVoiceSignalRow(row)}catch(e){console.warn('voice signal recovery',e)}}
+async function stopVoiceSignals(){const ch=voiceSignalSub;voiceSignalSub=null;voiceSignalReady=false;voiceSignalError='';if(ch)try{await sb.removeChannel(ch)}catch{}}
 async function subscribeVoiceSignals(){if(voiceSignalSub&&voiceSignalReady)return;if(voiceSignalSub){sb.removeChannel(voiceSignalSub);voiceSignalSub=null}voiceSignalReady=false;await new Promise(resolve=>{let settled=false;voiceSignalSub=sb.channel('yc-voice-db-'+user.id+'-'+Date.now()).on('postgres_changes',{event:'INSERT',schema:'public',table:'voice_signals',filter:'to_user=eq.'+user.id},({new:row})=>consumeVoiceSignalRow(row)).subscribe(status=>{if(status==='SUBSCRIBED'){voiceSignalReady=true;voiceSignalError='';updateVoiceConnectionStatus();void recoverVoiceSignals();if(!settled){settled=true;resolve(null)}}else if(['CHANNEL_ERROR','TIMED_OUT','CLOSED'].includes(status)){voiceSignalReady=false;voiceSignalError='Realtime '+status.toLowerCase();updateVoiceConnectionStatus();if(!settled){settled=true;resolve(null)}}});setTimeout(()=>{if(!settled){settled=true;resolve(null)}},2500)})}
 async function consumeVoiceSignalRow(row){if(!row||!voiceChannel||row.channel_id!==voiceChannel.id)return;const payload=row.payload||{},age=Date.now()-new Date(row.created_at).getTime();const discard=()=>{try{const q=sb.from('voice_signals').delete().eq('id',row.id);if(q&&typeof q.then==='function')q.then(()=>{}).catch(()=>{})}catch{}};if(age>30000){discard();return}const sender=(voicePresenceByChannel[voiceChannel.id]||[]).find(p=>p.user_id===row.from_user);if(payload.from_session&&sender?.session_id&&payload.from_session!==sender.session_id){discard();return}if(voiceSignalSeen.has(row.id)){discard();return}voiceSignalSeen.add(row.id);if(voiceSignalSeen.size>600)voiceSignalSeen.clear();try{await handleVoiceSignal({...payload,signal_type:row.signal_type,from:row.from_user,to:row.to_user,channel_id:row.channel_id})}catch(e){console.warn('consume voice signal',e)}finally{try{await sb.from('voice_signals').delete().eq('id',row.id)}catch{}}}
 async function sendVoiceSignal(to,data){if(!voiceChannel||!to||to===user.id)return;const wire=JSON.parse(JSON.stringify({...data,from_session:voiceSessionId}));const {error}=await sb.from('voice_signals').insert({channel_id:voiceChannel.id,from_user:user.id,to_user:to,signal_type:data.signal_type,payload:wire});if(error){voiceSignalError=error.message||'chyba zápisu';updateVoiceConnectionStatus();console.warn('voice signal insert',error);if(data.signal_type==='screen-watch')throw new Error(error.message||'Chyba požadavku na stream')}}
@@ -1819,13 +1888,13 @@ async function startScreenShare(){
   await broadcastScreenState(true);void ycStartGlobalStreamPresence();ycSyncStreamViewer();renderVoiceControls();toast('Sdílení obrazovky spuštěno · diváci se připojí až po kliknutí Sledovat stream.')
 }
 async function stopScreenShare(silent=false){
-  const stream=screenShareStream;if(!screenShareActive&&!stream)return
+  const ownerUserId=user?.id,stream=screenShareStream;if(!screenShareActive&&!stream)return
   screenShareActive=false;screenShareStream=null;screenShareViewers.clear()
   for(const [,sender] of voiceScreenSenders){try{await sender.replaceTrack(null)}catch{}}
   if(typeof ycResetScreenAudioSenders==='function')await ycResetScreenAudioSenders()
   else if(typeof ycEnsureScreenAudio==='function')await ycEnsureScreenAudio()
   await broadcastScreenState(false);await disableScreenShareAudio(true);await ycStopDesktopProcessAudio();if(stream)for(const t of stream.getTracks()){t.onended=null;try{t.stop()}catch{}}
-  void ycStopGlobalStreamPresence();ycSyncStreamViewer();renderVoiceControls();if(!silent)toast('Sdílení obrazovky ukončeno.')
+  await ycStopGlobalStreamPresence(ownerUserId);ycSyncStreamViewer();renderVoiceControls();if(!silent)toast('Sdílení obrazovky ukončeno.')
 }
 
 function ycStopRemoteVoiceActivityDetector(peerId){const stop=voiceRemoteVadStops.get(peerId);if(stop){try{stop()}catch{}voiceRemoteVadStops.delete(peerId)}voiceRemoteSpeaking.delete(peerId);const row=document.querySelector('.voice-user[data-user-id="'+CSS.escape(String(peerId))+'"]');row?.classList.remove('is-speaking')}
@@ -1834,7 +1903,7 @@ function ycStartRemoteVoiceActivityDetector(peerId,stream){ycStopRemoteVoiceActi
 function attachVoiceAudio(peerId,stream){const track=stream?.getAudioTracks?.()[0]||null;if(track&&window.__ycScreenAudioTracks?.get?.(peerId)?.id===track.id){ycAttachRemoteScreenAudio(peerId,track);return}unlockVoiceAudio();const old=voiceAudioNodes.get(peerId);if(old){try{old.src?.disconnect()}catch{}try{old.compressor?.disconnect()}catch{}try{old.gain?.disconnect()}catch{}}let usingContext=false;try{if(voiceAudioContext){const src=voiceAudioContext.createMediaStreamSource(stream),compressor=voiceAudioContext.createDynamicsCompressor(),gain=voiceAudioContext.createGain();compressor.threshold.value=-18;compressor.knee.value=16;compressor.ratio.value=4;compressor.attack.value=.004;compressor.release.value=.22;src.connect(compressor).connect(gain).connect(voiceAudioContext.destination);voiceAudioNodes.set(peerId,{src,compressor,gain,trackId:track?.id||''});usingContext=true}}catch{}let a=$('voice-audio-'+peerId);if(!a){a=document.createElement('audio');a.id='voice-audio-'+peerId;a.autoplay=true;a.playsInline=true;document.body.appendChild(a)}a.srcObject=stream;if(voiceOutputId&&typeof a.setSinkId==='function')a.setSinkId(voiceOutputId).catch(()=>{});applyVoiceUserMix(peerId);if(!usingContext)a.play().catch(()=>{const sub=$('voiceStatusSub');if(sub)sub.textContent='Klikni znovu na voice – prohlížeč blokuje zvuk'})}
 
 const ycAttachVoiceAudioBase=attachVoiceAudio
-attachVoiceAudio=(peerId,stream)=>{ycStartRemoteVoiceActivityDetector(peerId,stream);return ycAttachVoiceAudioBase(peerId,stream)}
+attachVoiceAudio=(peerId,stream)=>{if(!voiceChannel||!voicePeers.has(peerId))return;ycStartRemoteVoiceActivityDetector(peerId,stream);return ycAttachVoiceAudioBase(peerId,stream)}
 async function toggleVoiceMute(){voiceMuted=!voiceMuted;localStorage.setItem('yc_voice_muted',voiceMuted?'1':'0');if(voiceStream)voiceStream.getAudioTracks().forEach(t=>t.enabled=!voiceMuted&&!voiceDeafened&&!ycMicTestVoiceHold);if(voiceChannel)void trackVoicePresence();renderVoiceControls()}
 async function toggleVoiceDeafen(){voiceDeafened=!voiceDeafened;localStorage.setItem('yc_voice_deafened',voiceDeafened?'1':'0');applyAllVoiceUserMix();if(voiceStream)voiceStream.getAudioTracks().forEach(t=>t.enabled=!voiceDeafened&&!voiceMuted);if(voiceChannel)void trackVoicePresence();renderVoiceControls()}
 let ycInputSwitch=Promise.resolve();
@@ -1966,9 +2035,9 @@ function ycRequestVoiceDisconnect(){
   if(wasShare){try{void broadcastScreenState(false)}catch{};try{void disableScreenShareAudio(true)}catch{};try{void ycStopGlobalStreamPresence()}catch{}}
   try{for(const [id,pc] of voicePeers){pc.close();$('voice-audio-'+id)?.remove()}}catch{}
   try{for(const [,nodes] of voiceAudioNodes){nodes.src?.disconnect();nodes.compressor?.disconnect();nodes.gain?.disconnect()}}catch{};try{for(const id of [...voiceRemoteVadStops.keys()])ycStopRemoteVoiceActivityDetector(id)}catch{}
-  try{for(const t of screenWatchTimers.values())clearTimeout(t);screenWatchTimers.clear();voiceAudioNodes.clear();voiceScreenSenders.clear();remoteScreenStreams.clear();voiceScreenActiveByUser.clear();screenShareViewers.clear();screenWatchingByUser.clear();screenWatchPendingByUser.clear();for(const id of [...(window.__ycScreenAudioEls?.keys?.()||[])])ycRemoveScreenAudioElement(id);window.__ycScreenAudioTracks?.clear?.();voicePeers.clear();voicePeerStates.clear();voicePeerSessions.clear();voiceRelayCandidates.clear();voiceIceGatherDone.clear();voiceIceRestarted.clear();voiceIceQueues.clear()}catch{}
+  try{for(const t of screenWatchTimers.values())clearTimeout(t);screenWatchTimers.clear();voiceAudioNodes.clear();voiceScreenSenders.clear();remoteScreenStreams.clear();voiceScreenActiveByUser.clear();screenShareViewers.clear();screenWatchingByUser.clear();screenWatchPendingByUser.clear();for(const id of [...(window.__ycScreenAudioEls?.keys?.()||[])])ycRemoveScreenAudioElement(id);window.__ycScreenAudioTracks?.clear?.();voiceMissingSince.clear();try{ycStreamWatchEpoch.clear();ycStreamWatchStarts.clear();ycStreamWatchSignals.clear()}catch{};voicePeers.clear();voicePeerStates.clear();voicePeerSessions.clear();voiceRelayCandidates.clear();voiceIceGatherDone.clear();voiceIceRestarted.clear();voiceIceQueues.clear()}catch{}
   {const oldMic=voiceStream;voiceStream=null;if(oldMic)void ycStopManagedMicStream(oldMic)}
-  voiceSessionId='';voiceChannel=null;stopVoiceParticipantSubscription();voiceMuted=false;voiceDeafened=false;voiceRouteMode='checking';
+  voiceSessionId='';voiceChannel=null;stopVoiceParticipantSubscription();void stopVoiceSignals();voiceMuted=false;voiceDeafened=false;voiceRouteMode='checking';
   try{if(old)for(const id of Object.keys(voicePresenceByChannel))voicePresenceByChannel[id]=(voicePresenceByChannel[id]||[]).filter(p=>p.user_id!==user.id)}catch{}
   try{ycSyncStreamViewer();renderVoiceControls();renderVoiceChannels(voiceChannelDefs)}catch{}
   if(old){toast('Odpojeno z hlasového kanálu.');setTimeout(()=>{try{updateVoicePresence(old.id)}catch{}},80);void (async()=>{try{await pendingParticipantSync}catch{}try{if(sid)await sb.rpc('clear_voice_participant',{p_session_id:sid})}catch(e){console.warn('background voice clear',e)}})()}
@@ -1984,7 +2053,7 @@ async function deleteCurrentCommunity(){const platform=!!(window.__ycPlatformAdm
 $
 $('membersTab').onclick=()=>{rightMode='members';$('membersTab').classList.add('active');$('friendsTab').classList.remove('active');renderRight()};$('friendsTab').onclick=()=>{rightMode='friends';$('friendsTab').classList.add('active');$('membersTab').classList.remove('active');renderRight()}
 
-let currentModeratorPerms={}
+let currentModeratorPerms={},ycModeratorPermCacheKey='',ycModeratorPermLoad=null,ycModeratorPermLoadKey=''
 function canCommunityPermission(key){
   if(key==='manage_emojis'){
     if(currentRole==='owner')return true
@@ -1994,11 +2063,16 @@ function canCommunityPermission(key){
   const map={manage_channels:'can_manage_channels',manage_members:'can_manage_members',kick:'can_kick',ban:'can_ban',timeout:'can_timeout',manage_invites:'can_manage_invites',manage_soundboard:'can_manage_soundboard',manage_messages:'can_manage_messages',manage_permissions:'can_manage_permissions',manage_server:'can_manage_server'}
   return !!currentModeratorPerms[map[key]]
 }
-async function loadCurrentModeratorPermissions(){
-  currentModeratorPerms={}
-  if(!currentCommunity||!user||currentRole==='owner')return
-  const {data}=await sb.from('community_member_permissions').select('*').eq('community_id',currentCommunity.id).eq('user_id',user.id).maybeSingle()
-  currentModeratorPerms=data||{}
+function ycModeratorPermKey(){return currentCommunity&&user?String(currentCommunity.id)+'|'+String(user.id)+'|'+String(currentRole||''):''}
+async function loadCurrentModeratorPermissions(force=false){
+  const key=ycModeratorPermKey()
+  if(!key||currentRole==='owner'){currentModeratorPerms={};ycModeratorPermCacheKey=key;return}
+  if(!force&&key===ycModeratorPermCacheKey)return
+  if(ycModeratorPermLoad&&ycModeratorPermLoadKey===key){await ycModeratorPermLoad;if(!force)return}
+  const cid=String(currentCommunity.id),uid=String(user.id)
+  const request=(async()=>{const {data}=await sb.from('community_member_permissions').select('*').eq('community_id',cid).eq('user_id',uid).maybeSingle();if(ycModeratorPermKey()!==key)return;currentModeratorPerms=data||{};ycModeratorPermCacheKey=key})()
+  ycModeratorPermLoad=request;ycModeratorPermLoadKey=key
+  try{await request}finally{if(ycModeratorPermLoad===request){ycModeratorPermLoad=null;ycModeratorPermLoadKey=''}}
 }
 function applyCommunityPermissionUI(){
   ycServerNavigationReady=currentCommunity?.id||'';ycSyncServerNavigation();
@@ -2065,7 +2139,6 @@ function ycPresenceState(row){if(!row||!row.last_seen_at)return'offline';const a
 function ycPresenceLabel(s){return s==='online'?'Online':s==='afk'?'Nečinný':s==='dnd'?'Nerušit':s==='invisible'?'Neviditelný':'Offline'}
 function ycOwnPresenceState(){const pref=ycPresencePreference();if(pref!=='online')return pref;const local=ycAutoPresenceState();if(local==='online')return'online';return Date.now()<ycPresenceRemoteOnlineUntil?'online':local}
 function ycPresenceDisplayRow(uid,row){if(user?.id&&String(uid)===String(user.id)){const state=ycOwnPresenceState();return{...(row||{}),user_id:user.id,state,activity_text:state==='invisible'?'':ycCurrentActivity(),last_seen_at:new Date().toISOString()}}return row||null}
-function ycPresenceVisualSig(uid,row){const shown=ycPresenceDisplayRow(uid,row),state=ycPresenceState(shown),activity=state==='offline'?'':String(shown?.activity_text||'');return state+'|'+activity}
 function ycPatchVisibleMemberPresence(uid,row){
  const id=String(uid||'');if(!id)return false;
  const el=document.querySelector('#rightContent .steam-member-row[data-member-id="'+CSS.escape(id)+'"]');if(!el)return false;
@@ -2076,7 +2149,21 @@ function ycPatchVisibleMemberPresence(uid,row){
  const activity=el.querySelector('.yc-activity');if(activity){if(state==='offline')activity.textContent=ycLastSeen(shown);else if(String(shown?.activity_text||'').trim())activity.textContent=String(shown.activity_text);else if(!activity.textContent)activity.textContent=ycPresenceLabel(state)}
  ycPresenceRenderedStateByUser.set(id,state);return true
 }
-function ycMembersPresenceNeedsRefresh(){if(rightMode!=='members')return false;for(const uid of ycVisibleMemberIds){const state=ycPresenceState(ycPresenceDisplayRow(uid,ycPresenceRowsByUser.get(uid)||null));if(ycPresenceRenderedStateByUser.get(uid)!==state)return true}return false}
+let ycMemberPresenceRefreshBusy=false;
+async function ycRefreshVisibleMemberPresence(){
+ if(rightMode!=='members'||document.hidden||ycMemberPresenceRefreshBusy||!currentCommunity)return;
+ const ids=[...ycVisibleMemberIds].filter(Boolean);if(!ids.length)return;
+ const cid=String(currentCommunity.id);ycMemberPresenceRefreshBusy=true;
+ try{
+  const {data,error}=await sb.from('user_presence').select('user_id,state,activity_text,last_seen_at').in('user_id',ids);
+  if(error){console.warn('member presence refresh',error);return}
+  if(rightMode!=='members'||String(currentCommunity?.id||'')!==cid)return;
+  const rows=new Map((data||[]).map(row=>[String(row.user_id),row]));let needsFull=false;
+  for(const uid of ids){const key=String(uid),row=rows.get(key)||null,next=ycPresenceState(ycPresenceDisplayRow(key,row)),prev=ycPresenceRenderedStateByUser.get(key)||'offline';ycPresenceRowsByUser.set(key,row);if(prev!==next){needsFull=true;break}}
+  if(needsFull){await renderRight();return}
+  for(const uid of ids)ycPatchVisibleMemberPresence(uid,rows.get(String(uid))||null);
+ }catch(e){console.warn('member presence refresh',e)}finally{ycMemberPresenceRefreshBusy=false}
+}
 function ycLastSeen(row){if(row?.state==='invisible')return'Offline';if(!row?.last_seen_at)return'Nikdy online';const d=new Date(row.last_seen_at),ms=Date.now()-d.getTime();if(ms<65000)return'Právě online';const min=Math.floor(ms/60000);if(min<60)return'Naposledy online před '+min+' min';const h=Math.floor(min/60);if(h<24)return'Naposledy online před '+h+' h';const days=Math.floor(h/24);if(days<30)return'Naposledy online před '+days+' dny';return'Naposledy online '+d.toLocaleDateString('cs-CZ')}
 function ycActivityFor(pres,profileRow){const s=ycPresenceState(pres);if(s==='offline')return ycLastSeen(pres);return String(pres?.activity_text||profileRow?.custom_activity||ycPresenceLabel(s))}
 function ycProfileCreated(d){try{return new Date(d).toLocaleDateString('cs-CZ',{day:'numeric',month:'long',year:'numeric'})}catch{return'—'}}
@@ -2191,6 +2278,28 @@ async function renderFriends(){
   $('rightContent').querySelectorAll('[data-dm]').forEach(b=>b.onclick=e=>{e.stopPropagation();const p=pm[b.dataset.dm];if(p)startDm(p)})
   $('rightContent').querySelectorAll('[data-profile-user]').forEach(row=>row.onclick=e=>{if(e.target.closest('button'))return;openUserProfile(row.dataset.profileUser)})
 }
+let ycFriendPresenceRefreshBusy=false;
+async function ycRefreshVisibleFriendPresence(){
+  if(rightMode!=='friends'||document.hidden||ycFriendPresenceRefreshBusy)return;
+  const rows=[...document.querySelectorAll('#rightContent .steam-friend-row[data-profile-user]')],ids=[...new Set(rows.map(row=>String(row.dataset.profileUser||'')).filter(Boolean))];
+  if(!ids.length)return;
+  ycFriendPresenceRefreshBusy=true;
+  try{
+    const {data,error}=await sb.from('user_presence').select('user_id,state,activity_text,last_seen_at').in('user_id',ids);
+    if(error){console.warn('friend presence refresh',error);return}
+    if(rightMode!=='friends')return;
+    const map=new Map((data||[]).map(row=>[String(row.user_id),row]));
+    for(const row of rows){
+      if(!row.isConnected)continue;
+      const uid=String(row.dataset.profileUser||''),pres=map.get(uid)||null,next=ycPresenceState(pres),prev=row.classList.contains('is-offline')?'offline':row.classList.contains('is-dnd')?'dnd':row.classList.contains('is-afk')?'afk':'online';
+      if(prev!==next){await renderFriends();return}
+      row.classList.toggle('is-dnd',next==='dnd');row.classList.toggle('is-afk',next==='afk');row.classList.toggle('is-offline',next==='offline');
+      const crest=row.querySelector('.rank-crest');if(crest){crest.classList.remove('yc-presence-online','yc-presence-afk','yc-presence-dnd','yc-presence-offline');crest.classList.add('yc-status-avatar','yc-presence-'+next)}
+      const activity=row.querySelector('.yc-activity');if(activity)activity.textContent=next==='offline'?ycLastSeen(pres):String(pres?.activity_text||ycPresenceLabel(next));
+      const last=row.querySelector('.yc-lastseen');if(last)last.textContent=next==='offline'?ycLastSeen(pres):ycPresenceLabel(next);
+    }
+  }catch(e){console.warn('friend presence refresh',e)}finally{ycFriendPresenceRefreshBusy=false}
+}
 async function rejectFriend(requester){const {error}=await sb.from('friendships').delete().eq('requester_id',requester).eq('addressee_id',user.id);if(error)toast(error.message,true);else{toast('Žádost odmítnuta.');renderFriends()}}
 async function removeFriend(otherId){if(!confirm('Odebrat uživatele z přátel?'))return;const {error}=await sb.from('friendships').delete().or('and(requester_id.eq.'+user.id+',addressee_id.eq.'+otherId+'),and(requester_id.eq.'+otherId+',addressee_id.eq.'+user.id+')');if(error)toast(error.message,true);else{toast('Přítel odebrán.');renderFriends()}}
 async function addFriend(){const name=await ycDesktopPrompt('Uživatelské jméno:');if(!name?.trim())return;const {data:p}=await sb.from('profiles').select('id,username').ilike('username',name.trim()).limit(1).maybeSingle();if(!p||p.id===user.id){toast('Uživatel nebyl nalezen.',true);return}const {data:existing}=await sb.from('friendships').select('*').or('and(requester_id.eq.'+user.id+',addressee_id.eq.'+p.id+'),and(requester_id.eq.'+p.id+',addressee_id.eq.'+user.id+')').limit(1).maybeSingle();if(existing){toast(existing.status==='accepted'?'Už jste přátelé.':'Žádost už existuje.',true);return}const {error}=await sb.from('friendships').insert({requester_id:user.id,addressee_id:p.id,status:'pending'});if(error)toast(error.message,true);else{toast('Žádost o přátelství odeslána.');renderFriends()}}
@@ -2245,7 +2354,7 @@ async function ycTouchPresence(force=false){
 async function ycPresenceOffline(){ycPresenceRemoteOnlineUntil=0;return Promise.resolve()}
 let ycDmPeriodicRefreshAt=0,ycDmPeriodicRefreshBusy=false;
 async function ycMaybePeriodicDmRefresh(){const now=Date.now();if(!ycFriendsHomeMode||document.hidden||ycDmPeriodicRefreshBusy||now-ycDmPeriodicRefreshAt<60000)return;ycDmPeriodicRefreshAt=now;ycDmPeriodicRefreshBusy=true;try{await loadDmThreads()}catch(e){console.warn('periodic DM refresh',e)}finally{ycDmPeriodicRefreshBusy=false}}
-function ycStartPresence(){if(ycPresenceTimer)return;ycPresenceTimer=setInterval(()=>{if(user&&profile)ycTouchPresence(true)},20000);ycSocialRefreshTimer=setInterval(()=>{if(!user||document.hidden)return;if(rightMode==='friends')void renderFriends();else if(rightMode==='members'&&ycMembersPresenceNeedsRefresh())void renderRight();if(ycFriendsHomeMode)void ycMaybePeriodicDmRefresh()},15000);for(const ev of ['pointerdown','keydown','touchstart'])window.addEventListener(ev,()=>{ycLastInputAt=Date.now();if(user&&profile&&ycPresencePreference()==='online'&&ycLastPresenceSig.startsWith('afk|'))ycTouchPresence(true)},{passive:true});let ycLastMouseMark=0;window.addEventListener('mousemove',()=>{const now=Date.now();if(now-ycLastMouseMark>=1000){ycLastMouseMark=now;ycLastInputAt=now}},{passive:true});document.addEventListener('visibilitychange',()=>{if(!document.hidden)ycLastInputAt=Date.now();ycTouchPresence(true)});setTimeout(()=>{ycTouchPresence(true);ycSyncDiscordIdentity()},700)}
+function ycStartPresence(){if(ycPresenceTimer)return;ycPresenceTimer=setInterval(()=>{if(user&&profile)ycTouchPresence(true)},20000);ycSocialRefreshTimer=setInterval(()=>{if(!user||document.hidden)return;if(rightMode==='friends')void ycRefreshVisibleFriendPresence();else if(rightMode==='members')void ycRefreshVisibleMemberPresence();if(ycFriendsHomeMode)void ycMaybePeriodicDmRefresh()},15000);for(const ev of ['pointerdown','keydown','touchstart'])window.addEventListener(ev,()=>{ycLastInputAt=Date.now();if(user&&profile&&ycPresencePreference()==='online'&&ycLastPresenceSig.startsWith('afk|'))ycTouchPresence(true)},{passive:true});let ycLastMouseMark=0;window.addEventListener('mousemove',()=>{const now=Date.now();if(now-ycLastMouseMark>=1000){ycLastMouseMark=now;ycLastInputAt=now}},{passive:true});document.addEventListener('visibilitychange',()=>{if(!document.hidden)ycLastInputAt=Date.now();ycTouchPresence(true)});setTimeout(()=>{ycTouchPresence(true);ycSyncDiscordIdentity()},700)}
 ycStartPresence()
 window.addEventListener('resize',()=>{$('mobileMenu').classList.toggle('hidden',innerWidth>720)})
 // Yamachat desktop bridge - read-only state for Electron tray integration.
@@ -2343,15 +2452,6 @@ let ycPresenceRealtimeSub=null,ycPresenceRefreshDebounce=null
 function ycRefreshVisibleSocialSoon(){
   clearTimeout(ycPresenceRefreshDebounce)
   ycPresenceRefreshDebounce=setTimeout(()=>{try{if(!user)return;if(rightMode==='friends')void renderFriends();else if(rightMode==='members')void renderRight();if(ycFriendsHomeMode)void loadDmThreads()}catch(e){console.warn('presence social refresh',e)}},30)
-}
-function ycHandlePresenceRealtime(payload){
- const row=payload?.new||payload?.old||{},uid=String(row.user_id||'');if(!uid)return;
- const before=ycPresenceRowsByUser.get(uid)||null,beforeSig=ycPresenceVisualSig(uid,before);
- if(payload?.eventType==='DELETE')ycPresenceRowsByUser.delete(uid);else ycPresenceRowsByUser.set(uid,row);
- if(uid===String(user?.id||'')&&String(row.state||'').toLowerCase()==='online'){const seen=new Date(row.last_seen_at||0).getTime();if(Number.isFinite(seen))ycPresenceRemoteOnlineUntil=Math.max(ycPresenceRemoteOnlineUntil,seen+YC_PRESENCE_ACTIVE_LEASE_MS)}
- const after=payload?.eventType==='DELETE'?null:row,afterSig=ycPresenceVisualSig(uid,after);if(beforeSig===afterSig)return;
- if(rightMode==='members'&&ycVisibleMemberIds.has(uid)){const beforeState=ycPresenceState(ycPresenceDisplayRow(uid,before)),afterState=ycPresenceState(ycPresenceDisplayRow(uid,after));if(beforeState!=='offline'&&afterState!=='offline'&&ycPatchVisibleMemberPresence(uid,after))return}
- ycRefreshVisibleSocialSoon()
 }
 function ycEnsurePresenceRealtime(){
   if(!user||ycPresenceRealtimeSub)return
@@ -2558,7 +2658,7 @@ ycOpenPlatformAdmin=async function(...args){const out=await ycAccountOpenPlatfor
 
 async function ycCheckOwnBanStatus(){
   if(!user?.id)return;
-  try{const state=await ycAdminInvoke({action:'self-status'});if(!state?.is_banned)return;const until=state.banned_until;try{await sb.auth.signOut({scope:'local'})}catch{};showAuth();const msg=$('authMsg');if(msg){msg.textContent='Tento účet je zablokovaný'+(until?' do '+ycAccountMessageDate(until):'')+'.';msg.classList.add('error')} }catch(e){console.warn('account ban status',e)}
+  try{const state=await ycAdminInvoke({action:'self-status'});if(!state?.is_banned)return;const until=state.banned_until;try{await ycPrepareExplicitAuthExit();await sb.auth.signOut({scope:'local'})}catch{};showAuth();const msg=$('authMsg');if(msg){msg.textContent='Tento účet je zablokovaný'+(until?' do '+ycAccountMessageDate(until):'')+'.';msg.classList.add('error')} }catch(e){console.warn('account ban status',e)}
 }
 async function ycStartAccountMessages(){
   if(ycAccountMessagesSub){try{await sb.removeChannel(ycAccountMessagesSub)}catch{}ycAccountMessagesSub=null}
@@ -2659,9 +2759,6 @@ ycLinkDiscord=async function(){
 // The active-room voice_participants roster diff is authoritative.
 // Do not open a second global Postgres Changes listener or an auxiliary broadcast room.
 try{joinVoiceChannel=ycOriginalJoinVoiceChannel;leaveVoiceChannel=ycOriginalLeaveVoiceChannel;void ycVoiceUnsubscribeAnnouncement()}catch{}
-let ycVoiceNamesSub=null
-function ycEnsureVoiceNamesRealtime(){}
-async function ycStopVoiceNamesRealtime(){}
 
 
 // hover user profile cards
@@ -2670,7 +2767,7 @@ const ycHoverCache=new Map()
 function ycHoverEnsure(){if(ycHoverCard)return ycHoverCard;ycHoverCard=document.createElement('div');ycHoverCard.className='yc-user-hover-card';ycHoverCard.addEventListener('mouseenter',()=>{clearTimeout(ycHoverTimer);clearTimeout(ycHoverLeaveTimer)});ycHoverCard.addEventListener('mouseleave',e=>{if(ycHoverAnchor&&ycHoverAnchor.contains(e.relatedTarget))return;ycHoverLeaveTimer=setTimeout(ycHoverHide,500)});ycHoverCard.addEventListener('click',e=>{if(e.target.closest('button,a,input'))return;const uid=ycHoverCard.dataset.profileUser;if(uid){ycHoverHide();void openUserProfile(uid)}});document.body.appendChild(ycHoverCard);return ycHoverCard}
 function ycHoverHide(){clearTimeout(ycHoverTimer);clearTimeout(ycHoverLeaveTimer);ycHoverAnchor=null;if(ycHoverCard)ycHoverCard.classList.remove('show')}
 function ycHoverPosition(anchor){const card=ycHoverEnsure(),r=anchor.getBoundingClientRect();ycHoverAnchor=anchor;card.style.visibility='hidden';card.classList.add('show');const w=card.offsetWidth||310,h=Math.max(card.offsetHeight||0,280);let left=r.right+4,top=r.top;if(left+w>window.innerWidth-8)left=r.left-w-4;if(left<8)left=8;if(top+h>window.innerHeight-8)top=window.innerHeight-h-8;if(top<8)top=8;card.style.left=Math.round(left)+'px';card.style.top=Math.round(top)+'px';card.style.visibility='visible'}
-async function ycHoverLoad(uid){const cached=ycHoverCache.get(uid);if(cached&&Date.now()-cached.ts<20000)return cached.data;const [pr,sr,ur]=await Promise.all([sb.from('profiles').select('*').eq('id',uid).maybeSingle(),sb.from('profile_stats').select('user_id,xp,message_count').eq('user_id',uid).maybeSingle(),sb.from('user_presence').select('*').eq('user_id',uid).maybeSingle()]);if(!pr.data)return null;const data={p:pr.data,st:sr.data||{xp:0,message_count:0},pres:ur.data||null};ycHoverCache.set(uid,{ts:Date.now(),data});return data}
+async function ycHoverLoad(uid){const now=Date.now(),cached=ycHoverCache.get(uid);if(cached&&now-cached.ts<20000)return cached.data;if(cached)ycHoverCache.delete(uid);for(const [key,row] of [...ycHoverCache])if(now-Number(row?.ts||0)>=20000)ycHoverCache.delete(key);while(ycHoverCache.size>=128){const oldest=ycHoverCache.keys().next().value;if(oldest===undefined)break;ycHoverCache.delete(oldest)}const [pr,sr,ur]=await Promise.all([sb.from('profiles').select('*').eq('id',uid).maybeSingle(),sb.from('profile_stats').select('user_id,xp,message_count').eq('user_id',uid).maybeSingle(),sb.from('user_presence').select('*').eq('user_id',uid).maybeSingle()]);if(!pr.data)return null;const data={p:pr.data,st:sr.data||{xp:0,message_count:0},pres:ur.data||null};ycHoverCache.set(uid,{ts:Date.now(),data});return data}
 function ycHoverRender(data){const card=ycHoverEnsure();if(!data){card.dataset.profileUser='';card.innerHTML='<div class="yc-hover-loading">Profil není dostupný.</div>';return}const {p,st,pres}=data,state=ycPresenceState(pres),rank=rankForXP(st.xp),av=avatarUrl(p),discord=p.discord_username||'';card.dataset.profileUser=p.id||'';card.innerHTML='<div class="yc-hover-hero">'+(av?'<img class="yc-hover-avatar" src="'+esc(av)+'" alt="">':'<div class="yc-hover-avatar">'+esc(initials(p.display_name||p.username))+'</div>')+'<div class="yc-hover-main"><div class="yc-hover-name">'+esc(p.display_name||p.username)+'</div><div class="yc-hover-handle">@'+esc(p.username)+'</div><div class="yc-hover-status '+state+'">● '+esc(ycPresenceLabel(state))+'</div><div class="yc-hover-activity">'+esc(ycActivityFor(pres,p))+'</div></div></div><div class="yc-hover-body"><div class="yc-hover-grid"><div class="yc-hover-stat"><label>Rank</label><strong>'+esc(rank)+' · '+Number(st.xp||0)+' XP</strong></div><div class="yc-hover-stat"><label>Registrace</label><strong>'+esc(ycProfileCreated(p.created_at))+'</strong></div></div>'+(discord?'<div class="yc-hover-discord">Discord · '+esc(discord)+'</div>':'')+'<div class="yc-hover-bio">'+esc(p.bio||'Uživatel zatím nemá bio.')+'</div></div>'}
 async function ycHoverShow(anchor,uid){if(document.documentElement.dataset.ycUiMenuOpen==='1'||document.documentElement.dataset.ycContextPending==='1')return;const seq=++ycHoverSeq,card=ycHoverEnsure();card.innerHTML='<div class="yc-hover-loading">Načítám profil…</div>';ycHoverPosition(anchor);try{const data=await ycHoverLoad(uid);if(seq!==ycHoverSeq||document.documentElement.dataset.ycUiMenuOpen==='1'||document.documentElement.dataset.ycContextPending==='1')return;ycHoverRender(data)}catch(e){if(seq!==ycHoverSeq)return;card.innerHTML='<div class="yc-hover-loading">Profil se nepodařilo načíst.</div>'}}
 function ycHoverTarget(el){return el?.closest?.('[data-profile-user],.voice-user[data-user-id]')||null}
@@ -2900,7 +2997,7 @@ async function ycApplyVoiceQuality(channelId){const key=ycVoiceQualityFor(channe
 function ycOpenVoiceQuality(channelId){const current=ycVoiceQualityFor(channelId);$('modalRoot').innerHTML='<div class="modal-back"><div class="modal"><div class="modal-head"><h3>🎙 Kvalita hlasu kanálu</h3><button class="x" id="closeModal">×</button></div>'+Object.entries(YC_VOICE_QUALITY).map(([k,v])=>'<button class="yc-vq-choice '+(k===current?'active':'')+'" data-yc-vq="'+k+'"><span>🎧</span><span><strong>'+v.label+'</strong><small>'+v.desc+'</small></span></button>').join('')+'<div class="sub" style="margin-top:10px">Nastavení platí pro tvůj mikrofon v tomto kanálu. Data jsou bez síťové režie; odesílání roste s počtem příjemců. Skutečný bitrate řídí také síť.</div></div></div>';$('closeModal').onclick=closeModal;document.querySelectorAll('[data-yc-vq]').forEach(b=>b.onclick=async()=>{const map=ycVoiceQualityMap();map[channelId]=b.dataset.ycVq;localStorage.setItem('yc_voice_quality_by_channel',JSON.stringify(map));if(voiceChannel?.id===channelId)await ycApplyVoiceQuality(channelId);closeModal();toast('Kvalita hlasu: '+YC_VOICE_QUALITY[b.dataset.ycVq].label)})}
 /* voice-channel context menu is handled by Yamachat unified channel menu core */
 const ycBridgeJoinVoiceChannelQuality=joinVoiceChannel
-joinVoiceChannel=async function(...args){const out=await ycBridgeJoinVoiceChannelQuality.apply(this,args);if(voiceChannel?.id)setTimeout(()=>void ycApplyVoiceQuality(voiceChannel.id),250);return out}
+joinVoiceChannel=async function(...args){const out=await ycBridgeJoinVoiceChannelQuality.apply(this,args),channelId=voiceChannel?.id;if(channelId)setTimeout(()=>{if(String(voiceChannel?.id||'')===String(channelId))void ycApplyVoiceQuality(channelId)},250);return out}
 
 
 // small Cloudflare TURN data meter
@@ -2910,26 +3007,30 @@ function ycEnsureTurnUsagePanel(){
   const right=$("ycVoiceDockHost")||document.querySelector('.right');if(!right)return null
   let box=$('ycTurnUsage');if(box)return box
   box=document.createElement('div');box.id='ycTurnUsage';box.className='yc-turn-usage'+(ycTurnUsageOpen?' open':'');box.innerHTML='<button class="yc-turn-usage-head" id="ycTurnUsageToggle" type="button"><span class="yc-turn-usage-dot"></span><span class="yc-turn-usage-title" id="ycTurnUsageTitle">TURN data · načítám…</span><span class="yc-turn-usage-chevron">⌃</span></button><div class="yc-turn-usage-body" id="ycTurnUsageBody"><div class="yc-turn-bar"><div id="ycTurnUsageBar"></div></div><div id="ycTurnUsageStats"></div></div>';right.appendChild(box)
-  $('ycTurnUsageToggle').onclick=()=>{ycTurnUsageOpen=!box.classList.contains('open');box.classList.toggle('open',ycTurnUsageOpen);localStorage.setItem('yc_turn_usage_open',ycTurnUsageOpen?'1':'0')}
+  $('ycTurnUsageToggle').onclick=()=>{ycTurnUsageOpen=!box.classList.contains('open');box.classList.toggle('open',ycTurnUsageOpen);localStorage.setItem('yc_turn_usage_open',ycTurnUsageOpen?'1':'0');if(ycTurnUsageOpen)void ycRefreshTurnUsage()}
   return box
 }
-async function ycRefreshTurnUsage(){
-  if(!user)return
-  const box=ycEnsureTurnUsagePanel();if(!box)return;box.classList.add('loading')
+const YC_TURN_USAGE_REFRESH_MS=15*60*1000;
+let ycTurnUsageLastRefresh=0,ycTurnUsageRefreshBusy=false;
+async function ycRefreshTurnUsage(force=false){
+  if(!user||ycTurnUsageRefreshBusy||(!force&&document.hidden))return;
+  const now=Date.now();if(!force&&now-ycTurnUsageLastRefresh<YC_TURN_USAGE_REFRESH_MS)return;
+  const box=ycEnsureTurnUsagePanel();if(!box)return;ycTurnUsageRefreshBusy=true;box.classList.add('loading');
   try{
-    const {data,error}=await sb.functions.invoke('yamachat-turn-usage',{method:'GET'})
+    const {data,error}=await sb.functions.invoke('yamachat-turn-usage',{method:'GET'});
     if(error||!data?.ok){const detail=String(data?.detail||error?.message||'Analytics nedostupná');$('ycTurnUsageTitle').textContent='TURN data · nedostupná';$('ycTurnUsageBody').innerHTML='<div class="yc-turn-error">'+esc(/permission|auth|analytics/i.test(detail)?'Cloudflare token potřebuje Account Analytics.':'TURN statistika se teď nepodařila načíst.')+'</div>';return}
-    const t=data.turn||{},used=Number(t.usedGB||0),remaining=Number(t.remainingGB||0),limit=Number(t.limitGB||1000),pct=Math.max(0,Math.min(100,Number(t.percent||0)))
-    $('ycTurnUsageTitle').textContent='TURN · '+ycFmtGB(used)+' / '+Math.round(limit)+' GB'
-    const body=$('ycTurnUsageBody');body.innerHTML='<div class="yc-turn-bar"><div id="ycTurnUsageBar" style="width:'+pct.toFixed(2)+'%"></div></div><div class="yc-turn-stats"><div class="yc-turn-stat"><label>Zbývá</label><strong>'+ycFmtGB(remaining)+'</strong></div><div class="yc-turn-stat"><label>Využito</label><strong>'+pct.toFixed(2)+' %</strong></div></div><div class="yc-turn-foot">Cloudflare Realtime TURN · tento měsíc · aktualizace přibližně každou minutu</div>'
-  }catch(e){$('ycTurnUsageTitle').textContent='TURN data · nedostupná'}finally{box.classList.remove('loading')}
+    const t=data.turn||{},used=Number(t.usedGB||0),remaining=Number(t.remainingGB||0),limit=Number(t.limitGB||1000),pct=Math.max(0,Math.min(100,Number(t.percent||0)));
+    ycTurnUsageLastRefresh=Date.now();
+    $('ycTurnUsageTitle').textContent='TURN · '+ycFmtGB(used)+' / '+Math.round(limit)+' GB';
+    const body=$('ycTurnUsageBody');body.innerHTML='<div class="yc-turn-bar"><div id="ycTurnUsageBar" style="width:'+pct.toFixed(2)+'%"></div></div><div class="yc-turn-stats"><div class="yc-turn-stat"><label>Zbývá</label><strong>'+ycFmtGB(remaining)+'</strong></div><div class="yc-turn-stat"><label>Využito</label><strong>'+pct.toFixed(2)+' %</strong></div></div><div class="yc-turn-foot">Cloudflare Realtime TURN · tento měsíc · aktualizace přibližně každých 15 minut</div>';
+  }catch(e){$('ycTurnUsageTitle').textContent='TURN data · nedostupná'}finally{ycTurnUsageRefreshBusy=false;box.classList.remove('loading')}
 }
-function ycStartTurnUsage(){ycEnsureTurnUsagePanel();clearInterval(ycTurnUsageTimer);void ycRefreshTurnUsage();ycTurnUsageTimer=setInterval(()=>void ycRefreshTurnUsage(),60000)}
-function ycStopTurnUsage(){clearInterval(ycTurnUsageTimer);ycTurnUsageTimer=null;$('ycTurnUsage')?.remove()}
+function ycStartTurnUsage(){ycEnsureTurnUsagePanel();clearInterval(ycTurnUsageTimer);void ycRefreshTurnUsage();ycTurnUsageTimer=setInterval(()=>void ycRefreshTurnUsage(),YC_TURN_USAGE_REFRESH_MS)}
+function ycStopTurnUsage(){clearInterval(ycTurnUsageTimer);ycTurnUsageTimer=null;ycTurnUsageRefreshBusy=false;$('ycTurnUsage')?.remove()}
 ycOnLifecycle('init',()=>{ycStartTurnUsage()})
-ycOnLifecycle('beforeAuth',()=>{ycStopTurnUsage()})
+ycOnLifecycle('beforeAuth',()=>{ycStopTurnUsage();ycTurnUsageLastRefresh=0})
+document.addEventListener('visibilitychange',()=>{if(!document.hidden&&user)void ycRefreshTurnUsage()})
 if(user)ycStartTurnUsage()
-
 
 // selectable screen-share resolution / FPS / bitrate
 const YC_SCREEN_PROFILES={
@@ -2942,7 +3043,6 @@ const YC_SCREEN_PROFILES={
 }
 function ycScreenProfileKey(){const key=localStorage.getItem('yc_screen_profile')||'1080-60';return YC_SCREEN_PROFILES[key]?key:'1080-60'}
 function ycScreenShareProfile(){return YC_SCREEN_PROFILES[ycScreenProfileKey()]}
-function ycScreenMbpsText(){return (ycScreenShareProfile().bitrate/1000000).toFixed(1).replace('.0','')+' Mb/s'}
 async function ycApplyScreenProfile(){
  const cfg=ycScreenShareProfile(),track=screenShareStream?.getVideoTracks?.()[0]
  if(track){try{await track.applyConstraints({width:{ideal:cfg.width},height:{ideal:cfg.height},frameRate:{ideal:cfg.fps,max:cfg.fps}})}catch(e){console.warn('screen constraints',e)}}
@@ -3176,11 +3276,12 @@ window.__ycScreenAudioTracks=window.__ycScreenAudioTracks||new Map()
 function ycScreenAudioWanted(){return localStorage.getItem('yc_screen_audio')!=='0'}
 function ycCurrentScreenAudioTrack(){try{return screenShareActive&&ycScreenAudioWanted()?screenShareStream?.getAudioTracks?.().find(t=>t.readyState==='live')||null:null}catch{return null}}
 function ycScreenAudioStoredVolume(peerId){try{const map=JSON.parse(localStorage.getItem('yc_stream_volume_by_user_safe_v1')||'{}')||{},n=Number(map[String(peerId)]);return Number.isFinite(n)?Math.max(0,Math.min(1,n)):1}catch{return 1}}
-function ycScheduleScreenAudioNegotiation(peerId){if(peerId)ycScreenAudioNegotiationPeers.add(peerId);clearTimeout(ycScreenAudioNegotiationTimer);ycScreenAudioNegotiationTimer=setTimeout(async()=>{const ids=[...ycScreenAudioNegotiationPeers];ycScreenAudioNegotiationPeers.clear();for(const id of ids){try{if(typeof ycRenegotiateScreenPeer==='function')await ycRenegotiateScreenPeer(id)}catch(e){console.warn('screen audio renegotiate',id,e)}}},140)}
+function ycScheduleScreenAudioNegotiation(peerId){if(peerId)ycScreenAudioNegotiationPeers.add(peerId);clearTimeout(ycScreenAudioNegotiationTimer);ycScreenAudioNegotiationTimer=setTimeout(async()=>{ycScreenAudioNegotiationTimer=null;const ids=[...ycScreenAudioNegotiationPeers];ycScreenAudioNegotiationPeers.clear();for(const id of ids){try{if(typeof ycRenegotiateScreenPeer==='function')await ycRenegotiateScreenPeer(id)}catch(e){console.warn('screen audio renegotiate',id,e)}}},140)}
 function ycRemoveScreenAudioElement(peerId){try{const a=window.__ycScreenAudioEls.get(peerId);if(a){a.pause();a.srcObject=null;a.remove()}window.__ycScreenAudioEls.delete(peerId)}catch{}}
 function ycForgetScreenAudioTrack(peerId){ycRemoveScreenAudioElement(peerId);try{window.__ycScreenAudioTracks.delete(peerId)}catch{}}
 function ycAttachExistingScreenAudioReceiver(peerId){try{const track=window.__ycScreenAudioTracks.get(peerId);if(track&&track.readyState==='live')ycAttachRemoteScreenAudio(peerId,track)}catch{}}
 async function ycResetScreenAudioSenders(){
+ clearTimeout(ycScreenAudioNegotiationTimer);ycScreenAudioNegotiationTimer=null;ycScreenAudioNegotiationPeers.clear()
  const pending=[]
  for(const [peerId,sender] of [...ycScreenAudioSenders]){
   const pc=voicePeers?.get?.(peerId)
@@ -3256,14 +3357,12 @@ async function ycEnsureScreenAudio(){
  }finally{ycScreenAudioBusy=false}
  for(const peerId of negotiatePeers)ycScheduleScreenAudioNegotiation(peerId)
 }
-function ycSyncScreenAudioVolumes(){for(const [peerId,a] of window.__ycScreenAudioEls){try{const v=ycScreenAudioStoredVolume(peerId);a.volume=v;a.muted=v<=0}catch{}}}
 setInterval(()=>{if(voiceChannel&&(screenShareActive||screenWatchingByUser.size||screenShareViewers.size))void ycEnsureScreenAudio()},900)
-setInterval(()=>{if(window.__ycScreenAudioEls?.size)ycSyncScreenAudioVolumes()},300)
 setTimeout(()=>void ycEnsureScreenAudio(),100)
 
 // community-wide stream discovery + lightweight preview.
 const ycCommunityStreams=new Map()
-let ycCommunityStreamSub=null,ycCommunityStreamPollTimer=null,ycCommunityStreamLoadBusy=null,ycStreamPresenceTimer=null,ycStreamPreviewTimer=null
+let ycCommunityStreamSub=null,ycCommunityStreamPollTimer=null,ycCommunityStreamLoadBusy=null,ycStreamPresenceTimer=null,ycStreamPreviewTimer=null,ycStreamPublishEpoch=0,ycStreamPublishQueue=Promise.resolve(),ycStreamPresenceClearedUserId=''
 function ycStreamPresenceFresh(row){if(!row?.updated_at)return false;const age=Date.now()-new Date(row.updated_at).getTime();return Number.isFinite(age)&&age<50000}
 function ycStreamInfo(uid){const row=ycCommunityStreams.get(String(uid));if(row&&!ycStreamPresenceFresh(row)){ycCommunityStreams.delete(String(uid));return null}return row||null}
 async function ycLoadCommunityStreams(){
@@ -3289,27 +3388,58 @@ async function ycStopCommunityStreamWatch(){
   const ch=ycCommunityStreamSub;ycCommunityStreamSub=null;if(ch)try{await sb.removeChannel(ch)}catch{}
 }
 async function ycStartCommunityStreamWatch(){
-  await ycStopCommunityStreamWatch();await ycLoadCommunityStreams();if(!currentCommunity?.id)return;const cid=String(currentCommunity.id)
+  await ycStopCommunityStreamWatch();if(!currentCommunity?.id){ycCommunityStreams.clear();renderVoiceChannels(voiceChannelDefs);return}const cid=String(currentCommunity.id)
   const removeStream=key=>{ycCommunityStreams.delete(key);if(screenWatchingByUser.has(key)){screenWatchingByUser.delete(key);screenWatchPendingByUser.delete(key);remoteScreenStreams.delete(key);try{ycRemoveScreenAudioElement(key)}catch{}ycSyncStreamViewer()}renderVoiceChannels(voiceChannelDefs)}
-  ycCommunityStreamSub=sb.channel('yc-community-streams-'+cid+'-'+Date.now())
+  const sub=sb.channel('yc-community-streams-'+cid+'-'+Date.now())
     .on('postgres_changes',{event:'INSERT',schema:'public',table:'community_stream_presence',filter:'community_id=eq.'+cid},payload=>{const row=payload.new;if(!row?.user_id||!ycStreamPresenceFresh(row))return;ycCommunityStreams.set(String(row.user_id),row);renderVoiceChannels(voiceChannelDefs)})
     .on('postgres_changes',{event:'DELETE',schema:'public',table:'community_stream_presence'},payload=>{const row=payload.old;if(!row?.user_id||String(row.community_id||'')!==cid)return;removeStream(String(row.user_id))})
-    .subscribe()
-  ycCommunityStreamPollTimer=setInterval(()=>{if(String(currentCommunity?.id||'')===cid)void ycLoadCommunityStreams()},20000)
+  ycCommunityStreamSub=sub
+  sub.subscribe(status=>{if(String(currentCommunity?.id||'')!==cid)return;if(status==='SUBSCRIBED'){void ycLoadCommunityStreams();return}if(['CHANNEL_ERROR','TIMED_OUT','CLOSED'].includes(status)&&ycCommunityStreamSub===sub){ycCommunityStreamSub=null;try{void sb.removeChannel(sub)}catch{}}})
+  await ycLoadCommunityStreams()
+  ycCommunityStreamPollTimer=setInterval(()=>{if(String(currentCommunity?.id||'')!==cid)return;if(!ycCommunityStreamSub){void ycStartCommunityStreamWatch();return}if(ycCommunityStreams.size)void ycLoadCommunityStreams()},20000)
 }
 function ycClearStreamPublishTimers(){if(ycStreamPresenceTimer){clearInterval(ycStreamPresenceTimer);ycStreamPresenceTimer=null}if(ycStreamPreviewTimer){clearInterval(ycStreamPreviewTimer);ycStreamPreviewTimer=null}}
 async function ycCaptureStreamPreviewData(){
   try{const stream=screenShareStream,track=stream?.getVideoTracks?.()[0];if(!screenShareActive||!track||track.readyState!=='live')return null;const v=document.createElement('video');v.muted=true;v.playsInline=true;v.srcObject=stream;try{await v.play()}catch{};for(let i=0;i<12&&!v.videoWidth;i++)await new Promise(r=>setTimeout(r,80));if(!v.videoWidth||!v.videoHeight){v.srcObject=null;return null}const c=document.createElement('canvas');c.width=320;c.height=180;const ctx=c.getContext('2d');if(!ctx){v.srcObject=null;return null}ctx.fillStyle='#071019';ctx.fillRect(0,0,c.width,c.height);const scale=Math.min(c.width/v.videoWidth,c.height/v.videoHeight),dw=Math.max(1,Math.round(v.videoWidth*scale)),dh=Math.max(1,Math.round(v.videoHeight*scale)),dx=Math.round((c.width-dw)/2),dy=Math.round((c.height-dh)/2);ctx.drawImage(v,dx,dy,dw,dh);v.srcObject=null;return c.toDataURL('image/jpeg',.5)}catch(e){console.warn('stream preview capture',e);return null}
 }
 async function ycPublishStreamPresence(initial=false,withPreview=false){
-  const ycVoiceCommunity=voiceChannel?.community_id||voiceChannel?.communityId||currentCommunity?.id;if(!screenShareActive||!user?.id||!ycVoiceCommunity||!voiceChannel?.id)return;const now=new Date().toISOString(),row={user_id:user.id,community_id:ycVoiceCommunity,channel_id:voiceChannel.id,updated_at:now};if(initial){row.started_at=now;row.preview_data=null}if(withPreview){const p=await ycCaptureStreamPreviewData();if(p)row.preview_data=p}
-  try{const {data,error}=await sb.from('community_stream_presence').upsert(row,{onConflict:'user_id'}).select().maybeSingle();if(error)throw error;if(data)ycCommunityStreams.set(String(user.id),data);renderVoiceChannels(voiceChannelDefs)}catch(e){console.warn('stream presence publish',e)}
+  const epoch=ycStreamPublishEpoch,uid=String(user?.id||''),streamRef=screenShareStream,communityId=String(voiceChannel?.community_id||voiceChannel?.communityId||currentCommunity?.id||''),channelId=String(voiceChannel?.id||'');
+  if(!screenShareActive||!uid||!streamRef||!communityId||!channelId)return false;
+  const owns=()=>epoch===ycStreamPublishEpoch&&screenShareActive&&screenShareStream===streamRef&&String(user?.id||'')===uid&&String(voiceChannel?.id||'')===channelId;
+  const run=async()=>{
+    if(!owns())return false;
+    const now=new Date().toISOString(),row={user_id:uid,community_id:communityId,channel_id:channelId,updated_at:now};
+    if(initial){row.started_at=now;row.preview_data=null}
+    if(withPreview){const p=await ycCaptureStreamPreviewData();if(!owns())return false;if(p)row.preview_data=p}
+    if(!owns())return false;
+    try{
+      const {data,error}=await sb.from('community_stream_presence').upsert(row,{onConflict:'user_id'}).select().maybeSingle();
+      if(error)throw error;
+      if(!owns())return false;
+      if(data){ycStreamPresenceClearedUserId='';ycCommunityStreams.set(uid,data)}renderVoiceChannels(voiceChannelDefs);return true;
+    }catch(e){if(owns())console.warn('stream presence publish',e);return false}
+  };
+  const task=ycStreamPublishQueue.catch(()=>{}).then(run);
+  ycStreamPublishQueue=task.catch(()=>{});
+  return task;
 }
 async function ycStartGlobalStreamPresence(){
-  ycClearStreamPublishTimers();await ycPublishStreamPresence(true,false);setTimeout(()=>{if(screenShareActive)void ycPublishStreamPresence(false,true)},450);ycStreamPresenceTimer=setInterval(()=>{if(screenShareActive)void ycPublishStreamPresence(false,false)},12000);ycStreamPreviewTimer=setInterval(()=>{if(screenShareActive)void ycPublishStreamPresence(false,true)},15000)
+  const epoch=++ycStreamPublishEpoch;ycStreamPresenceClearedUserId='';ycClearStreamPublishTimers();
+  await ycPublishStreamPresence(true,false);
+  if(epoch!==ycStreamPublishEpoch||!screenShareActive)return;
+  setTimeout(()=>{if(epoch===ycStreamPublishEpoch&&screenShareActive)void ycPublishStreamPresence(false,true)},450);
+  ycStreamPresenceTimer=setInterval(()=>{if(epoch===ycStreamPublishEpoch&&screenShareActive)void ycPublishStreamPresence(false,false)},12000);
+  ycStreamPreviewTimer=setInterval(()=>{if(epoch===ycStreamPublishEpoch&&screenShareActive)void ycPublishStreamPresence(false,true)},15000);
 }
-async function ycStopGlobalStreamPresence(){ycClearStreamPublishTimers();if(user?.id){try{await sb.from('community_stream_presence').delete().eq('user_id',user.id)}catch{}}ycCommunityStreams.delete(String(user?.id||''));renderVoiceChannels(voiceChannelDefs)}
-ycOnLifecycle('init',async()=>{try{if(user?.id&&!screenShareActive)await sb.from('community_stream_presence').delete().eq('user_id',user.id)}catch{};await ycStartCommunityStreamWatch()})
+async function ycStopGlobalStreamPresence(ownerUserId=user?.id){
+  const uid=String(ownerUserId||'');++ycStreamPublishEpoch;ycClearStreamPublishTimers();
+  try{await ycStreamPublishQueue}catch{}
+  if(uid&&ycStreamPresenceClearedUserId!==uid){
+    try{const {error}=await sb.from('community_stream_presence').delete().eq('user_id',uid);if(!error)ycStreamPresenceClearedUserId=uid}catch{}
+  }
+  if(uid)ycCommunityStreams.delete(uid);renderVoiceChannels(voiceChannelDefs);
+}
+ycOnLifecycle('init',async()=>{ycStreamPresenceClearedUserId='';try{if(user?.id&&!screenShareActive){const {error}=await sb.from('community_stream_presence').delete().eq('user_id',user.id);if(!error)ycStreamPresenceClearedUserId=String(user.id)}}catch{};await ycStartCommunityStreamWatch()})
 ycOnLifecycle('beforeCommunity',()=>{void ycStopCommunityStreamWatch();ycCommunityStreams.clear()})
 ycOnLifecycle('community',()=>{void ycStartCommunityStreamWatch()})
 ycOnLifecycle('beforeAuth',()=>{void ycStopCommunityStreamWatch();void ycStopGlobalStreamPresence()})
@@ -3464,51 +3594,6 @@ async function ycWaitForStreamVoicePeer(peerId,targetId,timeoutMs=12000){
   }
   return false
 }
-// SAME VOICE STREAM FIX v3.0.18 — refresh the existing peer video negotiation before watch-on-demand.
-async function ycPrimeExistingVoiceForStream(peerId,targetId){
-  if(!voiceChannel||String(voiceChannel.id)!==String(targetId))return false
-  let pc=voicePeers.get(peerId)
-  if(!pc){try{pc=voicePeer(peerId)}catch{} }
-  if(!pc||pc.connectionState==='closed')return false
-  let sender=voiceScreenSenders.get(peerId)
-  if(!sender){
-    try{const tx=pc.addTransceiver('video',{direction:'sendrecv'});sender=tx.sender;voiceScreenSenders.set(peerId,sender)}catch(e){console.warn('stream prime transceiver',e)}
-  }
-  if(!sender)return false
-  try{
-    for(let i=0;i<12&&pc.signalingState!=='stable';i++)await new Promise(r=>setTimeout(r,100))
-    if(pc.signalingState==='stable'&&pc.connectionState!=='closed'){
-      const offer=await pc.createOffer()
-      await pc.setLocalDescription(offer)
-      await sendVoiceSignal(peerId,{signal_type:'offer',sdp:pc.localDescription,stream_prime:true})
-      for(let i=0;i<24&&pc.signalingState!=='stable';i++)await new Promise(r=>setTimeout(r,100))
-    }
-  }catch(e){console.warn('stream prime negotiation',peerId,e)}
-  const ready=pc.connectionState==='connected'||pc.iceConnectionState==='connected'||pc.iceConnectionState==='completed'
-  return !!ready
-}
-async function ycRebuildVoicePeerForStream(peerId,targetId){
-  if(!voiceChannel||String(voiceChannel.id)!==String(targetId)||!peerId)return false;
-  try{
-    // Rebuild only this RTCPeerConnection. Do not leave voice, stop the mic, or touch other peers.
-    if(voicePeers.has(peerId))closeVoicePeer(peerId);
-    await new Promise(r=>setTimeout(r,80));
-    const pc=voicePeer(peerId);
-    const offer=await pc.createOffer();
-    await pc.setLocalDescription(offer);
-    await sendVoiceSignal(peerId,{signal_type:'offer',sdp:pc.localDescription,stream_rebuild:true});
-    const started=Date.now();
-    while(Date.now()-started<7000){
-      if(!voiceChannel||String(voiceChannel.id)!==String(targetId))return false;
-      const cur=voicePeers.get(peerId);
-      if(cur&&(cur.connectionState==='connected'||cur.iceConnectionState==='connected'||cur.iceConnectionState==='completed'))return true;
-      await new Promise(r=>setTimeout(r,120));
-    }
-  }catch(e){console.warn('same voice stream peer rebuild',peerId,e)}
-  return false;
-}
-
-
 const ycViewerHandleVoiceSignal=handleVoiceSignal
 handleVoiceSignal=async function(msg){
   if(voiceChannel&&msg&&msg.to===user.id&&msg.channel_id===voiceChannel.id&&msg.from!==user.id&&msg.signal_type==='screen-watch'){
@@ -3571,7 +3656,9 @@ async function ycWinPermission(){
 async function ycWinCached(kind,id,loader){
  const key=kind+':'+id
  if(ycWinNotifyCache.has(key))return ycWinNotifyCache.get(key)
- const value=await loader();ycWinNotifyCache.set(key,value);return value
+ const value=await loader()
+ if(ycWinNotifyCache.size>=256){const oldest=ycWinNotifyCache.keys().next().value;if(oldest!==undefined)ycWinNotifyCache.delete(oldest)}
+ ycWinNotifyCache.set(key,value);return value
 }
 async function ycWinProfile(id){
  return ycWinCached('profile',id,async()=>{const {data}=await sb.from('profiles').select('*').eq('id',id).maybeSingle();return data||null})
@@ -3676,11 +3763,17 @@ async function ycStartWinNotifications(){
 async function ycStopWinNotifications(){const ch=ycWinNotifySub;ycWinNotifySub=null;if(ch)try{await sb.removeChannel(ch)}catch{}}
 ycOnLifecycle('init',()=>{void ycStartWinNotifications()})
 ycOnLifecycle('beforeAuth',()=>{void ycStopWinNotifications()})
+ycOnLifecycle('beforeAuth',()=>{
+ clearTimeout(ycChatScrollSaveTimer);ycChatScrollSaveTimer=null;
+ ycChatScrollMemory.clear();ycChatLastRendered.clear();ycLastGoodChannelsByCommunity.clear();
+ ycHoverCache.clear();ycHoverHide();ycWinNotifyCache.clear();
+ ycPresenceRowsByUser.clear();ycPresenceRenderedStateByUser.clear();ycVisibleMemberIds.clear();
+})
 setTimeout(()=>{if(user)void ycStartWinNotifications()},1200)
 
 
 
-let ycWnsRegistering=false,ycWnsLastRegisteredAt=0;
+let ycWnsRegistering=false,ycWnsLastRegisteredAt=0,ycWnsEndpoint='',ycWnsGeneration=0;
 window.__ycWnsActive=false;
 
 function ycWnsDesktopRequest(action){
@@ -3699,9 +3792,17 @@ function ycWnsDesktopRequest(action){
   });
 }
 
+async function ycWnsUnregisterEndpoint(endpoint,access){
+  const value=String(endpoint||'').trim();if(!value||!access)return false;
+  const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),3000);
+  try{const response=await fetch(SUPABASE_URL+'/functions/v1/yamachat-source/push',{method:'POST',signal:controller.signal,headers:{'Content-Type':'application/json','Authorization':'Bearer '+access,'apikey':SUPABASE_KEY},body:JSON.stringify({action:'unregister',endpoint:value})});return response.ok}
+  catch(e){if(e?.name!=='AbortError')console.warn('Windows WNS detach',e);return false}
+  finally{clearTimeout(timer)}
+}
 async function ycRegisterWindowsWnsPush(force=false){
   if(!user?.id||ycWnsRegistering)return false;
   if(!force&&window.__ycWnsActive&&Date.now()-ycWnsLastRegisteredAt<6*60*60*1000)return true;
+  const ownerId=String(user.id),generation=ycWnsGeneration;
   ycWnsRegistering=true;
   try{
     const channel=await ycWnsDesktopRequest('get-wns-channel');
@@ -3709,6 +3810,7 @@ async function ycRegisterWindowsWnsPush(force=false){
       window.__ycWnsActive=false;
       return false;
     }
+    if(generation!==ycWnsGeneration||String(user?.id||'')!==ownerId)return false;
     const {data}=await sb.auth.getSession();
     const token=data?.session?.access_token||'';
     if(!token){window.__ycWnsActive=false;return false;}
@@ -3725,7 +3827,9 @@ async function ycRegisterWindowsWnsPush(force=false){
       })
     });
     if(!response.ok)throw new Error('WNS subscription HTTP '+response.status);
-    window.__ycWnsActive=true;
+    const endpoint=String(channel.channelUri);
+    if(generation!==ycWnsGeneration||String(user?.id||'')!==ownerId){await ycWnsUnregisterEndpoint(endpoint,token);return false}
+    ycWnsEndpoint=endpoint;window.__ycWnsActive=true;
     ycWnsLastRegisteredAt=Date.now();
     return true;
   }catch(e){
@@ -3736,9 +3840,17 @@ async function ycRegisterWindowsWnsPush(force=false){
     ycWnsRegistering=false;
   }
 }
+async function ycDetachWindowsWnsPush(){
+  ++ycWnsGeneration;
+  const endpoint=ycWnsEndpoint;ycWnsEndpoint='';window.__ycWnsActive=false;ycWnsLastRegisteredAt=0;
+  if(!endpoint)return false;
+  try{const {data}=await sb.auth.getSession(),access=data?.session?.access_token;if(!access)return false;return await ycWnsUnregisterEndpoint(endpoint,access)}catch{return false}
+}
+const ycPreviousPushDetach=window.ycDetachPushBeforeLogout;
+window.ycDetachPushBeforeLogout=async()=>{try{await ycPreviousPushDetach?.()}catch{};await ycDetachWindowsWnsPush()};
 
 ycOnLifecycle('init',()=>setTimeout(()=>void ycRegisterWindowsWnsPush(true),900));
-ycOnLifecycle('beforeAuth',()=>{window.__ycWnsActive=false;ycWnsLastRegisteredAt=0});
+ycOnLifecycle('beforeAuth',()=>{ycWnsGeneration++;ycWnsEndpoint='';window.__ycWnsActive=false;ycWnsLastRegisteredAt=0});
 window.addEventListener('online',()=>setTimeout(()=>void ycRegisterWindowsWnsPush(false),1200));
 setInterval(()=>{if(user?.id)void ycRegisterWindowsWnsPush(false)},60*60*1000);
 
@@ -3756,7 +3868,7 @@ restartVoiceInput=async function(...args){
 
 
 // global notification center
-let ycNotifyItems=[],ycNotifyReadKeys=new Set(),ycNotifyFriendSub=null,ycNotifyRefreshTimer=null
+let ycNotifyItems=[],ycNotifyReadKeys=new Set(),ycNotifyRefreshTimer=null
 function ycNotifyCountLabel(n){n=Number(n||0);return n>99?'99+':String(n)}
 function ycEnsureNotifyUi(){
  const profileBtn=$('profileBtn');if(!profileBtn)return false
@@ -3769,17 +3881,17 @@ function ycEnsureNotifyUi(){
 function ycNotifyTime(v){try{return new Intl.DateTimeFormat('cs-CZ',{day:'numeric',month:'numeric',hour:'2-digit',minute:'2-digit'}).format(new Date(v))}catch{return''}}
 async function ycLoadNotifyReadKeys(){if(!user?.id){ycNotifyReadKeys=new Set();return}try{const {data}=await sb.from('user_notification_reads').select('event_key').eq('user_id',user.id);ycNotifyReadKeys=new Set((data||[]).map(x=>x.event_key))}catch(e){console.warn('notification reads',e)}}
 async function ycBuildNotificationItems(){
- if(!user?.id)return[]
+ const uid=String(user?.id||'');if(!uid)return[]
  const items=[]
  for(const t of dmThreads||[]){const n=Number(ycDmUnreadByThread?.[t.id]||0);if(n>0)items.push({key:'dm:'+t.id,type:'dm',threadId:t.id,unread:true,count:n,icon:'💬',title:t.peer?.display_name||t.peer?.username||'Soukromá zpráva',text:n===1?'1 nová zpráva':n+' nové zprávy',time:''})}
  try{
-  const {data:fr}=await sb.from('friendships').select('*').or('requester_id.eq.'+user.id+',addressee_id.eq.'+user.id).order('updated_at',{ascending:false}).limit(60)
-  const rows=fr||[],otherIds=[...new Set(rows.map(x=>x.requester_id===user.id?x.addressee_id:x.requester_id))];let ps=[];if(otherIds.length){const {data}=await sb.from('profiles').select('id,username,display_name').in('id',otherIds);ps=data||[]}const pm=Object.fromEntries(ps.map(p=>[p.id,p]))
+  const {data:fr}=await sb.from('friendships').select('*').or('requester_id.eq.'+uid+',addressee_id.eq.'+uid).order('updated_at',{ascending:false}).limit(60)
+  const rows=fr||[],otherIds=[...new Set(rows.map(x=>x.requester_id===uid?x.addressee_id:x.requester_id))];let ps=[];if(otherIds.length){const {data}=await sb.from('profiles').select('id,username,display_name').in('id',otherIds);ps=data||[]}const pm=Object.fromEntries(ps.map(p=>[p.id,p]))
   for(const f of rows){
-   const incoming=f.status==='pending'&&f.addressee_id===user.id
-   const acceptedMine=f.status==='accepted'&&f.requester_id===user.id
+   const incoming=f.status==='pending'&&f.addressee_id===uid
+   const acceptedMine=f.status==='accepted'&&f.requester_id===uid
    if(!incoming&&!acceptedMine)continue
-   const otherId=f.requester_id===user.id?f.addressee_id:f.requester_id,p=pm[otherId]||{username:'Uživatel'},name=p.display_name||p.username
+   const otherId=f.requester_id===uid?f.addressee_id:f.requester_id,p=pm[otherId]||{username:'Uživatel'},name=p.display_name||p.username
    const stamp=f.updated_at||f.created_at||''
    const key=(incoming?'friend-request:':'friend-accepted:')+otherId+':'+stamp
    const unread=!ycNotifyReadKeys.has(key)
@@ -3813,13 +3925,13 @@ function ycPositionNotifyPanel(){
 }
 async function ycToggleNotifyPanel(){if(!ycEnsureNotifyUi())return;const p=$('ycNotifyPanel'),opening=p.classList.contains('hidden');if(opening){await ycRefreshNotificationCenter();ycPositionNotifyPanel();p.classList.remove('hidden')}else p.classList.add('hidden')}
 window.addEventListener('resize',()=>{const p=$('ycNotifyPanel');if(p&&!p.classList.contains('hidden'))ycPositionNotifyPanel()})
-async function ycStartFriendNotificationSub(){if(!user?.id)return;if(ycNotifyFriendSub){try{await sb.removeChannel(ycNotifyFriendSub)}catch{}ycNotifyFriendSub=null}ycNotifyFriendSub=sb.channel('yc-notify-friends-'+user.id+'-'+Date.now()).on('postgres_changes',{event:'*',schema:'public',table:'friendships'},payload=>{const r=payload.new||payload.old||{};if(r.requester_id===user.id||r.addressee_id===user.id)void ycRefreshNotificationCenter()}).subscribe()}
-async function ycStopFriendNotificationSub(){const ch=ycNotifyFriendSub;ycNotifyFriendSub=null;if(ch)try{await sb.removeChannel(ch)}catch{}}
+
+
 const ycBridgeUpdateDmBadgeNotifications=ycUpdateDmBadge
 ycUpdateDmBadge=function(...args){const out=ycBridgeUpdateDmBadgeNotifications.apply(this,args);void ycRefreshNotificationCenter();return out}
-ycOnLifecycle('init',async()=>{ycEnsureNotifyUi();await ycRefreshNotificationCenter();await ycStartFriendNotificationSub()})
-ycOnLifecycle('beforeAuth',()=>{void ycStopFriendNotificationSub();$('ycNotifyPanel')?.remove();$('ycNotifyBtn')?.remove();ycNotifyItems=[];ycNotifyReadKeys=new Set()})
-setTimeout(()=>{ycEnsureNotifyUi();if(user){void ycRefreshNotificationCenter();void ycStartFriendNotificationSub()}},900)
+ycOnLifecycle('init',async()=>{ycEnsureNotifyUi();await ycRefreshNotificationCenter()})
+ycOnLifecycle('beforeAuth',()=>{$('ycNotifyPanel')?.remove();$('ycNotifyBtn')?.remove();ycNotifyItems=[];ycNotifyReadKeys=new Set()})
+setTimeout(()=>{ycEnsureNotifyUi();if(user)void ycRefreshNotificationCenter()},900)
 
 
 
@@ -3832,7 +3944,7 @@ function ycComposerInsertText(text,start=null,end=null){const input=$('messageIn
 function ycComposerSetPendingFile(file){if(!file)return;if(file.size>50*1024*1024){toast('Maximální velikost souboru je 50 MB.',true);return}pendingFile=file;const pf=$('pendingFile');if(pf){pf.textContent='Příloha: '+file.name+' ('+Math.ceil(file.size/1024)+' KB)';pf.classList.remove('hidden')}}
 async function ycLoadComposerCommunityData(){
   ycComposerMembers=[];ycCommunityEmojis=[];ycCommunityEmojiMap={};if(!currentCommunity)return;
-  try{const {data:mem}=await sb.from('community_members').select('user_id').eq('community_id',currentCommunity.id);const ids=(mem||[]).map(x=>x.user_id);if(ids.length){const {data:ps}=await sb.from('profiles').select('id,username,display_name,avatar_path,avatar_url').in('id',ids);ycComposerMembers=(ps||[]).sort((a,b)=>String(a.display_name||a.username).localeCompare(String(b.display_name||b.username),'cs'))}}catch(e){console.warn('mention member cache',e)}
+  try{const {data:mem}=await sb.from('community_members').select('user_id').eq('community_id',currentCommunity.id);const ids=(mem||[]).map(x=>x.user_id);if(ids.length){const {data:ps}=await sb.from('profiles').select('id,username,display_name,avatar_path,discord_avatar_url,use_discord_avatar').in('id',ids);ycComposerMembers=(ps||[]).sort((a,b)=>String(a.display_name||a.username).localeCompare(String(b.display_name||b.username),'cs'))}}catch(e){console.warn('mention member cache',e)}
   try{const {data:rows}=await sb.from('community_emojis').select('id,name,storage_path,uploaded_by,created_at').eq('community_id',currentCommunity.id).order('name');ycCommunityEmojis=(rows||[]).map(x=>{const {data}=sb.storage.from('community-assets').getPublicUrl(x.storage_path);return{...x,url:data?.publicUrl||''}});ycCommunityEmojiMap=Object.fromEntries(ycCommunityEmojis.filter(x=>x.url).map(x=>[String(x.name).toLowerCase(),x]))}catch(e){console.warn('community emoji cache',e)}
   try{ycRenderMentions()}catch{}
 }
@@ -4424,7 +4536,6 @@ if(!window.__ycDesktopVoiceWake1032){
     try{
       if(!voiceChannel||!user)return;
       try{await syncVoiceParticipantRow()}catch{}
-      try{if(voiceChannel?.id)void refreshVoiceParticipants(voiceChannel.id)}catch{}
       const t=voiceStream?.getAudioTracks?.()[0]||null;
       if(t&&t.readyState==='live'){
         t.enabled=!voiceMuted&&!voiceDeafened&&!ycMicTestVoiceHold;
@@ -4502,23 +4613,27 @@ window.ycSaveServerHeaderBackground = async (id, background) => {
   ycHeaderBackgrounds.set(String(id), background);
   window.parent.decorateDesktopServerCards?.();
 };
-let ycHeadersLoading = false;
-async function ycRefreshSharedHeaders() {
-  if(!user?.id || ycHeadersLoading) return;
-  ycHeadersLoading = true;
+const YC_SHARED_HEADERS_REFRESH_MS=5*60*1000;
+let ycHeadersLoading=false,ycHeadersLastRefresh=0;
+async function ycRefreshSharedHeaders(force=false) {
+  if(!user?.id||ycHeadersLoading||(!force&&document.hidden))return;
+  const now=Date.now();if(!force&&now-ycHeadersLastRefresh<YC_SHARED_HEADERS_REFRESH_MS)return;
+  ycHeadersLoading=true;
   try {
-    const {data,error} = await sb.from('desktop_server_headers').select('community_id,background_data');
-    if(error) throw error;
+    const {data,error}=await sb.from('desktop_server_headers').select('community_id,background_data');
+    if(error)throw error;
     ycHeaderBackgrounds.clear();
-    for(const row of data||[]) ycHeaderBackgrounds.set(String(row.community_id), row.background_data);
+    for(const row of data||[])ycHeaderBackgrounds.set(String(row.community_id),row.background_data);
+    ycHeadersLastRefresh=Date.now();
     window.parent.decorateDesktopServerCards?.();
   } catch(e) { console.warn('Server header sync',e); }
-  finally { ycHeadersLoading = false; }
+  finally { ycHeadersLoading=false; }
 }
-ycOnLifecycle('init',ycRefreshSharedHeaders);
-ycOnLifecycle('community',ycRefreshSharedHeaders);
-ycOnLifecycle('beforeAuth',()=>ycHeaderBackgrounds.clear());
-setInterval(()=>{if(!document.hidden)void ycRefreshSharedHeaders()},30000);
+ycOnLifecycle('init',()=>{void ycRefreshSharedHeaders()});
+ycOnLifecycle('community',()=>{void ycRefreshSharedHeaders()});
+ycOnLifecycle('beforeAuth',()=>{ycHeaderBackgrounds.clear();ycHeadersLastRefresh=0});
+setInterval(()=>{if(!document.hidden)void ycRefreshSharedHeaders()},YC_SHARED_HEADERS_REFRESH_MS);
+document.addEventListener('visibilitychange',()=>{if(!document.hidden&&user)void ycRefreshSharedHeaders()});
 void ycRefreshSharedHeaders();
 
 async function ycOpenStreamFromUser(uid) {
@@ -4747,19 +4862,23 @@ async function ycRefreshChannelsSecure(){
   return all;
 }
 const ycHiddenBaseSubscribeCommunityRealtime=subscribeCommunityRealtime;
+function ycStopHiddenChannelRealtime(){const ch=ycHiddenChannelSub;ycHiddenChannelSub=null;if(ch)try{void sb.removeChannel(ch)}catch{}}
+function ycStartHiddenChannelRealtime(communityId){
+  const uid=String(user?.id||''),cid=String(communityId||'');ycStopHiddenChannelRealtime();if(!uid||!cid)return;
+  const current=()=>String(user?.id||'')===uid&&String(currentCommunity?.id||'')===cid;
+  const sub=sb.channel('yc-hidden-channels-'+uid+'-'+cid+'-'+Date.now())
+    .on('postgres_changes',{event:'UPDATE',schema:'public',table:'channels',filter:'community_id=eq.'+cid},()=>{if(current())void ycRefreshChannelsSecure()})
+    .on('postgres_changes',{event:'DELETE',schema:'public',table:'channels'},()=>{if(current())void ycRefreshChannelsSecure()})
+    .on('postgres_changes',{event:'*',schema:'public',table:'channel_visible_roles'},()=>{if(current())void ycRefreshChannelsSecure()})
+    .on('postgres_changes',{event:'*',schema:'public',table:'community_member_roles',filter:'user_id=eq.'+uid},p=>{const r=p.new||p.old||{};if(String(r.community_id)===cid&&current())void ycRefreshChannelsSecure()})
+    .on('postgres_changes',{event:'UPDATE',schema:'public',table:'community_members',filter:'user_id=eq.'+uid},p=>{const r=p.new||p.old||{};if(String(r.community_id)===cid&&current())void ycRefreshChannelsSecure()});
+  ycHiddenChannelSub=sub;
+  sub.subscribe(status=>{if(!current())return;if(status==='SUBSCRIBED'){void ycRefreshChannelsSecure();return}if(['CHANNEL_ERROR','TIMED_OUT','CLOSED'].includes(status)&&ycHiddenChannelSub===sub){ycHiddenChannelSub=null;try{void sb.removeChannel(sub)}catch{}}});
+}
 subscribeCommunityRealtime=function(communityId){
   const out=ycHiddenBaseSubscribeCommunityRealtime.call(this,communityId);
-  if(ycHiddenChannelSub){try{sb.removeChannel(ycHiddenChannelSub)}catch{}ycHiddenChannelSub=null}
-  if(user?.id){
-    ycHiddenChannelSub=sb.channel('yc-hidden-channels-'+user.id+'-'+Date.now())
-      .on('postgres_changes',{event:'UPDATE',schema:'public',table:'channels',filter:'community_id=eq.'+communityId},()=>{if(String(currentCommunity?.id)===String(communityId))void ycRefreshChannelsSecure()})
-      .on('postgres_changes',{event:'DELETE',schema:'public',table:'channels'},()=>{if(String(currentCommunity?.id)===String(communityId))void ycRefreshChannelsSecure()})
-      .on('postgres_changes',{event:'*',schema:'public',table:'channel_visible_roles'},()=>{if(String(currentCommunity?.id)===String(communityId))void ycRefreshChannelsSecure()})
-      .on('postgres_changes',{event:'*',schema:'public',table:'community_member_roles',filter:'user_id=eq.'+user.id},p=>{const r=p.new||p.old||{};if(String(r.community_id)===String(communityId)&&String(currentCommunity?.id)===String(communityId))void ycRefreshChannelsSecure()})
-      .on('postgres_changes',{event:'UPDATE',schema:'public',table:'community_members',filter:'user_id=eq.'+user.id},p=>{const r=p.new||p.old||{};if(String(r.community_id)===String(communityId)&&String(currentCommunity?.id)===String(communityId))void ycRefreshChannelsSecure()})
-      .subscribe();
-  }
-  clearInterval(ycHiddenChannelPoll);ycHiddenChannelPoll=setInterval(()=>{if(currentCommunity&&!document.hidden)void ycRefreshChannelsSecure()},15000);
+  ycStartHiddenChannelRealtime(communityId);
+  clearInterval(ycHiddenChannelPoll);ycHiddenChannelPoll=setInterval(()=>{if(currentCommunity&&!document.hidden&&!ycHiddenChannelSub)ycStartHiddenChannelRealtime(currentCommunity.id)},15000);
   return out;
 };
 // Password entry guards: visible locked channels stay listed, but chat/voice opens only after unlock.
@@ -5126,28 +5245,41 @@ let ycHiddenInitTries=0;const ycHiddenInitTimer=setInterval(()=>{ycHiddenInitTri
   window.__ycApplyMessageRoleColors=applyMessageRoleColors;
   // Chat core already renders role colors from the cached server-role snapshot. Realtime role changes still call applyMessageRoleColors().
 
-  let countBusy=false,countAgain=false;
+  let countBusy=false,countAgain=false,countForceAgain=false,countBusyKey='',countLastKey='',countLastAt=0;
+  function socialCountKey(){return String(user?.id||'')+'|'+String(currentCommunity?.id||'')}
   function paintTab(id,label,icon,count){const b=document.getElementById(id);if(!b)return;b.innerHTML='<span class="yc-v3-tab-icon">'+icon+'</span><span class="yc-v3-tab-label">'+label+'</span><span class="yc-v3-tab-count">'+Number(count||0)+'</span>'}
-  async function refreshSocialTabCounts(){
-    if(countBusy){countAgain=true;return}if(!user?.id)return;countBusy=true;
+  async function refreshSocialTabCounts(force=false){
+    if(!user?.id)return;
+    const key=socialCountKey(),now=Date.now();
+    if(!force&&!countBusy&&key===countLastKey&&now-countLastAt<1000)return;
+    if(countBusy){if(force||key!==countBusyKey){countAgain=true;countForceAgain=countForceAgain||force}return}
+    countBusy=true;countBusyKey=key;countLastKey=key;countLastAt=now;
     try{
-      const cid=currentCommunity?.id||null;
+      const uid=String(user.id),cid=currentCommunity?.id||null;
       const memberReq=cid?sb.from('community_members').select('user_id',{count:'exact',head:true}).eq('community_id',cid):Promise.resolve({count:0});
-      const friendReq=sb.from('friendships').select('requester_id',{count:'exact',head:true}).eq('status','accepted').or('requester_id.eq.'+user.id+',addressee_id.eq.'+user.id);
+      const friendReq=sb.from('friendships').select('requester_id',{count:'exact',head:true}).eq('status','accepted').or('requester_id.eq.'+uid+',addressee_id.eq.'+uid);
       const [m,f]=await Promise.all([memberReq,friendReq]);
+      if(socialCountKey()!==key)return;
       paintTab('membersTab','Členové','◈',m.error?document.querySelector('#membersTab .yc-v3-tab-count')?.textContent||0:m.count||0);
       paintTab('friendsTab','Přátelé','◇',f.error?document.querySelector('#friendsTab .yc-v3-tab-count')?.textContent||0:f.count||0);
-    }catch(e){console.warn('social tab counts',e)}finally{countBusy=false;if(countAgain){countAgain=false;queueMicrotask(refreshSocialTabCounts)}}
+    }catch(e){console.warn('social tab counts',e)}finally{
+      countBusy=false;countBusyKey='';
+      if(countAgain){const rerunForce=countForceAgain;countAgain=false;countForceAgain=false;queueMicrotask(()=>refreshSocialTabCounts(rerunForce))}
+    }
   }
   window.__ycRefreshSocialTabCounts=refreshSocialTabCounts;
   try{const baseRight=renderRight;renderRight=async function(...args){const out=await baseRight.apply(this,args);void refreshSocialTabCounts();return out}}catch{}
   try{const baseFriends=renderFriends;renderFriends=async function(...args){const out=await baseFriends.apply(this,args);void refreshSocialTabCounts();return out}}catch{}
   try{const baseSelect=selectCommunity;selectCommunity=async function(...args){window.__ycInvalidateRoleVisuals();const out=await baseSelect.apply(this,args);void refreshSocialTabCounts();void applyMessageRoleColors();return out}}catch{}
-  let realtime=null;
-  function ensureRealtime(){if(realtime||!user?.id)return;try{realtime=sb.channel('yc-role-social-live-'+user.id+'-'+Date.now()).on('postgres_changes',{event:'*',schema:'public',table:'community_members'},()=>{window.__ycInvalidateRoleVisuals();void refreshSocialTabCounts();if(rightMode==='members')void renderRight();if(currentChannel)void applyMessageRoleColors()}).on('postgres_changes',{event:'*',schema:'public',table:'community_member_roles'},()=>{window.__ycInvalidateRoleVisuals();if(rightMode==='members')void renderRight();if(currentChannel)void applyMessageRoleColors()}).on('postgres_changes',{event:'*',schema:'public',table:'community_roles'},()=>{window.__ycInvalidateRoleVisuals();if(rightMode==='members')void renderRight();if(currentChannel)void applyMessageRoleColors()}).on('postgres_changes',{event:'*',schema:'public',table:'desktop_server_role_layout'},()=>{window.__ycInvalidateRoleVisuals();if(rightMode==='members')void renderRight();if(currentChannel)void applyMessageRoleColors()}).on('postgres_changes',{event:'*',schema:'public',table:'friendships'},()=>{void refreshSocialTabCounts();if(rightMode==='friends')void renderFriends()}).subscribe()}catch(e){console.warn('role/social realtime',e)}}
-  ycOnLifecycle('beforeAuth',()=>{if(realtime){try{sb.removeChannel(realtime)}catch{}realtime=null}});
-  setInterval(()=>{if(user?.id){ensureRealtime();if(!document.hidden){void refreshSocialTabCounts();if(currentChannel)void applyMessageRoleColors()}}},20000);
-  setTimeout(()=>{ensureRealtime();void refreshSocialTabCounts();void applyMessageRoleColors()},700);
+  let realtime=null,realtimeCommunityId='';
+  function stopRealtime(){const ch=realtime;realtime=null;realtimeCommunityId='';if(ch)try{sb.removeChannel(ch)}catch{}}
+  function syncRealtimeSnapshot(cid){if(String(currentCommunity?.id||'')!==String(cid))return;window.__ycInvalidateRoleVisuals();void refreshSocialTabCounts(true);if(rightMode==='members')void renderRight();if(currentChannel)void applyMessageRoleColors()}
+  function ensureRealtime(){const uid=String(user?.id||''),cid=String(currentCommunity?.id||'');if(!uid||!cid){stopRealtime();return}if(realtime&&realtimeCommunityId===cid)return;stopRealtime();realtimeCommunityId=cid;const current=()=>String(user?.id||'')===uid&&String(currentCommunity?.id||'')===cid;try{const sub=sb.channel('yc-role-social-live-'+uid+'-'+cid+'-'+Date.now()).on('postgres_changes',{event:'*',schema:'public',table:'community_member_roles',filter:'community_id=eq.'+cid},()=>{if(!current())return;window.__ycInvalidateRoleVisuals();if(rightMode==='members')void renderRight();if(currentChannel)void applyMessageRoleColors()}).on('postgres_changes',{event:'*',schema:'public',table:'community_roles',filter:'community_id=eq.'+cid},()=>{if(!current())return;window.__ycInvalidateRoleVisuals();if(rightMode==='members')void renderRight();if(currentChannel)void applyMessageRoleColors()}).on('postgres_changes',{event:'*',schema:'public',table:'desktop_server_role_layout',filter:'community_id=eq.'+cid},()=>{if(!current())return;window.__ycInvalidateRoleVisuals();if(rightMode==='members')void renderRight();if(currentChannel)void applyMessageRoleColors()});realtime=sub;sub.subscribe(status=>{if(!current())return;if(status==='SUBSCRIBED'){syncRealtimeSnapshot(cid);return}if(['CHANNEL_ERROR','TIMED_OUT','CLOSED'].includes(status)&&realtime===sub){realtime=null;realtimeCommunityId='';try{void sb.removeChannel(sub)}catch{}}})}catch(e){realtime=null;realtimeCommunityId='';console.warn('role/social realtime',e)}}
+  ycOnLifecycle('beforeCommunity',stopRealtime);
+  ycOnLifecycle('community',ensureRealtime);
+  ycOnLifecycle('beforeAuth',stopRealtime);
+  setInterval(()=>{if(user?.id){if(!userRealtimeSub)subscribeUserRealtime();if(currentCommunity?.id&&!communityRealtimeSub)subscribeCommunityRealtime(currentCommunity.id);ensureRealtime()}},20000);
+  setTimeout(()=>{if(user?.id&&!userRealtimeSub)subscribeUserRealtime();if(currentCommunity?.id&&!communityRealtimeSub)subscribeCommunityRealtime(currentCommunity.id);ensureRealtime()},700);
 })();
 
 
@@ -5339,7 +5471,7 @@ ycOnLifecycle('beforeAuth',()=>{ycServerNavigationReady='';ycSyncServerNavigatio
 const YC_SERVER_CARD_MANAGE_PERMS=['manage_server','manage_channels','manage_members','manage_permissions','manage_invites','manage_emojis','manage_soundboard'];
 const YC_SERVER_CARD_MANAGE_COLUMNS=['can_manage_server','can_manage_channels','can_manage_members','can_manage_permissions','can_manage_invites','can_manage_emojis','can_manage_soundboard'];
 const ycServerCardPermissionCache=new Map();
-let ycServerCardMenuSeq=0,ycServerCardPress=null,ycServerCardSuppressClickUntil=0;
+let ycServerCardMenuSeq=0,ycServerCardPress=null,ycServerCardSuppressClickUntil=0,ycServerCardRailObserver=null,ycServerCardMenuObserver=null;
 
 function ycServerCardCommunity(id){
  return communities.find(c=>String(c.id)===String(id))||null;
@@ -5477,14 +5609,16 @@ document.addEventListener('keydown',event=>{if(event.key==='Escape'&&$('modalRoo
 function ycServerCardDecorate(){
  for(const card of document.querySelectorAll('#rail [data-community]')){card.setAttribute('aria-haspopup','menu');card.dataset.ycServerContext='1'}
 }
-ycOnLifecycle('init',()=>{
- ycServerCardDecorate();const rail=$('rail');if(rail)new MutationObserver(ycServerCardDecorate).observe(rail,{childList:true,subtree:true});
- const menu=ycEnsureUiMenu();new MutationObserver(ycServerCardSyncMenuSkin).observe(menu,{childList:true,subtree:true,attributes:true,attributeFilter:['class']});
-});
+function ycServerCardStartObservers(){
+ const rail=$('rail');if(rail){if(!ycServerCardRailObserver)ycServerCardRailObserver=new MutationObserver(ycServerCardDecorate);ycServerCardRailObserver.observe(rail,{childList:true,subtree:true})}
+ const menu=ycEnsureUiMenu();if(menu){if(!ycServerCardMenuObserver)ycServerCardMenuObserver=new MutationObserver(ycServerCardSyncMenuSkin);ycServerCardMenuObserver.observe(menu,{childList:true,subtree:true,attributes:true,attributeFilter:['class']})}
+}
+function ycServerCardStopObservers(){ycServerCardRailObserver?.disconnect();ycServerCardMenuObserver?.disconnect()}
+ycOnLifecycle('init',()=>{ycServerCardDecorate();ycServerCardStartObservers()});
 ycOnLifecycle('communities',()=>{ycServerCardPermissionCache.clear();ycServerCardDecorate()});
 ycOnLifecycle('community',ycServerCardDecorate);
 ycOnLifecycle('beforeCommunity',()=>{ycServerCardCancelPress();ycCloseUiMenu()});
-ycOnLifecycle('beforeAuth',()=>{ycServerCardCancelPress();ycServerCardPermissionCache.clear();ycCloseUiMenu()});
+ycOnLifecycle('beforeAuth',()=>{ycServerCardStopObservers();ycServerCardCancelPress();ycServerCardPermissionCache.clear();ycCloseUiMenu()});
 
 
 document.documentElement.dataset.ycFriendsRefresh='1';
@@ -5890,7 +6024,8 @@ const YC_CONTEXT_LONGPRESS_SELECTOR=[
  '.voice-user[data-user-id]',
  '#rightContent .steam-member-row[data-member-id]',
  '#rightContent .steam-friend-row[data-profile-user]',
- '.yc-dm-social-row[data-profile-user]'
+ '.yc-dm-social-row[data-profile-user]',
+ '.message[data-message-id]'
 ].join(',');
 let ycContextLongPress=null,ycContextLongPressSuppressUntil=0;
 
@@ -5909,6 +6044,8 @@ function ycOpenLongPressContext(target,x,y){
  if(member){window.__ycLongPressLastOpen={kind:'member',id:member.dataset.memberId,at:Date.now()};void ycOpenMemberMenu(member,{clientX:x,clientY:y});return true}
  const social=target.matches?.('#rightContent .steam-friend-row[data-profile-user],.yc-dm-social-row[data-profile-user]')?target:null;
  if(social){window.__ycLongPressLastOpen={kind:'social-user',id:social.dataset.profileUser,at:Date.now()};void ycOpenFriendUserMenu(social,{clientX:x,clientY:y});return true}
+ const message=target.matches?.('.message[data-message-id]')?target:null;
+ if(message){const mid=String(message.dataset.messageId||'');if(mid){window.__ycLongPressLastOpen={kind:'message',id:mid,at:Date.now()};ycOpenMessageMenu(mid,x,y)}return true}
  return false;
 }
 window.YamachatLongPressContext=Object.freeze({open:ycOpenLongPressContext});

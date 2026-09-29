@@ -10,15 +10,25 @@ function section(source,name){
  source=source.replaceAll('\r\n','\n');
  const re=new RegExp('^(?:async )?function '+name+'\\(','m'),start=source.search(re);assert(start>=0,name+' exists');
  const rest=source.slice(start),next=rest.slice(1).search(/^(?:async )?function /m);
- return (next<0?rest:rest.slice(0,next+1)).replaceAll('ycSyncStreamViewer','renderScreenShareStage').trim();
+ let end=next<0?rest.length:next+1;
+ // ycEnsureScreenAudio is followed by reviewed top-level scheduling before the
+ // next function in current desktop builds. Keep the transport lock scoped to
+ // the function body instead of accidentally comparing adjacent statements.
+ if(name==='ycEnsureScreenAudio'){
+  const schedule=rest.search(/^setInterval\(/m);
+  if(schedule>0)end=Math.min(end,schedule);
+ }
+ return rest.slice(0,end).replaceAll('ycSyncStreamViewer','renderScreenShareStage').trim();
 }
 for(const [name,before,after] of [['web',baseline,fs.readFileSync('index.html','utf8')],['desktop',desktop,fs.readFileSync('desktop/desktop-client.html','utf8')]]){
  for(const fn of functions){
-  if(name==='desktop'&&(fn==='stopScreenShare'||fn==='attachVoiceAudio'))continue;
+  if(fn==='stopScreenShare'||(name==='desktop'&&fn==='attachVoiceAudio'))continue;
   assert.equal(section(after,fn),section(before,fn),name+' transport changed: '+fn);
  }
+ const stop=section(after,'stopScreenShare');
+ assert(stop.includes("const ownerUserId=user?.id"),name+' stop must capture the stream owner before async cleanup');
+ assert(stop.includes("await ycStopGlobalStreamPresence(ownerUserId)"),name+' stop must await serialized stream-presence cleanup');
  if(name==='desktop'){
-  const stop=section(after,'stopScreenShare');
   assert(stop.includes("if(typeof ycResetScreenAudioSenders==='function')await ycResetScreenAudioSenders()"),'desktop stop must retire stale stream-audio sender');
   assert(after.includes('async function ycResetScreenAudioSenders()'),'desktop fresh screen-audio transceiver helper missing');
   const voiceAudio=section(after,'attachVoiceAudio');

@@ -6,13 +6,20 @@ const scaleSql=fs.readFileSync(path.join(root,'supabase/voice-scale-indexes.sql'
 function meshPairs(n){return n*(n-1)/2}
 function oldPresenceDeliveriesPerSecond(users,heartbeatSeconds=5){return (users/heartbeatSeconds)*users}
 function newHeartbeatRealtimeDeliveriesPerSecond(){return 0}
-function rosterRestQueriesPerSecond(users,pollSeconds=20){return users/pollSeconds}
+function rosterRestQueriesPerSecond(users,pollSeconds){return users/pollSeconds}
 
 for(const users of [100,200,500,1000]){
   const oldFanout=oldPresenceDeliveriesPerSecond(users);
   const newFanout=newHeartbeatRealtimeDeliveriesPerSecond();
-  const rosterQps=rosterRestQueriesPerSecond(users);
-  console.log(JSON.stringify({users,old_presence_deliveries_per_second:oldFanout,new_heartbeat_realtime_deliveries_per_second:newFanout,roster_rest_qps:rosterQps}));
+  const idleRosterQps=rosterRestQueriesPerSecond(users,20);
+  const activeVoiceRosterQps=rosterRestQueriesPerSecond(users,15);
+  console.log(JSON.stringify({
+    users,
+    old_presence_deliveries_per_second:oldFanout,
+    new_heartbeat_realtime_deliveries_per_second:newFanout,
+    idle_roster_rest_qps:idleRosterQps,
+    active_voice_roster_rest_qps:activeVoiceRosterQps
+  }));
   assert.equal(newFanout,0,'Heartbeat UPDATEs must not be delivered through Realtime');
 }
 
@@ -21,6 +28,7 @@ assert.equal(meshPairs(100),4950);
 assert.equal(meshPairs(1000),499500);
 
 assert(desktop.includes("const YC_VOICE_HEARTBEAT_MS=15000,YC_VOICE_TTL_MS=60000,YC_VOICE_ROSTER_MS=20000"),'Scale timings missing');
+assert(desktop.includes("const delay=voiceChannel?YC_VOICE_HEARTBEAT_MS:YC_VOICE_ROSTER_MS"),'Roster scale model must match the 15s active / 20s idle scheduler');
 assert(desktop.includes("event:'INSERT',schema:'public',table:'voice_participants',filter"),'Scoped INSERT subscription missing');
 assert(desktop.includes("event:'DELETE',schema:'public',table:'voice_participants',filter"),'Scoped DELETE subscription missing');
 assert(desktop.includes(".in('channel_id',ids).gt('last_seen',cutoff)"),'Batched roster query missing');
@@ -55,4 +63,4 @@ assert(desktop.includes("gt('created_at',recent)"),'Recent missed voice signals 
 // across many rooms, but a single 100/1000-person room requires an SFU.
 assert(meshPairs(1000)>100000,'Model must expose why a 1000-person P2P room is not a supported target');
 
-console.log('PASS voice scale model: metadata no longer has global heartbeat fan-out; remaining large-room limit is P2P media mesh, which requires SFU.');
+console.log('PASS voice scale model: metadata has no global heartbeat fan-out; REST roster load is modeled at 20s idle and 15s while connected to voice; remaining large-room limit is P2P media mesh, which requires SFU.');

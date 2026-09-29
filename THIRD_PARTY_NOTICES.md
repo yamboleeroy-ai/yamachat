@@ -128,8 +128,6 @@ Current integrations verified in the project include:
   and Edge Functions used by the Yamachat backend.
 - **Cloudflare Realtime TURN** — temporary ICE/TURN credentials and relay
   infrastructure used when WebRTC connectivity requires a relay.
-- **Metered TURN** — TURN/STUN relay infrastructure used as an additional
-  WebRTC connectivity provider.
 - **Google Firebase Cloud Messaging (FCM)** — Android push-notification
   delivery.
 - **Microsoft Windows Push Notification Services (WNS)** — Windows desktop

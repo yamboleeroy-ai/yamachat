@@ -11,64 +11,101 @@ async function ycWebInstall(){if(ycWebInstallPrompt){const prompt=ycWebInstallPr
 function ycWebNotificationStatus(){if(!('Notification' in window))return 'Tento prohlížeč systémová oznámení nepodporuje.';return Notification.permission==='granted'?'Oznámení jsou povolená.':Notification.permission==='denied'?'Oznámení jsou blokovaná. Povol je v nastavení tohoto webu v prohlížeči.':'Oznámení zatím nejsou povolená.'}
 
 const YC_PUSH_API='https://bxjvmjdppmqgbxfcowpf.supabase.co/functions/v1/yamachat-source/push';
-let ycWebPushReady=false,ycWebPushStatus='';
+let ycWebPushReady=false,ycWebPushStatus='',ycWebPushSyncPromise=null,ycWebPushRegisteredKey='',ycWebPushGeneration=0;
 function ycWebPushPlatform(){const ios=/iP(?:hone|ad|od)/i.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);const standalone=navigator.standalone===true||matchMedia('(display-mode: standalone)').matches;return ios&&standalone?'pwa-ios':'web'}
-function ycWebPushSupported(){return 'serviceWorker' in navigator&&'PushManager' in window&&'Notification' in window}
+function ycWebServiceWorker(){try{const sw=navigator?.serviceWorker;return sw&&typeof sw.register==='function'&&typeof sw.addEventListener==='function'?sw:null}catch{return null}}
+function ycWebPushSupported(){const sw=ycWebServiceWorker();return !!sw?.ready&&'PushManager' in window&&'Notification' in window}
+async function ycWebPushRegistration(sw,timeoutMs=1500){
+ if(ycWebRegistration)return ycWebRegistration;
+ if(!sw)return null;
+ let timer=null;
+ try{
+  const reg=await Promise.race([
+   Promise.resolve(sw.ready).catch(()=>null),
+   new Promise(resolve=>{timer=setTimeout(()=>resolve(null),timeoutMs)})
+  ]);
+  if(reg)ycWebRegistration=reg;
+  return reg||null
+ }catch{return null}
+ finally{if(timer)clearTimeout(timer)}
+}
 function ycWebPushKey(value){const pad='='.repeat((4-value.length%4)%4),raw=atob((value+pad).replace(/-/g,'+').replace(/_/g,'/')),out=new Uint8Array(raw.length);for(let i=0;i<raw.length;i++)out[i]=raw.charCodeAt(i);return out}
 async function ycWebPushSession(){const {data}=await sb.auth.getSession();return data?.session||null}
+async function ycWebPushUnregister(endpoint,access){
+ const value=String(endpoint||'').trim();if(!value||!access)return false;
+ const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),3000);
+ try{const res=await fetch(YC_PUSH_API,{method:'POST',signal:controller.signal,headers:{'Content-Type':'application/json','Authorization':'Bearer '+access},body:JSON.stringify({action:'unregister',endpoint:value})});return res.ok}
+ catch(e){if(e?.name!=='AbortError')console.warn('Yamachat Web Push detach',e);return false}
+ finally{clearTimeout(timer)}
+}
 async function ycWebPushSync(promptUser=false){
- try{
-  if(!ycWebPushSupported()){ycWebPushStatus='Tento prohlížeč Web Push nepodporuje.';return false}
-  let permission=Notification.permission;
-  if(promptUser&&permission==='default')permission=await Notification.requestPermission();
-  if(permission!=='granted'){ycWebPushStatus=permission==='denied'?'Oznámení jsou blokovaná v systému/prohlížeči.':'Oznámení zatím nejsou povolená.';return false}
-  const session=await ycWebPushSession();if(!session?.access_token){ycWebPushStatus='Po přihlášení se push registrace dokončí.';return false}
-  const reg=ycWebRegistration||await navigator.serviceWorker.ready;ycWebRegistration=reg;
-  const cfgRes=await fetch(YC_PUSH_API,{cache:'no-store'});if(!cfgRes.ok)throw new Error('Push konfigurace '+cfgRes.status);const cfg=await cfgRes.json();
-  let sub=await reg.pushManager.getSubscription();
-  if(!sub)sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:ycWebPushKey(String(cfg.vapidPublicKey||''))});
-  const data=sub.toJSON(),res=await fetch(YC_PUSH_API,{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+session.access_token},body:JSON.stringify({action:'register',transport:'webpush',platform:ycWebPushPlatform(),endpoint:data.endpoint,keys:data.keys,userAgent:navigator.userAgent})});
-  if(!res.ok)throw new Error('Registrace push '+res.status);
-  ycWebPushReady=true;ycWebPushStatus=ycWebPushPlatform()==='pwa-ios'?'Push je aktivní i při zavřené iOS PWA. Zvuk řídí iOS.':'Push je aktivní i při zavřeném webu/PWA.';
-  return true
- }catch(e){console.warn('Yamachat Web Push',e);ycWebPushReady=false;ycWebPushStatus='Push se nepodařilo aktivovat. Otevři nastavení oznámení a zkus to znovu.';return false}
+ if(ycWebPushSyncPromise)return ycWebPushSyncPromise;
+ const generation=ycWebPushGeneration;
+ const task=(async()=>{
+  try{
+   if(!ycWebPushSupported()){ycWebPushStatus='Tento prohlížeč Web Push nepodporuje.';return false}
+   let permission=Notification.permission;
+   if(promptUser&&permission==='default')permission=await Notification.requestPermission();
+   if(permission!=='granted'){ycWebPushStatus=permission==='denied'?'Oznámení jsou blokovaná v systému/prohlížeči.':'Oznámení zatím nejsou povolená.';return false}
+   const session=await ycWebPushSession();if(!session?.access_token){ycWebPushStatus='Po přihlášení se push registrace dokončí.';return false}
+   const uid=String(session.user?.id||'');if(!uid)return false;
+   const sw=ycWebServiceWorker();if(!sw){ycWebPushStatus='Tento prohlížeč Web Push nepodporuje.';return false}
+   const reg=await ycWebPushRegistration(sw);if(!reg){ycWebPushStatus='Service Worker není připravený. Push zkusím znovu později.';return false}
+   const cfgRes=await fetch(YC_PUSH_API,{cache:'no-store'});if(!cfgRes.ok)throw new Error('Push konfigurace '+cfgRes.status);const cfg=await cfgRes.json();
+   let sub=await reg.pushManager.getSubscription();
+   if(!sub)sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:ycWebPushKey(String(cfg.vapidPublicKey||''))});
+   const data=sub.toJSON(),key=uid+'|'+String(data.endpoint||'');
+   if(ycWebPushReady&&ycWebPushRegisteredKey===key)return true;
+   const res=await fetch(YC_PUSH_API,{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+session.access_token},body:JSON.stringify({action:'register',transport:'webpush',platform:ycWebPushPlatform(),endpoint:data.endpoint,keys:data.keys,userAgent:navigator.userAgent})});
+   if(!res.ok)throw new Error('Registrace push '+res.status);
+   if(generation!==ycWebPushGeneration||String(user?.id||'')!==uid){await ycWebPushUnregister(data.endpoint,session.access_token);return false}
+   ycWebPushRegisteredKey=key;ycWebPushReady=true;ycWebPushStatus=ycWebPushPlatform()==='pwa-ios'?'Push je aktivní i při zavřené iOS PWA. Zvuk řídí iOS.':'Push je aktivní i při zavřeném webu/PWA.';
+   return true
+  }catch(e){console.warn('Yamachat Web Push',e);ycWebPushReady=false;ycWebPushStatus='Push se nepodařilo aktivovat. Otevři nastavení oznámení a zkus to znovu.';return false}
+ })();
+ ycWebPushSyncPromise=task;
+ try{return await task}finally{if(ycWebPushSyncPromise===task)ycWebPushSyncPromise=null}
 }
 async function ycWebPushDetach(){
- try{const session=await ycWebPushSession(),reg=ycWebRegistration||await navigator.serviceWorker.ready,sub=await reg.pushManager.getSubscription();if(!session?.access_token||!sub)return;await fetch(YC_PUSH_API,{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+session.access_token},body:JSON.stringify({action:'unregister',endpoint:sub.endpoint})})}catch{}
+ const generation=++ycWebPushGeneration;void generation;
+ ycWebPushReady=false;ycWebPushRegisteredKey='';
+ try{const sw=ycWebServiceWorker();if(!sw)return false;const session=await ycWebPushSession(),reg=await ycWebPushRegistration(sw);if(!reg)return false;const sub=await reg.pushManager.getSubscription();if(!session?.access_token||!sub)return false;return await ycWebPushUnregister(sub.endpoint,session.access_token)}catch{return false}
 }
+window.ycDetachPushBeforeLogout=ycWebPushDetach;
+ycOnLifecycle('beforeAuth',()=>{ycWebPushGeneration++;ycWebPushReady=false;ycWebPushRegisteredKey=''});
 
-const ycWindowsReleasePage='https://github.com/yamboleeroy-ai/yamachat/releases/latest';
+
+const ycWindowsDownloadFallback='https://yamachat.eu/download/';
 async function ycWebLoadWindowsDownload(root){
   const link=root.querySelector('[data-yc-windows-download]');
   const status=root.querySelector('[data-yc-windows-status]');
   const controller=new AbortController();
-  const timeout=setTimeout(()=>controller.abort(),8000);
+  const timeout=setTimeout(()=>controller.abort(),5000);
   try{
-    const response=await fetch('https://api.github.com/repos/yamboleeroy-ai/yamachat/releases/latest',{signal:controller.signal,credentials:'omit',headers:{Accept:'application/vnd.github+json'}});
-    if(!response.ok)throw new Error('Release unavailable');
-    const release=await response.json();
-    const asset=!release.draft&&!release.prerelease&&release.assets?.find(a=>/^Yamachat-Setup-\d+\.\d+\.\d+\.exe$/.test(a.name)&&a.state==='uploaded');
-    if(!asset)throw new Error('Installer unavailable');
-    const url=new URL(asset.browser_download_url);
-    if(url.origin!=='https://github.com'||!url.pathname.startsWith('/yamboleeroy-ai/yamachat/releases/download/')||decodeURIComponent(url.pathname.split('/').pop())!==asset.name||url.search||url.hash)throw new Error('Unexpected installer URL');
+    const response=await fetch('/update-manifest.json',{signal:controller.signal,credentials:'same-origin',cache:'no-store'});
+    if(!response.ok)throw new Error('Manifest unavailable');
+    const manifest=await response.json();
+    const version=String(manifest?.windows?.latestVersion||'');
+    const url=new URL(String(manifest?.windows?.installerUrl||''),location.origin);
+    if(url.origin!=='https://updates.yamachat.eu'||!/^\/windows\/Yamachat-Setup-\d+\.\d+\.\d+\.exe$/.test(url.pathname)||url.search||url.hash)throw new Error('Unexpected installer URL');
     link.href=url.href;
     link.textContent='Stáhnout Yamachat pro Windows';
-    status.textContent='Verze '+asset.name.slice(15,-4)+' · Po stažení otevři instalátor a dokonči instalaci.';
+    status.textContent=(version?'Verze '+version+' · ':'')+'Po stažení otevři instalátor a dokonči instalaci.';
   }catch{
-    link.href=ycWindowsReleasePage;
+    link.href=ycWindowsDownloadFallback;
     link.textContent='Otevřít stažení pro Windows';
-    status.textContent='Aktuální instalátor najdeš na stránce vydání v části Assets. Stáhni soubor Yamachat-Setup s příponou .exe.';
+    status.textContent='Aktuální instalační odkaz najdeš na oficiální stránce Yamachatu.';
   }finally{clearTimeout(timeout)}
 }
 ycRegisterAppSettingsSection({
   id:'windows-download',title:'Yamachat pro Windows',
-  description:'Naše desktopová aplikace s automatickými aktualizacemi.',
-  render:()=>'<a class="ghost yc-windows-download" data-yc-windows-download href="'+ycWindowsReleasePage+'" target="_blank" rel="noopener noreferrer">Otevřít stažení pro Windows</a><p data-yc-windows-status role="status">Zjišťuji nejnovější verzi…</p><p>Stáhni instalátor, otevři jej a přihlas se svým účtem Yamachat. Další aktualizace nabídne desktopová aplikace.</p>',
+  description:'Naše desktopová aplikace s automatickými aktualizacemi přes Yamachat Cloudflare distribuci.',
+  render:()=>'<a class="ghost yc-windows-download" data-yc-windows-download href="'+ycWindowsDownloadFallback+'" target="_blank" rel="noopener noreferrer">Otevřít stažení pro Windows</a><p data-yc-windows-status role="status">Zjišťuji nejnovější verzi…</p><p>Stáhni instalátor, otevři jej a přihlas se svým účtem Yamachat. Další aktualizace nabídne desktopová aplikace.</p>',
   bind:root=>{void ycWebLoadWindowsDownload(root)}
 });
 
 ycRegisterAppSettingsSection({id:'web',title:'Webová verze v prohlížeči',description:'Web/PWA s Yamachat push oznámeními a otevřením přímo do zprávy.',render:()=>'<button type="button" class="ghost" data-yc-web-install>Nainstalovat webovou verzi</button><p>Push oznámení mohou přijít i když je web/PWA zavřený. Na iOS PWA používá zvuk systém iOS.</p><p id="ycWebPushStatus">'+esc(ycWebPushStatus||ycWebNotificationStatus())+'</p><button type="button" class="ghost" id="ycWebAllowNotify">Povolit / obnovit oznámení</button><p>Po kliknutí se Yamachat otevře přímo v DM nebo kanálu, odkud zpráva přišla.</p><button type="button" class="ghost" id="ycWebUpdate" '+(ycWebRegistration?.waiting?'':'hidden')+'>Načíst novou verzi</button>',bind:root=>{root.querySelector('[data-yc-web-install]').onclick=()=>void ycWebInstall();ycWebSyncInstallButtons();const b=root.querySelector('#ycWebAllowNotify'),st=root.querySelector('#ycWebPushStatus');b.disabled=!ycWebPushSupported();b.onclick=async()=>{b.disabled=true;const ok=await ycWebPushSync(true);st.textContent=ycWebPushStatus||ycWebNotificationStatus();toast(ok?'Yamachat push oznámení jsou aktivní.':'Oznámení se nepodařilo aktivovat.',!ok);b.disabled=!ycWebPushSupported()};root.querySelector('#ycWebUpdate').onclick=()=>{if(voiceChannel||screenShareActive){toast('Před aktualizací ukonči hlas a sdílení obrazovky.');return}ycWebRegistration?.waiting?.postMessage({type:'SKIP_WAITING'});location.reload()}}});
-if(!window.Capacitor?.isNativePlatform?.()&&'serviceWorker' in navigator){navigator.serviceWorker.register('./sw.js').then(reg=>{ycWebRegistration=reg;if(Notification.permission==='granted')setTimeout(()=>void ycWebPushSync(false),650);reg.addEventListener('updatefound',()=>{const worker=reg.installing;worker?.addEventListener('statechange',()=>{if(worker.state==='installed'&&navigator.serviceWorker.controller){toast('Nová verze je dostupná v Nastavení aplikace.');document.getElementById('ycWebUpdate')?.removeAttribute('hidden')}})});reg.update().catch(()=>{})}).catch(e=>console.warn('Yamachat offline registration',e));navigator.serviceWorker.addEventListener('message',event=>{if(event.data?.type==='yamachat:web-notification'&&user)void window.ycOpenDesktopNotificationTarget(event.data.target)})}
+const ycWebSw=ycWebServiceWorker();if(!window.Capacitor?.isNativePlatform?.()&&ycWebSw){ycWebSw.register('./sw.js').then(reg=>{ycWebRegistration=reg;if(('Notification' in window)&&Notification.permission==='granted')setTimeout(()=>void ycWebPushSync(false),650);reg.addEventListener('updatefound',()=>{const worker=reg.installing;worker?.addEventListener('statechange',()=>{if(worker.state==='installed'&&ycWebSw.controller){toast('Nová verze je dostupná v Nastavení aplikace.');document.getElementById('ycWebUpdate')?.removeAttribute('hidden')}})});reg.update().catch(()=>{})}).catch(e=>console.warn('Yamachat offline registration',e));ycWebSw.addEventListener('message',event=>{if(event.data?.type==='yamachat:web-notification'&&user)void window.ycOpenDesktopNotificationTarget(event.data.target)})}
 window.yamachatDesktop={...window.yamachatDesktop,showNotification:async payload=>{if(ycWebPushReady)return true;if(!(await ycWinPermission()))return false;const opts={body:[payload.where,payload.body].filter(Boolean).join(' · '),icon:'./icons/icon-192.png',badge:'./build/yamachat-logo-symbol.png',tag:'yamachat-msg-'+String(payload.target?.messageId||Date.now()),data:{target:payload.target||{}}};if(ycWebRegistration){await ycWebRegistration.showNotification(payload.title||'Yamachat',opts);return true}return false}};
 window.addEventListener('online',()=>{toast('Připojení bylo obnoveno.');try{sb.realtime.connect()}catch{}});
 window.addEventListener('offline',()=>toast('Připojení se přerušilo. Zprávy a hlas potřebují internet.',true));
@@ -170,7 +207,7 @@ window.addEventListener('focus',()=>{if(ycWebIsIosPwa())setTimeout(()=>void ycIo
 window.addEventListener('online',()=>{if(ycWebIsIosPwa())setTimeout(()=>void ycIosVoiceReconnect('online'),420)});
 ycOnLifecycle('community',()=>{if(ycWebIsIosPwa())setTimeout(()=>void ycIosVoiceReconnect('community'),500)});
 ycOnLifecycle('beforeAuth',()=>{if(ycWebIsIosPwa())ycIosVoiceClearTarget()});
-ycOnLifecycle('init',()=>{if(!window.Capacitor?.isNativePlatform?.()&&Notification.permission==='granted')setTimeout(()=>void ycWebPushSync(false),900)});
+ycOnLifecycle('init',()=>{if(!window.Capacitor?.isNativePlatform?.()&&('Notification' in window)&&Notification.permission==='granted')setTimeout(()=>void ycWebPushSync(false),900)});
 async function ycWebOpenLaunchNotificationTarget(){
  try{
   if(window.Capacitor?.isNativePlatform?.())return false;

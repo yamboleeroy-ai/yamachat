@@ -28,14 +28,15 @@ for(const marker of [
   "function ycPresenceDisplayRow(uid,row)",
   "data-yc-presence-state",
   "function ycPatchVisibleMemberPresence(uid,row)",
-  "function ycMembersPresenceNeedsRefresh()",
+  "async function ycRefreshVisibleMemberPresence()",
+  "select('user_id,state,activity_text,last_seen_at')",
   "baseState==='afk'&&ycPresencePreference()==='online'",
   "age<YC_PRESENCE_ACTIVE_LEASE_MS",
   "if(skipWrite){ycLastPresenceSig=sig",
   "async function ycPresenceOffline(){ycPresenceRemoteOnlineUntil=0;return Promise.resolve()}",
-  "rightMode==='members'&&ycMembersPresenceNeedsRefresh()",
-  "function ycHandlePresenceRealtime(payload)",
-  "if(beforeSig===afterSig)return",
+  "else if(rightMode==='members')void ycRefreshVisibleMemberPresence()",
+  "async function ycRefreshVisibleFriendPresence()",
+  "if(rightMode==='friends')void ycRefreshVisibleFriendPresence()",
   "void ycTouchPresence(true);playVoiceCue('self-join')",
   "typeof ycOwnPresenceState==='function'?ycOwnPresenceState()",
   "Math.max(card.offsetHeight||0,280)",
@@ -47,7 +48,10 @@ for(const marker of [
   "document.documentElement.dataset.ycUiMenuOpen='1'"
 ]) assert(client.includes(marker),'Shared behavior marker missing: '+marker);
 
-assert(/payload\s*=>\s*ycHandlePresenceRealtime\(payload\)/.test(client)||client.includes("ycHandlePresenceRealtime(payload)"),'Generated client must route user_presence realtime payloads through the stable presence handler');
+assert(!client.includes("table:'user_presence'},payload=>ycHandlePresenceRealtime(payload)"),'Generated client must not globally fan out presence heartbeats');
+assert(!client.includes('function ycMembersPresenceNeedsRefresh()'),'Generated client must not retain obsolete member-presence comparison helper');
+assert(!client.includes('function ycHandlePresenceRealtime(payload)'),'Generated client must not retain obsolete global presence handler');
+assert(client.includes("table:'profiles',filter:'id=eq.'+user.id"),'Generated client must retain targeted own-profile realtime');
 
 assert(!client.includes("const signed={};await Promise.all((atts||[]).map"),
   'Initial chat paint must not wait for every attachment signed URL');
@@ -64,8 +68,19 @@ const presenceEnd=client.indexOf('ycStartPresence()',presenceStart+20);
 assert(presenceStart>=0&&presenceEnd>presenceStart,'presence timer boundary missing');
 const presenceBody=client.slice(presenceStart,presenceEnd);
 assert(!presenceBody.includes('if(ycFriendsHomeMode)void loadDmThreads()'),'15-second timer must not directly reload DM list');
-assert(presenceBody.includes("rightMode==='members'&&ycMembersPresenceNeedsRefresh()"),'Members refresh must be state-gated');
+assert(presenceBody.includes("else if(rightMode==='members')void ycRefreshVisibleMemberPresence()"),'Members timer must use the lightweight presence refresh');
 assert(!presenceBody.includes("else if(rightMode==='members')void renderRight()"),'Members must not rerender unconditionally');
+assert(!presenceBody.includes("if(rightMode==='friends')void renderFriends()"),'Friends timer must not fully reload the social panel');
+const friendRefreshStart=client.indexOf('async function ycRefreshVisibleFriendPresence()'),friendRefreshEnd=client.indexOf('async function rejectFriend(',friendRefreshStart);
+assert(friendRefreshStart>=0&&friendRefreshEnd>friendRefreshStart,'Generated lightweight friend presence refresh boundary missing');
+const friendRefreshBody=client.slice(friendRefreshStart,friendRefreshEnd);
+assert(friendRefreshBody.includes("from('user_presence')"),'Generated friend refresh must read presence rows');
+for(const table of ['friendships','profiles','profile_stats'])assert(!friendRefreshBody.includes("from('"+table+"')"),'Generated friend presence refresh unexpectedly reloads '+table);
+const memberRefreshStart=client.indexOf('async function ycRefreshVisibleMemberPresence()'),memberRefreshEnd=client.indexOf('function ycLastSeen(',memberRefreshStart);
+assert(memberRefreshStart>=0&&memberRefreshEnd>memberRefreshStart,'Generated member presence refresh boundary missing');
+const memberRefreshBody=client.slice(memberRefreshStart,memberRefreshEnd);
+assert(memberRefreshBody.includes("from('user_presence')"),'Generated member refresh must read presence rows');
+for(const table of ['community_members','community_roles','community_member_roles','desktop_server_role_layout','profiles','profile_stats'])assert(!memberRefreshBody.includes("from('"+table+"')"),'Generated member presence refresh unexpectedly reloads '+table);
 
 assert(!client.includes("async function ycPresenceOffline(){try{if(user)await sb.from('user_presence').upsert({user_id:user.id,state:'offline'"),
  'One closing client must not overwrite another active client with offline');
@@ -96,7 +111,8 @@ for(const marker of [
  "const voiceBelongsHere=!!hadVoice&&!!voiceCommunityId&&voiceCommunityId===cid",
  "const since=voiceMissingSince.get(id)||now;voiceMissingSince.set(id,since);if(now-since>60000)closeVoicePeer(id)",
  "const ycVoiceCid=ycVoiceCommunityId()",
- "community_id:ycVoiceCommunity"
+ "voiceChannel?.community_id||voiceChannel?.communityId||currentCommunity?.id",
+ "community_id:communityId"
 ]) assert(client.includes(marker),'Existing cross-platform behavior regressed: '+marker);
 assert(!client.includes("if(pc?.connectionState==='connected'){voiceMissingSince.delete(id);continue}"),'Connected ghost-peer bypass must not return');
 

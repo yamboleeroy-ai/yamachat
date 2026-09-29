@@ -285,7 +285,7 @@ export function withVoiceExperience(html){
  // Realtime Presence on every tick. Presence track itself emits a sync event; tracking again
  // from sync/heartbeat can create a feedback storm and hit Supabase's client presence rate limit.
  const oldVoiceHeartbeat="function startVoiceHeartbeat(){stopVoiceHeartbeat();syncVoiceParticipantRow();voiceHeartbeatTimer=setInterval(()=>{if(voiceChannel){syncVoiceParticipantRow();refreshVoiceParticipants(voiceChannel.id)}},5000)}\n";
- const newVoiceHeartbeat="function startVoiceHeartbeat(){stopVoiceHeartbeat();const beat=()=>{if(!voiceChannel)return;ensureVoiceRooms(voiceChannelDefs);void syncVoiceParticipantRow().catch(e=>console.warn('voice participant keepalive',e));if(!voiceSignalSub||!voiceSignalReady)void subscribeVoiceSignals().catch(e=>console.warn('voice signal reconnect',e));refreshVoiceParticipants(voiceChannel.id)};beat();voiceHeartbeatTimer=setInterval(beat,5000)}\n";
+ const newVoiceHeartbeat="function startVoiceHeartbeat(){stopVoiceHeartbeat();const beat=()=>{if(!voiceChannel)return;ensureVoiceRooms(voiceChannelDefs);void syncVoiceParticipantRow().catch(e=>console.warn('voice participant keepalive',e));if(!voiceSignalSub||!voiceSignalReady)void subscribeVoiceSignals().catch(e=>console.warn('voice signal reconnect',e))};beat();voiceHeartbeatTimer=setInterval(beat,5000)}\n";
  if(!html.includes(oldVoiceHeartbeat))throw Error('Voice heartbeat continuity boundary missing');
  html=html.replace(oldVoiceHeartbeat,newVoiceHeartbeat);
 

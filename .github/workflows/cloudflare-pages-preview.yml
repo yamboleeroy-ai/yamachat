@@ -26,7 +26,8 @@ jobs:
           test -f web-dist/manifest.webmanifest
           test -f web-dist/reset-password.html
           test -f web-dist/update-manifest.json
-          test -f web-dist/download/Yamachat-Android.apk
+          test ! -f web-dist/download/Yamachat-Android.apk
+          grep -q 'https://updates.yamachat.eu/android/' web-dist/update-manifest.json
       - uses: actions/upload-artifact@v4
         with:
           name: yamachat-cloudflare-pages-preview

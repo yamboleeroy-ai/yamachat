@@ -39,7 +39,7 @@ function inside(b,w,h){return b&&b.width>0&&b.height>0&&b.x>=-1&&b.y>=-1&&b.x+b.
    assert.equal(await page.locator('#ycAuthDownloads').count(),0,'Legacy login download block must not duplicate compact platform launcher');
 
    const expected={
-    windows:`https://github.com/yamboleeroy-ai/yamachat/releases/download/v${manifest.windows.latestVersion}/Yamachat-Setup-${manifest.windows.latestVersion}.exe`,
+    windows:String(manifest.windows.installerUrl),
     android:String(manifest.android.apkUrl),
     web:'https://yamachat.eu/',
     pwa:'https://yamachat.eu/',

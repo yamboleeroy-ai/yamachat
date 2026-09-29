@@ -140,7 +140,6 @@ ověřené integrace projektu zahrnují:
 - **Supabase** — autentizace, PostgreSQL databáze, Realtime, Storage a Edge
   Functions;
 - **Cloudflare Realtime TURN** — relay infrastruktura pro WebRTC;
-- **Metered TURN** — doplňková TURN/STUN relay infrastruktura;
 - **Google Firebase Cloud Messaging (FCM)** — doručování Android push
   oznámení;
 - **Microsoft Windows Push Notification Services (WNS)** — doručování Windows

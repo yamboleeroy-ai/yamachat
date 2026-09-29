@@ -6,19 +6,21 @@ const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
 const manifest=JSON.parse(fs.readFileSync(path.join(root,'update-manifest.json'),'utf8'));
 
 const windowsVersion=String(manifest?.windows?.latestVersion||'').trim();
+const windowsUrl=String(manifest?.windows?.installerUrl||'').trim();
 const androidUrl=String(manifest?.android?.apkUrl||'').trim();
 if(!/^\d+\.\d+\.\d+$/.test(windowsVersion))throw Error('Platform UI: invalid Windows version in update-manifest.json');
-if(!/^https:\/\//i.test(androidUrl))throw Error('Platform UI: invalid Android APK URL in update-manifest.json');
+if(!/^https:\/\/updates\.yamachat\.eu\/windows\//i.test(windowsUrl))throw Error('Platform UI: invalid Windows installer URL in update-manifest.json');
+if(!/^https:\/\/updates\.yamachat\.eu\/android\/Yamachat-Android(?:-\d+)?\.apk(?:\?v=\d+)?$/i.test(androidUrl))throw Error('Platform UI: invalid Android Cloudflare APK URL in update-manifest.json');
 
 const platforms=Object.freeze({
   windows:{
     id:'windows',icon:'⊞',label:'Windows',eyebrow:'Windows aplikace',
     title:'Yamachat pro Windows',
-    text:'Samostatná desktopová aplikace Yamachat pro Windows. Stahuje se z oficiálního GitHub Release projektu.',
+    text:'Samostatná desktopová aplikace Yamachat pro Windows. Instalační balíček je distribuovaný přes oficiální Yamachat Cloudflare úložiště.',
     steps:['Stáhni aktuální instalační balíček pouze z tohoto oficiálního odkazu.','Spusť instalátor Yamachat a dokonči instalaci.','Přihlas se stejným Yamachat účtem.'],
     action:'Stáhnout Windows aplikaci',
-    url:`https://github.com/yamboleeroy-ai/yamachat/releases/download/v${windowsVersion}/Yamachat-Setup-${windowsVersion}.exe`,
-    note:`Aktuální Windows release: ${windowsVersion}. Windows build zatím nemá code-signing podpis. Prohlížeč nebo Microsoft Defender SmartScreen proto může při stažení nebo prvním spuštění zobrazit varování o neznámé či málo používané aplikaci. Samotné takové varování neznamená, že soubor je virus; před pokračováním vždy ověř, že soubor pochází z tohoto oficiálního Yamachat odkazu.`
+    url:windowsUrl,
+    note:`Aktuální Windows release: ${windowsVersion}. Windows build zatím nemá code-signing podpis. Prohlížeč nebo Microsoft Defender SmartScreen proto může při stažení nebo prvním spuštění zobrazit varování o neznámé či málo používané aplikaci. Samotné takové varování neznamená, že soubor je virus; před pokračováním vždy ověř, že soubor pochází z domény updates.yamachat.eu.`
   },
   android:{
     id:'android',icon:'◉',label:'Android',eyebrow:'Android APK',

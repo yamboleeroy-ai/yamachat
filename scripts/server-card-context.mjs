@@ -2,7 +2,7 @@ const runtime=String.raw`
 const YC_SERVER_CARD_MANAGE_PERMS=['manage_server','manage_channels','manage_members','manage_permissions','manage_invites','manage_emojis','manage_soundboard'];
 const YC_SERVER_CARD_MANAGE_COLUMNS=['can_manage_server','can_manage_channels','can_manage_members','can_manage_permissions','can_manage_invites','can_manage_emojis','can_manage_soundboard'];
 const ycServerCardPermissionCache=new Map();
-let ycServerCardMenuSeq=0,ycServerCardPress=null,ycServerCardSuppressClickUntil=0;
+let ycServerCardMenuSeq=0,ycServerCardPress=null,ycServerCardSuppressClickUntil=0,ycServerCardRailObserver=null,ycServerCardMenuObserver=null;
 
 function ycServerCardCommunity(id){
  return communities.find(c=>String(c.id)===String(id))||null;
@@ -138,14 +138,16 @@ document.addEventListener('keydown',event=>{if(event.key==='Escape'&&$('modalRoo
 function ycServerCardDecorate(){
  for(const card of document.querySelectorAll('#rail [data-community]')){card.setAttribute('aria-haspopup','menu');card.dataset.ycServerContext='1'}
 }
-ycOnLifecycle('init',()=>{
- ycServerCardDecorate();const rail=$('rail');if(rail)new MutationObserver(ycServerCardDecorate).observe(rail,{childList:true,subtree:true});
- const menu=ycEnsureUiMenu();new MutationObserver(ycServerCardSyncMenuSkin).observe(menu,{childList:true,subtree:true,attributes:true,attributeFilter:['class']});
-});
+function ycServerCardStartObservers(){
+ const rail=$('rail');if(rail){if(!ycServerCardRailObserver)ycServerCardRailObserver=new MutationObserver(ycServerCardDecorate);ycServerCardRailObserver.observe(rail,{childList:true,subtree:true})}
+ const menu=ycEnsureUiMenu();if(menu){if(!ycServerCardMenuObserver)ycServerCardMenuObserver=new MutationObserver(ycServerCardSyncMenuSkin);ycServerCardMenuObserver.observe(menu,{childList:true,subtree:true,attributes:true,attributeFilter:['class']})}
+}
+function ycServerCardStopObservers(){ycServerCardRailObserver?.disconnect();ycServerCardMenuObserver?.disconnect()}
+ycOnLifecycle('init',()=>{ycServerCardDecorate();ycServerCardStartObservers()});
 ycOnLifecycle('communities',()=>{ycServerCardPermissionCache.clear();ycServerCardDecorate()});
 ycOnLifecycle('community',ycServerCardDecorate);
 ycOnLifecycle('beforeCommunity',()=>{ycServerCardCancelPress();ycCloseUiMenu()});
-ycOnLifecycle('beforeAuth',()=>{ycServerCardCancelPress();ycServerCardPermissionCache.clear();ycCloseUiMenu()});
+ycOnLifecycle('beforeAuth',()=>{ycServerCardStopObservers();ycServerCardCancelPress();ycServerCardPermissionCache.clear();ycCloseUiMenu()});
 `;
 const style=String.raw`
 <style id="ycServerCardContextStyle">
