@@ -75,33 +75,32 @@ window.ycDetachPushBeforeLogout=ycWebPushDetach;
 ycOnLifecycle('beforeAuth',()=>{ycWebPushGeneration++;ycWebPushReady=false;ycWebPushRegisteredKey=''});
 
 
-const ycWindowsReleasePage='https://github.com/yamboleeroy-ai/yamachat/releases/latest';
+const ycWindowsDownloadFallback='https://yamachat.eu/download/';
 async function ycWebLoadWindowsDownload(root){
   const link=root.querySelector('[data-yc-windows-download]');
   const status=root.querySelector('[data-yc-windows-status]');
   const controller=new AbortController();
-  const timeout=setTimeout(()=>controller.abort(),8000);
+  const timeout=setTimeout(()=>controller.abort(),5000);
   try{
-    const response=await fetch('https://api.github.com/repos/yamboleeroy-ai/yamachat/releases/latest',{signal:controller.signal,credentials:'omit',headers:{Accept:'application/vnd.github+json'}});
-    if(!response.ok)throw new Error('Release unavailable');
-    const release=await response.json();
-    const asset=!release.draft&&!release.prerelease&&release.assets?.find(a=>/^Yamachat-Setup-\d+\.\d+\.\d+\.exe$/.test(a.name)&&a.state==='uploaded');
-    if(!asset)throw new Error('Installer unavailable');
-    const url=new URL(asset.browser_download_url);
-    if(url.origin!=='https://github.com'||!url.pathname.startsWith('/yamboleeroy-ai/yamachat/releases/download/')||decodeURIComponent(url.pathname.split('/').pop())!==asset.name||url.search||url.hash)throw new Error('Unexpected installer URL');
+    const response=await fetch('/update-manifest.json',{signal:controller.signal,credentials:'same-origin',cache:'no-store'});
+    if(!response.ok)throw new Error('Manifest unavailable');
+    const manifest=await response.json();
+    const version=String(manifest?.windows?.latestVersion||'');
+    const url=new URL(String(manifest?.windows?.installerUrl||''),location.origin);
+    if(url.origin!=='https://updates.yamachat.eu'||!/^\/windows\/Yamachat-Setup-\d+\.\d+\.\d+\.exe$/.test(url.pathname)||url.search||url.hash)throw new Error('Unexpected installer URL');
     link.href=url.href;
     link.textContent='Stáhnout Yamachat pro Windows';
-    status.textContent='Verze '+asset.name.slice(15,-4)+' · Po stažení otevři instalátor a dokonči instalaci.';
+    status.textContent=(version?'Verze '+version+' · ':'')+'Po stažení otevři instalátor a dokonči instalaci.';
   }catch{
-    link.href=ycWindowsReleasePage;
+    link.href=ycWindowsDownloadFallback;
     link.textContent='Otevřít stažení pro Windows';
-    status.textContent='Aktuální instalátor najdeš na stránce vydání v části Assets. Stáhni soubor Yamachat-Setup s příponou .exe.';
+    status.textContent='Aktuální instalační odkaz najdeš na oficiální stránce Yamachatu.';
   }finally{clearTimeout(timeout)}
 }
 ycRegisterAppSettingsSection({
   id:'windows-download',title:'Yamachat pro Windows',
-  description:'Naše desktopová aplikace s automatickými aktualizacemi.',
-  render:()=>'<a class="ghost yc-windows-download" data-yc-windows-download href="'+ycWindowsReleasePage+'" target="_blank" rel="noopener noreferrer">Otevřít stažení pro Windows</a><p data-yc-windows-status role="status">Zjišťuji nejnovější verzi…</p><p>Stáhni instalátor, otevři jej a přihlas se svým účtem Yamachat. Další aktualizace nabídne desktopová aplikace.</p>',
+  description:'Naše desktopová aplikace s automatickými aktualizacemi přes Yamachat Cloudflare distribuci.',
+  render:()=>'<a class="ghost yc-windows-download" data-yc-windows-download href="'+ycWindowsDownloadFallback+'" target="_blank" rel="noopener noreferrer">Otevřít stažení pro Windows</a><p data-yc-windows-status role="status">Zjišťuji nejnovější verzi…</p><p>Stáhni instalátor, otevři jej a přihlas se svým účtem Yamachat. Další aktualizace nabídne desktopová aplikace.</p>',
   bind:root=>{void ycWebLoadWindowsDownload(root)}
 });
 
