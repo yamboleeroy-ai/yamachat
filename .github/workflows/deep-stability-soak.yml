@@ -1,4 +1,5 @@
 name: Deep stability 10-minute soak
+# Final audit rerun uses the current branch head after all stability fixes.
 on:
   push:
     branches:
