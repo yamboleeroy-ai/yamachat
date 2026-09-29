@@ -16,7 +16,8 @@ for(const marker of [
   "return await ycFinishMicStream(cleaned,mode,options)",
   "iOS Web/PWA microphone final processor fallback",
   "async function ycIosApplyEchoConstraint(stream,echo)",
-  "await track.applyConstraints({echoCancellation:!!echo})",
+  "if(!ycIosWebMicRuntime()||!echo)return stream",
+  "await track.applyConstraints({echoCancellation:true})",
   "if(ycIosWebMicRuntime())await ycIosApplyEchoConstraint(raw,voiceEcho)",
   "if(ycIosWebMicRuntime())await ycIosApplyEchoConstraint(raw,$('voiceEchoCheck')?.checked??voiceEcho)",
   "function ycIosMicTestAudioSession(phase)",
@@ -34,6 +35,7 @@ const constraints=html.slice(html.indexOf('function ycNoiseConstraints'),html.in
 assert(constraints.includes("if(!ios){out.echoCancellation=!!echo;out.channelCount=1;if(clean==='ai')out.sampleRate=48000}"),'iOS getUserMedia constraints must omit echo cancellation, forced sample rate and channel count');
 assert(constraints.includes("noiseSuppression:ios?clean!=='off'"),'iOS must keep native noise suppression when AI processing is bypassed');
 assert(!constraints.includes("out={deviceId:deviceId?{exact:deviceId}:undefined,echoCancellation:!!echo"),'iOS getUserMedia must not request echoCancellation:false directly');
+assert(!constraints.includes("applyConstraints({echoCancellation:false})"),'iOS must never reconfigure a live microphone track to echoCancellation:false');
 
 const micRestart=html.slice(html.indexOf('function ycRestartMicTest()'),html.indexOf('function ycMicTestSettingChanged',html.indexOf('function ycRestartMicTest()')));
 assert(micRestart.includes("ycMicTestAudio.play().catch(()=>{})"),'iOS mic-test restart must retain the already-authorized monitor element');
@@ -45,4 +47,4 @@ assert(cleanup.includes("ycMicTestAudio&&!preserveAudio"),'iOS monitor element m
 
 assert(html.includes("setTimeout(resolve,1600)"),'iOS processor resume grace period must allow the clean path time to start');
 assert(html.includes("iOS AudioWorklet load timeout')),2800"),'iOS AudioWorklet must keep a bounded fallback without the old sub-second cutoff');
-console.log('PASS iOS Web/PWA keeps the older clean processing path, applies echo cancellation after capture, and retains bounded fallbacks.');
+console.log('PASS iOS Web/PWA keeps live capture intact when echo reduction is off, only applies echo-on explicitly, and retains bounded fallbacks.');
