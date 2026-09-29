@@ -87,6 +87,21 @@ function ycVoiceSpeakEnhanced(text,onDone){
   speechSynthesis.speak(u);return u;
  }catch(e){try{onDone?.()}catch{};console.warn('voice participant TTS',e);return null}
 }
+function ycStopVoiceAnnouncementAudio(){
+ try{speechSynthesis?.cancel?.()}catch{}
+ for(const audio of [...ycVoiceCuePlayers]){
+  try{audio.pause();audio.onended?.()}catch{}
+  ycVoiceCuePlayers.delete(audio);
+ }
+}
+window.YamachatStopVoiceAnnouncements=ycStopVoiceAnnouncementAudio;
+const ycVoiceExperienceBaseToggleDeafen=toggleVoiceDeafen;
+toggleVoiceDeafen=async function(...args){
+ const out=await ycVoiceExperienceBaseToggleDeafen.apply(this,args);
+ if(voiceDeafened)window.YamachatStopVoiceAnnouncements?.();
+ return out;
+}
+
 function ycVoiceParticipantAnnouncement(row,action){
  try{
   if(!row)return;
