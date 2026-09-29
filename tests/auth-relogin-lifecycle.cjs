@@ -5,6 +5,9 @@ const root=path.resolve(__dirname,'..'),base=fs.readFileSync(path.join(__dirname
 function source(platform){
  const doc=fs.readFileSync(path.join(root,platform==='desktop'?'desktop/desktop-client.html':'index.html'),'utf8'),marker='window.__ycClientReady=true;';
  assert(doc.includes(marker),platform+' client-ready marker missing');
+ assert(doc.includes("while(ycHoverCache.size>=128)"),platform+' hover cache must stay bounded');
+ assert(doc.includes("ycWinNotifyCache.size>=256"),platform+' notification lookup cache must stay bounded');
+ assert(doc.includes("ycChatScrollMemory.clear();ycChatLastRendered.clear();ycLastGoodChannelsByCommunity.clear()"),platform+' auth exit must clear session caches');
  const bridge=`
 window.__ycAuthCleanupRace={
  arm(){
@@ -22,7 +25,17 @@ window.__ycAuthCleanupRace={
   voiceChannel={id:'voice-race-room',name:'Race room',community_id:'community-a'};
   voiceSessionId='voice-race-session';
  },
- observed:()=>({user:window.__ycRaceObservedUser,generation:window.__ycRaceObservedGeneration,armedGeneration:window.__ycRaceArmGeneration})
+ observed:()=>({user:window.__ycRaceObservedUser,generation:window.__ycRaceObservedGeneration,armedGeneration:window.__ycRaceArmGeneration}),
+ seedCaches(){
+  ycChatScrollMemory.set('audit-scroll',{top:1});ycChatLastRendered.set('audit-scroll','message-a');
+  ycLastGoodChannelsByCommunity.set('audit-community',[{id:'audit-channel'}]);
+  ycHoverCache.set('audit-user',{ts:Date.now(),data:{p:{id:'audit-user'}}});
+  ycWinNotifyCache.set('profile:audit-user',{id:'audit-user'});
+  ycPresenceRowsByUser.set('audit-user',{user_id:'audit-user',state:'online',last_seen_at:new Date().toISOString()});
+  ycPresenceRenderedStateByUser.set('audit-user','online');ycVisibleMemberIds.add('audit-user');
+  return this.cacheSizes();
+ },
+ cacheSizes(){return{scroll:ycChatScrollMemory.size,lastRendered:ycChatLastRendered.size,channels:ycLastGoodChannelsByCommunity.size,hover:ycHoverCache.size,notify:ycWinNotifyCache.size,presence:ycPresenceRowsByUser.size,presenceRendered:ycPresenceRenderedStateByUser.size,visibleMembers:ycVisibleMemberIds.size}}
 };
 `;
  return doc.replace(marker,bridge+marker)
@@ -87,8 +100,10 @@ function fixture(){
     await page.locator('#email').fill('audit@example.test');await page.locator('#password').fill('StrongPass123!');await page.locator('#authSubmit').click();await page.waitForSelector('#app:not(.hidden)',{timeout:20000});
     await page.waitForTimeout(100);
     const loggedIn=await page.evaluate(()=>({active:[...window.__auditActiveChannels].sort(),creates:window.__auditChannelCreates,listeners:JSON.parse(JSON.stringify(window.__auditGlobalAdds)),observers:{...window.__auditObservers},heap:performance.memory?.usedJSHeapSize||0}));
+    const seeded=await page.evaluate(()=>window.__ycAuthCleanupRace.seedCaches());assert(Object.values(seeded).every(n=>n>0),cfg.platform+' cache seed failed: '+JSON.stringify(seeded));
     await page.evaluate(()=>document.querySelector('#logoutBtn')?.click());await page.waitForSelector('#auth:not(.hidden)',{timeout:15000});await page.waitForTimeout(100);
-    const loggedOut=await page.evaluate(()=>({active:[...window.__auditActiveChannels].sort(),creates:window.__auditChannelCreates,listeners:JSON.parse(JSON.stringify(window.__auditGlobalAdds)),observers:{...window.__auditObservers},heap:performance.memory?.usedJSHeapSize||0}));
+    const loggedOut=await page.evaluate(()=>({active:[...window.__auditActiveChannels].sort(),creates:window.__auditChannelCreates,listeners:JSON.parse(JSON.stringify(window.__auditGlobalAdds)),observers:{...window.__auditObservers},heap:performance.memory?.usedJSHeapSize||0,caches:window.__ycAuthCleanupRace.cacheSizes()}));
+    assert(Object.values(loggedOut.caches).every(n=>n===0),cfg.platform+' session caches survive logout: '+JSON.stringify(loggedOut.caches));
     snapshots.push({cycle:cycle+1,loggedIn,loggedOut});
    }
    const firstIn=snapshots[0].loggedIn.active.length,firstOut=snapshots[0].loggedOut.active.length;

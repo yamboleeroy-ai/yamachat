@@ -2717,7 +2717,7 @@ const ycHoverCache=new Map()
 function ycHoverEnsure(){if(ycHoverCard)return ycHoverCard;ycHoverCard=document.createElement('div');ycHoverCard.className='yc-user-hover-card';ycHoverCard.addEventListener('mouseenter',()=>{clearTimeout(ycHoverTimer);clearTimeout(ycHoverLeaveTimer)});ycHoverCard.addEventListener('mouseleave',e=>{if(ycHoverAnchor&&ycHoverAnchor.contains(e.relatedTarget))return;ycHoverLeaveTimer=setTimeout(ycHoverHide,500)});ycHoverCard.addEventListener('click',e=>{if(e.target.closest('button,a,input'))return;const uid=ycHoverCard.dataset.profileUser;if(uid){ycHoverHide();void openUserProfile(uid)}});document.body.appendChild(ycHoverCard);return ycHoverCard}
 function ycHoverHide(){clearTimeout(ycHoverTimer);clearTimeout(ycHoverLeaveTimer);ycHoverAnchor=null;if(ycHoverCard)ycHoverCard.classList.remove('show')}
 function ycHoverPosition(anchor){const card=ycHoverEnsure(),r=anchor.getBoundingClientRect();ycHoverAnchor=anchor;card.style.visibility='hidden';card.classList.add('show');const w=card.offsetWidth||310,h=Math.max(card.offsetHeight||0,280);let left=r.right+4,top=r.top;if(left+w>window.innerWidth-8)left=r.left-w-4;if(left<8)left=8;if(top+h>window.innerHeight-8)top=window.innerHeight-h-8;if(top<8)top=8;card.style.left=Math.round(left)+'px';card.style.top=Math.round(top)+'px';card.style.visibility='visible'}
-async function ycHoverLoad(uid){const cached=ycHoverCache.get(uid);if(cached&&Date.now()-cached.ts<20000)return cached.data;const [pr,sr,ur]=await Promise.all([sb.from('profiles').select('*').eq('id',uid).maybeSingle(),sb.from('profile_stats').select('user_id,xp,message_count').eq('user_id',uid).maybeSingle(),sb.from('user_presence').select('*').eq('user_id',uid).maybeSingle()]);if(!pr.data)return null;const data={p:pr.data,st:sr.data||{xp:0,message_count:0},pres:ur.data||null};ycHoverCache.set(uid,{ts:Date.now(),data});return data}
+async function ycHoverLoad(uid){const now=Date.now(),cached=ycHoverCache.get(uid);if(cached&&now-cached.ts<20000)return cached.data;if(cached)ycHoverCache.delete(uid);for(const [key,row] of [...ycHoverCache])if(now-Number(row?.ts||0)>=20000)ycHoverCache.delete(key);while(ycHoverCache.size>=128){const oldest=ycHoverCache.keys().next().value;if(oldest===undefined)break;ycHoverCache.delete(oldest)}const [pr,sr,ur]=await Promise.all([sb.from('profiles').select('*').eq('id',uid).maybeSingle(),sb.from('profile_stats').select('user_id,xp,message_count').eq('user_id',uid).maybeSingle(),sb.from('user_presence').select('*').eq('user_id',uid).maybeSingle()]);if(!pr.data)return null;const data={p:pr.data,st:sr.data||{xp:0,message_count:0},pres:ur.data||null};ycHoverCache.set(uid,{ts:Date.now(),data});return data}
 function ycHoverRender(data){const card=ycHoverEnsure();if(!data){card.dataset.profileUser='';card.innerHTML='<div class="yc-hover-loading">Profil není dostupný.</div>';return}const {p,st,pres}=data,state=ycPresenceState(pres),rank=rankForXP(st.xp),av=avatarUrl(p),discord=p.discord_username||'';card.dataset.profileUser=p.id||'';card.innerHTML='<div class="yc-hover-hero">'+(av?'<img class="yc-hover-avatar" src="'+esc(av)+'" alt="">':'<div class="yc-hover-avatar">'+esc(initials(p.display_name||p.username))+'</div>')+'<div class="yc-hover-main"><div class="yc-hover-name">'+esc(p.display_name||p.username)+'</div><div class="yc-hover-handle">@'+esc(p.username)+'</div><div class="yc-hover-status '+state+'">● '+esc(ycPresenceLabel(state))+'</div><div class="yc-hover-activity">'+esc(ycActivityFor(pres,p))+'</div></div></div><div class="yc-hover-body"><div class="yc-hover-grid"><div class="yc-hover-stat"><label>Rank</label><strong>'+esc(rank)+' · '+Number(st.xp||0)+' XP</strong></div><div class="yc-hover-stat"><label>Registrace</label><strong>'+esc(ycProfileCreated(p.created_at))+'</strong></div></div>'+(discord?'<div class="yc-hover-discord">Discord · '+esc(discord)+'</div>':'')+'<div class="yc-hover-bio">'+esc(p.bio||'Uživatel zatím nemá bio.')+'</div></div>'}
 async function ycHoverShow(anchor,uid){if(document.documentElement.dataset.ycUiMenuOpen==='1'||document.documentElement.dataset.ycContextPending==='1')return;const seq=++ycHoverSeq,card=ycHoverEnsure();card.innerHTML='<div class="yc-hover-loading">Načítám profil…</div>';ycHoverPosition(anchor);try{const data=await ycHoverLoad(uid);if(seq!==ycHoverSeq||document.documentElement.dataset.ycUiMenuOpen==='1'||document.documentElement.dataset.ycContextPending==='1')return;ycHoverRender(data)}catch(e){if(seq!==ycHoverSeq)return;card.innerHTML='<div class="yc-hover-loading">Profil se nepodařilo načíst.</div>'}}
 function ycHoverTarget(el){return el?.closest?.('[data-profile-user],.voice-user[data-user-id]')||null}
@@ -3654,7 +3654,9 @@ async function ycWinPermission(){
 async function ycWinCached(kind,id,loader){
  const key=kind+':'+id
  if(ycWinNotifyCache.has(key))return ycWinNotifyCache.get(key)
- const value=await loader();ycWinNotifyCache.set(key,value);return value
+ const value=await loader()
+ if(ycWinNotifyCache.size>=256){const oldest=ycWinNotifyCache.keys().next().value;if(oldest!==undefined)ycWinNotifyCache.delete(oldest)}
+ ycWinNotifyCache.set(key,value);return value
 }
 async function ycWinProfile(id){
  return ycWinCached('profile',id,async()=>{const {data}=await sb.from('profiles').select('*').eq('id',id).maybeSingle();return data||null})
@@ -3759,6 +3761,12 @@ async function ycStartWinNotifications(){
 async function ycStopWinNotifications(){const ch=ycWinNotifySub;ycWinNotifySub=null;if(ch)try{await sb.removeChannel(ch)}catch{}}
 ycOnLifecycle('init',()=>{void ycStartWinNotifications()})
 ycOnLifecycle('beforeAuth',()=>{void ycStopWinNotifications()})
+ycOnLifecycle('beforeAuth',()=>{
+ clearTimeout(ycChatScrollSaveTimer);ycChatScrollSaveTimer=null;
+ ycChatScrollMemory.clear();ycChatLastRendered.clear();ycLastGoodChannelsByCommunity.clear();
+ ycHoverCache.clear();ycHoverHide();ycWinNotifyCache.clear();
+ ycPresenceRowsByUser.clear();ycPresenceRenderedStateByUser.clear();ycVisibleMemberIds.clear();
+})
 setTimeout(()=>{if(user)void ycStartWinNotifications()},1200)
 
 
