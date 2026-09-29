@@ -3366,7 +3366,7 @@ setTimeout(()=>void ycEnsureScreenAudio(),100)
 
 // community-wide stream discovery + lightweight preview.
 const ycCommunityStreams=new Map()
-let ycCommunityStreamSub=null,ycCommunityStreamPollTimer=null,ycCommunityStreamLoadBusy=null,ycCommunityStreamLoadCid='',ycCommunityStreamWatchGeneration=0,ycStreamPresenceTimer=null,ycStreamPreviewTimer=null,ycStreamPublishEpoch=0,ycStreamPublishQueue=Promise.resolve(),ycStreamPresenceClearedUserId=''
+let ycCommunityStreamSub=null,ycCommunityStreamPollTimer=null,ycCommunityStreamLoadBusy=null,ycCommunityStreamLoadCid='',ycCommunityStreamWatchGeneration=0,ycCommunityStreamFreshnessTimer=null,ycStreamPresenceTimer=null,ycStreamPreviewTimer=null,ycStreamPublishEpoch=0,ycStreamPublishQueue=Promise.resolve(),ycStreamPresenceClearedUserId=''
 function ycStreamPresenceFresh(row){if(!row?.updated_at)return false;const age=Date.now()-new Date(row.updated_at).getTime();return Number.isFinite(age)&&age<50000}
 function ycStreamInfo(uid){const row=ycCommunityStreams.get(String(uid));if(row&&!ycStreamPresenceFresh(row)){ycCommunityStreams.delete(String(uid));return null}return row||null}
 async function ycLoadCommunityStreams(){
@@ -3457,7 +3457,10 @@ ycOnLifecycle('init',async()=>{ycStreamPresenceClearedUserId='';try{if(user?.id&
 ycOnLifecycle('beforeCommunity',()=>{void ycStopCommunityStreamWatch();ycCommunityStreams.clear()})
 ycOnLifecycle('community',()=>{void ycStartCommunityStreamWatch()})
 ycOnLifecycle('beforeAuth',()=>{void ycStopCommunityStreamWatch();void ycStopGlobalStreamPresence()})
-setInterval(()=>{let changed=false;for(const [uid,row] of [...ycCommunityStreams])if(!ycStreamPresenceFresh(row)){ycCommunityStreams.delete(uid);changed=true}if(changed)renderVoiceChannels(voiceChannelDefs)},10000)
+function ycStartCommunityStreamFreshnessTimer(){if(ycCommunityStreamFreshnessTimer)return;ycCommunityStreamFreshnessTimer=setInterval(()=>{let changed=false;for(const [uid,row] of [...ycCommunityStreams])if(!ycStreamPresenceFresh(row)){ycCommunityStreams.delete(uid);changed=true}if(changed)renderVoiceChannels(voiceChannelDefs)},10000)}
+function ycStopCommunityStreamFreshnessTimer(){if(ycCommunityStreamFreshnessTimer){clearInterval(ycCommunityStreamFreshnessTimer);ycCommunityStreamFreshnessTimer=null}}
+ycOnLifecycle('init',ycStartCommunityStreamFreshnessTimer)
+ycOnLifecycle('beforeAuth',ycStopCommunityStreamFreshnessTimer)
 
 // opt-in screen stream viewers.
 async function ycRenegotiateScreenPeer(peerId){
