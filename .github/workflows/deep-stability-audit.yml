@@ -38,6 +38,7 @@ jobs:
       - name: Extended static regressions
         run: |
           node tests/account-messages.cjs
+          node tests/control-binding-audit.cjs
           node tests/dead-code-audit.cjs
           node tests/service-worker-guard.cjs
           node tests/moderator-permission-lifecycle.cjs
