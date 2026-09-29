@@ -70,7 +70,7 @@ body{min-height:100dvh;padding:env(safe-area-inset-top) env(safe-area-inset-righ
         <div class="state ready">Zdarma · skutečná Android aplikace</div>
         <h2>Android</h2>
         <p>Stáhni skutečný Yamachat APK. Po stažení Android požádá o potvrzení instalace aplikace mimo Google Play.</p>
-        <a id="androidInstallBtn" class="btn" href="./Yamachat-Android.apk" download>Stáhnout Yamachat pro Android (.APK)</a>
+        <a id="androidInstallBtn" class="btn" href="https://updates.yamachat.eu/android/Yamachat-Android.apk" target="_blank" rel="noopener noreferrer">Stáhnout Yamachat pro Android (.APK)</a>
         <div id="androidNote" class="note"><b>Instalace:</b> Stáhnout APK → otevřít stažený soubor → případně povolit instalaci z tohoto zdroje → Nainstalovat → Otevřít.</div>
       </article>
     </div>
@@ -86,7 +86,7 @@ body{min-height:100dvh;padding:env(safe-area-inset-top) env(safe-area-inset-righ
 </main>
 <script>
 const androidInstallBtn=document.getElementById('androidInstallBtn');
-const refreshAndroidApkUrl=()=>{androidInstallBtn.href='./Yamachat-Android.apk?v='+Date.now();};
+const refreshAndroidApkUrl=()=>{androidInstallBtn.href='https://updates.yamachat.eu/android/Yamachat-Android.apk?v='+Date.now();};
 refreshAndroidApkUrl();
 androidInstallBtn.addEventListener('click',refreshAndroidApkUrl);
 document.getElementById('iosInstallBtn').addEventListener('click',()=>{
