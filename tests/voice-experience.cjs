@@ -163,6 +163,7 @@ assert(html.includes("ycVoiceDiffAnnouncements(id,before,after)"),'Participant d
 assert(html.includes("function ycVoiceHandleAnnouncement(payload){\n  if(window.__ycVoiceParticipantAnnouncements)return;"),'Legacy broadcast TTS path is not suppressed');
 assert(!html.includes("function ycVoiceSpeakPerson(row,action){")||html.includes("function ycVoiceSpeakPerson(row,action){\n  if(window.__ycVoiceParticipantAnnouncements)return;"),'Legacy participant TTS path must be absent or suppressed');
 assert(html.includes("if(now-last<6000)return"),'Voice announcement duplicate guard is too short or missing');
+assert(html.includes("while(ycVoiceAnnouncementDedup.size>512)"),'Voice announcement dedup memory must have a hard cap');
 assert(html.includes("row.username||cached?.username||cached?.display_name||'Uživatel'"),'Voice announcement username/fallback source missing');
 assert(html.includes("row.channel_id||''"),'Voice announcement active-channel inference missing');
 assert(html.includes("cached?.channel_id||activeChannel"),'Voice leave announcement cannot recover channel/name from cached presence');
