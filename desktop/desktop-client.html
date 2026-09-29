@@ -1212,7 +1212,7 @@ async function ycChatGetSignedUrl(a,{signal,timeoutMs=YC_CHAT_SIGN_TIMEOUT_MS}={
   const outcome=await Promise.race([request,stop]);clearTimeout(timer);if(signal&&abortHandler)signal.removeEventListener('abort',abortHandler);
   if(signal?.aborted||outcome?.kind!=='result')return'';
   const url=outcome.value?.data?.signedUrl||'';if(url)ycChatSignedUrlCache.set(key,{url,expiresAt:Date.now()+3300000});
-  if(ycChatSignedUrlCache.size>800){const cut=Date.now();for(const [k,v] of ycChatSignedUrlCache){if(v.expiresAt<cut)ycChatSignedUrlCache.delete(k);if(ycChatSignedUrlCache.size<=600)break}}
+  if(ycChatSignedUrlCache.size>800){const cut=Date.now();for(const [k,v] of [...ycChatSignedUrlCache])if(v.expiresAt<cut)ycChatSignedUrlCache.delete(k);while(ycChatSignedUrlCache.size>600)ycChatSignedUrlCache.delete(ycChatSignedUrlCache.keys().next().value)}
   return url;
 }
 function ycPatchChatAttachment(a,url,{loadSeq,chatKey,signal}){
