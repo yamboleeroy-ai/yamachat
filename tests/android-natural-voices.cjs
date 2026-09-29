@@ -28,6 +28,10 @@ for(const marker of [
 assert(!android.includes('AZURE_SPEECH_KEY'),'Azure Speech secret name must not be required by the Android client');
 assert(!shared.includes('YC_ANDROID_NATURAL_PREFIX'),'Android Natural TTS leaked into shared Capacitor bundle / iOS');
 assert(!source.includes('YC_ANDROID_NATURAL_PREFIX'),'Android Natural TTS leaked into generated Web/PWA source');
+assert(android.includes("if(!text||ycVoiceAnnounceMode()!=='speech'||voiceDeafened)"),'Android Natural TTS must respect deafen before starting');
+assert(android.includes("if(voiceDeafened){finish();return null}"),'Android Natural TTS must re-check deafen around async synthesis');
+assert(android.includes("if(ycAndroidNaturalState!=='ready'){ycAndroidNaturalState='loading';fillVoices()}await ycAndroidNaturalVoiceLoad()"),'Android Natural voice list must reuse the ready cache when settings reopen');
+assert(!android.includes("const loadNatural=async()=>{ycAndroidNaturalState='loading';fillVoices();await ycAndroidNaturalVoiceLoad()"),'Android settings must not force a Natural voice refetch when already ready');
 
 for(const marker of [
   "Deno.env.get('AZURE_SPEECH_KEY')",
