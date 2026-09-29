@@ -1260,7 +1260,6 @@ function ycCountMessagesAfter(msgs,lastId){if(!lastId)return 0;const i=msgs.find
 function ycBeforeChatContextChange(){clearTimeout(ycChatScrollSaveTimer);ycCaptureChatScroll();ycAbortChatMediaLoad();++ycMessageLoadSeq;chatFollowBottomUntil=0;ycSetChatJump(false)}
 function ycHoldChatSwitch(){const el=$('messages');if(!el)return 0;const token=++ycChatSwitchToken;clearTimeout(ycChatSwitchLockTimer);el.classList.add('yc-scroll-switch-lock');ycChatSwitchLockTimer=setTimeout(()=>ycReleaseChatSwitch(token),5000);return token}
 function ycReleaseChatSwitch(token=ycChatSwitchToken){if(token&&token!==ycChatSwitchToken)return;clearTimeout(ycChatSwitchLockTimer);ycChatSwitchLockTimer=null;$('messages')?.classList.remove('yc-scroll-switch-lock')}
-function ycAfterLayoutStable(){return new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)))}
 function ycInstallChatScrollUi(){const el=$('messages'),b=$('chatJumpLatest');if(el&&!el.dataset.ycScrollMemory){el.dataset.ycScrollMemory='1';for(const type of ['wheel','touchstart','pointerdown','keydown'])el.addEventListener(type,()=>{++ycChatInteractionSeq;chatFollowBottomUntil=0},{passive:true});el.addEventListener('scroll',()=>{const atBottom=ycChatNearBottom(el);if(atBottom){chatFollowBottomUntil=0;ycSetChatJump(false)}ycScheduleChatScrollSave()},{passive:true})}if(b&&!b.dataset.bound){b.dataset.bound='1';b.onclick=()=>{const m=$('messages');if(!m)return;chatFollowBottomUntil=performance.now()+1600;m.scrollTo({top:m.scrollHeight,behavior:'smooth'});ycSetChatJump(false);setTimeout(()=>ycCaptureChatScroll(),450)}}}
 ycInstallChatScrollUi();
 
@@ -2993,7 +2992,6 @@ const YC_SCREEN_PROFILES={
 }
 function ycScreenProfileKey(){const key=localStorage.getItem('yc_screen_profile')||'1080-60';return YC_SCREEN_PROFILES[key]?key:'1080-60'}
 function ycScreenShareProfile(){return YC_SCREEN_PROFILES[ycScreenProfileKey()]}
-function ycScreenMbpsText(){return (ycScreenShareProfile().bitrate/1000000).toFixed(1).replace('.0','')+' Mb/s'}
 async function ycApplyScreenProfile(){
  const cfg=ycScreenShareProfile(),track=screenShareStream?.getVideoTracks?.()[0]
  if(track){try{await track.applyConstraints({width:{ideal:cfg.width},height:{ideal:cfg.height},frameRate:{ideal:cfg.fps,max:cfg.fps}})}catch(e){console.warn('screen constraints',e)}}
@@ -3545,51 +3543,6 @@ async function ycWaitForStreamVoicePeer(peerId,targetId,timeoutMs=12000){
   }
   return false
 }
-// SAME VOICE STREAM FIX v3.0.18 — refresh the existing peer video negotiation before watch-on-demand.
-async function ycPrimeExistingVoiceForStream(peerId,targetId){
-  if(!voiceChannel||String(voiceChannel.id)!==String(targetId))return false
-  let pc=voicePeers.get(peerId)
-  if(!pc){try{pc=voicePeer(peerId)}catch{} }
-  if(!pc||pc.connectionState==='closed')return false
-  let sender=voiceScreenSenders.get(peerId)
-  if(!sender){
-    try{const tx=pc.addTransceiver('video',{direction:'sendrecv'});sender=tx.sender;voiceScreenSenders.set(peerId,sender)}catch(e){console.warn('stream prime transceiver',e)}
-  }
-  if(!sender)return false
-  try{
-    for(let i=0;i<12&&pc.signalingState!=='stable';i++)await new Promise(r=>setTimeout(r,100))
-    if(pc.signalingState==='stable'&&pc.connectionState!=='closed'){
-      const offer=await pc.createOffer()
-      await pc.setLocalDescription(offer)
-      await sendVoiceSignal(peerId,{signal_type:'offer',sdp:pc.localDescription,stream_prime:true})
-      for(let i=0;i<24&&pc.signalingState!=='stable';i++)await new Promise(r=>setTimeout(r,100))
-    }
-  }catch(e){console.warn('stream prime negotiation',peerId,e)}
-  const ready=pc.connectionState==='connected'||pc.iceConnectionState==='connected'||pc.iceConnectionState==='completed'
-  return !!ready
-}
-async function ycRebuildVoicePeerForStream(peerId,targetId){
-  if(!voiceChannel||String(voiceChannel.id)!==String(targetId)||!peerId)return false;
-  try{
-    // Rebuild only this RTCPeerConnection. Do not leave voice, stop the mic, or touch other peers.
-    if(voicePeers.has(peerId))closeVoicePeer(peerId);
-    await new Promise(r=>setTimeout(r,80));
-    const pc=voicePeer(peerId);
-    const offer=await pc.createOffer();
-    await pc.setLocalDescription(offer);
-    await sendVoiceSignal(peerId,{signal_type:'offer',sdp:pc.localDescription,stream_rebuild:true});
-    const started=Date.now();
-    while(Date.now()-started<7000){
-      if(!voiceChannel||String(voiceChannel.id)!==String(targetId))return false;
-      const cur=voicePeers.get(peerId);
-      if(cur&&(cur.connectionState==='connected'||cur.iceConnectionState==='connected'||cur.iceConnectionState==='completed'))return true;
-      await new Promise(r=>setTimeout(r,120));
-    }
-  }catch(e){console.warn('same voice stream peer rebuild',peerId,e)}
-  return false;
-}
-
-
 const ycViewerHandleVoiceSignal=handleVoiceSignal
 handleVoiceSignal=async function(msg){
   if(voiceChannel&&msg&&msg.to===user.id&&msg.channel_id===voiceChannel.id&&msg.from!==user.id&&msg.signal_type==='screen-watch'){
