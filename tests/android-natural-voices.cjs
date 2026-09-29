@@ -32,6 +32,7 @@ assert(android.includes("if(!text||ycVoiceAnnounceMode()!=='speech'||voiceDeafen
 assert(android.includes("if(voiceDeafened){finish();return null}"),'Android Natural TTS must re-check deafen around async synthesis');
 assert(android.includes("if(ycAndroidNaturalState!=='ready'){ycAndroidNaturalState='loading';fillVoices()}await ycAndroidNaturalVoiceLoad()"),'Android Natural voice list must reuse the ready cache when settings reopen');
 assert(!android.includes("const loadNatural=async()=>{ycAndroidNaturalState='loading';fillVoices();await ycAndroidNaturalVoiceLoad()"),'Android settings must not force a Natural voice refetch when already ready');
+assert(android.includes("if(audio){ycAndroidNaturalPlayers.delete(audio);try{audio.pause()}catch{}}"),'Failed Android Natural playback must release its tracked audio object');
 
 for(const marker of [
   "Deno.env.get('AZURE_SPEECH_KEY')",
