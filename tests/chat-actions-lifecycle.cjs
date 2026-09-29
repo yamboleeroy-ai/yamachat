@@ -77,7 +77,7 @@ function mock(){
    await page.waitForFunction(()=>window.__mockWriteDetails.some(x=>x.table==='messages'&&x.op==='insert'&&x.payload?.reply_to==='chat-a-0'));
    // The fixture records the insert when the query starts; wait for sendMessage()
    // to receive the async result and commit its UI cleanup.
-   await page.waitForSelector('#ycReplyCompose.hidden',{timeout:10000});
+   await page.waitForSelector('#ycReplyCompose.hidden',{state:'attached',timeout:10000});
    assert.equal(await page.locator('#ycReplyCompose').isHidden(),true,cfg.platform+' reply target not cleared after send');
 
    // Delete through context menu; only mocked row deletion is allowed.
