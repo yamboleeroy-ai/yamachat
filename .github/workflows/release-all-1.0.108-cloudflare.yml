@@ -58,7 +58,8 @@ jobs:
       - run: npx playwright install chromium
       - name: Verify iOS/PWA and cross-platform runtime
         run: |
-          node tests/responsive-matrix.cjs
+          node tests/full-platform-user-journey.cjs
+          node tests/web-mobile-desktop-behavior-sync.cjs
           node tests/cross-platform-voice-interop.cjs
           node tests/service-worker-guard.cjs
           node tests/platform-install-ui.cjs
