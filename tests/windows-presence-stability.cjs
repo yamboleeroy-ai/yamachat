@@ -14,7 +14,9 @@ for(const marker of [
  "age<YC_PRESENCE_ACTIVE_LEASE_MS",
  "if(skipWrite){ycLastPresenceSig=sig",
  "async function ycPresenceOffline(){ycPresenceRemoteOnlineUntil=0;return Promise.resolve()}",
- "rightMode==='members'&&ycMembersPresenceNeedsRefresh()",
+ "async function ycRefreshVisibleMemberPresence()",
+ "select('user_id,state,activity_text,last_seen_at')",
+ "else if(rightMode==='members')void ycRefreshVisibleMemberPresence()",
  "function ycHandlePresenceRealtime(payload)",
  "if(beforeSig===afterSig)return",
  "void ycTouchPresence(true);playVoiceCue('self-join')",
@@ -33,6 +35,11 @@ assert(client.includes("table:'profiles',filter:'id=eq.'+user.id"),
 const presenceTimerStart=client.indexOf('function ycStartPresence()'),presenceTimerEnd=client.indexOf('ycStartPresence()',presenceTimerStart+20);
 assert(presenceTimerStart>=0&&presenceTimerEnd>presenceTimerStart,'Presence timer boundary missing');
 const presenceTimerBody=client.slice(presenceTimerStart,presenceTimerEnd);
-assert(presenceTimerBody.includes("rightMode==='members'&&ycMembersPresenceNeedsRefresh()"),'Members timer must be gated by a visible-state transition');
+assert(presenceTimerBody.includes("else if(rightMode==='members')void ycRefreshVisibleMemberPresence()"),'Members timer must use the lightweight presence refresh');
 assert(!presenceTimerBody.includes("else if(rightMode==='members')void renderRight()"),'Periodic social timer must not rerender Members unconditionally');
-console.log('PASS Windows presence stability: one effective self state, active-client lease, no global heartbeat fanout, no offline clobber and batched social refresh.');
+const memberRefreshStart=client.indexOf('async function ycRefreshVisibleMemberPresence()'),memberRefreshEnd=client.indexOf('function ycLastSeen(',memberRefreshStart);
+assert(memberRefreshStart>=0&&memberRefreshEnd>memberRefreshStart,'Lightweight member presence refresh boundary missing');
+const memberRefreshBody=client.slice(memberRefreshStart,memberRefreshEnd);
+assert(memberRefreshBody.includes("from('user_presence')"),'Lightweight member refresh must read presence rows');
+for(const table of ['community_members','community_roles','community_member_roles','desktop_server_role_layout','profiles','profile_stats'])assert(!memberRefreshBody.includes("from('"+table+"')"),'Lightweight member presence refresh unexpectedly reloads '+table);
+console.log('PASS Windows presence stability: one effective self state, active-client lease, no global heartbeat fanout, no offline clobber and lightweight batched member presence refresh.');
