@@ -9,17 +9,20 @@ function source(platform){
 window.__ycAuthCleanupRace={
  arm(){
   window.__ycRaceObservedUser=null;
+  window.__ycRaceArmGeneration=ycAuthGeneration;
+  window.__ycRaceObservedGeneration=null;
   const baseStop=stopScreenShare;let restored=false;
   stopScreenShare=async function(...args){
    await new Promise(resolve=>setTimeout(resolve,900));
    window.__ycRaceObservedUser=user?.id||'';
+   window.__ycRaceObservedGeneration=ycAuthGeneration;
    if(!restored){restored=true;stopScreenShare=baseStop}
    return baseStop.apply(this,args)
   };
   voiceChannel={id:'voice-race-room',name:'Race room',community_id:'community-a'};
   voiceSessionId='voice-race-session';
  },
- observed:()=>window.__ycRaceObservedUser
+ observed:()=>({user:window.__ycRaceObservedUser,generation:window.__ycRaceObservedGeneration,armedGeneration:window.__ycRaceArmGeneration})
 };
 `;
  return doc.replace(marker,bridge+marker)
@@ -101,8 +104,9 @@ function fixture(){
    await page.waitForSelector('#auth:not(.hidden)',{timeout:15000});
    await page.locator('#email').fill('audit@example.test');await page.locator('#password').fill('StrongPass123!');await page.locator('#authSubmit').click();
    await page.waitForSelector('#app:not(.hidden)',{timeout:20000});
-   const raceObservedUser=await page.evaluate(()=>window.__ycAuthCleanupRace.observed());
-   assert.equal(raceObservedUser,'',cfg.platform+' previous voice cleanup observed the new auth user: '+raceObservedUser);
+   const raceObserved=await page.evaluate(()=>window.__ycAuthCleanupRace.observed());
+   assert(raceObserved&&raceObserved.generation!==null,cfg.platform+' previous voice cleanup did not finish before the new app became ready');
+   assert.equal(raceObserved.generation,raceObserved.armedGeneration,cfg.platform+' previous voice cleanup crossed into a newer auth generation: '+JSON.stringify(raceObserved));
    await page.evaluate(()=>document.querySelector('#logoutBtn')?.click());await page.waitForSelector('#auth:not(.hidden)',{timeout:15000});
 
    const listenerKeys=['focus','online','offline','visibilitychange','pointerdown','keydown','touchstart','mousemove','click'];
