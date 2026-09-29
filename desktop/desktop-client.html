@@ -2210,6 +2210,28 @@ async function renderFriends(){
   $('rightContent').querySelectorAll('[data-dm]').forEach(b=>b.onclick=e=>{e.stopPropagation();const p=pm[b.dataset.dm];if(p)startDm(p)})
   $('rightContent').querySelectorAll('[data-profile-user]').forEach(row=>row.onclick=e=>{if(e.target.closest('button'))return;openUserProfile(row.dataset.profileUser)})
 }
+let ycFriendPresenceRefreshBusy=false;
+async function ycRefreshVisibleFriendPresence(){
+  if(rightMode!=='friends'||document.hidden||ycFriendPresenceRefreshBusy)return;
+  const rows=[...document.querySelectorAll('#rightContent .steam-friend-row[data-profile-user]')],ids=[...new Set(rows.map(row=>String(row.dataset.profileUser||'')).filter(Boolean))];
+  if(!ids.length)return;
+  ycFriendPresenceRefreshBusy=true;
+  try{
+    const {data,error}=await sb.from('user_presence').select('user_id,state,activity_text,last_seen_at').in('user_id',ids);
+    if(error){console.warn('friend presence refresh',error);return}
+    if(rightMode!=='friends')return;
+    const map=new Map((data||[]).map(row=>[String(row.user_id),row]));
+    for(const row of rows){
+      if(!row.isConnected)continue;
+      const uid=String(row.dataset.profileUser||''),pres=map.get(uid)||null,next=ycPresenceState(pres),prev=row.classList.contains('is-offline')?'offline':row.classList.contains('is-dnd')?'dnd':row.classList.contains('is-afk')?'afk':'online';
+      if(prev!==next){await renderFriends();return}
+      row.classList.toggle('is-dnd',next==='dnd');row.classList.toggle('is-afk',next==='afk');row.classList.toggle('is-offline',next==='offline');
+      const crest=row.querySelector('.rank-crest');if(crest){crest.classList.remove('yc-presence-online','yc-presence-afk','yc-presence-dnd','yc-presence-offline');crest.classList.add('yc-status-avatar','yc-presence-'+next)}
+      const activity=row.querySelector('.yc-activity');if(activity)activity.textContent=next==='offline'?ycLastSeen(pres):String(pres?.activity_text||ycPresenceLabel(next));
+      const last=row.querySelector('.yc-lastseen');if(last)last.textContent=next==='offline'?ycLastSeen(pres):ycPresenceLabel(next);
+    }
+  }catch(e){console.warn('friend presence refresh',e)}finally{ycFriendPresenceRefreshBusy=false}
+}
 async function rejectFriend(requester){const {error}=await sb.from('friendships').delete().eq('requester_id',requester).eq('addressee_id',user.id);if(error)toast(error.message,true);else{toast('Žádost odmítnuta.');renderFriends()}}
 async function removeFriend(otherId){if(!confirm('Odebrat uživatele z přátel?'))return;const {error}=await sb.from('friendships').delete().or('and(requester_id.eq.'+user.id+',addressee_id.eq.'+otherId+'),and(requester_id.eq.'+otherId+',addressee_id.eq.'+user.id+')');if(error)toast(error.message,true);else{toast('Přítel odebrán.');renderFriends()}}
 async function addFriend(){const name=await ycDesktopPrompt('Uživatelské jméno:');if(!name?.trim())return;const {data:p}=await sb.from('profiles').select('id,username').ilike('username',name.trim()).limit(1).maybeSingle();if(!p||p.id===user.id){toast('Uživatel nebyl nalezen.',true);return}const {data:existing}=await sb.from('friendships').select('*').or('and(requester_id.eq.'+user.id+',addressee_id.eq.'+p.id+'),and(requester_id.eq.'+p.id+',addressee_id.eq.'+user.id+')').limit(1).maybeSingle();if(existing){toast(existing.status==='accepted'?'Už jste přátelé.':'Žádost už existuje.',true);return}const {error}=await sb.from('friendships').insert({requester_id:user.id,addressee_id:p.id,status:'pending'});if(error)toast(error.message,true);else{toast('Žádost o přátelství odeslána.');renderFriends()}}
@@ -2264,7 +2286,7 @@ async function ycTouchPresence(force=false){
 async function ycPresenceOffline(){ycPresenceRemoteOnlineUntil=0;return Promise.resolve()}
 let ycDmPeriodicRefreshAt=0,ycDmPeriodicRefreshBusy=false;
 async function ycMaybePeriodicDmRefresh(){const now=Date.now();if(!ycFriendsHomeMode||document.hidden||ycDmPeriodicRefreshBusy||now-ycDmPeriodicRefreshAt<60000)return;ycDmPeriodicRefreshAt=now;ycDmPeriodicRefreshBusy=true;try{await loadDmThreads()}catch(e){console.warn('periodic DM refresh',e)}finally{ycDmPeriodicRefreshBusy=false}}
-function ycStartPresence(){if(ycPresenceTimer)return;ycPresenceTimer=setInterval(()=>{if(user&&profile)ycTouchPresence(true)},20000);ycSocialRefreshTimer=setInterval(()=>{if(!user||document.hidden)return;if(rightMode==='friends')void renderFriends();else if(rightMode==='members')void ycRefreshVisibleMemberPresence();if(ycFriendsHomeMode)void ycMaybePeriodicDmRefresh()},15000);for(const ev of ['pointerdown','keydown','touchstart'])window.addEventListener(ev,()=>{ycLastInputAt=Date.now();if(user&&profile&&ycPresencePreference()==='online'&&ycLastPresenceSig.startsWith('afk|'))ycTouchPresence(true)},{passive:true});let ycLastMouseMark=0;window.addEventListener('mousemove',()=>{const now=Date.now();if(now-ycLastMouseMark>=1000){ycLastMouseMark=now;ycLastInputAt=now}},{passive:true});document.addEventListener('visibilitychange',()=>{if(!document.hidden)ycLastInputAt=Date.now();ycTouchPresence(true)});setTimeout(()=>{ycTouchPresence(true);ycSyncDiscordIdentity()},700)}
+function ycStartPresence(){if(ycPresenceTimer)return;ycPresenceTimer=setInterval(()=>{if(user&&profile)ycTouchPresence(true)},20000);ycSocialRefreshTimer=setInterval(()=>{if(!user||document.hidden)return;if(rightMode==='friends')void ycRefreshVisibleFriendPresence();else if(rightMode==='members')void ycRefreshVisibleMemberPresence();if(ycFriendsHomeMode)void ycMaybePeriodicDmRefresh()},15000);for(const ev of ['pointerdown','keydown','touchstart'])window.addEventListener(ev,()=>{ycLastInputAt=Date.now();if(user&&profile&&ycPresencePreference()==='online'&&ycLastPresenceSig.startsWith('afk|'))ycTouchPresence(true)},{passive:true});let ycLastMouseMark=0;window.addEventListener('mousemove',()=>{const now=Date.now();if(now-ycLastMouseMark>=1000){ycLastMouseMark=now;ycLastInputAt=now}},{passive:true});document.addEventListener('visibilitychange',()=>{if(!document.hidden)ycLastInputAt=Date.now();ycTouchPresence(true)});setTimeout(()=>{ycTouchPresence(true);ycSyncDiscordIdentity()},700)}
 ycStartPresence()
 window.addEventListener('resize',()=>{$('mobileMenu').classList.toggle('hidden',innerWidth>720)})
 // Yamachat desktop bridge - read-only state for Electron tray integration.
