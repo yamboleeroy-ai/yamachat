@@ -57,6 +57,7 @@ jobs:
       - name: Extended browser regressions
         run: |
           node tests/interaction-notifications.cjs
+          node tests/chat-actions-lifecycle.cjs
           node tests/legal-ui-visual.cjs
           node tests/mobile-friends-drawer.cjs
           node tests/password-recovery.cjs
