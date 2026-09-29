@@ -28,7 +28,7 @@ window.supabase={createClient:()=>{
    if(table==='soundboard_sounds')data=[];
    if(table==='community_bans')data=[];
    if(table==='messages')data=Array.from({length:6},(_,i)=>({id:'chat-a-'+i,channel_id:'chat-a',author_id:'audit-user',body:'Test '+i,created_at:new Date(1700000000000+i*60000).toISOString(),profiles:profile}));
-   for(const [k,v] of Object.entries(filters))data=data.filter(x=>String(x?.[k]??'')===String(v));
+   for(const [k,v] of Object.entries(filters)){if(k==='__in'){const [column,set]=v;data=data.filter(x=>set.has(String(x?.[column]??'')))}else data=data.filter(x=>String(x?.[k]??'')===String(v))}
    if(op!=='read')window.__mockWrites.push({table,op,payload,filters});
    const result={data:single?(data[0]||null):data,error:null,count:data.length};
    return Promise.resolve(result).then(resolve);
