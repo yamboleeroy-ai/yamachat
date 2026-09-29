@@ -10,7 +10,7 @@ const windowsUrl=String(manifest?.windows?.installerUrl||'').trim();
 const androidUrl=String(manifest?.android?.apkUrl||'').trim();
 if(!/^\d+\.\d+\.\d+$/.test(windowsVersion))throw Error('Platform UI: invalid Windows version in update-manifest.json');
 if(!/^https:\/\/updates\.yamachat\.eu\/windows\//i.test(windowsUrl))throw Error('Platform UI: invalid Windows installer URL in update-manifest.json');
-if(!/^https:\/\//i.test(androidUrl))throw Error('Platform UI: invalid Android APK URL in update-manifest.json');
+if(!/^https:\/\/updates\.yamachat\.eu\/android\/Yamachat-Android(?:-\d+)?\.apk(?:\?v=\d+)?$/i.test(androidUrl))throw Error('Platform UI: invalid Android Cloudflare APK URL in update-manifest.json');
 
 const platforms=Object.freeze({
   windows:{
