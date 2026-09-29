@@ -48,12 +48,12 @@ function mock(){
    assert.equal(await page.locator('#pendingFile').isHidden(),true,cfg.platform+' pending attachment not cleared');
 
    // Reaction through the actual delegated click handler.
-   await page.waitForSelector('[data-yc-react="chat-a-0"]',{timeout:10000});
+   await page.waitForSelector('[data-yc-react="chat-a-0"]',{state:'attached',timeout:10000});
    await page.locator('[data-yc-react="chat-a-0"]').first().click({force:true});
    await page.waitForFunction(()=>window.__mockRpcWrites.some(x=>x.name==='toggle_message_reaction'&&x.args.p_message_id==='chat-a-0'));
 
    // Reply through actual UI, then verify the outgoing message row carries reply_to.
-   await page.waitForSelector('[data-yc-reply="chat-a-0"]',{timeout:10000});
+   await page.waitForSelector('[data-yc-reply="chat-a-0"]',{state:'attached',timeout:10000});
    await page.locator('[data-yc-reply="chat-a-0"]').click({force:true});
    await page.waitForSelector('#ycReplyCompose:not(.hidden)');
    await page.locator('#messageInput').fill('Audit odpověď');
