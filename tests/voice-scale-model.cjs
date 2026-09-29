@@ -58,6 +58,10 @@ assert(scaleSql.includes("created_at < now() - interval '5 minutes'"),'Signal cl
 
 
 assert(desktop.includes("async function recoverVoiceSignals()"),'Voice signal recovery missing');
+assert(desktop.includes('voiceSignalRecoverPromise=task'),'Voice recovery overlap coalescing missing');
+assert(desktop.includes("String(row.to_user||'')!==String(user.id)"),'Cross-account recovered signal guard missing');
+assert(desktop.includes("if(q.length>128)q.splice(0,q.length-128)"),'ICE queue bound missing');
+assert(desktop.includes('voiceRouteCheckFastTimer=null,voiceRouteCheckSlowTimer=null'),'Route diagnostics burst coalescing missing');
 assert(desktop.includes("lt('created_at',stale)"),'Stale voice signals are not pruned');
 assert(desktop.includes("gt('created_at',recent)"),'Recent missed voice signals are not recovered');
 
