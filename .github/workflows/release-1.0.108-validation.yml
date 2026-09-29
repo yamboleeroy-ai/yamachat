@@ -4,7 +4,7 @@ on:
     branches: [release/1.0.108-cloudflare-clean-20260929]
     paths: ['.github/workflows/release-1.0.108-validation.yml']
 permissions:
-  contents: read
+  contents: write
 jobs:
   web:
     runs-on: ubuntu-latest
