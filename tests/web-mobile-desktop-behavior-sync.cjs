@@ -36,6 +36,8 @@ for(const marker of [
   "if(skipWrite){ycLastPresenceSig=sig",
   "async function ycPresenceOffline(){ycPresenceRemoteOnlineUntil=0;return Promise.resolve()}",
   "else if(rightMode==='members')void ycRefreshVisibleMemberPresence()",
+  "async function ycRefreshVisibleFriendPresence()",
+  "if(rightMode==='friends')void ycRefreshVisibleFriendPresence()",
   "function ycHandlePresenceRealtime(payload)",
   "if(beforeSig===afterSig)return",
   "void ycTouchPresence(true);playVoiceCue('self-join')",
@@ -68,6 +70,12 @@ const presenceBody=client.slice(presenceStart,presenceEnd);
 assert(!presenceBody.includes('if(ycFriendsHomeMode)void loadDmThreads()'),'15-second timer must not directly reload DM list');
 assert(presenceBody.includes("else if(rightMode==='members')void ycRefreshVisibleMemberPresence()"),'Members timer must use the lightweight presence refresh');
 assert(!presenceBody.includes("else if(rightMode==='members')void renderRight()"),'Members must not rerender unconditionally');
+assert(!presenceBody.includes("if(rightMode==='friends')void renderFriends()"),'Friends timer must not fully reload the social panel');
+const friendRefreshStart=client.indexOf('async function ycRefreshVisibleFriendPresence()'),friendRefreshEnd=client.indexOf('async function rejectFriend(',friendRefreshStart);
+assert(friendRefreshStart>=0&&friendRefreshEnd>friendRefreshStart,'Generated lightweight friend presence refresh boundary missing');
+const friendRefreshBody=client.slice(friendRefreshStart,friendRefreshEnd);
+assert(friendRefreshBody.includes("from('user_presence')"),'Generated friend refresh must read presence rows');
+for(const table of ['friendships','profiles','profile_stats'])assert(!friendRefreshBody.includes("from('"+table+"')"),'Generated friend presence refresh unexpectedly reloads '+table);
 const memberRefreshStart=client.indexOf('async function ycRefreshVisibleMemberPresence()'),memberRefreshEnd=client.indexOf('function ycLastSeen(',memberRefreshStart);
 assert(memberRefreshStart>=0&&memberRefreshEnd>memberRefreshStart,'Generated member presence refresh boundary missing');
 const memberRefreshBody=client.slice(memberRefreshStart,memberRefreshEnd);
