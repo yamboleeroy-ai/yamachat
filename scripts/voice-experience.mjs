@@ -123,7 +123,7 @@ function ycVoiceAnnounceOnce(row,action){
   const uid=String(row?.user_id||'');const channel=String(row?.channel_id||voiceChannel?.id||'');if(!uid||!channel)return;
   const key=action+'|'+channel+'|'+uid,now=Date.now(),last=Number(ycVoiceAnnouncementDedup.get(key)||0);
   if(now-last<6000)return;ycVoiceAnnouncementDedup.set(key,now);
-  if(ycVoiceAnnouncementDedup.size>120)for(const [k,ts] of ycVoiceAnnouncementDedup)if(now-ts>15000)ycVoiceAnnouncementDedup.delete(k);
+  if(ycVoiceAnnouncementDedup.size>120){for(const [k,ts] of [...ycVoiceAnnouncementDedup])if(now-ts>15000)ycVoiceAnnouncementDedup.delete(k);while(ycVoiceAnnouncementDedup.size>512)ycVoiceAnnouncementDedup.delete(ycVoiceAnnouncementDedup.keys().next().value)}
   ycVoiceParticipantAnnouncement({...row,channel_id:channel},action);
  }catch(e){console.warn('voice announcement dedup',e)}
 }
