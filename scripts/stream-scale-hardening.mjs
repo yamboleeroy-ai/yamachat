@@ -8,7 +8,7 @@ export function withStreamScaleHardening(html){
   if(html.includes('STREAM SCALE HARDENING 2026-09-28'))return html;
 
   const stateOld="let ycCommunityStreamSub=null,ycStreamPresenceTimer=null,ycStreamPreviewTimer=null";
-  const stateNew="let ycCommunityStreamSub=null,ycCommunityStreamPollTimer=null,ycCommunityStreamLoadBusy=null,ycCommunityStreamLoadCid='',ycStreamPresenceTimer=null,ycStreamPreviewTimer=null,ycStreamPublishEpoch=0,ycStreamPublishQueue=Promise.resolve(),ycStreamPresenceClearedUserId=''";
+  const stateNew="let ycCommunityStreamSub=null,ycCommunityStreamPollTimer=null,ycCommunityStreamLoadBusy=null,ycCommunityStreamLoadCid='',ycCommunityStreamWatchGeneration=0,ycStreamPresenceTimer=null,ycStreamPreviewTimer=null,ycStreamPublishEpoch=0,ycStreamPublishQueue=Promise.resolve(),ycStreamPresenceClearedUserId=''";
   if(!html.includes(stateOld))throw Error('Stream discovery state boundary missing');
   html=html.replace(stateOld,stateNew);
 
@@ -37,21 +37,29 @@ async function ycLoadCommunityStreams(){
 `;
   html=replaceBetween(html,'async function ycLoadCommunityStreams(){','async function ycStopCommunityStreamWatch(){',load,'community stream roster');
 
-  const watch=`async function ycStopCommunityStreamWatch(){
+  const watch=`async function ycStopCommunityStreamWatch(invalidate=true){
+  if(invalidate)++ycCommunityStreamWatchGeneration
   if(ycCommunityStreamPollTimer){clearInterval(ycCommunityStreamPollTimer);ycCommunityStreamPollTimer=null}
   const ch=ycCommunityStreamSub;ycCommunityStreamSub=null;if(ch)try{await sb.removeChannel(ch)}catch{}
 }
 async function ycStartCommunityStreamWatch(){
-  await ycStopCommunityStreamWatch();if(!currentCommunity?.id){ycCommunityStreams.clear();renderVoiceChannels(voiceChannelDefs);return}const cid=String(currentCommunity.id)
-  const removeStream=key=>{ycCommunityStreams.delete(key);if(screenWatchingByUser.has(key)){screenWatchingByUser.delete(key);screenWatchPendingByUser.delete(key);remoteScreenStreams.delete(key);try{ycRemoveScreenAudioElement(key)}catch{}ycSyncStreamViewer()}renderVoiceChannels(voiceChannelDefs)}
+  const generation=++ycCommunityStreamWatchGeneration
+  await ycStopCommunityStreamWatch(false)
+  if(generation!==ycCommunityStreamWatchGeneration)return
+  if(!currentCommunity?.id){ycCommunityStreams.clear();renderVoiceChannels(voiceChannelDefs);return}
+  const cid=String(currentCommunity.id),current=()=>generation===ycCommunityStreamWatchGeneration&&String(currentCommunity?.id||'')===cid
+  const removeStream=key=>{if(!current())return;ycCommunityStreams.delete(key);if(screenWatchingByUser.has(key)){screenWatchingByUser.delete(key);screenWatchPendingByUser.delete(key);remoteScreenStreams.delete(key);try{ycRemoveScreenAudioElement(key)}catch{}ycSyncStreamViewer()}renderVoiceChannels(voiceChannelDefs)}
   const sub=sb.channel('yc-community-streams-'+cid+'-'+Date.now())
-    .on('postgres_changes',{event:'INSERT',schema:'public',table:'community_stream_presence',filter:'community_id=eq.'+cid},payload=>{const row=payload.new;if(!row?.user_id||!ycStreamPresenceFresh(row))return;ycCommunityStreams.set(String(row.user_id),row);renderVoiceChannels(voiceChannelDefs)})
-    .on('postgres_changes',{event:'DELETE',schema:'public',table:'community_stream_presence'},payload=>{const row=payload.old;if(!row?.user_id||String(row.community_id||'')!==cid)return;removeStream(String(row.user_id))})
+    .on('postgres_changes',{event:'INSERT',schema:'public',table:'community_stream_presence',filter:'community_id=eq.'+cid},payload=>{if(!current())return;const row=payload.new;if(!row?.user_id||!ycStreamPresenceFresh(row))return;ycCommunityStreams.set(String(row.user_id),row);renderVoiceChannels(voiceChannelDefs)})
+    .on('postgres_changes',{event:'DELETE',schema:'public',table:'community_stream_presence'},payload=>{if(!current())return;const row=payload.old;if(!row?.user_id||String(row.community_id||'')!==cid)return;removeStream(String(row.user_id))})
+  if(!current()){try{await sb.removeChannel(sub)}catch{};return}
   ycCommunityStreamSub=sub
-  sub.subscribe(status=>{if(String(currentCommunity?.id||'')!==cid)return;if(status==='SUBSCRIBED'){void ycLoadCommunityStreams();return}if(['CHANNEL_ERROR','TIMED_OUT','CLOSED'].includes(status)&&ycCommunityStreamSub===sub){ycCommunityStreamSub=null;try{void sb.removeChannel(sub)}catch{}}})
+  sub.subscribe(status=>{if(!current()){if(ycCommunityStreamSub===sub)ycCommunityStreamSub=null;try{void sb.removeChannel(sub)}catch{};return}if(status==='SUBSCRIBED'){void ycLoadCommunityStreams();return}if(['CHANNEL_ERROR','TIMED_OUT','CLOSED'].includes(status)&&ycCommunityStreamSub===sub){ycCommunityStreamSub=null;try{void sb.removeChannel(sub)}catch{}}})
   await ycLoadCommunityStreams()
-  ycCommunityStreamPollTimer=setInterval(()=>{if(String(currentCommunity?.id||'')!==cid)return;if(!ycCommunityStreamSub){void ycStartCommunityStreamWatch();return}if(ycCommunityStreams.size)void ycLoadCommunityStreams()},20000)
-}`;
+  if(!current()){if(ycCommunityStreamSub===sub)ycCommunityStreamSub=null;try{await sb.removeChannel(sub)}catch{};return}
+  ycCommunityStreamPollTimer=setInterval(()=>{if(!current())return;if(!ycCommunityStreamSub){void ycStartCommunityStreamWatch();return}if(ycCommunityStreams.size)void ycLoadCommunityStreams()},20000)
+}
+`;
   html=replaceBetween(html,'async function ycStopCommunityStreamWatch(){','function ycClearStreamPublishTimers(){',watch,'community stream watch');
 
   const streamStopOld="async function stopScreenShare(silent=false){\n  const stream=screenShareStream;if(!screenShareActive&&!stream)return";
