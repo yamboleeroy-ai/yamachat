@@ -5,7 +5,10 @@ for(const file of ['desktop/desktop-client.html','index.html']){
   assert(!html.includes(".on('postgres_changes',{event:'*',schema:'public',table:'community_stream_presence',filter:'community_id=eq.'+cid}"),file+' still fans stream heartbeat UPDATEs to the whole community');
   assert(html.includes("event:'INSERT',schema:'public',table:'community_stream_presence',filter:'community_id=eq.'+cid"),file+' stream INSERT discovery missing');
   assert(html.includes("event:'DELETE',schema:'public',table:'community_stream_presence'"),file+' stream DELETE discovery missing');
-  assert(html.includes("ycCommunityStreamPollTimer=setInterval(()=>{if(String(currentCommunity?.id||'')===cid)void ycLoadCommunityStreams()},20000)"),file+' batched stream roster poll missing');
+  assert(html.includes("ycCommunityStreamPollTimer=setInterval(()=>{if(String(currentCommunity?.id||'')!==cid)return;if(!ycCommunityStreamSub){void ycStartCommunityStreamWatch();return}if(ycCommunityStreams.size)void ycLoadCommunityStreams()},20000)"),file+' adaptive stream watchdog missing');
+  assert(html.includes("status==='SUBSCRIBED'"),file+' stream realtime reconnect resync missing');
+  assert(html.includes("['CHANNEL_ERROR','TIMED_OUT','CLOSED'].includes(status)"),file+' stream realtime dead-channel recovery missing');
+  assert(html.includes("if(ycCommunityStreams.size)void ycLoadCommunityStreams()"),file+' active-stream TTL roster refresh missing');
   assert(html.includes("if(ycCommunityStreamLoadBusy)return ycCommunityStreamLoadBusy"),file+' stream poll overlap guard missing');
   assert(html.includes("if(ycCommunityStreamPollTimer){clearInterval(ycCommunityStreamPollTimer);ycCommunityStreamPollTimer=null}"),file+' stream poll cleanup missing');
   const load=html.slice(html.indexOf('async function ycLoadCommunityStreams(){'),html.indexOf('async function ycStopCommunityStreamWatch(){'));
@@ -14,6 +17,6 @@ for(const file of ['desktop/desktop-client.html','index.html']){
 function oldUpdateDeliveriesPerSecond(users,streamers,heartbeat=12){return users*streamers/heartbeat}
 for(const users of [100,200,500,1000]){
   const old=oldUpdateDeliveriesPerSecond(users,Math.max(1,Math.round(users*.05)));
-  console.log(JSON.stringify({users,streamers:Math.max(1,Math.round(users*.05)),old_stream_heartbeat_realtime_deliveries_per_second:Number(old.toFixed(1)),new_stream_heartbeat_realtime_deliveries_per_second:0,stream_roster_rest_qps:Number((users/20).toFixed(1))}));
+  console.log(JSON.stringify({users,streamers:Math.max(1,Math.round(users*.05)),old_stream_heartbeat_realtime_deliveries_per_second:Number(old.toFixed(1)),new_stream_heartbeat_realtime_deliveries_per_second:0,idle_stream_roster_rest_qps:0,active_stream_roster_rest_qps_upper_bound:Number((users/20).toFixed(1))}));
 }
-console.log('PASS stream scale: heartbeat/preview UPDATEs are not Realtime-fanned to the whole community; INSERT/DELETE remain instant and active streams refresh in a batched 20s roster poll.');
+console.log('PASS stream scale: heartbeat/preview UPDATEs are not Realtime-fanned to the whole community; INSERT/DELETE remain instant, idle communities do not poll stream presence, and active streams retain a batched 20s TTL refresh with realtime recovery.');
