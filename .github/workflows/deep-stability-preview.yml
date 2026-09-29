@@ -49,9 +49,15 @@ jobs:
       - name: Static project checks
         run: node scripts/check.mjs
 
+      - name: Install preview browser runtime
+        run: |
+          npm install --no-save --package-lock=false playwright@1.62.1
+          npx playwright install chromium
+
       - name: Preview regression guards
         shell: pwsh
         run: |
+          $PSNativeCommandUseErrorActionPreference = $true
           node tests/service-worker-guard.cjs
           node tests/logout-cleanup-order.cjs
           node tests/cross-platform-voice-interop.cjs
@@ -123,3 +129,4 @@ jobs:
             preview-sha256.txt
           if-no-files-found: error
           retention-days: 7
+          compression-level: 0
