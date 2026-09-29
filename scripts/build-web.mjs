@@ -14,6 +14,7 @@ import {withVoiceThemePolish} from './voice-theme-polish.mjs';
 import {withVoiceExperience} from './voice-experience.mjs';
 import {withVoiceScaleHardening} from './voice-scale-hardening.mjs';
 import {withRuntimeStabilityHardening} from './runtime-stability-hardening.mjs';
+import {withCommunityRealtimeConsolidation} from './community-realtime-consolidation.mjs';
 import {withStreamScaleHardening} from './stream-scale-hardening.mjs';
 import {withMessageNotificationSound} from './message-notification-sound.mjs';
 import {withInteractionNotifications} from './interaction-notifications.mjs';
@@ -164,6 +165,7 @@ html=html.replace(
  html=withInteractionNotifications(html);
  html=withVoiceScaleHardening(html);
  html=withRuntimeStabilityHardening(html);
+ html=withCommunityRealtimeConsolidation(html);
  html=withStreamScaleHardening(html);
 
 html=withStreamViewer(html);

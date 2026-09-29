@@ -1620,7 +1620,63 @@ function rankForXP(xp){xp=Number(xp||0);if(xp>=60000)return'Mythic';if(xp>=42000
 function rankAvatarHtml(p,st,cls='avatar',presenceState=''){const rank=rankForXP(st?.xp||0),rc=rank.toLowerCase(),size=cls==='m-avatar'?'rank-crest-message':'rank-crest-small',state=['online','afk','dnd','offline'].includes(String(presenceState))?String(presenceState):'',presenceClass=state?' yc-status-avatar yc-presence-'+state:'',presenceDot=state?'<span class="yc-avatar-presence-dot" aria-hidden="true"></span>':'';return '<span class="rank-crest rank-'+rc+' '+size+presenceClass+'" title="'+esc(rank)+(state?' · '+esc(ycPresenceLabel(state)):'')+'">'+avatarHtml(p,cls)+presenceDot+'</span>'}
 function ycPatchOwnMemberStats(){if(!user?.id)return;const row=document.querySelector('#rightContent [data-member-id="'+CSS.escape(String(user.id))+'"]');if(!row)return;const xp=Number(myStats?.xp||0),rank=rankForXP(xp),badge=row.querySelector('.rank-badge'),line=row.querySelector('.yc-lastseen');if(badge&&badge.textContent!==rank)badge.textContent=rank;if(line)line.textContent=String(line.textContent||'').replace(/·\s*\d+\s*XP\b/,'· '+xp+' XP');const crest=row.querySelector('.rank-crest');if(crest){for(const c of [...crest.classList])if(c.startsWith('rank-')&&!['rank-crest','rank-crest-small','rank-crest-message','rank-crest-top'].includes(c))crest.classList.remove(c);crest.classList.add('rank-'+rank.toLowerCase())}}
 async function loadMyStats(){if(!user)return;const oldRank=rankForXP(myStats?.xp||0),{data}=await sb.from('profile_stats').select('xp,message_count').eq('user_id',user.id).maybeSingle();myStats=data||{xp:0,message_count:0};ycPatchOwnMemberStats();if(profile&&(!$('topAvatar')||rankForXP(myStats.xp)!==oldRank))renderMe()}
-function subscribeCommunityRealtime(communityId){if(communityRealtimeSub){sb.removeChannel(communityRealtimeSub);communityRealtimeSub=null}communityRealtimeSub=sb.channel('yc-community-'+communityId+'-'+Date.now()).on('postgres_changes',{event:'INSERT',schema:'public',table:'community_members',filter:'community_id=eq.'+communityId},async()=>{if(currentCommunity?.id!==communityId)return;await loadCommunities();currentCommunity=communities.find(c=>c.id===communityId)||currentCommunity;currentRole=currentCommunity?.role||currentRole;await loadCurrentModeratorPermissions();applyCommunityPermissionUI();await renderRight()}).on('postgres_changes',{event:'UPDATE',schema:'public',table:'community_members',filter:'community_id=eq.'+communityId},async payload=>{if(currentCommunity?.id!==communityId)return;if(payload.new?.user_id===user.id){await loadCommunities();currentCommunity=communities.find(c=>c.id===communityId)||currentCommunity;currentRole=currentCommunity?.role||currentRole;await loadCurrentModeratorPermissions();applyCommunityPermissionUI()}await renderRight()}).on('postgres_changes',{event:'INSERT',schema:'public',table:'channels',filter:'community_id=eq.'+communityId},async()=>{if(currentCommunity?.id!==communityId)return;const ch=await getChannels();renderChannels(ch)}).on('postgres_changes',{event:'DELETE',schema:'public',table:'community_members'},async payload=>{if(payload.old?.community_id!==communityId||currentCommunity?.id!==communityId)return;if(payload.old?.user_id===user.id){await loadCommunities();if(communities.length)await selectCommunity(communities[0].id);else{currentCommunity=null;currentChannel=null;renderRail();clearChat('Byl jsi odebrán z komunity.')}toast('Byl jsi odebrán z komunity.',true);return}await renderRight()}).subscribe()}
+// COMMUNITY REALTIME CONSOLIDATED 2026-09-29
+function subscribeCommunityRealtime(communityId){
+  const cid=String(communityId||''),uid=String(user?.id||'');
+  if(communityRealtimeSub){try{sb.removeChannel(communityRealtimeSub)}catch{}communityRealtimeSub=null}
+  if(!cid||!uid)return;
+  const current=()=>String(user?.id||'')===uid&&String(currentCommunity?.id||'')===cid;
+  const refreshMemberVisuals=()=>{
+    if(!current())return;
+    try{window.__ycInvalidateRoleVisuals?.()}catch{}
+    try{window.__ycRefreshSocialTabCounts?.(true)}catch{}
+    if(currentChannel&&typeof applyMessageRoleColors==='function')void applyMessageRoleColors();
+  };
+  const reloadSelfContext=async(forcePermissions=false)=>{
+    await loadCommunities();if(!current())return false;
+    currentCommunity=communities.find(c=>String(c.id)===cid)||currentCommunity;
+    currentRole=currentCommunity?.role||currentRole;
+    await loadCurrentModeratorPermissions(forcePermissions);if(!current())return false;
+    applyCommunityPermissionUI();return true;
+  };
+  const resync=async()=>{
+    try{if(!await reloadSelfContext(true))return;refreshMemberVisuals();await renderRight()}
+    catch(e){console.warn('community realtime resync',e)}
+  };
+  let subscribedOnce=false;
+  const sub=sb.channel('yc-community-'+cid+'-'+Date.now())
+    .on('postgres_changes',{event:'INSERT',schema:'public',table:'community_members',filter:'community_id=eq.'+cid},async payload=>{
+      if(!current())return;
+      if(String(payload.new?.user_id||'')===uid&&!await reloadSelfContext(true))return;
+      refreshMemberVisuals();await renderRight();
+    })
+    .on('postgres_changes',{event:'UPDATE',schema:'public',table:'community_members',filter:'community_id=eq.'+cid},async payload=>{
+      if(!current())return;
+      if(String(payload.new?.user_id||'')===uid&&!await reloadSelfContext(true))return;
+      refreshMemberVisuals();await renderRight();
+    })
+    .on('postgres_changes',{event:'INSERT',schema:'public',table:'channels',filter:'community_id=eq.'+cid},async()=>{
+      if(!current())return;const ch=await getChannels();if(current())renderChannels(ch);
+    })
+    .on('postgres_changes',{event:'DELETE',schema:'public',table:'community_members'},async payload=>{
+      if(String(payload.old?.community_id||'')!==cid||!current())return;
+      if(String(payload.old?.user_id||'')===uid){
+        await loadCommunities();if(!current())return;
+        if(communities.length)await selectCommunity(communities[0].id);
+        else{currentCommunity=null;currentChannel=null;renderRail();clearChat('Byl jsi odebrán z komunity.')}
+        toast('Byl jsi odebrán z komunity.',true);return;
+      }
+      refreshMemberVisuals();await renderRight();
+    });
+  communityRealtimeSub=sub;
+  sub.subscribe(status=>{
+    if(!current())return;
+    if(status==='SUBSCRIBED'){if(subscribedOnce)void resync();else subscribedOnce=true;return}
+    if(['CHANNEL_ERROR','TIMED_OUT','CLOSED'].includes(status)&&communityRealtimeSub===sub){
+      communityRealtimeSub=null;try{void sb.removeChannel(sub)}catch{}
+    }
+  });
+}
 function subscribeUserRealtime(){const uid=user?.id;if(!uid)return;if(userRealtimeSub){try{sb.removeChannel(userRealtimeSub)}catch{}userRealtimeSub=null}const owns=()=>String(user?.id||'')===String(uid),handleFriendshipRealtime=payload=>{if(!owns())return;const n=payload.new||{},o=payload.old||{};if(![n.requester_id,n.addressee_id,o.requester_id,o.addressee_id].includes(uid))return;if(typeof window.__ycRefreshSocialTabCounts==='function')void window.__ycRefreshSocialTabCounts(true);if(typeof ycRefreshNotificationCenter==='function')void ycRefreshNotificationCenter();if(rightMode==='friends')void renderFriends()};const sub=sb.channel('yc-user-'+uid+'-'+Date.now()).on('postgres_changes',{event:'*',schema:'public',table:'friendships',filter:'requester_id=eq.'+uid},handleFriendshipRealtime).on('postgres_changes',{event:'*',schema:'public',table:'friendships',filter:'addressee_id=eq.'+uid},handleFriendshipRealtime).on('postgres_changes',{event:'*',schema:'public',table:'profile_stats',filter:'user_id=eq.'+uid},payload=>{if(!owns())return;const n=payload.new||{},oldRank=rankForXP(myStats?.xp||0);myStats={xp:Number(n.xp??myStats?.xp??0),message_count:Number(n.message_count??myStats?.message_count??0)};ycPatchOwnMemberStats();if(profile&&rankForXP(myStats.xp)!==oldRank)renderMe()}).on('postgres_changes',{event:'*',schema:'public',table:'community_member_permissions',filter:'user_id=eq.'+uid},async()=>{if(!owns())return;await loadCurrentModeratorPermissions(true);if(!owns())return;if(currentCommunity)applyCommunityPermissionUI();if(rightMode==='members')renderRight()});userRealtimeSub=sub;sub.subscribe(status=>{if(!owns())return;if(status==='SUBSCRIBED'){if(typeof window.__ycRefreshSocialTabCounts==='function')void window.__ycRefreshSocialTabCounts();if(typeof ycRefreshNotificationCenter==='function')void ycRefreshNotificationCenter();if(rightMode==='friends')void renderFriends();return}if(['CHANNEL_ERROR','TIMED_OUT','CLOSED'].includes(status)&&userRealtimeSub===sub){userRealtimeSub=null;try{void sb.removeChannel(sub)}catch{}}})}
 
 
@@ -5198,12 +5254,12 @@ let ycHiddenInitTries=0;const ycHiddenInitTimer=setInterval(()=>{ycHiddenInitTri
   let realtime=null,realtimeCommunityId='';
   function stopRealtime(){const ch=realtime;realtime=null;realtimeCommunityId='';if(ch)try{sb.removeChannel(ch)}catch{}}
   function syncRealtimeSnapshot(cid){if(String(currentCommunity?.id||'')!==String(cid))return;window.__ycInvalidateRoleVisuals();void refreshSocialTabCounts(true);if(rightMode==='members')void renderRight();if(currentChannel)void applyMessageRoleColors()}
-  function ensureRealtime(){const uid=String(user?.id||''),cid=String(currentCommunity?.id||'');if(!uid||!cid){stopRealtime();return}if(realtime&&realtimeCommunityId===cid)return;stopRealtime();realtimeCommunityId=cid;const current=()=>String(user?.id||'')===uid&&String(currentCommunity?.id||'')===cid;try{const sub=sb.channel('yc-role-social-live-'+uid+'-'+cid+'-'+Date.now()).on('postgres_changes',{event:'*',schema:'public',table:'community_members',filter:'community_id=eq.'+cid},()=>{if(!current())return;window.__ycInvalidateRoleVisuals();void refreshSocialTabCounts(true);if(rightMode==='members')void renderRight();if(currentChannel)void applyMessageRoleColors()}).on('postgres_changes',{event:'*',schema:'public',table:'community_member_roles',filter:'community_id=eq.'+cid},()=>{if(!current())return;window.__ycInvalidateRoleVisuals();if(rightMode==='members')void renderRight();if(currentChannel)void applyMessageRoleColors()}).on('postgres_changes',{event:'*',schema:'public',table:'community_roles',filter:'community_id=eq.'+cid},()=>{if(!current())return;window.__ycInvalidateRoleVisuals();if(rightMode==='members')void renderRight();if(currentChannel)void applyMessageRoleColors()}).on('postgres_changes',{event:'*',schema:'public',table:'desktop_server_role_layout',filter:'community_id=eq.'+cid},()=>{if(!current())return;window.__ycInvalidateRoleVisuals();if(rightMode==='members')void renderRight();if(currentChannel)void applyMessageRoleColors()});realtime=sub;sub.subscribe(status=>{if(!current())return;if(status==='SUBSCRIBED'){syncRealtimeSnapshot(cid);return}if(['CHANNEL_ERROR','TIMED_OUT','CLOSED'].includes(status)&&realtime===sub){realtime=null;realtimeCommunityId='';try{void sb.removeChannel(sub)}catch{}}})}catch(e){realtime=null;realtimeCommunityId='';console.warn('role/social realtime',e)}}
+  function ensureRealtime(){const uid=String(user?.id||''),cid=String(currentCommunity?.id||'');if(!uid||!cid){stopRealtime();return}if(realtime&&realtimeCommunityId===cid)return;stopRealtime();realtimeCommunityId=cid;const current=()=>String(user?.id||'')===uid&&String(currentCommunity?.id||'')===cid;try{const sub=sb.channel('yc-role-social-live-'+uid+'-'+cid+'-'+Date.now()).on('postgres_changes',{event:'*',schema:'public',table:'community_member_roles',filter:'community_id=eq.'+cid},()=>{if(!current())return;window.__ycInvalidateRoleVisuals();if(rightMode==='members')void renderRight();if(currentChannel)void applyMessageRoleColors()}).on('postgres_changes',{event:'*',schema:'public',table:'community_roles',filter:'community_id=eq.'+cid},()=>{if(!current())return;window.__ycInvalidateRoleVisuals();if(rightMode==='members')void renderRight();if(currentChannel)void applyMessageRoleColors()}).on('postgres_changes',{event:'*',schema:'public',table:'desktop_server_role_layout',filter:'community_id=eq.'+cid},()=>{if(!current())return;window.__ycInvalidateRoleVisuals();if(rightMode==='members')void renderRight();if(currentChannel)void applyMessageRoleColors()});realtime=sub;sub.subscribe(status=>{if(!current())return;if(status==='SUBSCRIBED'){syncRealtimeSnapshot(cid);return}if(['CHANNEL_ERROR','TIMED_OUT','CLOSED'].includes(status)&&realtime===sub){realtime=null;realtimeCommunityId='';try{void sb.removeChannel(sub)}catch{}}})}catch(e){realtime=null;realtimeCommunityId='';console.warn('role/social realtime',e)}}
   ycOnLifecycle('beforeCommunity',stopRealtime);
   ycOnLifecycle('community',ensureRealtime);
   ycOnLifecycle('beforeAuth',stopRealtime);
-  setInterval(()=>{if(user?.id){if(!userRealtimeSub)subscribeUserRealtime();ensureRealtime()}},20000);
-  setTimeout(()=>{if(user?.id&&!userRealtimeSub)subscribeUserRealtime();ensureRealtime()},700);
+  setInterval(()=>{if(user?.id){if(!userRealtimeSub)subscribeUserRealtime();if(currentCommunity?.id&&!communityRealtimeSub)subscribeCommunityRealtime(currentCommunity.id);ensureRealtime()}},20000);
+  setTimeout(()=>{if(user?.id&&!userRealtimeSub)subscribeUserRealtime();if(currentCommunity?.id&&!communityRealtimeSub)subscribeCommunityRealtime(currentCommunity.id);ensureRealtime()},700);
 })();
 
 
