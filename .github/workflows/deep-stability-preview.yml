@@ -1,0 +1,124 @@
+name: Yamachat Deep Stability Windows Preview
+
+on:
+  push:
+    branches:
+      - audit/deep-stability-20260929
+    paths:
+      - ".github/workflows/deep-stability-preview.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  build-preview:
+    runs-on: windows-latest
+    timeout-minutes: 55
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Preserve repository line endings
+        shell: pwsh
+        run: |
+          git config core.autocrlf false
+          git reset --hard HEAD
+
+      - name: Verify preview source is the completed audit runtime
+        shell: pwsh
+        run: |
+          $base='43aa1814b5c85a7e3c9f142c1ddba92a8d5940c3'
+          $changed = git diff --name-only $base HEAD | Where-Object { $_ -ne '.github/workflows/deep-stability-preview.yml' }
+          if ($changed) {
+            Write-Host ($changed -join [Environment]::NewLine)
+            throw 'Runtime changed after completed audit; refusing to build preview.'
+          }
+
+      - name: Generate shared client
+        run: node scripts/build-web.mjs
+
+      - name: Static project checks
+        run: node scripts/check.mjs
+
+      - name: Preview regression guards
+        shell: pwsh
+        run: |
+          node tests/service-worker-guard.cjs
+          node tests/logout-cleanup-order.cjs
+          node tests/cross-platform-voice-interop.cjs
+          node tests/stream-viewer.cjs
+          node tests/windows-stream-lifecycle.cjs
+          node tests/windows-process-audio.cjs
+          node tests/windows-interaction-notifications.cjs
+          node tests/windows-taskbar-restore.cjs
+
+      - name: Build native process audio helper
+        shell: pwsh
+        run: ./scripts/build-windows-process-audio.ps1
+
+      - name: Prepare desktop runtime
+        shell: pwsh
+        run: |
+          Copy-Item -Recurse -Force build desktop/build
+          Copy-Item -Recurse -Force audio desktop/audio
+          Copy-Item boot-guard.js desktop/boot-guard.js
+
+      - name: Install desktop dependencies
+        run: npm ci
+        working-directory: desktop
+
+      - name: Build unpacked Windows preview
+        run: npx electron-builder --win dir --x64 --publish never
+        working-directory: desktop
+
+      - name: Isolate and package preview
+        shell: pwsh
+        run: |
+          $root='desktop/dist/win-unpacked'
+          $appRoot="$root/resources/app"
+          if (-not (Test-Path "$root/Yamachat.exe")) { throw 'Yamachat.exe missing from preview package.' }
+          if (-not (Test-Path "$appRoot/main.js")) { throw 'Desktop runtime missing from preview package.' }
+          if (-not (Test-Path "$appRoot/desktop-client.html")) { throw 'Desktop client missing from preview package.' }
+          if (-not (Test-Path "$appRoot/process-audio/Yamachat.ProcessAudioCapture.exe")) { throw 'Process audio helper missing from preview package.' }
+
+          $preview = @{
+            kind='deep-stability-20260929'
+            isolated=$true
+            release=$false
+            auditedRuntimeSha='43aa1814b5c85a7e3c9f142c1ddba92a8d5940c3'
+            buildCommit='${{ github.sha }}'
+          } | ConvertTo-Json -Compress
+          Set-Content -Path "$appRoot/preview.json" -Value $preview -Encoding UTF8
+
+          @"
+Yamachat Deep Stability Preview
+===============================
+Toto je PORTABLE TESTOVACI verze, ne produkcni release.
+Zdrojovy audit runtime: 43aa1814b5c85a7e3c9f142c1ddba92a8d5940c3
+Preview pouziva oddeleny profil Yamachat-Stream-Preview a nevydava/nenahrazuje beznou instalaci.
+Rozbal ZIP do vlastni slozky a spust Yamachat.exe.
+"@ | Set-Content -Path "$root/PREVIEW-README.txt" -Encoding UTF8
+
+          $zip='yamachat-windows-deep-stability-preview-portable.zip'
+          Compress-Archive -Path "$root/*" -DestinationPath $zip -Force
+          $hash=(Get-FileHash $zip -Algorithm SHA256).Hash.ToLowerInvariant()
+          Set-Content -Path 'preview-sha256.txt' -Value "$hash  $zip" -Encoding ASCII
+          Write-Host "PREVIEW_SHA256=$hash"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: yamachat-windows-deep-stability-preview-portable
+          path: |
+            yamachat-windows-deep-stability-preview-portable.zip
+            preview-sha256.txt
+          if-no-files-found: error
+          retention-days: 7
