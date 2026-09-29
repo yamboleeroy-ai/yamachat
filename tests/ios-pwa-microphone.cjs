@@ -12,7 +12,9 @@ for(const marker of [
   "const pendingMic=ycIosWebMicRuntime()&&!reusableStream?acquireVoiceStream():null",
   "iOS Web/PWA microphone: AudioWorklet unavailable, using raw WebRTC microphone",
   "iOS Web/PWA microphone processing fallback",
-  "if(ycIosWebMicRuntime()){try{return await ycFinishMicStream(raw,mode==='ai'?'standard':mode,options)}",
+  "if(ycIosWebMicRuntime()){let cleaned=raw;try{if(mode==='ai')cleaned=await ycBuildAiMicStream(raw,options)",
+  "return await ycFinishMicStream(cleaned,mode,options)",
+  "iOS Web/PWA microphone final processor fallback",
   "async function ycIosApplyEchoConstraint(stream,echo)",
   "await track.applyConstraints({echoCancellation:!!echo})",
   "if(ycIosWebMicRuntime())await ycIosApplyEchoConstraint(raw,voiceEcho)",
@@ -41,4 +43,6 @@ const cleanup=html.slice(html.indexOf('function ycCleanupMicTest'),html.indexOf(
 assert(cleanup.includes('preserveAudio=false'),'mic-test cleanup must support preserving the iOS monitor element');
 assert(cleanup.includes("ycMicTestAudio&&!preserveAudio"),'iOS monitor element must survive echo/AGC restart');
 
-console.log('PASS iOS Web/PWA microphone capture applies echo cancellation with track.applyConstraints and avoids the WebKit echo-off getUserMedia failure path.');
+assert(html.includes("setTimeout(resolve,1600)"),'iOS processor resume grace period must allow the clean path time to start');
+assert(html.includes("iOS AudioWorklet load timeout')),2800"),'iOS AudioWorklet must keep a bounded fallback without the old sub-second cutoff');
+console.log('PASS iOS Web/PWA keeps the older clean processing path, applies echo cancellation after capture, and retains bounded fallbacks.');
