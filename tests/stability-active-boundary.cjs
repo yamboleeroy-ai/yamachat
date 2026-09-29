@@ -95,7 +95,7 @@ async function inBatches(items,size,fn){
 (async()=>{
  const started=Date.now();
  const browser=await chromium.launch({headless:true,args:['--use-fake-ui-for-media-stream','--autoplay-policy=no-user-gesture-required','--enable-precise-memory-info','--js-flags=--expose-gc']});
- const clients=new Map(),deliveries=[];let streamsStarted=0,streamViewers=0,messagesSent=0,navigations=0,reconnects=0;
+ const clients=new Map(),deliveries=[],signalQueues=new Map(),signalDeliveryErrors=[];let streamsStarted=0,streamViewers=0,messagesSent=0,navigations=0,reconnects=0;
  let beforeSoak=null,afterSoak=null,summary=null;
  try{
   await inBatches(configs,12,async cfg=>{
@@ -106,7 +106,19 @@ async function inBatches(items,size,fn){
    await page.exposeBinding('__ycRampSignal',async(_src,packet)=>{
     deliveries.push({from:packet.from,to:packet.to,type:packet.signal_type,channel:packet.channel_id,bytes:Buffer.byteLength(JSON.stringify(packet))});
     const target=clients.get(packet.to);if(!target)return false;
-    setTimeout(()=>void target.page.evaluate(msg=>window.__ycRamp.handleSignal(msg),packet).catch(()=>{}),0);return true;
+    const previous=signalQueues.get(packet.to)||Promise.resolve();
+    const delivery=previous.catch(()=>{}).then(async()=>{
+     let lastError=null;
+     for(let attempt=1;attempt<=3;attempt++){
+      try{await target.page.evaluate(msg=>window.__ycRamp.handleSignal(msg),packet);return true}
+      catch(e){lastError=e;if(attempt<3)await new Promise(r=>setTimeout(r,100*attempt))}
+     }
+     const failure={from:packet.from,to:packet.to,type:packet.signal_type,error:String(lastError?.message||lastError||'delivery failed')};
+     signalDeliveryErrors.push(failure);throw new Error('signal delivery failed '+JSON.stringify(failure));
+    });
+    signalQueues.set(packet.to,delivery);
+    delivery.catch(()=>{});
+    return true;
    });
    await page.route('**/*',route=>{
     const u=new URL(route.request().url());if(u.hostname!=='127.0.0.1')return route.abort();
@@ -148,7 +160,7 @@ async function inBatches(items,size,fn){
    try{
     await c.page.waitForFunction(expected=>{const s=window.__ycRamp.state();return s.peers===expected&&s.connected===expected},expected,{timeout:45000});
    }catch(e){
-    const diag=await c.page.evaluate(async({id,expected})=>({id,expected,state:window.__ycRamp.state(),rtc:await window.__ycRamp.rtc(),errors:window.__ycRamp.errors()}),{id:c.cfg.id,expected}).catch(err=>({id:c.cfg.id,expected,diagnostic_error:String(err)}));
+    const diag=await c.page.evaluate(async({id,expected})=>({id,expected,state:window.__ycRamp.state(),rtc:await window.__ycRamp.rtc(),errors:window.__ycRamp.errors()}),{id:c.cfg.id,expected}).catch(err=>({id:c.cfg.id,expected,diagnostic_error:String(err)}));diag.signalDeliveryErrors=signalDeliveryErrors.slice(-20);
     console.error('YC_VOICE_CONNECT_TIMEOUT '+JSON.stringify(diag));throw e;
    }
   });
