@@ -1,0 +1,30 @@
+name: Verify live iOS PWA mic-test monitor hotfix
+on:
+  push:
+    branches: [fix/ios-pwa-mic-test-monitor-20260929]
+    paths: ['.github/workflows/ios-pwa-mic-test-live-verify.yml']
+permissions:
+  contents: read
+jobs:
+  live:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: Verify Cloudflare production contains mic-test monitor hotfix
+        run: |
+          set -euo pipefail
+          for i in $(seq 1 36); do
+            if curl -fsS --max-time 20 "https://yamachat.eu/?verify_ios_mic_test=$(date +%s)" -o /tmp/yamachat.html; then
+              if grep -q "function ycIosMicTestAudioSession(phase)" /tmp/yamachat.html &&
+                 grep -q "navigator.audioSession.type='play-and-record'" /tmp/yamachat.html &&
+                 grep -q "const preserveAudio=ycIosWebMicRuntime()&&!!ycMicTestAudio" /tmp/yamachat.html &&
+                 grep -q "ycCleanupMicTest({restoreVoice:false,clearWanted:false,preserveAudio})" /tmp/yamachat.html; then
+                echo "PASS: live Cloudflare Web/PWA contains the iOS mic-test monitor hotfix."
+                exit 0
+              fi
+            fi
+            echo "Cloudflare production not updated yet ($i/36), retrying..."
+            sleep 10
+          done
+          echo "Live yamachat.eu did not expose the iOS mic-test monitor hotfix in time."
+          exit 1
