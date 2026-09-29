@@ -83,7 +83,7 @@ function ycVoiceSpeakEnhanced(text,onDone){
  try{
   const u=new SpeechSynthesisUtterance(text),voices=ycVoiceAvailableVoices(),selected=ycVoiceSelectedVoice(voices);
   u.voice=selected;u.lang=selected?.lang||'cs-CZ';u.rate=1;u.pitch=1;u.volume=.94;
-  if(onDone){let done=false;const finish=()=>{if(done)return;done=true;try{onDone()}catch{}};u.onend=finish;u.onerror=finish;setTimeout(finish,5200)}
+  if(onDone){let done=false,timer=0;const finish=()=>{if(done)return;done=true;clearTimeout(timer);try{onDone()}catch{}};u.onend=finish;u.onerror=finish;timer=setTimeout(finish,5200)}
   speechSynthesis.speak(u);return u;
  }catch(e){try{onDone?.()}catch{};console.warn('voice participant TTS',e);return null}
 }
