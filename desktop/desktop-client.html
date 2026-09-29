@@ -3783,6 +3783,9 @@ ycOnLifecycle('beforeAuth',()=>{
  ycHoverCache.clear();ycHoverHide();ycWinNotifyCache.clear();
  ycPresenceRowsByUser.clear();ycPresenceRenderedStateByUser.clear();ycVisibleMemberIds.clear();
 })
+ycOnLifecycle('beforeCommunity',()=>{
+ ycPresenceRowsByUser.clear();ycPresenceRenderedStateByUser.clear();ycVisibleMemberIds.clear();
+})
 setTimeout(()=>{if(user)void ycStartWinNotifications()},1200)
 
 
