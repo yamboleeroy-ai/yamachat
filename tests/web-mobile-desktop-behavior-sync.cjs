@@ -5,6 +5,17 @@ const friends=fs.readFileSync(path.join(root,'scripts/friends-panel-refresh.mjs'
 const interaction=fs.readFileSync(path.join(root,'scripts/interaction-notifications.mjs'),'utf8');
 assert(client.includes('ycDmNotifyGeneration=0')&&client.includes('ycDmMembershipGeneration=0')&&client.includes('ycDmUnreadGeneration=0'),
   'DM notification lifecycle generation guards missing');
+assert(client.includes('ycWinNotifyGeneration=0'),'Windows/browser notification subscription generation guard missing');
+assert(client.includes("current=()=>generation===ycWinNotifyGeneration&&ycWinNotifySub===sub&&String(user?.id||'')===uid"),
+  'Notification realtime callbacks must belong to the current account/subscription');
+assert(client.includes("ycWinShowMessage(payload.new||{},uid)"),
+  'Notification async rendering must retain the subscription owner uid');
+assert(client.includes("async function ycWinShowMessage(m,ownerUserId=user?.id)"),
+  'Notification display must be account-bound across awaits');
+assert(client.includes("++ycWinNotifyGeneration;const ch=ycWinNotifySub;ycWinNotifySub=null"),
+  'Stopping notifications must invalidate old callbacks before channel removal');
+assert(!client.includes("setTimeout(()=>{if(user)void ycStartWinNotifications()},1200)"),
+  'Duplicate delayed notification subscription startup must not return');
 assert(client.includes("const uid=String(user?.id||'');if(!uid)return;const generation=++ycDmUnreadGeneration"),
   'DM unread loads must bind to one account/generation');
 assert(client.includes("notifyGeneration!==ycDmNotifyGeneration||String(user?.id||'')!==uid"),
