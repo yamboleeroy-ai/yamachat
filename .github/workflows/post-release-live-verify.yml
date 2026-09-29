@@ -1,0 +1,44 @@
+name: Yamachat 1.0.108 live verification
+on:
+  push:
+    branches: [release/1.0.108-cloudflare-clean-20260929]
+    paths: ['.github/workflows/post-release-live-verify.yml']
+permissions:
+  contents: read
+jobs:
+  live:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Verify Web/PWA and iOS/PWA production
+        run: |
+          set -euo pipefail
+          for i in $(seq 1 30); do
+            if curl -fsS --max-time 20 https://yamachat.eu/update-manifest.json -o /tmp/manifest.json &&
+               node -e "const m=require('/tmp/manifest.json'); if(m.windows?.latestVersion!=='1.0.108'||m.windows?.feedUrl!=='https://updates.yamachat.eu/windows/'||!/^https:\/\/updates\.yamachat\.eu\/android\/Yamachat-Android-\d+\.apk$/.test(m.android?.apkUrl||'')) process.exit(1)"; then
+              break
+            fi
+            if [ "$i" = 30 ]; then echo 'yamachat.eu production manifest did not reach 1.0.108'; exit 1; fi
+            sleep 10
+          done
+          curl -fsS --max-time 20 https://yamachat.eu/ -o /tmp/index.html
+          grep -q 'updates.yamachat.eu/windows/' /tmp/index.html
+          grep -q 'updates.yamachat.eu/android/' /tmp/index.html
+          curl -fsS --max-time 20 https://yamachat.eu/manifest.webmanifest >/dev/null
+          curl -fsS --max-time 20 https://yamachat.eu/sw.js >/dev/null
+      - name: Verify Cloudflare R2 public binaries
+        run: |
+          set -euo pipefail
+          curl -fsS --max-time 20 https://updates.yamachat.eu/windows/latest.yml | grep -q 'version: 1.0.108'
+          curl -fsSI --max-time 30 https://updates.yamachat.eu/windows/Yamachat-Setup-1.0.108.exe >/dev/null
+          curl -fsSI --max-time 30 https://updates.yamachat.eu/android/Yamachat-Android.apk >/dev/null
+          ANDROID_URL="$(node -p "require('/tmp/manifest.json').android.apkUrl")"
+          curl -fsSI --max-time 30 "$ANDROID_URL" >/dev/null
+      - name: Report verified production versions
+        run: |
+          node - <<'NODE'
+          const m=require('/tmp/manifest.json');
+          console.log('Windows:',m.windows.latestVersion,m.windows.installerUrl);
+          console.log('Android:',m.android.latestVersion,m.android.latestVersionCode,m.android.apkUrl);
+          console.log('Web/PWA + iOS/PWA: https://yamachat.eu/');
+          NODE
