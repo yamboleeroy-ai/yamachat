@@ -19,6 +19,16 @@ for(const forbidden of ['leaveVoiceChannel(','ycRequestVoiceDisconnect(','cleanu
 assert(html.includes("String(voiceChannel?.id||'')].filter(Boolean)"),'Joined voice room must remain included in batched roster refresh while browsing another server');
 assert(html.includes("function subscribeVoiceParticipants(){const id=voiceChannel?.id?String(voiceChannel.id):''"),'Active voice participant subscription must follow the joined room, not the browsed server');
 assert(html.includes("if(!voiceSignalSub||!voiceSignalReady)void subscribeVoiceSignals().catch(e=>console.warn('voice signal reconnect',e))"),'Targeted signaling must recover independently of the visible community');
+assert(html.includes('voiceSignalRecoverPromise=null'),'Voice signal recovery overlap guard state missing');
+assert(html.includes("String(row.to_user||'')!==String(user.id)"),'Recovered/realtime voice signals must be addressed to the current account');
+assert(html.includes("voiceSignalRecoverPromise=task"),'Voice signal recovery requests must coalesce');
+assert(html.includes("voiceSignalRecoverPromise=null;voiceSignalReady=false"),'Stopping signals must release an old-account recovery task');
+assert(html.includes("if(voiceSignalSeen.size>600)while(voiceSignalSeen.size>400)"),'Voice signal dedup must prune oldest ids instead of clearing all recent history');
+assert(html.includes("if(q.length>128)q.splice(0,q.length-128)"),'Pre-SDP ICE queue must remain bounded per peer');
+assert(html.includes("!q.some(c=>String(c?.candidate||'')===key)"),'Pre-SDP ICE candidates must be deduplicated');
+assert(html.includes('voiceRouteCheckFastTimer=null,voiceRouteCheckSlowTimer=null'),'Voice route diagnostics must coalesce peer connection bursts');
+assert(html.includes('function stopVoiceRouteChecks()'),'Pending voice route diagnostics must be cancellable on disconnect');
+assert(html.includes("if(soundboardEventSeen.size>300)while(soundboardEventSeen.size>200)"),'Soundboard dedup must keep recent ids instead of clearing all history');
 assert(html.includes('function ycVoiceCommunityId()'),'Independent voice community context missing');
 assert(html.includes("const ycVoiceCid=ycVoiceCommunityId();"),'Soundboard must load from voice community context');
 assert(html.includes("String(currentCommunity.id)===ycVoiceCommunityId()"),'Soundboard admin actions must stay on the joined voice server');
