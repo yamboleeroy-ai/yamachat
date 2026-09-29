@@ -5766,6 +5766,21 @@ function ycVoiceSpeakEnhanced(text,onDone){
   speechSynthesis.speak(u);return u;
  }catch(e){try{onDone?.()}catch{};console.warn('voice participant TTS',e);return null}
 }
+function ycStopVoiceAnnouncementAudio(){
+ try{speechSynthesis?.cancel?.()}catch{}
+ for(const audio of [...ycVoiceCuePlayers]){
+  try{audio.pause();audio.onended?.()}catch{}
+  ycVoiceCuePlayers.delete(audio);
+ }
+}
+window.YamachatStopVoiceAnnouncements=ycStopVoiceAnnouncementAudio;
+const ycVoiceExperienceBaseToggleDeafen=toggleVoiceDeafen;
+toggleVoiceDeafen=async function(...args){
+ const out=await ycVoiceExperienceBaseToggleDeafen.apply(this,args);
+ if(voiceDeafened)window.YamachatStopVoiceAnnouncements?.();
+ return out;
+}
+
 function ycVoiceParticipantAnnouncement(row,action){
  try{
   if(!row)return;
@@ -5889,6 +5904,14 @@ ycRegisterAppSettingsSection({
 const YC_DESKTOP_NATURAL_PREFIX='azure:';
 let ycDesktopNaturalVoices=[],ycDesktopNaturalState='idle',ycDesktopNaturalPromise=null;
 const ycDesktopNaturalPlayers=new Set();
+const ycDesktopStopAnnouncementsBase=window.YamachatStopVoiceAnnouncements;
+window.YamachatStopVoiceAnnouncements=function(){
+ try{ycDesktopStopAnnouncementsBase?.()}catch{}
+ for(const audio of [...ycDesktopNaturalPlayers]){
+  try{audio.pause();audio.onended?.()}catch{}
+  ycDesktopNaturalPlayers.delete(audio);
+ }
+};
 
 function ycDesktopNaturalValue(voice){return YC_DESKTOP_NATURAL_PREFIX+String(voice?.shortName||'')}
 function ycDesktopNaturalGender(voice){
