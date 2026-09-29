@@ -8,16 +8,16 @@ export function withStreamScaleHardening(html){
   if(html.includes('STREAM SCALE HARDENING 2026-09-28'))return html;
 
   const stateOld="let ycCommunityStreamSub=null,ycStreamPresenceTimer=null,ycStreamPreviewTimer=null";
-  const stateNew="let ycCommunityStreamSub=null,ycCommunityStreamPollTimer=null,ycCommunityStreamLoadBusy=null,ycStreamPresenceTimer=null,ycStreamPreviewTimer=null,ycStreamPublishEpoch=0,ycStreamPublishQueue=Promise.resolve(),ycStreamPresenceClearedUserId=''";
+  const stateNew="let ycCommunityStreamSub=null,ycCommunityStreamPollTimer=null,ycCommunityStreamLoadBusy=null,ycCommunityStreamLoadCid='',ycStreamPresenceTimer=null,ycStreamPreviewTimer=null,ycStreamPublishEpoch=0,ycStreamPublishQueue=Promise.resolve(),ycStreamPresenceClearedUserId=''";
   if(!html.includes(stateOld))throw Error('Stream discovery state boundary missing');
   html=html.replace(stateOld,stateNew);
 
   const load=`// STREAM SCALE HARDENING 2026-09-28
 async function ycLoadCommunityStreams(){
   if(!currentCommunity?.id){ycCommunityStreams.clear();renderVoiceChannels(voiceChannelDefs);return}
-  if(ycCommunityStreamLoadBusy)return ycCommunityStreamLoadBusy
   const cid=String(currentCommunity.id)
-  ycCommunityStreamLoadBusy=(async()=>{
+  if(ycCommunityStreamLoadBusy&&ycCommunityStreamLoadCid===cid)return ycCommunityStreamLoadBusy
+  const task=(async()=>{
     try{
       const cutoff=new Date(Date.now()-50000).toISOString(),{data,error}=await sb.from('community_stream_presence').select('*').eq('community_id',cid).gt('updated_at',cutoff)
       if(error)throw error
@@ -27,10 +27,14 @@ async function ycLoadCommunityStreams(){
       if(!changed)for(const [uid,row] of next){const old=ycCommunityStreams.get(uid);if(!old||old.updated_at!==row.updated_at||old.channel_id!==row.channel_id||old.preview_data!==row.preview_data){changed=true;break}}
       ycCommunityStreams.clear();for(const [uid,row] of next)ycCommunityStreams.set(uid,row)
       if(changed)renderVoiceChannels(voiceChannelDefs)
-    }catch(e){console.warn('community stream load',e)}
-  })().finally(()=>{ycCommunityStreamLoadBusy=null})
-  return ycCommunityStreamLoadBusy
-}`;
+    }catch(e){if(String(currentCommunity?.id||'')===cid)console.warn('community stream load',e)}
+  })()
+  ycCommunityStreamLoadBusy=task;ycCommunityStreamLoadCid=cid
+  const clear=()=>{if(ycCommunityStreamLoadBusy===task){ycCommunityStreamLoadBusy=null;ycCommunityStreamLoadCid=''}}
+  task.then(clear,clear)
+  return task
+}
+`;
   html=replaceBetween(html,'async function ycLoadCommunityStreams(){','async function ycStopCommunityStreamWatch(){',load,'community stream roster');
 
   const watch=`async function ycStopCommunityStreamWatch(){
