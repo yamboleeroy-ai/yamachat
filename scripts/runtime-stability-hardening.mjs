@@ -64,5 +64,14 @@ export function withRuntimeStabilityHardening(html){
   if(out.includes(badMentionProfileSelect))out=out.replaceAll(badMentionProfileSelect,goodMentionProfileSelect);
   if(out.includes(badMentionProfileSelect))throw Error('Runtime stability stale profile avatar_url select remains');
 
+  const explicitLogoutOld="$('logoutBtn').onclick=async()=>{await ycPresenceOffline();sb.auth.signOut()}";
+  const explicitLogoutNew="async function ycPrepareExplicitAuthExit(){\n  const uid=user?.id,hadStream=!!screenShareActive;\n  try{\n    if(voiceChannel)await leaveVoiceChannel(true);\n    else if(screenShareActive)await stopScreenShare(true);\n    if(uid&&!hadStream)await ycStopGlobalStreamPresence(uid);\n    await ycStopCommunityStreamWatch();\n  }catch(e){console.warn('logout cleanup',e)}\n}\n$('logoutBtn').onclick=async()=>{await ycPrepareExplicitAuthExit();await ycPresenceOffline();await sb.auth.signOut()}";
+  if(out.includes(explicitLogoutOld))out=out.replace(explicitLogoutOld,explicitLogoutNew);
+  else if(!out.includes('async function ycPrepareExplicitAuthExit()'))throw Error('Runtime stability explicit logout cleanup boundary missing');
+  const bannedLogoutOld="try{const state=await ycAdminInvoke({action:'self-status'});if(!state?.is_banned)return;const until=state.banned_until;try{await sb.auth.signOut({scope:'local'})}catch{};showAuth();";
+  const bannedLogoutNew="try{const state=await ycAdminInvoke({action:'self-status'});if(!state?.is_banned)return;const until=state.banned_until;try{await ycPrepareExplicitAuthExit();await sb.auth.signOut({scope:'local'})}catch{};showAuth();";
+  if(out.includes(bannedLogoutOld))out=out.replace(bannedLogoutOld,bannedLogoutNew);
+  else if(!out.includes("await ycPrepareExplicitAuthExit();await sb.auth.signOut({scope:'local'})"))throw Error('Runtime stability banned logout cleanup boundary missing');
+
   return out;
 }
