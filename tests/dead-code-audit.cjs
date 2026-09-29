@@ -6,7 +6,8 @@ const forbidden=[
   'ycPrimeExistingVoiceForStream',
   'ycRebuildVoicePeerForStream',
   'ycMembersPresenceNeedsRefresh',
-  'ycHandlePresenceRealtime'
+  'ycHandlePresenceRealtime',
+  'ycPresenceVisualSig'
 ];
 
 for(const file of ['desktop/desktop-client.html','index.html']){

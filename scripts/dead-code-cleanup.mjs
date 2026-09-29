@@ -33,6 +33,11 @@ export function withDeadCodeCleanup(html){
 `
   );
 
+  html=removeExactOnceIfPresent(
+    html,
+    "function ycPresenceVisualSig(uid,row){const shown=ycPresenceDisplayRow(uid,row),state=ycPresenceState(shown),activity=state==='offline'?'':String(shown?.activity_text||'');return state+'|'+activity}\n"
+  );
+
   const start='// SAME VOICE STREAM FIX v3.0.18 — refresh the existing peer video negotiation before watch-on-demand.\n';
   const end='const ycViewerHandleVoiceSignal=handleVoiceSignal';
   const startAt=html.indexOf(start);
