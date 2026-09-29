@@ -1187,14 +1187,14 @@ function ycAbortableQuery(q,signal){try{return signal&&typeof q?.abortSignal==='
 function ycInvalidateChatRoleCache(){ycChatRolePackCache.clear()}
 async function ycChatGetRolePack(communityId){
   if(!communityId)return null;const key=String(communityId),now=Date.now(),cached=ycChatRolePackCache.get(key);
-  if(cached&&now-cached.at<5000)return cached.data;
+  if(cached&&now-cached.at<5000){ycChatRolePackCache.delete(key);ycChatRolePackCache.set(key,cached);return cached.data}
   const data=await Promise.all([
     sb.from('community_roles').select('id,name,color,position,permissions').eq('community_id',communityId),
     sb.from('desktop_server_role_layout').select('automatic,role_order').eq('community_id',communityId).maybeSingle(),
     sb.from('community_member_roles').select('user_id,role_id').eq('community_id',communityId),
     sb.from('community_members').select('user_id,role').eq('community_id',communityId)
   ]).then(([rr,lr,ar,mr])=>({rr,lr,ar,mr})).catch(()=>null);
-  ycChatRolePackCache.set(key,{at:now,data});return data;
+  ycChatRolePackCache.set(key,{at:Date.now(),data});while(ycChatRolePackCache.size>12)ycChatRolePackCache.delete(ycChatRolePackCache.keys().next().value);return data;
 }
 function ycChatCachedSignedUrl(a){
   if(!a?.id||!a?.storage_path)return'';const key=String(a.id)+'|'+String(a.storage_path),cached=ycChatSignedUrlCache.get(key),now=Date.now();
