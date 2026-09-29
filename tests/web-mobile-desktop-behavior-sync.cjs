@@ -61,6 +61,8 @@ assert(!client.includes("const signed={};await Promise.all((atts||[]).map"),
   'Initial chat paint must not wait for every attachment signed URL');
 assert(client.includes("while(ycChatRolePackCache.size>12)ycChatRolePackCache.delete(ycChatRolePackCache.keys().next().value)"),
   'Chat role pack cache must not retain every visited community until logout');
+assert(client.includes("ycOnLifecycle('beforeCommunity',()=>{\n ycPresenceRowsByUser.clear();ycPresenceRenderedStateByUser.clear();ycVisibleMemberIds.clear();"),
+  'Member presence caches must be released when switching communities');
 assert(client.includes("ycChatRolePackCache.delete(key);ycChatRolePackCache.set(key,cached)"),
   'Chat role pack cache hits must refresh LRU order');
 assert(client.includes("while(ycChatSignedUrlCache.size>600)ycChatSignedUrlCache.delete(ycChatSignedUrlCache.keys().next().value)"),
