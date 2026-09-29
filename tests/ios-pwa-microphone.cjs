@@ -12,7 +12,12 @@ for(const marker of [
   "const pendingMic=ycIosWebMicRuntime()&&!reusableStream?acquireVoiceStream():null",
   "iOS Web/PWA microphone: AudioWorklet unavailable, using raw WebRTC microphone",
   "iOS Web/PWA microphone processing fallback",
-  "if(ycIosWebMicRuntime()){try{return await ycFinishMicStream(raw,mode==='ai'?'standard':mode,options)}"
+  "if(ycIosWebMicRuntime()){try{return await ycFinishMicStream(raw,mode==='ai'?'standard':mode,options)}",
+  "function ycIosMicTestAudioSession(phase)",
+  "navigator.audioSession.type='play-and-record'",
+  "const preserveAudio=ycIosWebMicRuntime()&&!!ycMicTestAudio",
+  "ycCleanupMicTest({restoreVoice:false,clearWanted:false,preserveAudio})",
+  "if(!ycMicTestAudio){ycMicTestAudio=document.createElement('audio')"
 ])assert(html.includes(marker),'Missing iOS microphone hardening marker: '+marker);
 
 const join=html.slice(html.indexOf('async function joinVoiceChannel(ch)'),html.indexOf('// VOICE PRESENCE CLEANUP',html.indexOf('async function joinVoiceChannel(ch)')));
@@ -23,4 +28,12 @@ const constraints=html.slice(html.indexOf('function ycNoiseConstraints'),html.in
 assert(constraints.includes("if(!ios){out.channelCount=1;if(clean==='ai')out.sampleRate=48000}"),'iOS microphone constraints must omit forced sample rate/channel count');
 assert(constraints.includes("noiseSuppression:ios?clean!=='off'"),'iOS must keep native noise suppression when AI processing is bypassed');
 
-console.log('PASS iOS Web/PWA microphone capture is gesture-first and processing failures fall back to live raw WebRTC audio.');
+const micRestart=html.slice(html.indexOf('function ycRestartMicTest()'),html.indexOf('function ycMicTestSettingChanged',html.indexOf('function ycRestartMicTest()')));
+assert(micRestart.includes("ycMicTestAudio.play().catch(()=>{})"),'iOS mic-test restart must retain the already-authorized monitor element');
+assert(micRestart.indexOf("if(ycIosWebMicRuntime()){ycMicTestRestartTimer=null;void ycStartMicTestInternal();return}")<micRestart.indexOf("setTimeout"),'iOS mic-test restart must stay inside the settings change user gesture');
+
+const cleanup=html.slice(html.indexOf('function ycCleanupMicTest'),html.indexOf('function ycStopMicTest',html.indexOf('function ycCleanupMicTest')));
+assert(cleanup.includes('preserveAudio=false'),'mic-test cleanup must support preserving the iOS monitor element');
+assert(cleanup.includes("ycMicTestAudio&&!preserveAudio"),'iOS monitor element must survive echo/AGC restart');
+
+console.log('PASS iOS Web/PWA microphone capture and mic-test monitoring survive echo-cancellation changes.');
