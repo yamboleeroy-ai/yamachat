@@ -1,4 +1,5 @@
 name: Yamachat 1.0.108 Cloudflare release
+# validated-cutover: b38a919
 
 on:
   push:
