@@ -1905,7 +1905,7 @@ function attachVoiceAudio(peerId,stream){const track=stream?.getAudioTracks?.()[
 const ycAttachVoiceAudioBase=attachVoiceAudio
 attachVoiceAudio=(peerId,stream)=>{if(!voiceChannel||!voicePeers.has(peerId))return;ycStartRemoteVoiceActivityDetector(peerId,stream);return ycAttachVoiceAudioBase(peerId,stream)}
 async function toggleVoiceMute(){voiceMuted=!voiceMuted;localStorage.setItem('yc_voice_muted',voiceMuted?'1':'0');if(voiceStream)voiceStream.getAudioTracks().forEach(t=>t.enabled=!voiceMuted&&!voiceDeafened&&!ycMicTestVoiceHold);if(voiceChannel)void trackVoicePresence();renderVoiceControls()}
-async function toggleVoiceDeafen(){voiceDeafened=!voiceDeafened;localStorage.setItem('yc_voice_deafened',voiceDeafened?'1':'0');applyAllVoiceUserMix();if(voiceStream)voiceStream.getAudioTracks().forEach(t=>t.enabled=!voiceDeafened&&!voiceMuted);if(voiceChannel)void trackVoicePresence();renderVoiceControls()}
+async function toggleVoiceDeafen(){voiceDeafened=!voiceDeafened;localStorage.setItem('yc_voice_deafened',voiceDeafened?'1':'0');applyAllVoiceUserMix();if(voiceStream)voiceStream.getAudioTracks().forEach(t=>t.enabled=!voiceDeafened&&!voiceMuted&&!ycMicTestVoiceHold);if(voiceChannel)void trackVoicePresence();renderVoiceControls()}
 let ycInputSwitch=Promise.resolve();
 function restartVoiceInput(){const operation=ycInputSwitch.catch(()=>{}).then(ycSwitchVoiceInput);ycInputSwitch=operation;return operation}
 async function ycSwitchVoiceInput(){
@@ -5758,7 +5758,7 @@ async function ycPlayVoiceFileCue(action,onDone){
  }catch(e){finish();console.warn('voice join/leave cue',e);return null}
 }
 function ycVoiceSpeakEnhanced(text,onDone){
- if(!text||ycVoiceAnnounceMode()!=='speech'||!('speechSynthesis' in window)){try{onDone?.()}catch{};return null}
+ if(!text||ycVoiceAnnounceMode()!=='speech'||voiceDeafened||!('speechSynthesis' in window)){try{onDone?.()}catch{};return null}
  try{
   const u=new SpeechSynthesisUtterance(text),voices=ycVoiceAvailableVoices(),selected=ycVoiceSelectedVoice(voices);
   u.voice=selected;u.lang=selected?.lang||'cs-CZ';u.rate=1;u.pitch=1;u.volume=.94;
@@ -5947,9 +5947,11 @@ const ycDesktopLocalVoiceSpeakEnhanced=ycVoiceSpeakEnhanced;
 async function ycDesktopNaturalSpeak(text,voice,onDone){
  let audio=null,finished=false;
  const finish=()=>{if(finished)return;finished=true;if(audio)ycDesktopNaturalPlayers.delete(audio);try{onDone?.()}catch{}};
+ if(voiceDeafened){finish();return null}
  try{
   const {data,error}=await sb.functions.invoke('yamachat-source',{body:{action:'tts-synthesize',voice:String(voice.shortName||''),text:String(text||'').slice(0,220)}});
   if(error||!data?.audioBase64)throw error||new Error('Natural voice audio missing');
+  if(voiceDeafened){finish();return null}
   audio=new Audio('data:'+(data.mimeType||'audio/mpeg')+';base64,'+data.audioBase64);
   audio.preload='auto';audio.volume=.94;ycDesktopNaturalPlayers.add(audio);
   audio.onended=finish;audio.onerror=()=>{finish()};
@@ -5961,7 +5963,7 @@ async function ycDesktopNaturalSpeak(text,voice,onDone){
  }
 }
 ycVoiceSpeakEnhanced=function(text,onDone){
- if(!text||ycVoiceAnnounceMode()!=='speech'){try{onDone?.()}catch{};return null}
+ if(!text||ycVoiceAnnounceMode()!=='speech'||voiceDeafened){try{onDone?.()}catch{};return null}
  const wanted=localStorage.getItem(YC_VOICE_ANNOUNCE_VOICE_KEY)||'',gender=ycVoiceGender();
  const wantsNatural=wanted.startsWith(YC_DESKTOP_NATURAL_PREFIX)||gender==='female'||gender==='male';
  if(!wantsNatural)return ycDesktopLocalVoiceSpeakEnhanced(text,onDone);
@@ -5992,7 +5994,7 @@ function ycBindDesktopNaturalVoiceSettings(root){
    else note.textContent=localSelected?'Použitý lokální hlas: '+ycVoiceOptionLabel(localSelected)+(gender!=='auto'&&ycVoiceGenderHint(localSelected)!==gender?' — odpovídající Natural hlas se ještě načítá.':''):'Hlasy se ještě načítají.';
   }
  };
- const loadNatural=async()=>{ycDesktopNaturalState='loading';fillVoices();await ycDesktopNaturalVoiceLoad();if(root.isConnected)fillVoices()};
+ const loadNatural=async()=>{if(ycDesktopNaturalState!=='ready'){ycDesktopNaturalState='loading';fillVoices()}await ycDesktopNaturalVoiceLoad();if(root.isConnected)fillVoices()};
  fillVoices();void loadNatural();try{speechSynthesis?.addEventListener?.('voiceschanged',fillVoices,{once:true})}catch{}
  genderSelect.onchange=()=>{localStorage.setItem(YC_VOICE_GENDER_KEY,genderSelect.value);fillVoices()};
  mode.onchange=()=>{localStorage.setItem(YC_VOICE_ANNOUNCE_MODE_KEY,mode.value);syncVisibility()};
