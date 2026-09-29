@@ -2,10 +2,11 @@
   "schemaVersion": 1,
   "publishedAt": "2026-09-28T20:44:32Z",
   "windows": {
-    "latestVersion": "1.0.107",
+    "latestVersion": "1.0.108",
     "required": true,
-    "releaseUrl": "https://github.com/yamboleeroy-ai/yamachat/releases/tag/v1.0.107",
-    "notes": "Yamachat 1.0.107: multi-user voice stability hardening, bounded reconnect/cleanup and Android Microsoft Natural voices."
+    "notes": "Yamachat 1.0.108: dokončený deep stability audit, cleanup voice/stream/realtime lifecycle a veřejná distribuce Windows mimo GitHub přes Cloudflare.",
+    "feedUrl": "https://updates.yamachat.eu/windows/",
+    "installerUrl": "https://updates.yamachat.eu/windows/Yamachat-Setup-1.0.108.exe"
   },
   "android": {
     "latestVersion": "1.1.0.786",
