@@ -170,6 +170,7 @@ const deafenEnd=html.indexOf('let ycInputSwitch=',deafenStart);
 assert(deafenStart>=0&&deafenEnd>deafenStart,'Deafen function boundary missing');
 assert(html.slice(deafenStart,deafenEnd).includes('!voiceDeafened&&!voiceMuted&&!ycMicTestVoiceHold'),'Deafen must never re-enable the outbound track during microphone test hold');
 assert(html.includes("u.rate=1;u.pitch=1"),'Speech must not fake different voices with rate/pitch profiles');
+assert(html.includes('clearTimeout(timer);try{onDone()}'),'Completed speech previews must clear their fallback timer instead of retaining it until timeout');
 assert(html.includes('ycVoiceOptionsHtml(voices)'),'Real system voice option renderer missing');
 assert(!html.includes('male-deep')&&!html.includes('female-bright'),'Fake male/female pitch profiles must not remain');
 const crypto=require('node:crypto');
