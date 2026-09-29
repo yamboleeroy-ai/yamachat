@@ -2926,26 +2926,30 @@ function ycEnsureTurnUsagePanel(){
   const right=$("ycVoiceDockHost")||document.querySelector('.right');if(!right)return null
   let box=$('ycTurnUsage');if(box)return box
   box=document.createElement('div');box.id='ycTurnUsage';box.className='yc-turn-usage'+(ycTurnUsageOpen?' open':'');box.innerHTML='<button class="yc-turn-usage-head" id="ycTurnUsageToggle" type="button"><span class="yc-turn-usage-dot"></span><span class="yc-turn-usage-title" id="ycTurnUsageTitle">TURN data · načítám…</span><span class="yc-turn-usage-chevron">⌃</span></button><div class="yc-turn-usage-body" id="ycTurnUsageBody"><div class="yc-turn-bar"><div id="ycTurnUsageBar"></div></div><div id="ycTurnUsageStats"></div></div>';right.appendChild(box)
-  $('ycTurnUsageToggle').onclick=()=>{ycTurnUsageOpen=!box.classList.contains('open');box.classList.toggle('open',ycTurnUsageOpen);localStorage.setItem('yc_turn_usage_open',ycTurnUsageOpen?'1':'0')}
+  $('ycTurnUsageToggle').onclick=()=>{ycTurnUsageOpen=!box.classList.contains('open');box.classList.toggle('open',ycTurnUsageOpen);localStorage.setItem('yc_turn_usage_open',ycTurnUsageOpen?'1':'0');if(ycTurnUsageOpen)void ycRefreshTurnUsage()}
   return box
 }
-async function ycRefreshTurnUsage(){
-  if(!user)return
-  const box=ycEnsureTurnUsagePanel();if(!box)return;box.classList.add('loading')
+const YC_TURN_USAGE_REFRESH_MS=15*60*1000;
+let ycTurnUsageLastRefresh=0,ycTurnUsageRefreshBusy=false;
+async function ycRefreshTurnUsage(force=false){
+  if(!user||ycTurnUsageRefreshBusy||(!force&&document.hidden))return;
+  const now=Date.now();if(!force&&now-ycTurnUsageLastRefresh<YC_TURN_USAGE_REFRESH_MS)return;
+  const box=ycEnsureTurnUsagePanel();if(!box)return;ycTurnUsageRefreshBusy=true;box.classList.add('loading');
   try{
-    const {data,error}=await sb.functions.invoke('yamachat-turn-usage',{method:'GET'})
+    const {data,error}=await sb.functions.invoke('yamachat-turn-usage',{method:'GET'});
     if(error||!data?.ok){const detail=String(data?.detail||error?.message||'Analytics nedostupná');$('ycTurnUsageTitle').textContent='TURN data · nedostupná';$('ycTurnUsageBody').innerHTML='<div class="yc-turn-error">'+esc(/permission|auth|analytics/i.test(detail)?'Cloudflare token potřebuje Account Analytics.':'TURN statistika se teď nepodařila načíst.')+'</div>';return}
-    const t=data.turn||{},used=Number(t.usedGB||0),remaining=Number(t.remainingGB||0),limit=Number(t.limitGB||1000),pct=Math.max(0,Math.min(100,Number(t.percent||0)))
-    $('ycTurnUsageTitle').textContent='TURN · '+ycFmtGB(used)+' / '+Math.round(limit)+' GB'
-    const body=$('ycTurnUsageBody');body.innerHTML='<div class="yc-turn-bar"><div id="ycTurnUsageBar" style="width:'+pct.toFixed(2)+'%"></div></div><div class="yc-turn-stats"><div class="yc-turn-stat"><label>Zbývá</label><strong>'+ycFmtGB(remaining)+'</strong></div><div class="yc-turn-stat"><label>Využito</label><strong>'+pct.toFixed(2)+' %</strong></div></div><div class="yc-turn-foot">Cloudflare Realtime TURN · tento měsíc · aktualizace přibližně každou minutu</div>'
-  }catch(e){$('ycTurnUsageTitle').textContent='TURN data · nedostupná'}finally{box.classList.remove('loading')}
+    const t=data.turn||{},used=Number(t.usedGB||0),remaining=Number(t.remainingGB||0),limit=Number(t.limitGB||1000),pct=Math.max(0,Math.min(100,Number(t.percent||0)));
+    ycTurnUsageLastRefresh=Date.now();
+    $('ycTurnUsageTitle').textContent='TURN · '+ycFmtGB(used)+' / '+Math.round(limit)+' GB';
+    const body=$('ycTurnUsageBody');body.innerHTML='<div class="yc-turn-bar"><div id="ycTurnUsageBar" style="width:'+pct.toFixed(2)+'%"></div></div><div class="yc-turn-stats"><div class="yc-turn-stat"><label>Zbývá</label><strong>'+ycFmtGB(remaining)+'</strong></div><div class="yc-turn-stat"><label>Využito</label><strong>'+pct.toFixed(2)+' %</strong></div></div><div class="yc-turn-foot">Cloudflare Realtime TURN · tento měsíc · aktualizace přibližně každých 15 minut</div>';
+  }catch(e){$('ycTurnUsageTitle').textContent='TURN data · nedostupná'}finally{ycTurnUsageRefreshBusy=false;box.classList.remove('loading')}
 }
-function ycStartTurnUsage(){ycEnsureTurnUsagePanel();clearInterval(ycTurnUsageTimer);void ycRefreshTurnUsage();ycTurnUsageTimer=setInterval(()=>void ycRefreshTurnUsage(),60000)}
-function ycStopTurnUsage(){clearInterval(ycTurnUsageTimer);ycTurnUsageTimer=null;$('ycTurnUsage')?.remove()}
+function ycStartTurnUsage(){ycEnsureTurnUsagePanel();clearInterval(ycTurnUsageTimer);void ycRefreshTurnUsage();ycTurnUsageTimer=setInterval(()=>void ycRefreshTurnUsage(),YC_TURN_USAGE_REFRESH_MS)}
+function ycStopTurnUsage(){clearInterval(ycTurnUsageTimer);ycTurnUsageTimer=null;ycTurnUsageRefreshBusy=false;$('ycTurnUsage')?.remove()}
 ycOnLifecycle('init',()=>{ycStartTurnUsage()})
-ycOnLifecycle('beforeAuth',()=>{ycStopTurnUsage()})
+ycOnLifecycle('beforeAuth',()=>{ycStopTurnUsage();ycTurnUsageLastRefresh=0})
+document.addEventListener('visibilitychange',()=>{if(!document.hidden&&user)void ycRefreshTurnUsage()})
 if(user)ycStartTurnUsage()
-
 
 // selectable screen-share resolution / FPS / bitrate
 const YC_SCREEN_PROFILES={
