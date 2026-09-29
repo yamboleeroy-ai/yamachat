@@ -48,7 +48,7 @@ async function snapshot(c){
    channels:window.__auditActiveChannels.size,
    channelCreates:window.__auditChannelCreates,
    observers:{...window.__auditObservers},
-   listeners:JSON.parse(JSON.stringify(window.__auditGlobalAdds)),
+   listeners:JSON.parse(JSON.stringify(window.__auditGlobalListeners)),
    timers:{
     activeTimeouts:window.__auditTimers?.timeouts.size||0,
     activeIntervals:window.__auditTimers?.intervals.size||0,
@@ -69,7 +69,8 @@ async function snapshot(c){
    const context=await browser.newContext({viewport:{width:cfg.width,height:cfg.height},hasTouch:!!cfg.touch,isMobile:!!cfg.touch,serviceWorkers:'block',...(cfg.ios?{userAgent:'Mozilla/5.0 (iPhone; CPU iPhone OS 18_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.6 Mobile/15E148 Safari/604.1'}:{})});
    await context.addInitScript(()=>{
     if(navigator.userAgent.includes('iPhone'))Object.defineProperty(navigator,'standalone',{value:true,configurable:true});
-    window.__auditGlobalAdds={window:{},document:{}};
+    window.__auditGlobalListeners={window:{},document:{}};
+    window.__auditListenerRegistry={window:new Map(),document:new Map()};
     window.__auditObservers={created:0,observeCalls:0,disconnectCalls:0};
     window.__auditTimers={timeouts:new Set(),intervals:new Set(),timeoutCreates:0,intervalCreates:0};
     const st=window.setTimeout.bind(window),ct=window.clearTimeout.bind(window),si=window.setInterval.bind(window),ci=window.clearInterval.bind(window);
@@ -80,8 +81,12 @@ async function snapshot(c){
     const NativeMutationObserver=window.MutationObserver;
     window.MutationObserver=function(callback){const o=new NativeMutationObserver(callback);window.__auditObservers.created++;const observe=o.observe.bind(o),disconnect=o.disconnect.bind(o);o.observe=(...args)=>{window.__auditObservers.observeCalls++;return observe(...args)};o.disconnect=(...args)=>{window.__auditObservers.disconnectCalls++;return disconnect(...args)};return o};
     window.MutationObserver.prototype=NativeMutationObserver.prototype;
-    const add=EventTarget.prototype.addEventListener;
-    EventTarget.prototype.addEventListener=function(type,fn,opts){const b=this===window?window.__auditGlobalAdds.window:this===document?window.__auditGlobalAdds.document:null;if(b)b[type]=(b[type]||0)+1;return add.call(this,type,fn,opts)};
+    const add=EventTarget.prototype.addEventListener,remove=EventTarget.prototype.removeEventListener;
+    const targetName=t=>t===window?'window':t===document?'document':'';
+    const captureOf=opts=>typeof opts==='boolean'?opts:!!opts?.capture;
+    const onceOf=opts=>typeof opts==='object'&&!!opts?.once;
+    EventTarget.prototype.addEventListener=function(type,fn,opts){const name=targetName(this);if(name&&fn&&!onceOf(opts)){const key=String(type)+'|'+(captureOf(opts)?'1':'0'),registry=window.__auditListenerRegistry[name];let set=registry.get(key);if(!set){set=new Set();registry.set(key,set)}if(!set.has(fn)){set.add(fn);const b=window.__auditGlobalListeners[name];b[type]=(b[type]||0)+1}}return add.call(this,type,fn,opts)};
+    EventTarget.prototype.removeEventListener=function(type,fn,opts){const name=targetName(this);if(name&&fn){const key=String(type)+'|'+(captureOf(opts)?'1':'0'),registry=window.__auditListenerRegistry[name],set=registry.get(key);if(set?.delete(fn)){const b=window.__auditGlobalListeners[name];b[type]=Math.max(0,(b[type]||0)-1);if(!set.size)registry.delete(key)}}return remove.call(this,type,fn,opts)};
    });
    const page=await context.newPage(),errors=[];page.on('pageerror',e=>errors.push(String(e.stack||e.message||e)));
    await page.route('**/*',route=>{
