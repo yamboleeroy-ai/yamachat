@@ -50,5 +50,53 @@ function ycNoiseConstraints(mode=ycNoiseMode,deviceId='',echo=voiceEcho,agc=voic
       }`;
   html=replaceOnce(html,joinOld,joinNew,'join microphone prewarm');
 
+  const micTestCleanupStart="function ycCleanupMicTest({restoreVoice=false,clearWanted=false}={}){";
+  const micTestCleanupNew=String.raw\`
+function ycIosMicTestAudioSession(phase){
+ if(!ycIosWebMicRuntime()||!navigator.audioSession)return;
+ try{
+  if(phase==='before-capture'){if(!voiceChannel)navigator.audioSession.type='auto';return}
+  if(phase==='monitor'){navigator.audioSession.type='play-and-record';return}
+  if(phase==='stop'&&!voiceChannel){navigator.audioSession.type='playback';navigator.audioSession.type='auto'}
+ }catch(e){console.warn('iOS Web/PWA mic-test audio route',e)}
+}
+function ycCleanupMicTest({restoreVoice=false,clearWanted=false,preserveAudio=false}={}){
+\`.trim();
+  html=replaceOnce(html,micTestCleanupStart,micTestCleanupNew,'mic-test audio-session helper');
+
+  const micTestAudioCleanup=" if(ycMicTestAudio){try{ycMicTestAudio.pause();ycMicTestAudio.srcObject=null;ycMicTestAudio.remove()}catch{}ycMicTestAudio=null}";
+  const micTestAudioCleanupNew=" if(ycMicTestAudio&&!preserveAudio){try{ycMicTestAudio.pause();ycMicTestAudio.srcObject=null;ycMicTestAudio.remove()}catch{}ycMicTestAudio=null;ycIosMicTestAudioSession('stop')}";
+  html=replaceOnce(html,micTestAudioCleanup,micTestAudioCleanupNew,'mic-test preserve monitor element');
+
+  const micTestMediaStart="  const media=getVoiceMediaDevices();if(!media?.getUserMedia)throw new Error('Mikrofon není dostupný');";
+  const micTestMediaNew="  const media=getVoiceMediaDevices();if(!media?.getUserMedia)throw new Error('Mikrofon není dostupný');if(ycIosWebMicRuntime())ycIosMicTestAudioSession('before-capture');";
+  html=replaceOnce(html,micTestMediaStart,micTestMediaNew,'mic-test iOS capture route reset');
+
+  const micTestAudioCreate="  ycMicTestStream=processed;ycMicTestAudio=document.createElement('audio');ycMicTestAudio.autoplay=true;ycMicTestAudio.playsInline=true;ycMicTestAudio.volume=.85;ycMicTestAudio.srcObject=ycMicTestStream;ycMicTestAudio.style.display='none';document.body.appendChild(ycMicTestAudio);";
+  const micTestAudioCreateNew="  ycMicTestStream=processed;if(!ycMicTestAudio){ycMicTestAudio=document.createElement('audio');ycMicTestAudio.autoplay=true;ycMicTestAudio.playsInline=true;ycMicTestAudio.volume=.85;ycMicTestAudio.style.display='none';document.body.appendChild(ycMicTestAudio)}ycMicTestAudio.srcObject=ycMicTestStream;if(ycIosWebMicRuntime())ycIosMicTestAudioSession('monitor');";
+  html=replaceOnce(html,micTestAudioCreate,micTestAudioCreateNew,'mic-test reuse unlocked audio element');
+
+  const micTestRestart=String.raw\`
+function ycRestartMicTest(){
+ if(!ycMicTestWanted)return;
+ clearTimeout(ycMicTestRestartTimer);ycCleanupMicTest({restoreVoice:false,clearWanted:false});ycSetMicTestVoiceHold(true);
+ const b=$('voiceMicTestBtn');if(b){b.disabled=true;b.textContent='Aktualizuji test…'}
+ ycMicTestRestartTimer=setTimeout(()=>{ycMicTestRestartTimer=null;void ycStartMicTestInternal()},90);
+}
+\`.trim();
+  const micTestRestartNew=String.raw\`
+function ycRestartMicTest(){
+ if(!ycMicTestWanted)return;
+ clearTimeout(ycMicTestRestartTimer);
+ const preserveAudio=ycIosWebMicRuntime()&&!!ycMicTestAudio;
+ if(preserveAudio){try{ycMicTestAudio.autoplay=true;void ycMicTestAudio.play().catch(()=>{})}catch{}}
+ ycCleanupMicTest({restoreVoice:false,clearWanted:false,preserveAudio});ycSetMicTestVoiceHold(true);
+ const b=$('voiceMicTestBtn');if(b){b.disabled=true;b.textContent='Aktualizuji test…'}
+ if(ycIosWebMicRuntime()){ycMicTestRestartTimer=null;void ycStartMicTestInternal();return}
+ ycMicTestRestartTimer=setTimeout(()=>{ycMicTestRestartTimer=null;void ycStartMicTestInternal()},90);
+}
+\`.trim();
+  html=replaceOnce(html,micTestRestart,micTestRestartNew,'mic-test iOS restart playback');
+
   return html;
 }
