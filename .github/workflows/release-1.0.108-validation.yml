@@ -21,7 +21,8 @@ jobs:
       - run: npm install --no-save --package-lock=false playwright@1.62.1
       - run: npx playwright install chromium
       - run: node tests/platform-install-ui.cjs
-      - run: node tests/full-platform-user-journey.cjs
+      - run: |
+          node tests/full-platform-user-journey.cjs
           node tests/web-mobile-desktop-behavior-sync.cjs
       - run: node tests/cross-platform-voice-interop.cjs
       - run: node tests/service-worker-guard.cjs
