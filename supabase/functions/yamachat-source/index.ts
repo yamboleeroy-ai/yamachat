@@ -102,7 +102,13 @@ function ycSpeechConfig(){
   return key&&/^[a-z0-9-]{2,40}$/.test(region)?{key,region}:null;
 }
 function ycTtsAllow(userId:string){
-  const now=Date.now(),recent=(ycTtsRate.get(userId)||[]).filter(ts=>now-ts<60000);
+  const now=Date.now();
+  if(ycTtsRate.size>256){
+    for(const [id,times] of ycTtsRate){
+      if(id!==userId&&!times.some(ts=>now-ts<60000))ycTtsRate.delete(id);
+    }
+  }
+  const recent=(ycTtsRate.get(userId)||[]).filter(ts=>now-ts<60000);
   if(recent.length>=40){ycTtsRate.set(userId,recent);return false}
   recent.push(now);ycTtsRate.set(userId,recent);return true;
 }
