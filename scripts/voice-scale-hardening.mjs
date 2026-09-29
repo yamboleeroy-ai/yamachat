@@ -79,7 +79,7 @@ attachVoiceAudio=(peerId,stream)=>{if(!voiceChannel||!voicePeers.has(peerId))ret
 
   const closeOld='function closeVoicePeer(peerId){const pc=voicePeers.get(peerId);';
   if(!html.includes(closeOld))throw Error('Voice scale peer cleanup boundary missing');
-  html=html.replace(closeOld,'function closeVoicePeer(peerId){ycStopRemoteVoiceActivityDetector(peerId);const pc=voicePeers.get(peerId);');
+  html=html.replace(closeOld,'function closeVoicePeer(peerId){ycStopRemoteVoiceActivityDetector(peerId);voiceMissingSince.delete(peerId);const pc=voicePeers.get(peerId);');
 
   const presenceLeaveOld="const sid=voiceSessionId,room=voiceRooms.get(old.id);\n        const clearPromise=(async()=>{try{const {error}=await sb.rpc('clear_voice_participant',{p_session_id:sid});if(error)console.warn('clear voice participant',error)}catch(e){console.warn('clear voice participant',e)}})();\n        const untrackPromise=(async()=>{try{const pending=room?.untrack();if(pending&&typeof pending.then==='function')await pending}catch(e){console.warn('voice untrack',e)}})();\n        const cleanupSettled=Promise.allSettled([clearPromise,untrackPromise]);";
   const presenceLeaveNew="const sid=voiceSessionId;\n        const clearPromise=(async()=>{try{const {error}=await sb.rpc('clear_voice_participant',{p_session_id:sid});if(error)console.warn('clear voice participant',error)}catch(e){console.warn('clear voice participant',e)}})();\n        const cleanupSettled=Promise.allSettled([clearPromise]);";
@@ -91,7 +91,7 @@ attachVoiceAudio=(peerId,stream)=>{if(!voiceChannel||!voicePeers.has(peerId))ret
   html=html.replace(leaveOld,"voiceChannel=null;stopVoiceParticipantSubscription();await stopVoiceSignals();voiceRouteMode='checking';renderVoiceControls();");
 
   const leavePeerCleanupOld="for(const [id,pc] of voicePeers){try{pc.close()}catch{}const a=$('voice-audio-'+id);if(a)a.remove()}";
-  const leavePeerCleanupNew="for(const id of [...voiceRemoteVadStops.keys()])ycStopRemoteVoiceActivityDetector(id);for(const [id,pc] of voicePeers){try{pc.close()}catch{}const a=$('voice-audio-'+id);if(a)a.remove()}";
+  const leavePeerCleanupNew="for(const id of [...voiceRemoteVadStops.keys()])ycStopRemoteVoiceActivityDetector(id);for(const [id,pc] of voicePeers){try{pc.close()}catch{}const a=$('voice-audio-'+id);if(a)a.remove()}voiceMissingSince.clear();";
   if(!html.includes(leavePeerCleanupOld))throw Error('Voice leave remote VAD cleanup boundary missing');
   html=html.replace(leavePeerCleanupOld,leavePeerCleanupNew);
 
@@ -102,7 +102,7 @@ attachVoiceAudio=(peerId,stream)=>{if(!voiceChannel||!voicePeers.has(peerId))ret
 
   const altAudioOld="try{for(const [,nodes] of voiceAudioNodes){nodes.src?.disconnect();nodes.compressor?.disconnect();nodes.gain?.disconnect()}}catch{}";
   if(!html.includes(altAudioOld))throw Error('Voice scale alternate audio cleanup missing');
-  html=html.replace(altAudioOld,altAudioOld+";try{for(const id of [...voiceRemoteVadStops.keys()])ycStopRemoteVoiceActivityDetector(id)}catch{}");
+  html=html.replace(altAudioOld,altAudioOld+";try{for(const id of [...voiceRemoteVadStops.keys()])ycStopRemoteVoiceActivityDetector(id)}catch{};voiceMissingSince.clear()");
 
   const altStateOld="voiceSessionId='';voiceChannel=null;voiceMuted=false;voiceDeafened=false;voiceRouteMode='checking';";
   if(!html.includes(altStateOld))throw Error('Voice scale alternate state cleanup missing');
