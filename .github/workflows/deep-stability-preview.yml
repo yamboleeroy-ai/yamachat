@@ -99,14 +99,15 @@ jobs:
           } | ConvertTo-Json -Compress
           Set-Content -Path "$appRoot/preview.json" -Value $preview -Encoding UTF8
 
-          @"
-Yamachat Deep Stability Preview
-===============================
-Toto je PORTABLE TESTOVACI verze, ne produkcni release.
-Zdrojovy audit runtime: 43aa1814b5c85a7e3c9f142c1ddba92a8d5940c3
-Preview pouziva oddeleny profil Yamachat-Stream-Preview a nevydava/nenahrazuje beznou instalaci.
-Rozbal ZIP do vlastni slozky a spust Yamachat.exe.
-"@ | Set-Content -Path "$root/PREVIEW-README.txt" -Encoding UTF8
+          $readme = @(
+            'Yamachat Deep Stability Preview',
+            '===============================',
+            'Toto je PORTABLE TESTOVACI verze, ne produkcni release.',
+            'Zdrojovy audit runtime: 43aa1814b5c85a7e3c9f142c1ddba92a8d5940c3',
+            'Preview pouziva oddeleny profil Yamachat-Stream-Preview a nevydava/nenahrazuje beznou instalaci.',
+            'Rozbal ZIP do vlastni slozky a spust Yamachat.exe.'
+          )
+          Set-Content -Path "$root/PREVIEW-README.txt" -Value $readme -Encoding UTF8
 
           $zip='yamachat-windows-deep-stability-preview-portable.zip'
           Compress-Archive -Path "$root/*" -DestinationPath $zip -Force
