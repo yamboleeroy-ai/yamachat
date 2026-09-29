@@ -13,7 +13,8 @@ const files=[
 ];
 const forbidden=[
   /api\.github\.com\/repos\/yamboleeroy-ai\/yamachat\/releases/i,
-  /github\.com\/yamboleeroy-ai\/yamachat\/releases/i
+  /github\.com\/yamboleeroy-ai\/yamachat\/releases/i,
+  /yamachat\.eu\/download\/Yamachat-Android\.apk/i
 ];
 for(const rel of files){
   const src=fs.readFileSync(path.join(root,rel),'utf8');
@@ -25,4 +26,5 @@ assert.equal(pkg.build.publish?.[0]?.url,'https://updates.yamachat.eu/windows/')
 const manifest=require('../update-manifest.json');
 assert.match(String(manifest.windows?.installerUrl||''),/^https:\/\/updates\.yamachat\.eu\/windows\/Yamachat-Setup-\d+\.\d+\.\d+\.exe$/);
 assert.equal(manifest.windows?.feedUrl,'https://updates.yamachat.eu/windows/');
-console.log('PASS public Yamachat distribution is detached from GitHub Releases.');
+assert.match(String(manifest.android?.apkUrl||''),/^https:\/\/updates\.yamachat\.eu\/android\/Yamachat-Android(?:-\d+)?\.apk(?:\?v=\d+)?$/);
+console.log('PASS public Yamachat distribution is detached from GitHub Releases and Android APK is on Cloudflare R2.');
