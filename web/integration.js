@@ -15,6 +15,20 @@ let ycWebPushReady=false,ycWebPushStatus='',ycWebPushSyncPromise=null,ycWebPushR
 function ycWebPushPlatform(){const ios=/iP(?:hone|ad|od)/i.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);const standalone=navigator.standalone===true||matchMedia('(display-mode: standalone)').matches;return ios&&standalone?'pwa-ios':'web'}
 function ycWebServiceWorker(){try{const sw=navigator?.serviceWorker;return sw&&typeof sw.register==='function'&&typeof sw.addEventListener==='function'?sw:null}catch{return null}}
 function ycWebPushSupported(){const sw=ycWebServiceWorker();return !!sw?.ready&&'PushManager' in window&&'Notification' in window}
+async function ycWebPushRegistration(sw,timeoutMs=1500){
+ if(ycWebRegistration)return ycWebRegistration;
+ if(!sw)return null;
+ let timer=null;
+ try{
+  const reg=await Promise.race([
+   Promise.resolve(sw.ready).catch(()=>null),
+   new Promise(resolve=>{timer=setTimeout(()=>resolve(null),timeoutMs)})
+  ]);
+  if(reg)ycWebRegistration=reg;
+  return reg||null
+ }catch{return null}
+ finally{if(timer)clearTimeout(timer)}
+}
 function ycWebPushKey(value){const pad='='.repeat((4-value.length%4)%4),raw=atob((value+pad).replace(/-/g,'+').replace(/_/g,'/')),out=new Uint8Array(raw.length);for(let i=0;i<raw.length;i++)out[i]=raw.charCodeAt(i);return out}
 async function ycWebPushSession(){const {data}=await sb.auth.getSession();return data?.session||null}
 async function ycWebPushUnregister(endpoint,access){
@@ -36,7 +50,7 @@ async function ycWebPushSync(promptUser=false){
    const session=await ycWebPushSession();if(!session?.access_token){ycWebPushStatus='Po přihlášení se push registrace dokončí.';return false}
    const uid=String(session.user?.id||'');if(!uid)return false;
    const sw=ycWebServiceWorker();if(!sw){ycWebPushStatus='Tento prohlížeč Web Push nepodporuje.';return false}
-   const reg=ycWebRegistration||await sw.ready;ycWebRegistration=reg;
+   const reg=await ycWebPushRegistration(sw);if(!reg){ycWebPushStatus='Service Worker není připravený. Push zkusím znovu později.';return false}
    const cfgRes=await fetch(YC_PUSH_API,{cache:'no-store'});if(!cfgRes.ok)throw new Error('Push konfigurace '+cfgRes.status);const cfg=await cfgRes.json();
    let sub=await reg.pushManager.getSubscription();
    if(!sub)sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:ycWebPushKey(String(cfg.vapidPublicKey||''))});
@@ -55,7 +69,7 @@ async function ycWebPushSync(promptUser=false){
 async function ycWebPushDetach(){
  const generation=++ycWebPushGeneration;void generation;
  ycWebPushReady=false;ycWebPushRegisteredKey='';
- try{const sw=ycWebServiceWorker();if(!sw)return false;const session=await ycWebPushSession(),reg=ycWebRegistration||await sw.ready,sub=await reg.pushManager.getSubscription();if(!session?.access_token||!sub)return false;return await ycWebPushUnregister(sub.endpoint,session.access_token)}catch{return false}
+ try{const sw=ycWebServiceWorker();if(!sw)return false;const session=await ycWebPushSession(),reg=await ycWebPushRegistration(sw);if(!reg)return false;const sub=await reg.pushManager.getSubscription();if(!session?.access_token||!sub)return false;return await ycWebPushUnregister(sub.endpoint,session.access_token)}catch{return false}
 }
 window.ycDetachPushBeforeLogout=ycWebPushDetach;
 ycOnLifecycle('beforeAuth',()=>{ycWebPushGeneration++;ycWebPushReady=false;ycWebPushRegisteredKey=''});
