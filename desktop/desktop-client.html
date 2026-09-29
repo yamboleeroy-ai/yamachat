@@ -4550,23 +4550,27 @@ window.ycSaveServerHeaderBackground = async (id, background) => {
   ycHeaderBackgrounds.set(String(id), background);
   window.parent.decorateDesktopServerCards?.();
 };
-let ycHeadersLoading = false;
-async function ycRefreshSharedHeaders() {
-  if(!user?.id || ycHeadersLoading) return;
-  ycHeadersLoading = true;
+const YC_SHARED_HEADERS_REFRESH_MS=5*60*1000;
+let ycHeadersLoading=false,ycHeadersLastRefresh=0;
+async function ycRefreshSharedHeaders(force=false) {
+  if(!user?.id||ycHeadersLoading||(!force&&document.hidden))return;
+  const now=Date.now();if(!force&&now-ycHeadersLastRefresh<YC_SHARED_HEADERS_REFRESH_MS)return;
+  ycHeadersLoading=true;
   try {
-    const {data,error} = await sb.from('desktop_server_headers').select('community_id,background_data');
-    if(error) throw error;
+    const {data,error}=await sb.from('desktop_server_headers').select('community_id,background_data');
+    if(error)throw error;
     ycHeaderBackgrounds.clear();
-    for(const row of data||[]) ycHeaderBackgrounds.set(String(row.community_id), row.background_data);
+    for(const row of data||[])ycHeaderBackgrounds.set(String(row.community_id),row.background_data);
+    ycHeadersLastRefresh=Date.now();
     window.parent.decorateDesktopServerCards?.();
   } catch(e) { console.warn('Server header sync',e); }
-  finally { ycHeadersLoading = false; }
+  finally { ycHeadersLoading=false; }
 }
-ycOnLifecycle('init',ycRefreshSharedHeaders);
-ycOnLifecycle('community',ycRefreshSharedHeaders);
-ycOnLifecycle('beforeAuth',()=>ycHeaderBackgrounds.clear());
-setInterval(()=>{if(!document.hidden)void ycRefreshSharedHeaders()},30000);
+ycOnLifecycle('init',()=>{void ycRefreshSharedHeaders()});
+ycOnLifecycle('community',()=>{void ycRefreshSharedHeaders()});
+ycOnLifecycle('beforeAuth',()=>{ycHeaderBackgrounds.clear();ycHeadersLastRefresh=0});
+setInterval(()=>{if(!document.hidden)void ycRefreshSharedHeaders()},YC_SHARED_HEADERS_REFRESH_MS);
+document.addEventListener('visibilitychange',()=>{if(!document.hidden&&user)void ycRefreshSharedHeaders()});
 void ycRefreshSharedHeaders();
 
 async function ycOpenStreamFromUser(uid) {
