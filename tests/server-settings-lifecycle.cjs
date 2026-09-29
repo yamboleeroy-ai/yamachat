@@ -10,7 +10,7 @@ function supabaseMock(){
 window.__mockWrites=[];window.__mockRpcWrites=[];
 window.supabase={createClient:()=>{
  const profile={id:'audit-user',username:'tester',display_name:'Místní test',status:'online',avatar_path:null};
- const communities=[{id:'community-a',name:'Testovací server',description:'Audit server',owner_id:'audit-user',server_color:'#1a9fff',is_public:false}];
+ const communities=[{id:'community-a',name:'Testovací server',description:'Audit server',owner_id:'audit-user',role:'owner',server_color:'#1a9fff',is_public:false}];
  const channels=[{id:'chat-a',community_id:'community-a',name:'obecný',kind:'text',position:1},{id:'voice-a',community_id:'community-a',name:'Hlas',kind:'voice',position:2}];
  const roles=[{id:'owner-visual',community_id:'community-a',name:'Vlastník',color:'#f2c968',position:100,permissions:{__yc_owner_visual:true},is_default:false,created_at:'2026-01-01T00:00:00Z'}];
  const memberRoles=[{community_id:'community-a',user_id:'audit-user',role_id:'owner-visual'}];
