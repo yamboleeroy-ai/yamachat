@@ -14,6 +14,12 @@ for(const file of ['desktop/desktop-client.html','index.html']){
   assert(!html.includes('ycStartFriendNotificationSub'),file+' duplicate friendship subscription lifecycle remains');
   assert(userRealtimeBlock.includes("status==='SUBSCRIBED'"),file+' user realtime reconnect resync missing');
   assert(userRealtimeBlock.includes("['CHANNEL_ERROR','TIMED_OUT','CLOSED'].includes(status)"),file+' user realtime dead-channel recovery missing');
+  assert(html.includes("function socialCountKey(){return String(user?.id||'')+'|'+String(currentCommunity?.id||'')}"),file+' social-count context ownership missing');
+  assert(html.includes("if(!force&&!countBusy&&key===countLastKey&&now-countLastAt<1000)return"),file+' duplicate social-count render reads are not coalesced');
+  assert(html.includes("if(countBusy){if(force||key!==countBusyKey){countAgain=true;countForceAgain=countForceAgain||force}return}"),file+' in-flight social-count coalescing missing');
+  assert(html.includes("if(socialCountKey()!==key)return"),file+' stale social-count response can paint after auth/community switch');
+  assert(!html.includes("if(countBusy){countAgain=true;return}"),file+' old duplicate social-count rerun loop remains');
+  assert(userRealtimeBlock.includes("window.__ycRefreshSocialTabCounts(true)"),file+' friendship realtime must force a fresh count snapshot');
 
   assert(html.includes("let realtime=null,realtimeCommunityId=''"),file+' role/social community ownership missing');
   for(const table of ['community_members','community_member_roles','community_roles','desktop_server_role_layout']){
@@ -25,6 +31,8 @@ for(const file of ['desktop/desktop-client.html','index.html']){
   assert(roleBlock.includes("ycOnLifecycle('beforeCommunity',stopRealtime)"),file+' old community realtime is not stopped before switch');
   assert(roleBlock.includes("ycOnLifecycle('beforeAuth',stopRealtime)"),file+' role/social realtime logout cleanup missing');
   assert(roleBlock.includes("status==='SUBSCRIBED'"),file+' role/social subscription recovery sync missing');
+  assert(roleBlock.includes("syncRealtimeSnapshot(cid){if(String(currentCommunity?.id||'')!==String(cid))return;window.__ycInvalidateRoleVisuals();void refreshSocialTabCounts(true)"),file+' role/social reconnect snapshot must force fresh counts');
+  assert(roleBlock.includes("table:'community_members',filter:'community_id=eq.'+cid},()=>{if(!current())return;window.__ycInvalidateRoleVisuals();void refreshSocialTabCounts(true)"),file+' membership realtime must force fresh counts');
   assert(roleBlock.includes("['CHANNEL_ERROR','TIMED_OUT','CLOSED'].includes(status)"),file+' role/social dead-channel recovery missing');
   assert(roleBlock.includes("setInterval(()=>{if(user?.id){if(!userRealtimeSub)subscribeUserRealtime();ensureRealtime()}},20000)"),file+' realtime watchdog missing');
   const watchdog=roleBlock.slice(roleBlock.indexOf('setInterval(()=>{if(user?.id)'),roleBlock.indexOf('setTimeout(()=>',roleBlock.indexOf('setInterval(()=>{if(user?.id)')));
