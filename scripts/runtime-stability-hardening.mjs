@@ -41,5 +41,14 @@ export function withRuntimeStabilityHardening(html){
   if(out.includes(oldHidden))out=out.replace(oldHidden,newHidden);
   else if(!out.includes('function ycStartHiddenChannelRealtime(communityId)'))throw Error('Runtime stability hidden-channel recovery boundary missing');
 
+  const memberPresenceMarker="function ycMembersPresenceNeedsRefresh(){if(rightMode!=='members')return false;for(const uid of ycVisibleMemberIds){const state=ycPresenceState(ycPresenceDisplayRow(uid,ycPresenceRowsByUser.get(uid)||null));if(ycPresenceRenderedStateByUser.get(uid)!==state)return true}return false}";
+  const memberPresenceAdded="function ycMembersPresenceNeedsRefresh(){if(rightMode!=='members')return false;for(const uid of ycVisibleMemberIds){const state=ycPresenceState(ycPresenceDisplayRow(uid,ycPresenceRowsByUser.get(uid)||null));if(ycPresenceRenderedStateByUser.get(uid)!==state)return true}return false}\nlet ycMemberPresenceRefreshBusy=false;\nasync function ycRefreshVisibleMemberPresence(){\n if(rightMode!=='members'||document.hidden||ycMemberPresenceRefreshBusy||!currentCommunity)return;\n const ids=[...ycVisibleMemberIds].filter(Boolean);if(!ids.length)return;\n const cid=String(currentCommunity.id);ycMemberPresenceRefreshBusy=true;\n try{\n  const {data,error}=await sb.from('user_presence').select('user_id,state,activity_text,last_seen_at').in('user_id',ids);\n  if(error){console.warn('member presence refresh',error);return}\n  if(rightMode!=='members'||String(currentCommunity?.id||'')!==cid)return;\n  const rows=new Map((data||[]).map(row=>[String(row.user_id),row]));let needsFull=false;\n  for(const uid of ids){const key=String(uid),row=rows.get(key)||null,next=ycPresenceState(ycPresenceDisplayRow(key,row)),prev=ycPresenceRenderedStateByUser.get(key)||'offline';ycPresenceRowsByUser.set(key,row);if(prev!==next){needsFull=true;break}}\n  if(needsFull){await renderRight();return}\n  for(const uid of ids)ycPatchVisibleMemberPresence(uid,rows.get(String(uid))||null);\n }catch(e){console.warn('member presence refresh',e)}finally{ycMemberPresenceRefreshBusy=false}\n}";
+  if(out.includes(memberPresenceMarker)&&!out.includes('async function ycRefreshVisibleMemberPresence()'))out=out.replace(memberPresenceMarker,memberPresenceAdded);
+  else if(!out.includes('async function ycRefreshVisibleMemberPresence()'))throw Error('Runtime stability member presence refresh boundary missing');
+  const memberTimerOld="else if(rightMode==='members'&&ycMembersPresenceNeedsRefresh())void renderRight();";
+  const memberTimerNew="else if(rightMode==='members')void ycRefreshVisibleMemberPresence();";
+  if(out.includes(memberTimerOld))out=out.replace(memberTimerOld,memberTimerNew);
+  else if(!out.includes(memberTimerNew))throw Error('Runtime stability member presence timer boundary missing');
+
   return out;
 }
