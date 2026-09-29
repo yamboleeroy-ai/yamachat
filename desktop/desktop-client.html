@@ -4792,7 +4792,7 @@ function ycStartHiddenChannelRealtime(communityId){
 subscribeCommunityRealtime=function(communityId){
   const out=ycHiddenBaseSubscribeCommunityRealtime.call(this,communityId);
   ycStartHiddenChannelRealtime(communityId);
-  clearInterval(ycHiddenChannelPoll);ycHiddenChannelPoll=setInterval(()=>{if(currentCommunity&&!document.hidden){if(!ycHiddenChannelSub)ycStartHiddenChannelRealtime(currentCommunity.id);void ycRefreshChannelsSecure()}},15000);
+  clearInterval(ycHiddenChannelPoll);ycHiddenChannelPoll=setInterval(()=>{if(currentCommunity&&!document.hidden&&!ycHiddenChannelSub)ycStartHiddenChannelRealtime(currentCommunity.id)},15000);
   return out;
 };
 // Password entry guards: visible locked channels stay listed, but chat/voice opens only after unlock.
