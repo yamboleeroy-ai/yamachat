@@ -1,0 +1,29 @@
+name: Verify live iOS PWA microphone hotfix
+on:
+  push:
+    branches: [fix/ios-pwa-microphone-20260929]
+    paths: ['.github/workflows/ios-pwa-mic-live-verify.yml']
+permissions:
+  contents: read
+jobs:
+  live:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: Verify Cloudflare production contains iOS microphone hotfix
+        run: |
+          set -euo pipefail
+          for i in $(seq 1 36); do
+            if curl -fsS --max-time 20 "https://yamachat.eu/?verify_ios_mic=$(date +%s)" -o /tmp/yamachat.html; then
+              if grep -q 'function ycIosWebMicRuntime()' /tmp/yamachat.html &&
+                 grep -q 'const pendingMic=ycIosWebMicRuntime()&&!reusableStream?acquireVoiceStream():null' /tmp/yamachat.html &&
+                 grep -q 'iOS Web/PWA microphone processing fallback' /tmp/yamachat.html; then
+                echo "PASS: live Cloudflare Web/PWA contains the iOS microphone hotfix."
+                exit 0
+              fi
+            fi
+            echo "Cloudflare production not updated yet ($i/36), retrying..."
+            sleep 10
+          done
+          echo "Live yamachat.eu did not expose the iOS microphone hotfix in time."
+          exit 1
