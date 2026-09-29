@@ -2088,7 +2088,6 @@ function ycPatchVisibleMemberPresence(uid,row){
  const activity=el.querySelector('.yc-activity');if(activity){if(state==='offline')activity.textContent=ycLastSeen(shown);else if(String(shown?.activity_text||'').trim())activity.textContent=String(shown.activity_text);else if(!activity.textContent)activity.textContent=ycPresenceLabel(state)}
  ycPresenceRenderedStateByUser.set(id,state);return true
 }
-function ycMembersPresenceNeedsRefresh(){if(rightMode!=='members')return false;for(const uid of ycVisibleMemberIds){const state=ycPresenceState(ycPresenceDisplayRow(uid,ycPresenceRowsByUser.get(uid)||null));if(ycPresenceRenderedStateByUser.get(uid)!==state)return true}return false}
 let ycMemberPresenceRefreshBusy=false;
 async function ycRefreshVisibleMemberPresence(){
  if(rightMode!=='members'||document.hidden||ycMemberPresenceRefreshBusy||!currentCommunity)return;
@@ -2392,15 +2391,6 @@ let ycPresenceRealtimeSub=null,ycPresenceRefreshDebounce=null
 function ycRefreshVisibleSocialSoon(){
   clearTimeout(ycPresenceRefreshDebounce)
   ycPresenceRefreshDebounce=setTimeout(()=>{try{if(!user)return;if(rightMode==='friends')void renderFriends();else if(rightMode==='members')void renderRight();if(ycFriendsHomeMode)void loadDmThreads()}catch(e){console.warn('presence social refresh',e)}},30)
-}
-function ycHandlePresenceRealtime(payload){
- const row=payload?.new||payload?.old||{},uid=String(row.user_id||'');if(!uid)return;
- const before=ycPresenceRowsByUser.get(uid)||null,beforeSig=ycPresenceVisualSig(uid,before);
- if(payload?.eventType==='DELETE')ycPresenceRowsByUser.delete(uid);else ycPresenceRowsByUser.set(uid,row);
- if(uid===String(user?.id||'')&&String(row.state||'').toLowerCase()==='online'){const seen=new Date(row.last_seen_at||0).getTime();if(Number.isFinite(seen))ycPresenceRemoteOnlineUntil=Math.max(ycPresenceRemoteOnlineUntil,seen+YC_PRESENCE_ACTIVE_LEASE_MS)}
- const after=payload?.eventType==='DELETE'?null:row,afterSig=ycPresenceVisualSig(uid,after);if(beforeSig===afterSig)return;
- if(rightMode==='members'&&ycVisibleMemberIds.has(uid)){const beforeState=ycPresenceState(ycPresenceDisplayRow(uid,before)),afterState=ycPresenceState(ycPresenceDisplayRow(uid,after));if(beforeState!=='offline'&&afterState!=='offline'&&ycPatchVisibleMemberPresence(uid,after))return}
- ycRefreshVisibleSocialSoon()
 }
 function ycEnsurePresenceRealtime(){
   if(!user||ycPresenceRealtimeSub)return

@@ -9,7 +9,6 @@ for(const marker of [
  "function ycPresenceDisplayRow(uid,row)",
  "data-yc-presence-state",
  "function ycPatchVisibleMemberPresence(uid,row)",
- "function ycMembersPresenceNeedsRefresh()",
  "baseState==='afk'&&ycPresencePreference()==='online'",
  "age<YC_PRESENCE_ACTIVE_LEASE_MS",
  "if(skipWrite){ycLastPresenceSig=sig",
@@ -19,8 +18,6 @@ for(const marker of [
  "else if(rightMode==='members')void ycRefreshVisibleMemberPresence()",
  "async function ycRefreshVisibleFriendPresence()",
  "if(rightMode==='friends')void ycRefreshVisibleFriendPresence()",
- "function ycHandlePresenceRealtime(payload)",
- "if(beforeSig===afterSig)return",
  "void ycTouchPresence(true);playVoiceCue('self-join')",
  "typeof ycOwnPresenceState==='function'?ycOwnPresenceState()"
 ]) assert(client.includes(marker),'Presence stability marker missing: '+marker);
@@ -31,6 +28,10 @@ assert(!client.includes(".on('postgres_changes',{event:'*',schema:'public',table
  'Raw presence heartbeats must not rerender the whole social panel');
 assert(!client.includes("table:'user_presence'},payload=>ycHandlePresenceRealtime(payload)"),
  'Presence heartbeat rows must not be globally fanned out through Realtime');
+assert(!client.includes('function ycMembersPresenceNeedsRefresh()'),
+ 'Obsolete member-presence comparison helper must not remain');
+assert(!client.includes('function ycHandlePresenceRealtime(payload)'),
+ 'Obsolete global presence realtime handler must not remain');
 assert(client.includes("table:'profiles',filter:'id=eq.'+user.id"),
  'Realtime profile sync must be scoped to the signed-in user');
 

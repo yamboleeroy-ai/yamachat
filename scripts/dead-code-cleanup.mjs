@@ -15,6 +15,24 @@ export function withDeadCodeCleanup(html){
     "function ycScreenMbpsText(){return (ycScreenShareProfile().bitrate/1000000).toFixed(1).replace('.0','')+' Mb/s'}\n"
   );
 
+  html=removeExactOnceIfPresent(
+    html,
+    "function ycMembersPresenceNeedsRefresh(){if(rightMode!=='members')return false;for(const uid of ycVisibleMemberIds){const state=ycPresenceState(ycPresenceDisplayRow(uid,ycPresenceRowsByUser.get(uid)||null));if(ycPresenceRenderedStateByUser.get(uid)!==state)return true}return false}\n"
+  );
+  html=removeExactOnceIfPresent(
+    html,
+    `function ycHandlePresenceRealtime(payload){
+ const row=payload?.new||payload?.old||{},uid=String(row.user_id||'');if(!uid)return;
+ const before=ycPresenceRowsByUser.get(uid)||null,beforeSig=ycPresenceVisualSig(uid,before);
+ if(payload?.eventType==='DELETE')ycPresenceRowsByUser.delete(uid);else ycPresenceRowsByUser.set(uid,row);
+ if(uid===String(user?.id||'')&&String(row.state||'').toLowerCase()==='online'){const seen=new Date(row.last_seen_at||0).getTime();if(Number.isFinite(seen))ycPresenceRemoteOnlineUntil=Math.max(ycPresenceRemoteOnlineUntil,seen+YC_PRESENCE_ACTIVE_LEASE_MS)}
+ const after=payload?.eventType==='DELETE'?null:row,afterSig=ycPresenceVisualSig(uid,after);if(beforeSig===afterSig)return;
+ if(rightMode==='members'&&ycVisibleMemberIds.has(uid)){const beforeState=ycPresenceState(ycPresenceDisplayRow(uid,before)),afterState=ycPresenceState(ycPresenceDisplayRow(uid,after));if(beforeState!=='offline'&&afterState!=='offline'&&ycPatchVisibleMemberPresence(uid,after))return}
+ ycRefreshVisibleSocialSoon()
+}
+`
+  );
+
   const start='// SAME VOICE STREAM FIX v3.0.18 — refresh the existing peer video negotiation before watch-on-demand.\n';
   const end='const ycViewerHandleVoiceSignal=handleVoiceSignal';
   const startAt=html.indexOf(start);

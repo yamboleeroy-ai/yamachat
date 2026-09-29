@@ -28,7 +28,6 @@ for(const marker of [
   "function ycPresenceDisplayRow(uid,row)",
   "data-yc-presence-state",
   "function ycPatchVisibleMemberPresence(uid,row)",
-  "function ycMembersPresenceNeedsRefresh()",
   "async function ycRefreshVisibleMemberPresence()",
   "select('user_id,state,activity_text,last_seen_at')",
   "baseState==='afk'&&ycPresencePreference()==='online'",
@@ -38,8 +37,6 @@ for(const marker of [
   "else if(rightMode==='members')void ycRefreshVisibleMemberPresence()",
   "async function ycRefreshVisibleFriendPresence()",
   "if(rightMode==='friends')void ycRefreshVisibleFriendPresence()",
-  "function ycHandlePresenceRealtime(payload)",
-  "if(beforeSig===afterSig)return",
   "void ycTouchPresence(true);playVoiceCue('self-join')",
   "typeof ycOwnPresenceState==='function'?ycOwnPresenceState()",
   "Math.max(card.offsetHeight||0,280)",
@@ -51,7 +48,10 @@ for(const marker of [
   "document.documentElement.dataset.ycUiMenuOpen='1'"
 ]) assert(client.includes(marker),'Shared behavior marker missing: '+marker);
 
-assert(/payload\s*=>\s*ycHandlePresenceRealtime\(payload\)/.test(client)||client.includes("ycHandlePresenceRealtime(payload)"),'Generated client must route user_presence realtime payloads through the stable presence handler');
+assert(!client.includes("table:'user_presence'},payload=>ycHandlePresenceRealtime(payload)"),'Generated client must not globally fan out presence heartbeats');
+assert(!client.includes('function ycMembersPresenceNeedsRefresh()'),'Generated client must not retain obsolete member-presence comparison helper');
+assert(!client.includes('function ycHandlePresenceRealtime(payload)'),'Generated client must not retain obsolete global presence handler');
+assert(client.includes("table:'profiles',filter:'id=eq.'+user.id"),'Generated client must retain targeted own-profile realtime');
 
 assert(!client.includes("const signed={};await Promise.all((atts||[]).map"),
   'Initial chat paint must not wait for every attachment signed URL');
