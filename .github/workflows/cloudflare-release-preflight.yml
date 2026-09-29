@@ -1,0 +1,27 @@
+name: Cloudflare release preflight
+on:
+  push:
+    branches: [audit/deep-stability-20260929]
+    paths: ['.github/workflows/cloudflare-release-preflight.yml']
+permissions:
+  contents: read
+jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify Cloudflare release credentials and R2 access
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          set -euo pipefail
+          if [ -z "${CLOUDFLARE_API_TOKEN:-}" ] || [ -z "${CLOUDFLARE_ACCOUNT_ID:-}" ]; then
+            echo "Cloudflare release credentials are not configured in GitHub Actions."
+            exit 2
+          fi
+          npx --yes wrangler@latest r2 bucket list >/tmp/yamachat-r2-buckets.txt
+          echo "Cloudflare R2 access verified."
