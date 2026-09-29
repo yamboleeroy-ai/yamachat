@@ -237,7 +237,11 @@ ycOnLifecycle('init',()=>setTimeout(()=>void ycWebOpenLaunchNotificationTarget()
 
 async function ycWebSyncWakeLock(){if(!('wakeLock' in navigator))return;const needed=!!voiceChannel&&document.visibilityState==='visible';if(!needed){if(ycWebWakeLock){const lock=ycWebWakeLock;ycWebWakeLock=null;await lock.release().catch(()=>{})}return}if(ycWebWakeLock||ycWebWakePending)return;ycWebWakePending=true;try{const lock=await navigator.wakeLock.request('screen');ycWebWakeLock=lock;lock.addEventListener('release',()=>{if(ycWebWakeLock===lock)ycWebWakeLock=null});if(!voiceChannel||document.visibilityState!=='visible'){ycWebWakeLock=null;await lock.release()}}catch{}finally{ycWebWakePending=false}}
 document.addEventListener('visibilitychange',()=>void ycWebSyncWakeLock());
-setInterval(()=>{void ycWebSyncWakeLock();const count=window.__ycDesktopState?.().notificationUnreadCount||0;document.title=(count?'('+count+') ':'')+'Yamachat';try{if(count)navigator.setAppBadge?.(count)?.catch(()=>{});else navigator.clearAppBadge?.()?.catch(()=>{})}catch{}},3000);
+let ycWebUiPulseTimer=null;
+function ycWebUiPulse(){void ycWebSyncWakeLock();const count=window.__ycDesktopState?.().notificationUnreadCount||0;document.title=(count?'('+count+') ':'')+'Yamachat';try{if(count)navigator.setAppBadge?.(count)?.catch(()=>{});else navigator.clearAppBadge?.()?.catch(()=>{})}catch{}}
+function ycWebStartUiPulse(){if(ycWebUiPulseTimer)return;ycWebUiPulse();ycWebUiPulseTimer=setInterval(ycWebUiPulse,3000)}
+function ycWebStopUiPulse(){if(ycWebUiPulseTimer){clearInterval(ycWebUiPulseTimer);ycWebUiPulseTimer=null}}
+ycOnLifecycle('init',ycWebStartUiPulse);
 window.addEventListener('beforeunload',event=>{if(voiceChannel||screenShareActive){event.preventDefault();event.returnValue=''}});
-ycOnLifecycle('beforeAuth',()=>{void ycWebSyncWakeLock();navigator.clearAppBadge?.()?.catch(()=>{})});
+ycOnLifecycle('beforeAuth',()=>{ycWebStopUiPulse();document.title='Yamachat';void ycWebSyncWakeLock();navigator.clearAppBadge?.()?.catch(()=>{})});
 const ycWebInstallButton=document.createElement('button');ycWebInstallButton.type='button';ycWebInstallButton.className='ghost';ycWebInstallButton.dataset.ycWebInstall='';ycWebInstallButton.style.cssText='width:100%;margin-top:12px';ycWebInstallButton.textContent='Nainstalovat Yamachat';ycWebInstallButton.onclick=()=>void ycWebInstall();document.querySelector('.auth-card')?.appendChild(ycWebInstallButton);ycWebSyncInstallButtons();
