@@ -29,11 +29,13 @@ for(const marker of [
   "data-yc-presence-state",
   "function ycPatchVisibleMemberPresence(uid,row)",
   "function ycMembersPresenceNeedsRefresh()",
+  "async function ycRefreshVisibleMemberPresence()",
+  "select('user_id,state,activity_text,last_seen_at')",
   "baseState==='afk'&&ycPresencePreference()==='online'",
   "age<YC_PRESENCE_ACTIVE_LEASE_MS",
   "if(skipWrite){ycLastPresenceSig=sig",
   "async function ycPresenceOffline(){ycPresenceRemoteOnlineUntil=0;return Promise.resolve()}",
-  "rightMode==='members'&&ycMembersPresenceNeedsRefresh()",
+  "else if(rightMode==='members')void ycRefreshVisibleMemberPresence()",
   "function ycHandlePresenceRealtime(payload)",
   "if(beforeSig===afterSig)return",
   "void ycTouchPresence(true);playVoiceCue('self-join')",
@@ -64,8 +66,13 @@ const presenceEnd=client.indexOf('ycStartPresence()',presenceStart+20);
 assert(presenceStart>=0&&presenceEnd>presenceStart,'presence timer boundary missing');
 const presenceBody=client.slice(presenceStart,presenceEnd);
 assert(!presenceBody.includes('if(ycFriendsHomeMode)void loadDmThreads()'),'15-second timer must not directly reload DM list');
-assert(presenceBody.includes("rightMode==='members'&&ycMembersPresenceNeedsRefresh()"),'Members refresh must be state-gated');
+assert(presenceBody.includes("else if(rightMode==='members')void ycRefreshVisibleMemberPresence()"),'Members timer must use the lightweight presence refresh');
 assert(!presenceBody.includes("else if(rightMode==='members')void renderRight()"),'Members must not rerender unconditionally');
+const memberRefreshStart=client.indexOf('async function ycRefreshVisibleMemberPresence()'),memberRefreshEnd=client.indexOf('function ycLastSeen(',memberRefreshStart);
+assert(memberRefreshStart>=0&&memberRefreshEnd>memberRefreshStart,'Generated member presence refresh boundary missing');
+const memberRefreshBody=client.slice(memberRefreshStart,memberRefreshEnd);
+assert(memberRefreshBody.includes("from('user_presence')"),'Generated member refresh must read presence rows');
+for(const table of ['community_members','community_roles','community_member_roles','desktop_server_role_layout','profiles','profile_stats'])assert(!memberRefreshBody.includes("from('"+table+"')"),'Generated member presence refresh unexpectedly reloads '+table);
 
 assert(!client.includes("async function ycPresenceOffline(){try{if(user)await sb.from('user_presence').upsert({user_id:user.id,state:'offline'"),
  'One closing client must not overwrite another active client with offline');
