@@ -1,5 +1,5 @@
 name: Yamachat 1.0.108 cutover validation
-# stream-transport-audit-sync: function-boundary
+# stream-transport-audit-sync: cloudflare-android-r2
 on:
   push:
     branches: [release/1.0.108-cloudflare-clean-20260929]
@@ -20,6 +20,10 @@ jobs:
       - run: node scripts/check-legal-baseline.mjs
       - run: node scripts/verify-stream-preview.cjs
       - run: node tests/no-public-github-distribution.cjs
+      - name: Verify Android public artifact is external
+        run: |
+          test ! -f download/Yamachat-Android.apk || { echo "Android APK must not be committed to the repository"; exit 1; }
+          grep -q 'https://updates.yamachat.eu/android/' update-manifest.json
       - run: npm install --no-save --package-lock=false playwright@1.62.1
       - run: npx playwright install chromium
       - run: node tests/platform-install-ui.cjs
