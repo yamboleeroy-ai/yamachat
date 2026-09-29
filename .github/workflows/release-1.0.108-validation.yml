@@ -60,6 +60,9 @@ jobs:
       - name: Verify generic Cloudflare updater
         shell: pwsh
         run: |
-          $cfg=Get-Content desktop/dist/win-unpacked/resources/app-update.yml -Raw
-          if ($cfg -notmatch 'provider:\s*generic') { throw 'Updater provider is not generic' }
-          if ($cfg -notmatch 'https://updates\.yamachat\.eu/windows/') { throw 'Cloudflare feed URL missing' }
+          $pkg=Get-Content desktop/package.json -Raw
+          $updater=Get-Content desktop/updater.js -Raw
+          if ($pkg -notmatch '"provider"\s*:\s*"generic"') { throw 'Updater publish provider is not generic' }
+          if ($pkg -notmatch 'https://updates\.yamachat\.eu/windows/') { throw 'Cloudflare publish URL missing' }
+          if ($updater -notmatch "UPDATE_FEED_URL\s*=\s*'https://updates\.yamachat\.eu/windows/'") { throw 'Runtime Cloudflare feed URL missing' }
+          if ($updater -match "provider:\s*'github'") { throw 'GitHub updater provider still present' }
