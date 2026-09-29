@@ -91,7 +91,7 @@ attachVoiceAudio=(peerId,stream)=>{if(!voiceChannel||!voicePeers.has(peerId))ret
   html=html.replace(leaveOld,"voiceChannel=null;stopVoiceParticipantSubscription();await stopVoiceSignals();voiceRouteMode='checking';renderVoiceControls();");
 
   const leavePeerCleanupOld="for(const [id,pc] of voicePeers){try{pc.close()}catch{}const a=$('voice-audio-'+id);if(a)a.remove()}";
-  const leavePeerCleanupNew="for(const id of [...voiceRemoteVadStops.keys()])ycStopRemoteVoiceActivityDetector(id);for(const [id,pc] of voicePeers){try{pc.close()}catch{}const a=$('voice-audio-'+id);if(a)a.remove()}voiceMissingSince.clear();";
+  const leavePeerCleanupNew="for(const id of [...voiceRemoteVadStops.keys()])ycStopRemoteVoiceActivityDetector(id);for(const [id,pc] of voicePeers){try{pc.close()}catch{}const a=$('voice-audio-'+id);if(a)a.remove()}voiceMissingSince.clear();try{ycStreamWatchEpoch.clear();ycStreamWatchStarts.clear();ycStreamWatchSignals.clear()}catch{}";
   if(!html.includes(leavePeerCleanupOld))throw Error('Voice leave remote VAD cleanup boundary missing');
   html=html.replace(leavePeerCleanupOld,leavePeerCleanupNew);
 
@@ -102,7 +102,7 @@ attachVoiceAudio=(peerId,stream)=>{if(!voiceChannel||!voicePeers.has(peerId))ret
 
   const altAudioOld="try{for(const [,nodes] of voiceAudioNodes){nodes.src?.disconnect();nodes.compressor?.disconnect();nodes.gain?.disconnect()}}catch{}";
   if(!html.includes(altAudioOld))throw Error('Voice scale alternate audio cleanup missing');
-  html=html.replace(altAudioOld,altAudioOld+";try{for(const id of [...voiceRemoteVadStops.keys()])ycStopRemoteVoiceActivityDetector(id)}catch{};voiceMissingSince.clear()");
+  html=html.replace(altAudioOld,altAudioOld+";try{for(const id of [...voiceRemoteVadStops.keys()])ycStopRemoteVoiceActivityDetector(id)}catch{};voiceMissingSince.clear();try{ycStreamWatchEpoch.clear();ycStreamWatchStarts.clear();ycStreamWatchSignals.clear()}catch{}");
 
   const altStateOld="voiceSessionId='';voiceChannel=null;voiceMuted=false;voiceDeafened=false;voiceRouteMode='checking';";
   if(!html.includes(altStateOld))throw Error('Voice scale alternate state cleanup missing');
