@@ -35,6 +35,8 @@ for(const file of ['desktop/desktop-client.html','index.html']){
   assert(hiddenBlock.includes("status==='SUBSCRIBED'"),file+' hidden-channel reconnect resync missing');
   assert(hiddenBlock.includes("['CHANNEL_ERROR','TIMED_OUT','CLOSED'].includes(status)"),file+' hidden-channel dead subscription recovery missing');
   assert(hiddenBlock.includes("if(!ycHiddenChannelSub)ycStartHiddenChannelRealtime(currentCommunity.id)"),file+' hidden-channel polling fallback does not restore realtime');
+  const hiddenWatchdog=hiddenBlock.slice(hiddenBlock.indexOf('ycHiddenChannelPoll=setInterval'),hiddenBlock.indexOf('return out;',hiddenBlock.indexOf('ycHiddenChannelPoll=setInterval')));
+  assert(!hiddenWatchdog.includes('ycRefreshChannelsSecure()'),file+' hidden-channel watchdog still polls the database while realtime is healthy');
 }
 
 function oldGlobalDeliveries(clients,changes){return clients*changes}
