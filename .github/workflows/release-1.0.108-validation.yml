@@ -1,0 +1,63 @@
+name: Yamachat 1.0.108 cutover validation
+on:
+  push:
+    branches: [release/1.0.108-cloudflare-clean-20260929]
+    paths: ['.github/workflows/release-1.0.108-validation.yml']
+permissions:
+  contents: read
+jobs:
+  web:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node scripts/build-web.mjs
+      - run: node scripts/check.mjs
+      - run: node scripts/check-legal-baseline.mjs
+      - run: node tests/no-public-github-distribution.cjs
+      - run: npm install --no-save --package-lock=false playwright@1.62.1
+      - run: npx playwright install chromium
+      - run: node tests/platform-install-ui.cjs
+      - run: node tests/responsive-matrix.cjs
+      - run: node tests/cross-platform-voice-interop.cjs
+      - run: node tests/service-worker-guard.cjs
+  android:
+    uses: ./.github/workflows/mobile-android.yml
+    secrets: inherit
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - shell: pwsh
+        run: |
+          git config core.autocrlf false
+          git reset --hard HEAD
+          node scripts/build-web.mjs
+          node scripts/check.mjs
+          node tests/no-public-github-distribution.cjs
+          node tests/cross-platform-voice-interop.cjs
+          node tests/windows-taskbar-restore.cjs
+          ./scripts/build-windows-process-audio.ps1
+          Copy-Item -Recurse -Force build desktop/build
+          Copy-Item -Recurse -Force audio desktop/audio
+          Copy-Item boot-guard.js desktop/boot-guard.js
+      - run: npm ci
+        working-directory: desktop
+      - run: npx electron-builder --win dir --x64 --publish never
+        working-directory: desktop
+      - name: Verify generic Cloudflare updater
+        shell: pwsh
+        run: |
+          $cfg=Get-Content desktop/dist/win-unpacked/resources/app-update.yml -Raw
+          if ($cfg -notmatch 'provider:\s*generic') { throw 'Updater provider is not generic' }
+          if ($cfg -notmatch 'https://updates\.yamachat\.eu/windows/') { throw 'Cloudflare feed URL missing' }
