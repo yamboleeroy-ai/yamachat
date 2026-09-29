@@ -1,0 +1,28 @@
+name: Deep stability 10-minute soak
+on:
+  push:
+    branches:
+      - audit/deep-stability-20260929
+    paths:
+      - tests/stability-10min-soak.cjs
+      - .github/workflows/deep-stability-soak.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  soak:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Generate shared client
+        run: node scripts/build-web.mjs
+      - name: Install browser runtime
+        run: |
+          npm install --no-save --package-lock=false playwright@1.62.1
+          npx playwright install --with-deps chromium
+      - name: Ten-minute lifecycle soak
+        run: node tests/stability-10min-soak.cjs
