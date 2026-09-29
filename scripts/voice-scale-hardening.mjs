@@ -12,6 +12,11 @@ export function withVoiceScaleHardening(html){
   if(!html.includes(stateOld))throw Error('Voice scale state boundary missing');
   html=html.replace(stateOld,stateNew);
 
+  const signalStateOld="voiceSignalSub=null,voiceSignalReady=false,voiceSignalSeen=new Set()";
+  const signalStateNew="voiceSignalSub=null,voiceSignalReady=false,voiceSignalRecoverPromise=null,voiceSignalSeen=new Set()";
+  if(!html.includes(signalStateOld))throw Error('Voice signal recovery state boundary missing');
+  html=html.replace(signalStateOld,signalStateNew);
+
   const speakingOld="(p.speaking&&!p.muted?'is-speaking':'')";
   const speakingNew="(((p.user_id===user?.id?voiceSpeaking:voiceRemoteSpeaking.has(p.user_id))&&!p.muted)?'is-speaking':'')";
   if(!html.includes(speakingOld))throw Error('Voice scale speaking-render boundary missing');
@@ -39,13 +44,33 @@ function ensureVoiceRooms(chs){const defs=[...(chs||[])];if(voiceChannel?.id&&!d
 
   html=replaceBetween(html,'async function trackVoicePresence','function renderVoiceControls()',`async function trackVoicePresence(){await syncVoiceParticipantRow()}`,'presence alias');
 
-  const signalBlock=`async function recoverVoiceSignals(){if(!user?.id)return;try{const stale=new Date(Date.now()-60000).toISOString();await sb.from('voice_signals').delete().eq('to_user',user.id).lt('created_at',stale);const recent=new Date(Date.now()-30000).toISOString(),{data,error}=await sb.from('voice_signals').select('id,channel_id,from_user,to_user,signal_type,payload,created_at').eq('to_user',user.id).gt('created_at',recent).order('created_at').limit(200);if(error){console.warn('voice signal recovery',error);return}for(const row of data||[])await consumeVoiceSignalRow(row)}catch(e){console.warn('voice signal recovery',e)}}
+  const signalBlock=`async function recoverVoiceSignals(){const uid=String(user?.id||'');if(!uid)return;if(voiceSignalRecoverPromise)return voiceSignalRecoverPromise;const task=(async()=>{try{const stale=new Date(Date.now()-60000).toISOString();await sb.from('voice_signals').delete().eq('to_user',uid).lt('created_at',stale);if(String(user?.id||'')!==uid)return;const recent=new Date(Date.now()-30000).toISOString(),{data,error}=await sb.from('voice_signals').select('id,channel_id,from_user,to_user,signal_type,payload,created_at').eq('to_user',uid).gt('created_at',recent).order('created_at').limit(200);if(error){console.warn('voice signal recovery',error);return}if(String(user?.id||'')!==uid)return;for(const row of data||[]){if(String(user?.id||'')!==uid)break;await consumeVoiceSignalRow(row)}}catch(e){console.warn('voice signal recovery',e)}})();voiceSignalRecoverPromise=task;const clear=()=>{if(voiceSignalRecoverPromise===task)voiceSignalRecoverPromise=null};task.then(clear,clear);return task}
 async function stopVoiceSignals(){const ch=voiceSignalSub;voiceSignalSub=null;voiceSignalReady=false;voiceSignalError='';if(ch)try{await sb.removeChannel(ch)}catch{}}
-async function subscribeVoiceSignals(){if(voiceSignalSub&&voiceSignalReady)return;if(voiceSignalSub){sb.removeChannel(voiceSignalSub);voiceSignalSub=null}voiceSignalReady=false;await new Promise(resolve=>{let settled=false;voiceSignalSub=sb.channel('yc-voice-db-'+user.id+'-'+Date.now()).on('postgres_changes',{event:'INSERT',schema:'public',table:'voice_signals',filter:'to_user=eq.'+user.id},({new:row})=>consumeVoiceSignalRow(row)).subscribe(status=>{if(status==='SUBSCRIBED'){voiceSignalReady=true;voiceSignalError='';updateVoiceConnectionStatus();void recoverVoiceSignals();if(!settled){settled=true;resolve(null)}}else if(['CHANNEL_ERROR','TIMED_OUT','CLOSED'].includes(status)){voiceSignalReady=false;voiceSignalError='Realtime '+status.toLowerCase();updateVoiceConnectionStatus();if(!settled){settled=true;resolve(null)}}});setTimeout(()=>{if(!settled){settled=true;resolve(null)}},2500)})}
+async function subscribeVoiceSignals(){if(voiceSignalSub&&voiceSignalReady)return;const uid=String(user?.id||'');if(!uid)return;if(voiceSignalSub){const old=voiceSignalSub;voiceSignalSub=null;try{await sb.removeChannel(old)}catch{}}voiceSignalReady=false;await new Promise(resolve=>{let settled=false,timer=null;const settle=()=>{if(settled)return;settled=true;if(timer)clearTimeout(timer);resolve(null)};const sub=sb.channel('yc-voice-db-'+uid+'-'+Date.now()).on('postgres_changes',{event:'INSERT',schema:'public',table:'voice_signals',filter:'to_user=eq.'+uid},({new:row})=>{if(voiceSignalSub===sub&&String(user?.id||'')===uid)void consumeVoiceSignalRow(row)});voiceSignalSub=sub;sub.subscribe(status=>{if(voiceSignalSub!==sub||String(user?.id||'')!==uid){settle();return}if(status==='SUBSCRIBED'){voiceSignalReady=true;voiceSignalError='';updateVoiceConnectionStatus();void recoverVoiceSignals();settle();return}if(['CHANNEL_ERROR','TIMED_OUT','CLOSED'].includes(status)){voiceSignalReady=false;voiceSignalError='Realtime '+status.toLowerCase();voiceSignalSub=null;updateVoiceConnectionStatus();try{void sb.removeChannel(sub)}catch{}settle()}});timer=setTimeout(settle,2500)})}
 `;
   html=replaceBetween(html,'async function subscribeVoiceSignals()','async function consumeVoiceSignalRow(row)',signalBlock,'signal recovery');
 
+  const consumeStartOld="async function consumeVoiceSignalRow(row){if(!row||!voiceChannel||row.channel_id!==voiceChannel.id)return;";
+  const consumeStartNew="async function consumeVoiceSignalRow(row){if(!row||!user?.id||String(row.to_user||'')!==String(user.id)||!voiceChannel||row.channel_id!==voiceChannel.id)return;";
+  if(!html.includes(consumeStartOld))throw Error('Voice signal account guard boundary missing');
+  html=html.replace(consumeStartOld,consumeStartNew);
+  const seenOld="voiceSignalSeen.add(row.id);if(voiceSignalSeen.size>600)voiceSignalSeen.clear();";
+  const seenNew="voiceSignalSeen.add(row.id);if(voiceSignalSeen.size>600)while(voiceSignalSeen.size>400)voiceSignalSeen.delete(voiceSignalSeen.values().next().value);";
+  if(!html.includes(seenOld))throw Error('Voice signal dedup boundary missing');
+  html=html.replace(seenOld,seenNew);
+  const iceOld="else{const q=voiceIceQueues.get(peerId)||[];q.push(msg.candidate);voiceIceQueues.set(peerId,q)}}";
+  const iceNew="else{const q=voiceIceQueues.get(peerId)||[],key=String(msg.candidate?.candidate||'');if(!key||!q.some(c=>String(c?.candidate||'')===key)){q.push(msg.candidate);if(q.length>128)q.splice(0,q.length-128)}voiceIceQueues.set(peerId,q)}}";
+  if(!html.includes(iceOld))throw Error('Voice ICE queue boundary missing');
+  html=html.replace(iceOld,iceNew);
+
   html=replaceBetween(html,'function startVoiceHeartbeat()','function stopVoiceHeartbeat()',`function startVoiceHeartbeat(){stopVoiceHeartbeat();const beat=()=>{if(!voiceChannel)return;subscribeVoiceParticipants();startVoiceRosterRefresh();void syncVoiceParticipantRow().catch(e=>console.warn('voice participant keepalive',e));if(!voiceSignalSub||!voiceSignalReady)void subscribeVoiceSignals().catch(e=>console.warn('voice signal reconnect',e))};beat();voiceHeartbeatTimer=setInterval(beat,YC_VOICE_HEARTBEAT_MS)}`,'heartbeat');
+
+  const routeOld="function scheduleVoiceRouteCheck(){setTimeout(()=>void detectVoiceRoute(),450);setTimeout(()=>void detectVoiceRoute(),2200)}";
+  const routeNew="let voiceRouteCheckFastTimer=null,voiceRouteCheckSlowTimer=null\nfunction stopVoiceRouteChecks(){if(voiceRouteCheckFastTimer){clearTimeout(voiceRouteCheckFastTimer);voiceRouteCheckFastTimer=null}if(voiceRouteCheckSlowTimer){clearTimeout(voiceRouteCheckSlowTimer);voiceRouteCheckSlowTimer=null}}\nfunction scheduleVoiceRouteCheck(){if(!voiceRouteCheckFastTimer)voiceRouteCheckFastTimer=setTimeout(()=>{voiceRouteCheckFastTimer=null;void detectVoiceRoute()},450);if(voiceRouteCheckSlowTimer)clearTimeout(voiceRouteCheckSlowTimer);voiceRouteCheckSlowTimer=setTimeout(()=>{voiceRouteCheckSlowTimer=null;void detectVoiceRoute()},2200)}";
+  if(!html.includes(routeOld))throw Error('Voice route check boundary missing');
+  html=html.replace(routeOld,routeNew);
+  html=html.replace("stopVoiceHeartbeat();stopVoiceActivityDetector();voiceSpeaking=false;","stopVoiceHeartbeat();stopVoiceActivityDetector();stopVoiceRouteChecks();voiceSpeaking=false;");
+  html=html.replace("try{stopVoiceHeartbeat()}catch{};try{stopVoiceActivityDetector()}catch{};try{stopVoiceMeter()}catch{};voiceSpeaking=false;","try{stopVoiceHeartbeat()}catch{};try{stopVoiceActivityDetector()}catch{};try{stopVoiceRouteChecks()}catch{};try{stopVoiceMeter()}catch{};voiceSpeaking=false;");
 
   const turn=`async function loadVoiceTurnServers(){
   if(voiceTurnReady&&voiceIceServers?.length&&Date.now()-ycVoiceTurnLoadedAt<120000)return true
