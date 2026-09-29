@@ -212,6 +212,11 @@ assert(html.includes("if(window.__ycVoiceParticipantAnnouncements)return;"),'Leg
 
 // Soundboard controls reuse the existing per-user voice mix store.
 assert(html.includes('soundboardMuted:!!raw.soundboardMuted'),'Per-user soundboard mute missing from voice mix');
+assert(html.includes('soundboardBufferLoads=new Map()'),'Soundboard in-flight buffer coalescing state missing');
+assert(html.includes('if(soundboardBufferLoads.has(id))return soundboardBufferLoads.get(id)'),'Simultaneous custom sound loads must share one request');
+assert(html.includes('while(soundboardBuffers.size>24)'),'Decoded custom sound cache must stay bounded');
+assert(html.includes('function ycReleaseShortAudioNodes(source,gain)'),'Short Web Audio node cleanup helper missing');
+assert(html.includes('ycReleaseShortAudioNodes(src,g)'),'Custom sound source/gain nodes must disconnect after playback');
 assert(html.includes('data-yc-soundboard-mute-user')||html.includes('data.ycSoundboardMuteUser')||html.includes('ycSoundboardMuteUser'),'Per-user soundboard menu action missing');
 assert(html.includes('YC_SOUNDBOARD_VOLUME_KEY'),'Soundboard master volume preference missing');
 assert(html.includes('ycSoundboardScaleFor(row.user_id)'),'Incoming soundboard sender mix missing');
