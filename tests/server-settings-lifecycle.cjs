@@ -89,7 +89,12 @@ window.supabase={createClient:()=>{
    await page.waitForFunction(()=>window.__ycClientReady,{},{timeout:25000});
    await page.waitForSelector('#app:not(.hidden)');
    await page.waitForFunction(()=>{const b=document.querySelector('#ycServerSettingsNavBtn');return !!window.ycOpenServerSettings&&!!b&&!b.hidden&&!b.disabled&&!b.classList.contains('hidden')},{},{timeout:15000});
-
+   if(cfg.width<=1100){
+    await page.locator('#ycMobileNavBtn').waitFor({state:'visible'});
+    await page.locator('#ycMobileNavBtn').click();
+    await page.waitForFunction(()=>document.getElementById('ycGlobalNav')?.classList.contains('yc-mobile-open'));
+   }
+   await page.locator('#ycServerSettingsNavBtn').waitFor({state:'visible'});
    await page.locator('#ycServerSettingsNavBtn').click();
    await page.waitForSelector('#ycServerSettingsBack');
    assert.equal(await page.locator('#ycServerSettingsBack .yc-ss-tab').count(),10,cfg.platform+' server settings tab count');
