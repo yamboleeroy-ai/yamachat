@@ -1,5 +1,5 @@
 name: Yamachat 1.0.108 cutover validation
-# stream-transport-audit-sync: cloudflare-android-r2
+# stream-transport-audit-sync: android-r2-final
 on:
   push:
     branches: [release/1.0.108-cloudflare-clean-20260929]
