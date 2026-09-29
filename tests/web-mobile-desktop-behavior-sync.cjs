@@ -59,6 +59,8 @@ assert(client.includes("table:'profiles',filter:'id=eq.'+user.id"),'Generated cl
 
 assert(!client.includes("const signed={};await Promise.all((atts||[]).map"),
   'Initial chat paint must not wait for every attachment signed URL');
+assert(client.includes("while(ycChatSignedUrlCache.size>600)ycChatSignedUrlCache.delete(ycChatSignedUrlCache.keys().next().value)"),
+  'Attachment signed URL cache must enforce its size limit even when all entries are still valid');
 
 const selectStart=client.indexOf('async function selectThread(id)');
 const selectEnd=client.indexOf("$('newDmBtn').onclick",selectStart);
