@@ -47,14 +47,30 @@ function mock(){
    await page.waitForFunction(()=>window.__mockWrites.includes('attachments:insert')&&window.__mockStorageWrites.some(x=>x.op==='upload'&&x.bucket==='chat-media'));
    assert.equal(await page.locator('#pendingFile').isHidden(),true,cfg.platform+' pending attachment not cleared');
 
-   // Reaction through the actual delegated click handler.
-   await page.waitForSelector('[data-yc-react="chat-a-0"]',{state:'attached',timeout:10000});
-   await page.locator('[data-yc-react="chat-a-0"]').first().click({force:true});
+   // Reaction through the actual platform UI path: hover actions on desktop/web,
+   // context-menu actions on touch layouts.
+   const sourceMessage=page.locator('.message[data-message-id="chat-a-0"]');
+   if(cfg.touch){
+    await sourceMessage.dispatchEvent('contextmenu',{clientX:120,clientY:180});
+    await page.waitForSelector('[data-yc-menu-react="chat-a-0"]',{timeout:10000});
+    await page.locator('[data-yc-menu-react="chat-a-0"]').first().click();
+   }else{
+    await sourceMessage.hover();
+    await page.waitForSelector('[data-yc-react="chat-a-0"]',{timeout:10000});
+    await page.locator('[data-yc-react="chat-a-0"]').first().click();
+   }
    await page.waitForFunction(()=>window.__mockRpcWrites.some(x=>x.name==='toggle_message_reaction'&&x.args.p_message_id==='chat-a-0'));
 
-   // Reply through actual UI, then verify the outgoing message row carries reply_to.
-   await page.waitForSelector('[data-yc-reply="chat-a-0"]',{state:'attached',timeout:10000});
-   await page.locator('[data-yc-reply="chat-a-0"]').click({force:true});
+   // Reply through the matching platform UI path, then verify reply_to on send.
+   if(cfg.touch){
+    await sourceMessage.dispatchEvent('contextmenu',{clientX:120,clientY:180});
+    await page.waitForSelector('[data-yc-menu-reply="chat-a-0"]',{timeout:10000});
+    await page.locator('[data-yc-menu-reply="chat-a-0"]').click();
+   }else{
+    await sourceMessage.hover();
+    await page.waitForSelector('[data-yc-reply="chat-a-0"]',{timeout:10000});
+    await page.locator('[data-yc-reply="chat-a-0"]').click();
+   }
    await page.waitForSelector('#ycReplyCompose:not(.hidden)');
    await page.locator('#messageInput').fill('Audit odpověď');
    await page.locator('#sendBtn').click();
@@ -62,7 +78,8 @@ function mock(){
    assert.equal(await page.locator('#ycReplyCompose').isHidden(),true,cfg.platform+' reply target not cleared after send');
 
    // Delete through context menu; only mocked row deletion is allowed.
-   await page.locator('.message[data-message-id="chat-a-0"]').click({button:'right',force:true});
+   if(cfg.touch)await sourceMessage.dispatchEvent('contextmenu',{clientX:120,clientY:180});
+   else await sourceMessage.click({button:'right'});
    await page.waitForSelector('[data-yc-delete-message="chat-a-0"]');
    await page.locator('[data-yc-delete-message="chat-a-0"]').click({force:true});
    await page.waitForFunction(()=>window.__mockWriteDetails.some(x=>x.table==='messages'&&x.op==='delete'&&x.filters.id==='chat-a-0'));
