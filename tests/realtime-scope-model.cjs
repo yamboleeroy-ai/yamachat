@@ -12,6 +12,8 @@ for(const file of ['desktop/desktop-client.html','index.html']){
   assert(userRealtimeBlock.includes("typeof ycRefreshNotificationCenter==='function'"),file+' friendship realtime no longer refreshes notification center');
   assert(!html.includes('yc-notify-friends-'),file+' duplicate notification-center friendship realtime channel remains');
   assert(!html.includes('ycStartFriendNotificationSub'),file+' duplicate friendship subscription lifecycle remains');
+  assert(userRealtimeBlock.includes("status==='SUBSCRIBED'"),file+' user realtime reconnect resync missing');
+  assert(userRealtimeBlock.includes("['CHANNEL_ERROR','TIMED_OUT','CLOSED'].includes(status)"),file+' user realtime dead-channel recovery missing');
 
   assert(html.includes("let realtime=null,realtimeCommunityId=''"),file+' role/social community ownership missing');
   for(const table of ['community_members','community_member_roles','community_roles','desktop_server_role_layout']){
@@ -22,6 +24,12 @@ for(const file of ['desktop/desktop-client.html','index.html']){
   assert(!roleBlock.includes("table:'friendships'}"),file+' role/social layer still duplicates global friendship realtime');
   assert(roleBlock.includes("ycOnLifecycle('beforeCommunity',stopRealtime)"),file+' old community realtime is not stopped before switch');
   assert(roleBlock.includes("ycOnLifecycle('beforeAuth',stopRealtime)"),file+' role/social realtime logout cleanup missing');
+  assert(roleBlock.includes("status==='SUBSCRIBED'"),file+' role/social subscription recovery sync missing');
+  assert(roleBlock.includes("['CHANNEL_ERROR','TIMED_OUT','CLOSED'].includes(status)"),file+' role/social dead-channel recovery missing');
+  assert(roleBlock.includes("setInterval(()=>{if(user?.id){if(!userRealtimeSub)subscribeUserRealtime();ensureRealtime()}},20000)"),file+' realtime watchdog missing');
+  const watchdog=roleBlock.slice(roleBlock.indexOf('setInterval(()=>{if(user?.id)'),roleBlock.indexOf('setTimeout(()=>',roleBlock.indexOf('setInterval(()=>{if(user?.id)')));
+  assert(!watchdog.includes('refreshSocialTabCounts()'),file+' realtime watchdog still polls social counts');
+  assert(!watchdog.includes('applyMessageRoleColors()'),file+' realtime watchdog still reloads role data');
 }
 
 function oldGlobalDeliveries(clients,changes){return clients*changes}
