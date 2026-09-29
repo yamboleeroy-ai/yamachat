@@ -3,7 +3,7 @@
 const YC_STREAM_DESKTOP=false;
 const ycStreamViewer=(()=>{
   const sessions=new Map();
-  let layer=null,safe=null,layoutFrame=0,recovering=false,localDismissed=null;
+  let layer=null,safe=null,layoutFrame=0,monitorTimer=0,recovering=false,localDismissed=null;
   const mobile=()=>!YC_STREAM_DESKTOP&&matchMedia('(pointer: coarse)').matches;
   const iosPwa=()=>!YC_STREAM_DESKTOP&&(/iP(?:hone|ad|od)/i.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1))&&(navigator.standalone===true||matchMedia('(display-mode: standalone)').matches);
   const clamp=(n,a,b)=>Math.max(a,Math.min(b,n));
@@ -73,6 +73,13 @@ const ycStreamViewer=(()=>{
   function scheduleLayout(){
     if(layoutFrame||!sessions.size)return;
     layoutFrame=requestAnimationFrame(()=>{layoutFrame=0;for(const session of sessions.values())layout(session)});
+  }
+  function stopMonitor(){if(monitorTimer){clearInterval(monitorTimer);monitorTimer=0}}
+  function syncMonitor(){
+    const needed=!!sessions.size&&!document.hidden;
+    if(!needed){stopMonitor();return}
+    if(monitorTimer)return;
+    monitorTimer=setInterval(()=>{if(!sessions.size||document.hidden){syncMonitor();return}scheduleLayout();for(const session of sessions.values())update(session)},500);
   }
   function showFullscreenControls(session,hold=2400){
     if(!session?.panel)return;
@@ -187,7 +194,7 @@ const ycStreamViewer=(()=>{
   function remove(session){
     if(session.mode==='fullscreen'&&YC_STREAM_DESKTOP)void window.parent?.YamachatDesktopStreamFullscreen?.set?.(false).catch?.(()=>{});
     clearTimeout(session.controlsTimer);session.controlsTimer=null;
-    session.abort.abort();session.trackAbort?.abort();session.video.pause();session.video.srcObject=null;session.panel.remove();sessions.delete(session.id);
+    session.abort.abort();session.trackAbort?.abort();session.video.pause();session.video.srcObject=null;session.panel.remove();sessions.delete(session.id);syncMonitor();
     // Receiver tracks belong to RTC, so closing a viewer must never stop them.
     if(!sessions.size){layer?.remove();layer=null;safe=null}
   }
@@ -227,7 +234,7 @@ const ycStreamViewer=(()=>{
     };
     bindMove(session,panel.querySelector('header'));bindMove(session,panel.querySelector('.yc-sv-resize'),true);
     for(const event of ['loadedmetadata','playing','waiting','stalled'])session.video.addEventListener(event,()=>update(session),{signal:session.abort.signal});
-    sessions.set(id,session);layer.append(panel);layout(session);return session;
+    sessions.set(id,session);syncMonitor();layer.append(panel);layout(session);return session;
   }
   async function play(session){
     try{await session.video.play();session.blocked=false}catch(error){if(error.name!=='AbortError')session.blocked=true}
@@ -295,7 +302,7 @@ const ycStreamViewer=(()=>{
   for(const event of ['resize','orientationchange','pageshow'])window.addEventListener(event,scheduleLayout);
   window.visualViewport?.addEventListener('resize',scheduleLayout);window.visualViewport?.addEventListener('scroll',scheduleLayout);
   window.addEventListener('online',()=>void resume());window.addEventListener('offline',()=>{for(const s of sessions.values())update(s)});
-  document.addEventListener('visibilitychange',()=>void resume());
+  document.addEventListener('visibilitychange',()=>{syncMonitor();void resume()});
   const onFullscreenChange=()=>{
     for(const s of sessions.values()){
       if(s.elementFullscreen&&!document.fullscreenElement&&!document.webkitFullscreenElement){s.mode=s.fullscreenReturnMode||'floating';s.elementFullscreen=false}
@@ -324,8 +331,8 @@ const ycStreamViewer=(()=>{
       else if(!active&&session.mode==='fullscreen'){session.nativeFullscreenPending=false;session.mode=session.fullscreenReturnMode||'floating';layout(session)}
     }
   });
-  // Only layout is sampled; no DOM reconstruction and no RTC mutations.
-  setInterval(()=>{if(!sessions.size||document.hidden)return;scheduleLayout();for(const s of sessions.values())update(s)},500);
+  // Stall/layout sampling is demand-driven: no 500 ms wakeups with no viewer or while hidden.
+  syncMonitor();
   ycOnLifecycle('beforeAuth',()=>{recovering=false;for(const s of [...sessions.values()]){if(!s.local)void ycStopWatchingScreenShare(s.id);remove(s)}});
   return {sync,beginRecovery,endRecovery};
 })();
