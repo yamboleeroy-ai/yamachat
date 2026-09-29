@@ -63,6 +63,7 @@ jobs:
           node tests/platform-install-ui.cjs
           node tests/profile-actions.cjs
           node tests/profile-schema-contract.cjs
+          node tests/server-settings-lifecycle.cjs
           node tests/logout-cleanup-order.cjs
           node tests/profile-layout.cjs
           node tests/social-release-web.cjs
