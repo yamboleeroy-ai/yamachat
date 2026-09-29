@@ -79,7 +79,7 @@ async function ycPlayVoiceFileCue(action,onDone){
  }catch(e){finish();console.warn('voice join/leave cue',e);return null}
 }
 function ycVoiceSpeakEnhanced(text,onDone){
- if(!text||ycVoiceAnnounceMode()!=='speech'||!('speechSynthesis' in window)){try{onDone?.()}catch{};return null}
+ if(!text||ycVoiceAnnounceMode()!=='speech'||voiceDeafened||!('speechSynthesis' in window)){try{onDone?.()}catch{};return null}
  try{
   const u=new SpeechSynthesisUtterance(text),voices=ycVoiceAvailableVoices(),selected=ycVoiceSelectedVoice(voices);
   u.voice=selected;u.lang=selected?.lang||'cs-CZ';u.rate=1;u.pitch=1;u.volume=.94;
