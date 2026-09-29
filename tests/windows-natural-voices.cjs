@@ -23,6 +23,7 @@ assert(client.includes("if(!text||ycVoiceAnnounceMode()!=='speech'||voiceDeafene
 assert(client.includes("if(voiceDeafened){finish();return null}"),'Desktop Natural TTS must re-check deafen around async synthesis');
 assert(client.includes("if(ycDesktopNaturalState!=='ready'){ycDesktopNaturalState='loading';fillVoices()}await ycDesktopNaturalVoiceLoad()"),'Desktop Natural voice list must reuse the ready cache when settings reopen');
 assert(!client.includes("const loadNatural=async()=>{ycDesktopNaturalState='loading';fillVoices();await ycDesktopNaturalVoiceLoad()"),'Desktop settings must not force a Natural voice refetch when already ready');
+assert(client.includes("if(audio){ycDesktopNaturalPlayers.delete(audio);try{audio.pause()}catch{}}"),'Failed desktop Natural playback must release its tracked audio object');
 
 for(const marker of [
   "Deno.env.get('AZURE_SPEECH_KEY')",
