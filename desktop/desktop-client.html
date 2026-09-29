@@ -3227,11 +3227,12 @@ window.__ycScreenAudioTracks=window.__ycScreenAudioTracks||new Map()
 function ycScreenAudioWanted(){return localStorage.getItem('yc_screen_audio')!=='0'}
 function ycCurrentScreenAudioTrack(){try{return screenShareActive&&ycScreenAudioWanted()?screenShareStream?.getAudioTracks?.().find(t=>t.readyState==='live')||null:null}catch{return null}}
 function ycScreenAudioStoredVolume(peerId){try{const map=JSON.parse(localStorage.getItem('yc_stream_volume_by_user_safe_v1')||'{}')||{},n=Number(map[String(peerId)]);return Number.isFinite(n)?Math.max(0,Math.min(1,n)):1}catch{return 1}}
-function ycScheduleScreenAudioNegotiation(peerId){if(peerId)ycScreenAudioNegotiationPeers.add(peerId);clearTimeout(ycScreenAudioNegotiationTimer);ycScreenAudioNegotiationTimer=setTimeout(async()=>{const ids=[...ycScreenAudioNegotiationPeers];ycScreenAudioNegotiationPeers.clear();for(const id of ids){try{if(typeof ycRenegotiateScreenPeer==='function')await ycRenegotiateScreenPeer(id)}catch(e){console.warn('screen audio renegotiate',id,e)}}},140)}
+function ycScheduleScreenAudioNegotiation(peerId){if(peerId)ycScreenAudioNegotiationPeers.add(peerId);clearTimeout(ycScreenAudioNegotiationTimer);ycScreenAudioNegotiationTimer=setTimeout(async()=>{ycScreenAudioNegotiationTimer=null;const ids=[...ycScreenAudioNegotiationPeers];ycScreenAudioNegotiationPeers.clear();for(const id of ids){try{if(typeof ycRenegotiateScreenPeer==='function')await ycRenegotiateScreenPeer(id)}catch(e){console.warn('screen audio renegotiate',id,e)}}},140)}
 function ycRemoveScreenAudioElement(peerId){try{const a=window.__ycScreenAudioEls.get(peerId);if(a){a.pause();a.srcObject=null;a.remove()}window.__ycScreenAudioEls.delete(peerId)}catch{}}
 function ycForgetScreenAudioTrack(peerId){ycRemoveScreenAudioElement(peerId);try{window.__ycScreenAudioTracks.delete(peerId)}catch{}}
 function ycAttachExistingScreenAudioReceiver(peerId){try{const track=window.__ycScreenAudioTracks.get(peerId);if(track&&track.readyState==='live')ycAttachRemoteScreenAudio(peerId,track)}catch{}}
 async function ycResetScreenAudioSenders(){
+ clearTimeout(ycScreenAudioNegotiationTimer);ycScreenAudioNegotiationTimer=null;ycScreenAudioNegotiationPeers.clear()
  const pending=[]
  for(const [peerId,sender] of [...ycScreenAudioSenders]){
   const pc=voicePeers?.get?.(peerId)

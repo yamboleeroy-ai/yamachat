@@ -11,6 +11,8 @@ const minimizeAt=main.indexOf("win.on('minimize'");
 const hideAt=main.indexOf('win.hide();',minimizeAt),restoreAt=main.indexOf('win.restore();',minimizeAt);
 assert(minimizeAt>=0&&hideAt>minimizeAt&&restoreAt>hideAt,'voice-safe taskbar minimize must hide before restoring');
 for(const marker of ['const YC_STREAM_DESKTOP=true;','ycAttachExistingScreenAudioReceiver','ycPrepareDesktopProcessAudio','session.fullscreenReturnMode','async function ycResetScreenAudioSenders','tx.stop()'])assert(client.includes(marker),marker);
+assert(client.includes('clearTimeout(ycScreenAudioNegotiationTimer);ycScreenAudioNegotiationTimer=null;ycScreenAudioNegotiationPeers.clear()'),'screen-audio stop must cancel pending renegotiation');
+assert(client.includes('ycScreenAudioNegotiationTimer=setTimeout(async()=>{ycScreenAudioNegotiationTimer=null;'),'screen-audio timer must clear its active handle before renegotiation');
 for(const marker of ["const since=voiceMissingSince.get(id)||now;voiceMissingSince.set(id,since);if(now-since>60000)closeVoicePeer(id)","secondaryAudio=!!e.transceiver&&audioTx.indexOf(e.transceiver)>0","voiceNodes?.trackId===track.id","audio.muted=v<=0","panel.dataset.desktop=String(YC_STREAM_DESKTOP)"])assert(client.includes(marker),marker);
 assert(!client.includes("if(pc?.connectionState==='connected'){voiceMissingSince.delete(id);continue}"),'connected ghost peer bypass must not return');
 assert(!client.includes('id="screenShareStage"'));
