@@ -23,6 +23,7 @@ import {withVerifiedDesktopBehaviorSync} from './verified-desktop-behavior-sync.
 import {withLegalUi} from './legal-ui.mjs';
 import {withPlatformInstallUi} from './platform-install-ui.mjs';
 import {withDeadCodeCleanup} from './dead-code-cleanup.mjs';
+import {withIosPwaMicrophone} from './ios-pwa-microphone.mjs';
 
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
 const read=p=>fs.readFileSync(path.join(root,p),'utf8');
@@ -165,6 +166,7 @@ html=html.replace(
  html=withInteractionNotifications(html);
  html=withVoiceScaleHardening(html);
  html=withRuntimeStabilityHardening(html);
+ html=withIosPwaMicrophone(html);
  html=withCommunityRealtimeConsolidation(html);
  html=withStreamScaleHardening(html);
 
