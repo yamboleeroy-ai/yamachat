@@ -5282,8 +5282,12 @@ let ycHiddenInitTries=0;const ycHiddenInitTimer=setInterval(()=>{ycHiddenInitTri
   ycOnLifecycle('beforeCommunity',stopRealtime);
   ycOnLifecycle('community',ensureRealtime);
   ycOnLifecycle('beforeAuth',stopRealtime);
-  setInterval(()=>{if(user?.id){if(!userRealtimeSub)subscribeUserRealtime();if(currentCommunity?.id&&!communityRealtimeSub)subscribeCommunityRealtime(currentCommunity.id);ensureRealtime()}},20000);
-  setTimeout(()=>{if(user?.id&&!userRealtimeSub)subscribeUserRealtime();if(currentCommunity?.id&&!communityRealtimeSub)subscribeCommunityRealtime(currentCommunity.id);ensureRealtime()},700);
+  let ycRealtimeWatchdogTimer=null,ycRealtimeWatchdogKick=null;
+  const runRealtimeWatchdog=()=>{if(!user?.id)return;if(!userRealtimeSub)subscribeUserRealtime();if(currentCommunity?.id&&!communityRealtimeSub)subscribeCommunityRealtime(currentCommunity.id);ensureRealtime()};
+  const stopRealtimeWatchdog=()=>{if(ycRealtimeWatchdogTimer){clearInterval(ycRealtimeWatchdogTimer);ycRealtimeWatchdogTimer=null}if(ycRealtimeWatchdogKick){clearTimeout(ycRealtimeWatchdogKick);ycRealtimeWatchdogKick=null}};
+  const startRealtimeWatchdog=()=>{if(ycRealtimeWatchdogTimer)return;ycRealtimeWatchdogKick=setTimeout(()=>{ycRealtimeWatchdogKick=null;runRealtimeWatchdog()},700);ycRealtimeWatchdogTimer=setInterval(runRealtimeWatchdog,20000)};
+  ycOnLifecycle('init',startRealtimeWatchdog);
+  ycOnLifecycle('beforeAuth',stopRealtimeWatchdog);
 })();
 
 
