@@ -106,6 +106,11 @@ assert(html.includes("try{await ycScreenShareStopPromise}catch{}"),'A new screen
 assert(html.includes("const startEpoch=++ycScreenShareStartEpoch"),'Screen share startup must invalidate older pending capture dialogs');
 assert(html.includes("++ycScreenShareStartEpoch\n  const ownerUserId=user?.id,stream=screenShareStream"),'Stopping a screen share must invalidate pending starts');
 assert(html.includes("ycScreenShareStopPromise=task.catch"),'Screen share stop cleanup must be serialized before a restart');
+assert(html.includes("let ycScreenAudioBusy=false,ycScreenAudioGeneration=0"),'Screen audio recovery needs a generation guard');
+assert(html.includes("++ycScreenAudioGeneration"),'Resetting screen audio senders must invalidate stale recovery work');
+assert(html.includes("const generation=ycScreenAudioGeneration,streamRef=screenShareStream"),'Screen audio recovery must capture its stream generation');
+assert(html.includes("if(generation!==ycScreenAudioGeneration)return"),'Stale screen audio recovery must abort after reset/restart');
+
 assert(html.includes("let ycPresenceListenersInstalled=false,ycPresenceStartupTimer=null"),'Presence input listeners must be installed only once while timers can restart');
 assert(html.includes("function ycStopPresenceTimers()"),'Presence polling timers need an auth cleanup path');
 assert(html.includes("ycOnLifecycle('beforeAuth',()=>{ycStopPresenceTimers();void ycStopPresenceRealtime()})"),'Signing out must stop presence polling timers');
