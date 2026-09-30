@@ -3303,18 +3303,19 @@ const ycScreenAudioSenders=new Map()
 const ycScreenAudioWrapped=new WeakMap()
 let ycScreenAudioNegotiationTimer=null
 const ycScreenAudioNegotiationPeers=new Set()
-let ycScreenAudioBusy=false
+let ycScreenAudioBusy=false,ycScreenAudioGeneration=0
 window.__ycScreenAudioEls=window.__ycScreenAudioEls||new Map()
 window.__ycScreenAudioTracks=window.__ycScreenAudioTracks||new Map()
 window.__ycScreenAudioTrackHooks=window.__ycScreenAudioTrackHooks||new WeakSet()
 function ycScreenAudioWanted(){return localStorage.getItem('yc_screen_audio')!=='0'}
 function ycCurrentScreenAudioTrack(){try{return screenShareActive&&ycScreenAudioWanted()?screenShareStream?.getAudioTracks?.().find(t=>t.readyState==='live')||null:null}catch{return null}}
 function ycScreenAudioStoredVolume(peerId){try{const map=JSON.parse(localStorage.getItem('yc_stream_volume_by_user_safe_v1')||'{}')||{},n=Number(map[String(peerId)]);return Number.isFinite(n)?Math.max(0,Math.min(1,n)):1}catch{return 1}}
-function ycScheduleScreenAudioNegotiation(peerId){if(peerId)ycScreenAudioNegotiationPeers.add(peerId);clearTimeout(ycScreenAudioNegotiationTimer);ycScreenAudioNegotiationTimer=setTimeout(async()=>{ycScreenAudioNegotiationTimer=null;const ids=[...ycScreenAudioNegotiationPeers];ycScreenAudioNegotiationPeers.clear();for(const id of ids){try{if(typeof ycRenegotiateScreenPeer==='function')await ycRenegotiateScreenPeer(id)}catch(e){console.warn('screen audio renegotiate',id,e)}}},140)}
+function ycScheduleScreenAudioNegotiation(peerId){if(peerId)ycScreenAudioNegotiationPeers.add(peerId);const generation=ycScreenAudioGeneration;clearTimeout(ycScreenAudioNegotiationTimer);ycScreenAudioNegotiationTimer=setTimeout(async()=>{ycScreenAudioNegotiationTimer=null;if(generation!==ycScreenAudioGeneration)return;const ids=[...ycScreenAudioNegotiationPeers];ycScreenAudioNegotiationPeers.clear();for(const id of ids){if(generation!==ycScreenAudioGeneration)return;try{if(typeof ycRenegotiateScreenPeer==='function')await ycRenegotiateScreenPeer(id)}catch(e){console.warn('screen audio renegotiate',id,e)}}},140)}
 function ycRemoveScreenAudioElement(peerId){try{const a=window.__ycScreenAudioEls.get(peerId);if(a){a.pause();a.srcObject=null;a.remove()}window.__ycScreenAudioEls.delete(peerId)}catch{}}
 function ycForgetScreenAudioTrack(peerId){ycRemoveScreenAudioElement(peerId);try{window.__ycScreenAudioTracks.delete(peerId)}catch{}}
 function ycAttachExistingScreenAudioReceiver(peerId){try{const track=window.__ycScreenAudioTracks.get(peerId);if(track&&track.readyState==='live')ycAttachRemoteScreenAudio(peerId,track)}catch{}}
 async function ycResetScreenAudioSenders(){
+ ++ycScreenAudioGeneration
  clearTimeout(ycScreenAudioNegotiationTimer);ycScreenAudioNegotiationTimer=null;ycScreenAudioNegotiationPeers.clear()
  const pending=[]
  for(const [peerId,sender] of [...ycScreenAudioSenders]){
@@ -3375,7 +3376,7 @@ function ycWrapScreenAudioPc(peerId,pc){
 async function ycEnsureScreenAudio(){
  if(ycScreenAudioBusy)return
  ycScreenAudioBusy=true
- const negotiatePeers=new Set()
+ const generation=ycScreenAudioGeneration,streamRef=screenShareStream,negotiatePeers=new Set()
  try{
   const peers=(typeof voicePeers!=='undefined'&&voicePeers?.entries)?[...voicePeers.entries()]:[]
   const liveIds=new Set(peers.map(([id])=>id))
@@ -3383,15 +3384,17 @@ async function ycEnsureScreenAudio(){
   for(const [id] of window.__ycScreenAudioEls)if(!liveIds.has(id))ycRemoveScreenAudioElement(id)
   const track=ycCurrentScreenAudioTrack()
   for(const [peerId,pc] of peers){
+   if(generation!==ycScreenAudioGeneration)return
    ycWrapScreenAudioPc(peerId,pc)
    let sender=ycScreenAudioSenders.get(peerId)
    if(track&&screenShareViewers.has(peerId)&&pc?.connectionState!=='closed'){
-    try{const videoSender=typeof voiceScreenSenders!=='undefined'?voiceScreenSenders?.get?.(peerId):null;if(videoSender?.setStreams&&screenShareStream)videoSender.setStreams(screenShareStream)}catch{}
-    if(!sender||!(pc.getSenders?.()||[]).includes(sender)){try{sender=pc.addTrack(track,screenShareStream);ycScreenAudioSenders.set(peerId,sender);negotiatePeers.add(peerId)}catch(e){console.warn('screen audio addTrack',peerId,e)}}
-    else if(sender.track!==track){try{await sender.replaceTrack(track);if(sender.setStreams&&screenShareStream)sender.setStreams(screenShareStream)}catch(e){console.warn('screen audio replaceTrack',peerId,e)}}
-   }else if(sender?.track){try{await sender.replaceTrack(null)}catch{}}
+    try{const videoSender=typeof voiceScreenSenders!=='undefined'?voiceScreenSenders?.get?.(peerId):null;if(videoSender?.setStreams&&screenShareStream===streamRef)videoSender.setStreams(streamRef)}catch{}
+    if(!sender||!(pc.getSenders?.()||[]).includes(sender)){try{if(generation!==ycScreenAudioGeneration)return;sender=pc.addTrack(track,streamRef);ycScreenAudioSenders.set(peerId,sender);negotiatePeers.add(peerId)}catch(e){console.warn('screen audio addTrack',peerId,e)}}
+    else if(sender.track!==track){try{await sender.replaceTrack(track);if(generation!==ycScreenAudioGeneration)return;if(sender.setStreams&&screenShareStream===streamRef)sender.setStreams(streamRef)}catch(e){console.warn('screen audio replaceTrack',peerId,e)}}
+   }else if(sender?.track){try{await sender.replaceTrack(null);if(generation!==ycScreenAudioGeneration)return}catch{}}
   }
  }finally{ycScreenAudioBusy=false}
+ if(generation!==ycScreenAudioGeneration)return
  for(const peerId of negotiatePeers)ycScheduleScreenAudioNegotiation(peerId)
 }
 setInterval(()=>{if(voiceChannel&&(screenShareActive||screenWatchingByUser.size||screenShareViewers.size))void ycEnsureScreenAudio()},900)
