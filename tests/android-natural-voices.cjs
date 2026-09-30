@@ -36,6 +36,9 @@ assert(android.includes("if(ycAndroidNaturalState!=='ready'){ycAndroidNaturalSta
 assert(!android.includes("const loadNatural=async()=>{ycAndroidNaturalState='loading';fillVoices();await ycAndroidNaturalVoiceLoad()"),'Android settings must not force a Natural voice refetch when already ready');
 assert(android.includes("if(audio){ycAndroidNaturalPlayers.delete(audio);try{audio.pause()}catch{}}"),'Failed Android Natural playback must release its tracked audio object');
 assert(android.includes("if(!ycVoiceAvailableVoices().length)try{speechSynthesis?.addEventListener?.('voiceschanged',fillVoices,{once:true})}"),'Android settings must not add a stale voiceschanged listener when voices are already loaded');
+assert(android.includes("ycAndroidNaturalQueue=Promise.resolve(),ycAndroidNaturalQueueGeneration=0,ycAndroidNaturalQueued=0"),'Android Natural TTS must use a serialized bounded queue');
+assert(android.includes("if(ycAndroidNaturalQueued>=16)"),'Android Natural TTS queue must be bounded during join/leave bursts');
+assert(android.includes("++ycAndroidNaturalQueueGeneration"),'Android deafen/announcement cleanup must invalidate queued Natural requests');
 
 for(const marker of [
   "Deno.env.get('AZURE_SPEECH_KEY')",
