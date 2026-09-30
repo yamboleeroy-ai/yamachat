@@ -65,6 +65,15 @@ async function subscribeVoiceSignals(){if(voiceSignalSub&&voiceSignalReady)retur
 
   html=replaceBetween(html,'function startVoiceHeartbeat()','function stopVoiceHeartbeat()',`function startVoiceHeartbeat(){stopVoiceHeartbeat();const beat=()=>{if(!voiceChannel)return;subscribeVoiceParticipants();startVoiceRosterRefresh();void syncVoiceParticipantRow().catch(e=>console.warn('voice participant keepalive',e));if(!voiceSignalSub||!voiceSignalReady)void subscribeVoiceSignals().catch(e=>console.warn('voice signal reconnect',e))};beat();voiceHeartbeatTimer=setInterval(beat,YC_VOICE_HEARTBEAT_MS)}`,'heartbeat');
 
+  const reconnectFailedOld="setTimeout(()=>restartVoicePeer(peerId),350)";
+  const reconnectFailedNew="setTimeout(()=>{if(voicePeers.get(peerId)===pc&&(pc.connectionState==='failed'||pc.iceConnectionState==='failed'))restartVoicePeer(peerId)},350)";
+  const reconnectFailedCount=html.split(reconnectFailedOld).length-1;if(reconnectFailedCount!==2)throw Error('Voice failed reconnect timer boundary missing');
+  html=html.split(reconnectFailedOld).join(reconnectFailedNew);
+  const offerRetryOld="setTimeout(()=>{const cur=voicePeers.get(p.user_id),current=(voicePresenceByChannel[voiceChannel?.id]||[]).find(x=>x.user_id===p.user_id);if(cur&&cur.connectionState!=='connected'&&!cur.remoteDescription&&(!expectedSession||current?.session_id===expectedSession)){closeVoicePeer(p.user_id);void syncVoicePeers()}},3200)";
+  const offerRetryNew="setTimeout(()=>{const cur=voicePeers.get(p.user_id),current=(voicePresenceByChannel[voiceChannel?.id]||[]).find(x=>x.user_id===p.user_id);if(cur===pc&&cur.connectionState!=='connected'&&!cur.remoteDescription&&(!expectedSession||current?.session_id===expectedSession)){closeVoicePeer(p.user_id);void syncVoicePeers()}},3200)";
+  if(!html.includes(offerRetryOld))throw Error('Voice offer retry identity boundary missing');
+  html=html.replace(offerRetryOld,offerRetryNew);
+
   const routeOld="function scheduleVoiceRouteCheck(){setTimeout(()=>void detectVoiceRoute(),450);setTimeout(()=>void detectVoiceRoute(),2200)}";
   const routeNew="let voiceRouteCheckFastTimer=null,voiceRouteCheckSlowTimer=null\nfunction stopVoiceRouteChecks(){if(voiceRouteCheckFastTimer){clearTimeout(voiceRouteCheckFastTimer);voiceRouteCheckFastTimer=null}if(voiceRouteCheckSlowTimer){clearTimeout(voiceRouteCheckSlowTimer);voiceRouteCheckSlowTimer=null}}\nfunction scheduleVoiceRouteCheck(){if(!voiceRouteCheckFastTimer)voiceRouteCheckFastTimer=setTimeout(()=>{voiceRouteCheckFastTimer=null;void detectVoiceRoute()},450);if(voiceRouteCheckSlowTimer)clearTimeout(voiceRouteCheckSlowTimer);voiceRouteCheckSlowTimer=setTimeout(()=>{voiceRouteCheckSlowTimer=null;void detectVoiceRoute()},2200)}";
   if(!html.includes(routeOld))throw Error('Voice route check boundary missing');
