@@ -2666,10 +2666,11 @@ async function ycCheckOwnBanStatus(){
 }
 async function ycStartAccountMessages(){
   if(ycAccountMessagesSub){try{await sb.removeChannel(ycAccountMessagesSub)}catch{}ycAccountMessagesSub=null}
-  if(!user?.id)return;
-  let rows=[];try{rows=await ycLoadAccountMessages()}catch(e){console.warn('account messages load',e);return}
-  const unread=rows.filter(x=>!x.read_at).length;if(unread){toast('📨 Máš '+unread+' '+(unread===1?'novou zprávu':'nové zprávy')+' od Yamachatu.');setTimeout(()=>void ycOpenAccountInbox(true),800)}
-  ycAccountMessagesSub=sb.channel('yc-account-messages-'+user.id+'-'+Date.now()).on('postgres_changes',{event:'INSERT',schema:'public',table:'account_messages',filter:'recipient_user_id=eq.'+user.id},async()=>{try{await ycLoadAccountMessages()}catch{}toast('📨 Nový vzkaz od Yamachatu.');setTimeout(()=>void ycOpenAccountInbox(true),250)}).subscribe()
+  const uid=String(user?.id||'');if(!uid)return;
+  let rows=[];try{rows=await ycLoadAccountMessages()}catch(e){if(String(user?.id||'')===uid)console.warn('account messages load',e);return}
+  if(String(user?.id||'')!==uid)return;
+  const unread=rows.filter(x=>!x.read_at).length;if(unread){toast('📨 Máš '+unread+' '+(unread===1?'novou zprávu':'nové zprávy')+' od Yamachatu.');setTimeout(()=>{if(String(user?.id||'')===uid)void ycOpenAccountInbox(true)},800)}
+  const sub=sb.channel('yc-account-messages-'+uid+'-'+Date.now()).on('postgres_changes',{event:'INSERT',schema:'public',table:'account_messages',filter:'recipient_user_id=eq.'+uid},async()=>{if(ycAccountMessagesSub!==sub||String(user?.id||'')!==uid)return;try{await ycLoadAccountMessages()}catch{}if(ycAccountMessagesSub!==sub||String(user?.id||'')!==uid)return;toast('📨 Nový vzkaz od Yamachatu.');setTimeout(()=>{if(ycAccountMessagesSub===sub&&String(user?.id||'')===uid)void ycOpenAccountInbox(true)},250)});if(String(user?.id||'')!==uid){try{await sb.removeChannel(sub)}catch{};return}ycAccountMessagesSub=sub;sub.subscribe(status=>{if(ycAccountMessagesSub!==sub||String(user?.id||'')!==uid)return;if(['CHANNEL_ERROR','TIMED_OUT','CLOSED'].includes(status)){ycAccountMessagesSub=null;try{void sb.removeChannel(sub)}catch{}}})
 }
 ycOnLifecycle('init',()=>{void ycStartAccountMessages();void ycCheckOwnBanStatus();clearInterval(ycBanStatusTimer);ycBanStatusTimer=setInterval(()=>void ycCheckOwnBanStatus(),60000)});
 ycOnLifecycle('beforeAuth',()=>{ycAccountMessagesCache=[];clearInterval(ycBanStatusTimer);ycBanStatusTimer=null;if(ycAccountMessagesSub){try{sb.removeChannel(ycAccountMessagesSub)}catch{}ycAccountMessagesSub=null}});
