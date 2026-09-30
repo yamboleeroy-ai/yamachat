@@ -42,7 +42,7 @@ export function withStreamViewer(input,{desktop=false}={}) {
   // replacing the peer or touching voice audio.
   html=html.replace(
     'window.__ycScreenAudioEls=window.__ycScreenAudioEls||new Map()',
-    'window.__ycScreenAudioEls=window.__ycScreenAudioEls||new Map()\nwindow.__ycScreenAudioTracks=window.__ycScreenAudioTracks||new Map()'
+    'window.__ycScreenAudioEls=window.__ycScreenAudioEls||new Map()\nwindow.__ycScreenAudioTracks=window.__ycScreenAudioTracks||new Map()\nwindow.__ycScreenAudioTrackHooks=window.__ycScreenAudioTrackHooks||new WeakSet()'
   );
   html=html.replace(
     "function ycRemoveScreenAudioElement(peerId){try{const a=window.__ycScreenAudioEls.get(peerId);if(a){a.pause();a.srcObject=null;a.remove()}window.__ycScreenAudioEls.delete(peerId)}catch{}}",
@@ -55,6 +55,10 @@ export function withStreamViewer(input,{desktop=false}={}) {
   html=html.replace(
     "track.addEventListener('ended',()=>ycRemoveScreenAudioElement(peerId),{once:true})",
     "track.addEventListener('ended',()=>ycForgetScreenAudioTrack(peerId),{once:true})"
+  );
+  html=html.replace(
+    "track.addEventListener('ended',()=>ycForgetScreenAudioTrack(peerId),{once:true})\n  track.addEventListener('mute',()=>setTimeout(()=>{try{const active=(typeof voiceScreenActiveByUser!=='undefined'&&voiceScreenActiveByUser?.has?.(peerId))||remoteScreenStreams?.has?.(peerId);if(!active)ycRemoveScreenAudioElement(peerId)}catch{}},700))",
+    "if(!window.__ycScreenAudioTrackHooks.has(track)){\n   window.__ycScreenAudioTrackHooks.add(track)\n   track.addEventListener('ended',()=>{if(window.__ycScreenAudioTracks.get(peerId)===track)ycForgetScreenAudioTrack(peerId)},{once:true})\n   track.addEventListener('mute',()=>setTimeout(()=>{try{if(window.__ycScreenAudioTracks.get(peerId)!==track)return;const active=(typeof voiceScreenActiveByUser!=='undefined'&&voiceScreenActiveByUser?.has?.(peerId))||remoteScreenStreams?.has?.(peerId);if(!active)ycRemoveScreenAudioElement(peerId)}catch{}},700))\n  }"
   );
   html=html.replace(
     "voiceScreenActiveByUser.delete(peerId);try{ycRemoveScreenAudioElement(peerId)}catch{}renderScreenShareStage();",
@@ -74,6 +78,7 @@ export function withStreamViewer(input,{desktop=false}={}) {
   );
   if(!html.includes('function ycAttachExistingScreenAudioReceiver(peerId)'))throw Error('Screen audio reopen bridge missing');
   if(!html.includes('window.__ycScreenAudioTracks=window.__ycScreenAudioTracks||new Map()'))throw Error('Screen audio track cache missing');
+  if(!html.includes('window.__ycScreenAudioTrackHooks=window.__ycScreenAudioTrackHooks||new WeakSet()'))throw Error('Screen audio track listener guard missing');
 
   // Never feed Yamachat's own voice playback back into a shared stream.
   // Chromium/Electron honors restrictOwnAudio by excluding the capturing app's
