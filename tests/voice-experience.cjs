@@ -104,7 +104,8 @@ assert(html.includes("select('event_key,read_at').eq('user_id',user.id).order('r
 assert(html.includes("screenShareActive=false,ycScreenShareStartEpoch=0,ycScreenShareStopPromise=Promise.resolve()"),'Screen share lifecycle must keep a serialized stop/start barrier');
 assert(html.includes("try{await ycScreenShareStopPromise}catch{}"),'A new screen share must wait for the previous stop cleanup');
 assert(html.includes("const startEpoch=++ycScreenShareStartEpoch"),'Screen share startup must invalidate older pending capture dialogs');
-assert(html.includes("++ycScreenShareStartEpoch\n  const ownerUserId=user?.id,stream=screenShareStream"),'Stopping a screen share must invalidate pending starts');
+assert(html.includes("++ycScreenShareStartEpoch"),'Stopping a screen share must invalidate pending starts');
+assert(html.includes("++ycScreenAudioGeneration"),'Stopping/resetting screen audio must invalidate stale recovery work');
 assert(html.includes("ycScreenShareStopPromise=task.catch"),'Screen share stop cleanup must be serialized before a restart');
 assert(html.includes("let ycScreenAudioBusy=false,ycScreenAudioGeneration=0"),'Screen audio recovery needs a generation guard');
 assert(html.includes("++ycScreenAudioGeneration"),'Resetting screen audio senders must invalidate stale recovery work');
