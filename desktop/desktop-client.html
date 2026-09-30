@@ -3933,7 +3933,7 @@ function ycEnsureNotifyUi(){
  return true
 }
 function ycNotifyTime(v){try{return new Intl.DateTimeFormat('cs-CZ',{day:'numeric',month:'numeric',hour:'2-digit',minute:'2-digit'}).format(new Date(v))}catch{return''}}
-async function ycLoadNotifyReadKeys(){if(!user?.id){ycNotifyReadKeys=new Set();return}try{const {data}=await sb.from('user_notification_reads').select('event_key').eq('user_id',user.id);ycNotifyReadKeys=new Set((data||[]).map(x=>x.event_key))}catch(e){console.warn('notification reads',e)}}
+async function ycLoadNotifyReadKeys(){if(!user?.id){ycNotifyReadKeys=new Set();return}try{const {data}=await sb.from('user_notification_reads').select('event_key,read_at').eq('user_id',user.id).order('read_at',{ascending:false}).limit(500);ycNotifyReadKeys=new Set((data||[]).map(x=>x.event_key))}catch(e){console.warn('notification reads',e)}}
 async function ycBuildNotificationItems(){
  const uid=String(user?.id||'');if(!uid)return[]
  const items=[]
