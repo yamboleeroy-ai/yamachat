@@ -180,7 +180,10 @@ function processSnapshot(label){
   await Promise.all(configs.filter(x=>x.room).map(x=>clients.get(x.id).page.evaluate(()=>window.__ycAudit.syncVoice())));
   for(const cfg of configs.filter(x=>x.room)){
    const c=clients.get(cfg.id),expected=roomGroups.get(cfg.room).length-1;
-   await c.page.waitForFunction(n=>{const s=window.__ycAudit.state();return s.peers===n&&s.connected===n},expected,{timeout:25000});
+   // Ten isolated browser contexts can contend for CPU on a shared CI runner.
+   // Give the real WebRTC handshakes enough time without weakening the peer
+   // count/connection-state assertion itself.
+   await c.page.waitForFunction(n=>{const s=window.__ycAudit.state();return s.peers===n&&s.connected===n},expected,{timeout:45000});
    const rtc=await c.page.evaluate(()=>window.__ycAudit.rtc());assert.equal(rtc.length,expected,cfg.id+' peer count');
    for(const p of rtc){assert.equal(p.connection,'connected',cfg.id+' peer not connected');assert(['connected','completed'].includes(p.ice),cfg.id+' ICE '+p.ice);if(p.dtls)assert.equal(p.dtls,'connected',cfg.id+' DTLS '+p.dtls)}
   }
