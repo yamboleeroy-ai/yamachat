@@ -20,7 +20,8 @@ for(const marker of [
   'ycAttachExistingScreenAudioReceiver',
   'ycPrepareDesktopProcessAudio',
   "filter:'direct_thread_id=eq.'+tid",
-  "table:'direct_thread_members',filter:'user_id=eq.'+user.id",
+  "table:'direct_thread_members',filter:'user_id=eq.'+uid",
+  "String(user?.id||'')!==uid",
   "filter:'channel_id=eq.'+id",
   'yc-win-notify-targeted-'
 ]) assert(client.includes(marker),'Generated Windows client missing marker: '+marker);
