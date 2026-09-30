@@ -2,7 +2,7 @@ name: Yamachat Stability Preview
 
 on:
   push:
-    branches: [optimize/voice-mute-tts-20260929, release/1.0.109-cloudflare-20260930]
+    branches: [optimize/voice-mute-tts-20260929]
   pull_request:
     branches: [main]
   workflow_dispatch:
