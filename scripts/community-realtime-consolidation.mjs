@@ -14,7 +14,7 @@ export function withCommunityRealtimeConsolidation(html){
   html=html.replace(duplicateMember,'');
 
   const watchdogOld="setInterval(()=>{if(user?.id){if(!userRealtimeSub)subscribeUserRealtime();ensureRealtime()}},20000);\n  setTimeout(()=>{if(user?.id&&!userRealtimeSub)subscribeUserRealtime();ensureRealtime()},700);";
-  const watchdogNew="setInterval(()=>{if(user?.id){if(!userRealtimeSub)subscribeUserRealtime();if(currentCommunity?.id&&!communityRealtimeSub)subscribeCommunityRealtime(currentCommunity.id);ensureRealtime()}},20000);\n  setTimeout(()=>{if(user?.id&&!userRealtimeSub)subscribeUserRealtime();if(currentCommunity?.id&&!communityRealtimeSub)subscribeCommunityRealtime(currentCommunity.id);ensureRealtime()},700);";
+  const watchdogNew="let ycRealtimeWatchdogTimer=null,ycRealtimeWatchdogKick=null;\n  const runRealtimeWatchdog=()=>{if(!user?.id)return;if(!userRealtimeSub)subscribeUserRealtime();if(currentCommunity?.id&&!communityRealtimeSub)subscribeCommunityRealtime(currentCommunity.id);ensureRealtime()};\n  const stopRealtimeWatchdog=()=>{if(ycRealtimeWatchdogTimer){clearInterval(ycRealtimeWatchdogTimer);ycRealtimeWatchdogTimer=null}if(ycRealtimeWatchdogKick){clearTimeout(ycRealtimeWatchdogKick);ycRealtimeWatchdogKick=null}};\n  const startRealtimeWatchdog=()=>{if(ycRealtimeWatchdogTimer)return;ycRealtimeWatchdogKick=setTimeout(()=>{ycRealtimeWatchdogKick=null;runRealtimeWatchdog()},700);ycRealtimeWatchdogTimer=setInterval(runRealtimeWatchdog,20000)};\n  ycOnLifecycle('init',startRealtimeWatchdog);\n  ycOnLifecycle('beforeAuth',stopRealtimeWatchdog);";
   if(!html.includes(watchdogOld))throw Error('Community realtime watchdog boundary missing');
   html=html.replace(watchdogOld,watchdogNew);
   return html;

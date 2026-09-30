@@ -8,16 +8,16 @@ export function withStreamScaleHardening(html){
   if(html.includes('STREAM SCALE HARDENING 2026-09-28'))return html;
 
   const stateOld="let ycCommunityStreamSub=null,ycStreamPresenceTimer=null,ycStreamPreviewTimer=null";
-  const stateNew="let ycCommunityStreamSub=null,ycCommunityStreamPollTimer=null,ycCommunityStreamLoadBusy=null,ycStreamPresenceTimer=null,ycStreamPreviewTimer=null,ycStreamPublishEpoch=0,ycStreamPublishQueue=Promise.resolve(),ycStreamPresenceClearedUserId=''";
+  const stateNew="let ycCommunityStreamSub=null,ycCommunityStreamPollTimer=null,ycCommunityStreamLoadBusy=null,ycCommunityStreamLoadCid='',ycCommunityStreamWatchGeneration=0,ycCommunityStreamFreshnessTimer=null,ycStreamPresenceTimer=null,ycStreamPreviewTimer=null,ycStreamPublishEpoch=0,ycStreamPublishQueue=Promise.resolve(),ycStreamPresenceClearedUserId=''";
   if(!html.includes(stateOld))throw Error('Stream discovery state boundary missing');
   html=html.replace(stateOld,stateNew);
 
   const load=`// STREAM SCALE HARDENING 2026-09-28
 async function ycLoadCommunityStreams(){
   if(!currentCommunity?.id){ycCommunityStreams.clear();renderVoiceChannels(voiceChannelDefs);return}
-  if(ycCommunityStreamLoadBusy)return ycCommunityStreamLoadBusy
   const cid=String(currentCommunity.id)
-  ycCommunityStreamLoadBusy=(async()=>{
+  if(ycCommunityStreamLoadBusy&&ycCommunityStreamLoadCid===cid)return ycCommunityStreamLoadBusy
+  const task=(async()=>{
     try{
       const cutoff=new Date(Date.now()-50000).toISOString(),{data,error}=await sb.from('community_stream_presence').select('*').eq('community_id',cid).gt('updated_at',cutoff)
       if(error)throw error
@@ -27,31 +27,86 @@ async function ycLoadCommunityStreams(){
       if(!changed)for(const [uid,row] of next){const old=ycCommunityStreams.get(uid);if(!old||old.updated_at!==row.updated_at||old.channel_id!==row.channel_id||old.preview_data!==row.preview_data){changed=true;break}}
       ycCommunityStreams.clear();for(const [uid,row] of next)ycCommunityStreams.set(uid,row)
       if(changed)renderVoiceChannels(voiceChannelDefs)
-    }catch(e){console.warn('community stream load',e)}
-  })().finally(()=>{ycCommunityStreamLoadBusy=null})
-  return ycCommunityStreamLoadBusy
-}`;
+    }catch(e){if(String(currentCommunity?.id||'')===cid)console.warn('community stream load',e)}
+  })()
+  ycCommunityStreamLoadBusy=task;ycCommunityStreamLoadCid=cid
+  const clear=()=>{if(ycCommunityStreamLoadBusy===task){ycCommunityStreamLoadBusy=null;ycCommunityStreamLoadCid=''}}
+  task.then(clear,clear)
+  return task
+}
+`;
   html=replaceBetween(html,'async function ycLoadCommunityStreams(){','async function ycStopCommunityStreamWatch(){',load,'community stream roster');
 
-  const watch=`async function ycStopCommunityStreamWatch(){
+  const watch=`async function ycStopCommunityStreamWatch(invalidate=true){
+  if(invalidate)++ycCommunityStreamWatchGeneration
   if(ycCommunityStreamPollTimer){clearInterval(ycCommunityStreamPollTimer);ycCommunityStreamPollTimer=null}
   const ch=ycCommunityStreamSub;ycCommunityStreamSub=null;if(ch)try{await sb.removeChannel(ch)}catch{}
 }
 async function ycStartCommunityStreamWatch(){
-  await ycStopCommunityStreamWatch();if(!currentCommunity?.id){ycCommunityStreams.clear();renderVoiceChannels(voiceChannelDefs);return}const cid=String(currentCommunity.id)
-  const removeStream=key=>{ycCommunityStreams.delete(key);if(screenWatchingByUser.has(key)){screenWatchingByUser.delete(key);screenWatchPendingByUser.delete(key);remoteScreenStreams.delete(key);try{ycRemoveScreenAudioElement(key)}catch{}ycSyncStreamViewer()}renderVoiceChannels(voiceChannelDefs)}
+  const generation=++ycCommunityStreamWatchGeneration
+  await ycStopCommunityStreamWatch(false)
+  if(generation!==ycCommunityStreamWatchGeneration)return
+  if(!currentCommunity?.id){ycCommunityStreams.clear();renderVoiceChannels(voiceChannelDefs);return}
+  const cid=String(currentCommunity.id),current=()=>generation===ycCommunityStreamWatchGeneration&&String(currentCommunity?.id||'')===cid
+  const removeStream=key=>{if(!current())return;ycCommunityStreams.delete(key);if(screenWatchingByUser.has(key)){screenWatchingByUser.delete(key);screenWatchPendingByUser.delete(key);remoteScreenStreams.delete(key);try{ycRemoveScreenAudioElement(key)}catch{}ycSyncStreamViewer()}renderVoiceChannels(voiceChannelDefs)}
   const sub=sb.channel('yc-community-streams-'+cid+'-'+Date.now())
-    .on('postgres_changes',{event:'INSERT',schema:'public',table:'community_stream_presence',filter:'community_id=eq.'+cid},payload=>{const row=payload.new;if(!row?.user_id||!ycStreamPresenceFresh(row))return;ycCommunityStreams.set(String(row.user_id),row);renderVoiceChannels(voiceChannelDefs)})
-    .on('postgres_changes',{event:'DELETE',schema:'public',table:'community_stream_presence'},payload=>{const row=payload.old;if(!row?.user_id||String(row.community_id||'')!==cid)return;removeStream(String(row.user_id))})
+    .on('postgres_changes',{event:'INSERT',schema:'public',table:'community_stream_presence',filter:'community_id=eq.'+cid},payload=>{if(!current())return;const row=payload.new;if(!row?.user_id||!ycStreamPresenceFresh(row))return;ycCommunityStreams.set(String(row.user_id),row);renderVoiceChannels(voiceChannelDefs)})
+    .on('postgres_changes',{event:'DELETE',schema:'public',table:'community_stream_presence'},payload=>{if(!current())return;const row=payload.old;if(!row?.user_id||String(row.community_id||'')!==cid)return;removeStream(String(row.user_id))})
+  if(!current()){try{await sb.removeChannel(sub)}catch{};return}
   ycCommunityStreamSub=sub
-  sub.subscribe(status=>{if(String(currentCommunity?.id||'')!==cid)return;if(status==='SUBSCRIBED'){void ycLoadCommunityStreams();return}if(['CHANNEL_ERROR','TIMED_OUT','CLOSED'].includes(status)&&ycCommunityStreamSub===sub){ycCommunityStreamSub=null;try{void sb.removeChannel(sub)}catch{}}})
+  sub.subscribe(status=>{if(!current()){if(ycCommunityStreamSub===sub)ycCommunityStreamSub=null;try{void sb.removeChannel(sub)}catch{};return}if(status==='SUBSCRIBED'){void ycLoadCommunityStreams();return}if(['CHANNEL_ERROR','TIMED_OUT','CLOSED'].includes(status)&&ycCommunityStreamSub===sub){ycCommunityStreamSub=null;try{void sb.removeChannel(sub)}catch{}}})
   await ycLoadCommunityStreams()
-  ycCommunityStreamPollTimer=setInterval(()=>{if(String(currentCommunity?.id||'')!==cid)return;if(!ycCommunityStreamSub){void ycStartCommunityStreamWatch();return}if(ycCommunityStreams.size)void ycLoadCommunityStreams()},20000)
-}`;
+  if(!current()){if(ycCommunityStreamSub===sub)ycCommunityStreamSub=null;try{await sb.removeChannel(sub)}catch{};return}
+  ycCommunityStreamPollTimer=setInterval(()=>{if(!current())return;if(!ycCommunityStreamSub){void ycStartCommunityStreamWatch();return}if(ycCommunityStreams.size)void ycLoadCommunityStreams()},20000)
+}
+`;
   html=replaceBetween(html,'async function ycStopCommunityStreamWatch(){','function ycClearStreamPublishTimers(){',watch,'community stream watch');
 
+  const screenAudioStateOld="let ycScreenAudioBusy=false";
+  const screenAudioStateNew="let ycScreenAudioBusy=false,ycScreenAudioGeneration=0";
+  if(html.includes(screenAudioStateOld))html=html.replace(screenAudioStateOld,screenAudioStateNew);
+  else if(!html.includes(screenAudioStateNew))throw Error('Screen audio generation state boundary missing');
+
+  const scheduleStart=html.indexOf('function ycScheduleScreenAudioNegotiation(peerId){'),scheduleEnd=html.indexOf('\nfunction ycRemoveScreenAudioElement(peerId)',scheduleStart);
+  if(scheduleStart<0||scheduleEnd<0)throw Error('Screen audio negotiation boundary missing');
+  const screenAudioScheduleNew="function ycScheduleScreenAudioNegotiation(peerId){if(peerId)ycScreenAudioNegotiationPeers.add(peerId);const generation=ycScreenAudioGeneration;clearTimeout(ycScreenAudioNegotiationTimer);ycScreenAudioNegotiationTimer=setTimeout(async()=>{ycScreenAudioNegotiationTimer=null;if(generation!==ycScreenAudioGeneration)return;const ids=[...ycScreenAudioNegotiationPeers];ycScreenAudioNegotiationPeers.clear();for(const id of ids){if(generation!==ycScreenAudioGeneration)return;try{if(typeof ycRenegotiateScreenPeer==='function')await ycRenegotiateScreenPeer(id)}catch(e){console.warn('screen audio renegotiate',id,e)}}},140)}";
+  html=html.slice(0,scheduleStart)+screenAudioScheduleNew+html.slice(scheduleEnd);
+
+  const ensureStart=html.indexOf('async function ycEnsureScreenAudio(){'),ensureEnd=html.indexOf('\n}\nfunction ycSyncScreenAudioVolumes()',ensureStart);
+  if(ensureStart<0||ensureEnd<0)throw Error('Screen audio ensure lifecycle boundary missing');
+  const ensureBlock=`async function ycEnsureScreenAudio(){
+ if(ycScreenAudioBusy)return
+ ycScreenAudioBusy=true
+ const generation=ycScreenAudioGeneration,streamRef=screenShareStream,negotiatePeers=new Set()
+ try{
+  const peers=(typeof voicePeers!=='undefined'&&voicePeers?.entries)?[...voicePeers.entries()]:[]
+  const liveIds=new Set(peers.map(([id])=>id))
+  for(const [id] of ycScreenAudioSenders)if(!liveIds.has(id))ycScreenAudioSenders.delete(id)
+  for(const [id] of window.__ycScreenAudioEls)if(!liveIds.has(id))ycRemoveScreenAudioElement(id)
+  const track=ycCurrentScreenAudioTrack()
+  for(const [peerId,pc] of peers){
+   if(generation!==ycScreenAudioGeneration)return
+   ycWrapScreenAudioPc(peerId,pc)
+   let sender=ycScreenAudioSenders.get(peerId)
+   if(track&&screenShareViewers.has(peerId)&&pc?.connectionState!=='closed'){
+    try{const videoSender=typeof voiceScreenSenders!=='undefined'?voiceScreenSenders?.get?.(peerId):null;if(videoSender?.setStreams&&screenShareStream===streamRef)videoSender.setStreams(streamRef)}catch{}
+    if(!sender||!(pc.getSenders?.()||[]).includes(sender)){try{if(generation!==ycScreenAudioGeneration)return;sender=pc.addTrack(track,streamRef);ycScreenAudioSenders.set(peerId,sender);negotiatePeers.add(peerId)}catch(e){console.warn('screen audio addTrack',peerId,e)}}
+    else if(sender.track!==track){try{await sender.replaceTrack(track);if(generation!==ycScreenAudioGeneration)return;if(sender.setStreams&&screenShareStream===streamRef)sender.setStreams(streamRef)}catch(e){console.warn('screen audio replaceTrack',peerId,e)}}
+   }else if(sender?.track){try{await sender.replaceTrack(null);if(generation!==ycScreenAudioGeneration)return}catch{}}
+  }
+ }finally{ycScreenAudioBusy=false}
+ if(generation!==ycScreenAudioGeneration)return
+ for(const peerId of negotiatePeers)ycScheduleScreenAudioNegotiation(peerId)
+}`;
+  html=html.slice(0,ensureStart)+ensureBlock+html.slice(ensureEnd+2);
+
+  const screenLifecycleStateOld="screenShareStream=null,screenShareActive=false,voiceScreenSenders=new Map()";
+  const screenLifecycleStateNew="screenShareStream=null,screenShareActive=false,ycScreenShareStartEpoch=0,ycScreenShareStopPromise=Promise.resolve(),voiceScreenSenders=new Map()";
+  if(html.includes(screenLifecycleStateOld))html=html.replace(screenLifecycleStateOld,screenLifecycleStateNew);
+  else if(!html.includes(screenLifecycleStateNew))throw Error('Screen share lifecycle state boundary missing');
+
   const streamStopOld="async function stopScreenShare(silent=false){\n  const stream=screenShareStream;if(!screenShareActive&&!stream)return";
-  const streamStopNew="async function stopScreenShare(silent=false){\n  const ownerUserId=user?.id,stream=screenShareStream;if(!screenShareActive&&!stream)return";
+  const streamStopNew="async function stopScreenShare(silent=false){\n  ++ycScreenAudioGeneration\n  const ownerUserId=user?.id,stream=screenShareStream;if(!screenShareActive&&!stream)return";
   if(!html.includes(streamStopOld))throw Error('Stream owner cleanup boundary missing');
   html=html.replace(streamStopOld,streamStopNew);
   const stopFnStart=html.indexOf('async function stopScreenShare(silent=false){');
@@ -116,6 +171,72 @@ async function ycStopGlobalStreamPresence(ownerUserId=user?.id){
   if(/\bvoid\s+ycStopGlobalStreamPresence\s*\(\s*ownerUserId\s*\)\s*;/.test(stopBlock))stopBlock=stopBlock.replace(/\bvoid\s+ycStopGlobalStreamPresence\s*\(\s*ownerUserId\s*\)\s*;/,'await ycStopGlobalStreamPresence(ownerUserId);');
   else if(!/\bawait\s+ycStopGlobalStreamPresence\s*\(\s*ownerUserId\s*\)/.test(stopBlock))throw Error('Stream stop await boundary missing');
   html=html.slice(0,stopStart)+stopBlock+html.slice(stopEnd);
+
+  const lifecycleStopStart=html.indexOf('async function stopScreenShare(silent=false){'),lifecycleStopEnd=html.indexOf('\n}\n',lifecycleStopStart);
+  if(lifecycleStopStart<0||lifecycleStopEnd<0)throw Error('Screen share serialized stop boundary missing');
+  let lifecycleStop=html.slice(lifecycleStopStart,lifecycleStopEnd);
+  if(!lifecycleStop.includes('++ycScreenShareStartEpoch')){
+    lifecycleStop=lifecycleStop.replace("async function stopScreenShare(silent=false){\n  ++ycScreenAudioGeneration\n  const ownerUserId=user?.id,stream=screenShareStream;if(!screenShareActive&&!stream)return","async function stopScreenShare(silent=false){\n  ++ycScreenShareStartEpoch\n  ++ycScreenAudioGeneration\n  const ownerUserId=user?.id,stream=screenShareStream;if(!screenShareActive&&!stream)return ycScreenShareStopPromise");
+    lifecycleStop=lifecycleStop.replace("  screenShareActive=false;screenShareStream=null;screenShareViewers.clear()","  screenShareActive=false;screenShareStream=null;screenShareViewers.clear()\n  const task=(async()=>{");
+    const finish="renderVoiceControls();if(!silent)toast('Sdílení obrazovky ukončeno.')";
+    if(!lifecycleStop.includes(finish))throw Error('Screen share stop completion boundary missing');
+    lifecycleStop=lifecycleStop.replace(finish,finish+"\n  })()\n  ycScreenShareStopPromise=task.catch(e=>console.warn('screen share stop',e))\n  await ycScreenShareStopPromise");
+    html=html.slice(0,lifecycleStopStart)+lifecycleStop+html.slice(lifecycleStopEnd);
+  }
+
+  const screenStartOld=`async function startScreenShare(){
+  if(!voiceChannel){toast('Nejdřív se připoj do hlasového kanálu.',true);return}
+  const media=getScreenMediaDevices();if(!media?.getDisplayMedia){toast('Tento prohlížeč nepodporuje sdílení obrazovky.',true);return}
+  let stream
+  try{stream=await media.getDisplayMedia({video:{width:{ideal:ycScreenShareProfile().width,max:ycScreenShareProfile().width},height:{ideal:ycScreenShareProfile().height,max:ycScreenShareProfile().height},frameRate:{ideal:ycScreenShareProfile().fps,max:ycScreenShareProfile().fps}},audio:true,systemAudio:'include',surfaceSwitching:'include'})}catch(e){if(e?.name!=='NotAllowedError')toast('Sdílení obrazovky se nepodařilo spustit: '+(e?.message||e),true);return}
+  const track=stream.getVideoTracks()[0];if(!track){stream.getTracks().forEach(t=>t.stop());toast('Nebyl vybrán žádný obraz.',true);return}
+  screenShareStream=stream;screenShareActive=true;screenShareViewers.clear()
+  await enableScreenShareAudio(stream)`;
+  const screenStartNew=`async function startScreenShare(){
+  const startEpoch=++ycScreenShareStartEpoch
+  try{await ycScreenShareStopPromise}catch{}
+  if(startEpoch!==ycScreenShareStartEpoch)return
+  if(!voiceChannel){toast('Nejdřív se připoj do hlasového kanálu.',true);return}
+  const channelId=String(voiceChannel.id||''),sessionId=voiceSessionId,uid=String(user?.id||''),current=()=>startEpoch===ycScreenShareStartEpoch&&!!voiceChannel&&String(voiceChannel.id||'')===channelId&&voiceSessionId===sessionId&&String(user?.id||'')===uid
+  const discard=stream=>{try{stream?.getTracks?.().forEach(t=>{t.onended=null;try{t.stop()}catch{}})}catch{}}
+  const media=getScreenMediaDevices();if(!media?.getDisplayMedia){toast('Tento prohlížeč nepodporuje sdílení obrazovky.',true);return}
+  let stream
+  try{stream=await media.getDisplayMedia({video:{width:{ideal:ycScreenShareProfile().width,max:ycScreenShareProfile().width},height:{ideal:ycScreenShareProfile().height,max:ycScreenShareProfile().height},frameRate:{ideal:ycScreenShareProfile().fps,max:ycScreenShareProfile().fps}},audio:true,systemAudio:'include',surfaceSwitching:'include'})}catch(e){if(current()&&e?.name!=='NotAllowedError')toast('Sdílení obrazovky se nepodařilo spustit: '+(e?.message||e),true);return}
+  if(!current()){discard(stream);return}
+  const track=stream.getVideoTracks()[0];if(!track){discard(stream);toast('Nebyl vybrán žádný obraz.',true);return}
+  screenShareStream=stream;screenShareActive=true;screenShareViewers.clear()
+  await enableScreenShareAudio(stream)
+  if(!current()||screenShareStream!==stream||!screenShareActive){if(screenShareStream===stream){screenShareStream=null;screenShareActive=false}discard(stream);return}`;
+  if(html.includes(screenStartOld))html=html.replace(screenStartOld,screenStartNew);
+  else if(!html.includes(screenStartNew))throw Error('Screen share startup lifecycle boundary missing');
+
+  const screenAttachOld=`function attachVoiceScreen(peerId,stream){
+  const track=stream?.getVideoTracks?.()[0];if(!track)return
+  const show=()=>{if(track.readyState!=='live'||!screenWatchingByUser.has(peerId))return;ycClearScreenWatchTimer(peerId);screenWatchPendingByUser.delete(peerId);remoteScreenStreams.set(peerId,stream);renderScreenShareStage();renderVoiceChannels(voiceChannelDefs)}
+  const hide=()=>{if(remoteScreenStreams.get(peerId)===stream){remoteScreenStreams.delete(peerId);if(screenWatchingByUser.has(peerId)&&(voiceScreenActiveByUser.has(peerId)||ycStreamInfo(peerId))){screenWatchPendingByUser.add(peerId);ycArmScreenWatch(peerId)}renderScreenShareStage();renderVoiceChannels(voiceChannelDefs)}}
+  track.onunmute=show
+  track.onmute=()=>setTimeout(()=>{if(track.muted)hide()},900)
+  track.onended=hide
+  if(!track.muted)show()
+}`;
+  const screenAttachNew=`function attachVoiceScreen(peerId,stream){
+  const track=stream?.getVideoTracks?.()[0];if(!track)return
+  const channelId=String(voiceChannel?.id||''),sessionId=voiceSessionId,pc=voicePeers.get(peerId)
+  const current=()=>!!voiceChannel&&String(voiceChannel.id)===channelId&&voiceSessionId===sessionId&&voicePeers.get(peerId)===pc
+  const show=()=>{if(!current()||track.readyState!=='live'||!screenWatchingByUser.has(peerId))return;ycClearScreenWatchTimer(peerId);screenWatchPendingByUser.delete(peerId);remoteScreenStreams.set(peerId,stream);renderScreenShareStage();renderVoiceChannels(voiceChannelDefs)}
+  const hide=()=>{if(!current()||remoteScreenStreams.get(peerId)!==stream)return;remoteScreenStreams.delete(peerId);if(screenWatchingByUser.has(peerId)&&(voiceScreenActiveByUser.has(peerId)||ycStreamInfo(peerId))){screenWatchPendingByUser.add(peerId);ycArmScreenWatch(peerId)}renderScreenShareStage();renderVoiceChannels(voiceChannelDefs)}
+  track.onunmute=show
+  track.onmute=()=>setTimeout(()=>{if(track.muted&&current()&&remoteScreenStreams.get(peerId)===stream)hide()},900)
+  track.onended=hide
+  if(!track.muted)show()
+}`;
+  if(html.includes(screenAttachOld))html=html.replace(screenAttachOld,screenAttachNew);
+  else if(!html.includes(screenAttachNew))throw Error('Remote screen track lifecycle boundary missing');
+
+  const freshnessOld="setInterval(()=>{let changed=false;for(const [uid,row] of [...ycCommunityStreams])if(!ycStreamPresenceFresh(row)){ycCommunityStreams.delete(uid);changed=true}if(changed)renderVoiceChannels(voiceChannelDefs)},10000)";
+  const freshnessNew="function ycStartCommunityStreamFreshnessTimer(){if(ycCommunityStreamFreshnessTimer)return;ycCommunityStreamFreshnessTimer=setInterval(()=>{let changed=false;for(const [uid,row] of [...ycCommunityStreams])if(!ycStreamPresenceFresh(row)){ycCommunityStreams.delete(uid);changed=true}if(changed)renderVoiceChannels(voiceChannelDefs)},10000)}\nfunction ycStopCommunityStreamFreshnessTimer(){if(ycCommunityStreamFreshnessTimer){clearInterval(ycCommunityStreamFreshnessTimer);ycCommunityStreamFreshnessTimer=null}}\nycOnLifecycle('init',ycStartCommunityStreamFreshnessTimer)\nycOnLifecycle('beforeAuth',ycStopCommunityStreamFreshnessTimer)";
+  if(!html.includes(freshnessOld))throw Error('Stream freshness timer boundary missing');
+  html=html.replace(freshnessOld,freshnessNew);
 
   if(html.includes(".on('postgres_changes',{event:'*',schema:'public',table:'community_stream_presence',filter:'community_id=eq.'+cid}"))
     throw Error('Global stream heartbeat UPDATE fanout remains');

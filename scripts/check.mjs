@@ -133,7 +133,9 @@ try{
  for(const marker of [
    "YC_IOS_VOICE_RESUME_KEY='yc_ios_voice_resume_v1'",
    "ycWebIsIosPwa",
-   "ycIosVoiceReconnect('visibility')",
+   "ycIosScheduleVoiceReconnect('visibility',220)",
+   "ycIosVoiceReconnectTimer",
+   "ycOnLifecycle('beforeAuth'",
    "ycOnLifecycle('community'",
    "leaveVoiceChannel(true)",
    "await joinVoiceChannel(channel)"

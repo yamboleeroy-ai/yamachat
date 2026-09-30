@@ -104,6 +104,7 @@ function ycMicTestSettingChanged(event){
 
  // Any voice track created/restarted while the test is active remains physically disabled.
  html=html.replaceAll('!voiceMuted&&!voiceDeafened','!voiceMuted&&!voiceDeafened&&!ycMicTestVoiceHold');
+ html=html.replaceAll('!voiceDeafened&&!voiceMuted','!voiceDeafened&&!voiceMuted&&!ycMicTestVoiceHold');
  html=html.replaceAll('muted=voiceMuted,deafened=voiceDeafened','muted=voiceMuted||ycMicTestVoiceHold,deafened=voiceDeafened');
  html=html.replaceAll('muted:voiceMuted,deafened:voiceDeafened','muted:voiceMuted||ycMicTestVoiceHold,deafened:voiceDeafened');
 

@@ -114,7 +114,7 @@ const YC_IOS_VOICE_RESUME_KEY='yc_ios_voice_resume_v1';
 const YC_IOS_VOICE_RESUME_TTL=15*60*1000;
 const ycWebIsIosDevice=()=>/iP(?:hone|ad|od)/i.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
 const ycWebIsIosPwa=()=>ycWebIsIosDevice()&&(navigator.standalone===true||matchMedia('(display-mode: standalone)').matches);
-let ycIosVoiceHiddenAt=0,ycIosVoiceReconnectBusy=false,ycIosVoiceReconnectPromise=null,ycIosVoiceReconnectLastAt=0;
+let ycIosVoiceHiddenAt=0,ycIosVoiceReconnectBusy=false,ycIosVoiceReconnectPromise=null,ycIosVoiceReconnectLastAt=0,ycIosVoiceReconnectTimer=null;
 function ycIosVoiceCommunityId(channel=voiceChannel){
   return String(channel?.community_id||channel?.communityId||currentCommunity?.id||'');
 }
@@ -138,6 +138,11 @@ function ycIosVoiceFindChannel(target){
   if(voiceChannel&&String(voiceChannel.id)===String(target.channelId))return voiceChannel;
   if(target.communityId&&currentCommunity?.id&&String(target.communityId)!==String(currentCommunity.id))return null;
   return (voiceChannelDefs||[]).find(ch=>String(ch.id)===String(target.channelId))||null;
+}
+function ycIosScheduleVoiceReconnect(reason='resume',delay=250){
+  if(!ycWebIsIosPwa())return;
+  if(ycIosVoiceReconnectTimer)clearTimeout(ycIosVoiceReconnectTimer);
+  ycIosVoiceReconnectTimer=setTimeout(()=>{ycIosVoiceReconnectTimer=null;void ycIosVoiceReconnect(reason)},Math.max(0,Number(delay)||0));
 }
 async function ycIosVoiceReconnect(reason='resume'){
   if(!ycWebIsIosPwa()||document.visibilityState!=='visible'||!user)return false;
@@ -199,14 +204,14 @@ leaveVoiceChannel=async function(...args){
 };
 document.addEventListener('visibilitychange',()=>{
   if(!ycWebIsIosPwa())return;
-  if(document.hidden){ycIosVoiceHiddenAt=Date.now();if(voiceChannel)ycIosVoiceSaveTarget(voiceChannel);return}
-  setTimeout(()=>void ycIosVoiceReconnect('visibility'),220);
+  if(document.hidden){if(ycIosVoiceReconnectTimer){clearTimeout(ycIosVoiceReconnectTimer);ycIosVoiceReconnectTimer=null}ycIosVoiceHiddenAt=Date.now();if(voiceChannel)ycIosVoiceSaveTarget(voiceChannel);return}
+  ycIosScheduleVoiceReconnect('visibility',220);
 });
-window.addEventListener('pageshow',()=>{if(ycWebIsIosPwa())setTimeout(()=>void ycIosVoiceReconnect('pageshow'),260)});
-window.addEventListener('focus',()=>{if(ycWebIsIosPwa())setTimeout(()=>void ycIosVoiceReconnect('focus'),320)});
-window.addEventListener('online',()=>{if(ycWebIsIosPwa())setTimeout(()=>void ycIosVoiceReconnect('online'),420)});
-ycOnLifecycle('community',()=>{if(ycWebIsIosPwa())setTimeout(()=>void ycIosVoiceReconnect('community'),500)});
-ycOnLifecycle('beforeAuth',()=>{if(ycWebIsIosPwa())ycIosVoiceClearTarget()});
+window.addEventListener('pageshow',()=>ycIosScheduleVoiceReconnect('pageshow',260));
+window.addEventListener('focus',()=>ycIosScheduleVoiceReconnect('focus',320));
+window.addEventListener('online',()=>ycIosScheduleVoiceReconnect('online',420));
+ycOnLifecycle('community',()=>ycIosScheduleVoiceReconnect('community',500));
+ycOnLifecycle('beforeAuth',()=>{if(ycIosVoiceReconnectTimer){clearTimeout(ycIosVoiceReconnectTimer);ycIosVoiceReconnectTimer=null}if(ycWebIsIosPwa())ycIosVoiceClearTarget()});
 ycOnLifecycle('init',()=>{if(!window.Capacitor?.isNativePlatform?.()&&('Notification' in window)&&Notification.permission==='granted')setTimeout(()=>void ycWebPushSync(false),900)});
 async function ycWebOpenLaunchNotificationTarget(){
  try{
@@ -232,7 +237,11 @@ ycOnLifecycle('init',()=>setTimeout(()=>void ycWebOpenLaunchNotificationTarget()
 
 async function ycWebSyncWakeLock(){if(!('wakeLock' in navigator))return;const needed=!!voiceChannel&&document.visibilityState==='visible';if(!needed){if(ycWebWakeLock){const lock=ycWebWakeLock;ycWebWakeLock=null;await lock.release().catch(()=>{})}return}if(ycWebWakeLock||ycWebWakePending)return;ycWebWakePending=true;try{const lock=await navigator.wakeLock.request('screen');ycWebWakeLock=lock;lock.addEventListener('release',()=>{if(ycWebWakeLock===lock)ycWebWakeLock=null});if(!voiceChannel||document.visibilityState!=='visible'){ycWebWakeLock=null;await lock.release()}}catch{}finally{ycWebWakePending=false}}
 document.addEventListener('visibilitychange',()=>void ycWebSyncWakeLock());
-setInterval(()=>{void ycWebSyncWakeLock();const count=window.__ycDesktopState?.().notificationUnreadCount||0;document.title=(count?'('+count+') ':'')+'Yamachat';try{if(count)navigator.setAppBadge?.(count)?.catch(()=>{});else navigator.clearAppBadge?.()?.catch(()=>{})}catch{}},3000);
+let ycWebUiPulseTimer=null;
+function ycWebUiPulse(){void ycWebSyncWakeLock();const count=window.__ycDesktopState?.().notificationUnreadCount||0;document.title=(count?'('+count+') ':'')+'Yamachat';try{if(count)navigator.setAppBadge?.(count)?.catch(()=>{});else navigator.clearAppBadge?.()?.catch(()=>{})}catch{}}
+function ycWebStartUiPulse(){if(ycWebUiPulseTimer)return;ycWebUiPulse();ycWebUiPulseTimer=setInterval(ycWebUiPulse,3000)}
+function ycWebStopUiPulse(){if(ycWebUiPulseTimer){clearInterval(ycWebUiPulseTimer);ycWebUiPulseTimer=null}}
+ycOnLifecycle('init',ycWebStartUiPulse);
 window.addEventListener('beforeunload',event=>{if(voiceChannel||screenShareActive){event.preventDefault();event.returnValue=''}});
-ycOnLifecycle('beforeAuth',()=>{void ycWebSyncWakeLock();navigator.clearAppBadge?.()?.catch(()=>{})});
+ycOnLifecycle('beforeAuth',()=>{ycWebStopUiPulse();document.title='Yamachat';void ycWebSyncWakeLock();navigator.clearAppBadge?.()?.catch(()=>{})});
 const ycWebInstallButton=document.createElement('button');ycWebInstallButton.type='button';ycWebInstallButton.className='ghost';ycWebInstallButton.dataset.ycWebInstall='';ycWebInstallButton.style.cssText='width:100%;margin-top:12px';ycWebInstallButton.textContent='Nainstalovat Yamachat';ycWebInstallButton.onclick=()=>void ycWebInstall();document.querySelector('.auth-card')?.appendChild(ycWebInstallButton);ycWebSyncInstallButtons();

@@ -28,6 +28,17 @@ for(const marker of [
 assert(!android.includes('AZURE_SPEECH_KEY'),'Azure Speech secret name must not be required by the Android client');
 assert(!shared.includes('YC_ANDROID_NATURAL_PREFIX'),'Android Natural TTS leaked into shared Capacitor bundle / iOS');
 assert(!source.includes('YC_ANDROID_NATURAL_PREFIX'),'Android Natural TTS leaked into generated Web/PWA source');
+assert(edge.includes("if(ycTtsRate.size>256)")&&edge.includes("ycTtsRate.delete(id)"),'TTS rate-limit memory must prune stale inactive users');
+assert(android.includes("if(!text||ycVoiceAnnounceMode()!=='speech'||voiceDeafened)"),'Android Natural TTS must respect deafen before starting');
+assert(android.includes('ycAndroidStopAnnouncementsBase=window.YamachatStopVoiceAnnouncements'),'Android Natural audio must extend the shared deafen cleanup');
+assert(android.includes("if(voiceDeafened){finish();return null}"),'Android Natural TTS must re-check deafen around async synthesis');
+assert(android.includes("if(ycAndroidNaturalState!=='ready'){ycAndroidNaturalState='loading';fillVoices()}await ycAndroidNaturalVoiceLoad()"),'Android Natural voice list must reuse the ready cache when settings reopen');
+assert(!android.includes("const loadNatural=async()=>{ycAndroidNaturalState='loading';fillVoices();await ycAndroidNaturalVoiceLoad()"),'Android settings must not force a Natural voice refetch when already ready');
+assert(android.includes("if(audio){ycAndroidNaturalPlayers.delete(audio);try{audio.pause()}catch{}}"),'Failed Android Natural playback must release its tracked audio object');
+assert(android.includes("if(!ycVoiceAvailableVoices().length)try{speechSynthesis?.addEventListener?.('voiceschanged',fillVoices,{once:true})}"),'Android settings must not add a stale voiceschanged listener when voices are already loaded');
+assert(android.includes("ycAndroidNaturalQueue=Promise.resolve(),ycAndroidNaturalQueueGeneration=0,ycAndroidNaturalQueued=0"),'Android Natural TTS must use a serialized bounded queue');
+assert(android.includes("if(ycAndroidNaturalQueued>=16)"),'Android Natural TTS queue must be bounded during join/leave bursts');
+assert(android.includes("++ycAndroidNaturalQueueGeneration"),'Android deafen/announcement cleanup must invalidate queued Natural requests');
 
 for(const marker of [
   "Deno.env.get('AZURE_SPEECH_KEY')",

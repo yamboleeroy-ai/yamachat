@@ -46,7 +46,7 @@ for(const marker of parityMarkers){
 
 for(const [name,source] of [['Windows',desktop],['Web/PWA',web],['Android/iOS',mobile]]){
   for(const marker of [
-    "filter:'to_user=eq.'+user.id",
+    "filter:'to_user=eq.'+uid",
     "payload.from_session&&sender?.session_id&&payload.from_session!==sender.session_id",
     "String(user.id)<String(p.user_id)",
     "iceTransportPolicy:'all'",
@@ -61,6 +61,7 @@ for(const [name,source] of [['Windows',desktop],['Web/PWA',web],['Android/iOS',m
     "function ycStartRemoteVoiceActivityDetector(peerId,stream)",
     "lt('created_at',stale)",
     "gt('created_at',recent)",
+    "voiceSignalSub===sub&&String(user?.id||'')===uid",
     "void recoverVoiceSignals()",
     "yamachat-turn-cloudflare"
   ]) assert(source.includes(marker),name+' missing interoperability marker: '+marker);

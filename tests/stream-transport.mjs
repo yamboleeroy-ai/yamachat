@@ -18,16 +18,24 @@ function section(source,name){
   const schedule=rest.search(/^setInterval\(/m);
   if(schedule>0)end=Math.min(end,schedule);
  }
- return rest.slice(0,end).replaceAll('ycSyncStreamViewer','renderScreenShareStage').trim();
+ let out=rest.slice(0,end).replaceAll('ycSyncStreamViewer','renderScreenShareStage').trim();
+ if(name==='voicePeer')out=out.replaceAll("setTimeout(()=>{if(voicePeers.get(peerId)===pc&&(pc.connectionState==='failed'||pc.iceConnectionState==='failed'))restartVoicePeer(peerId)},350)","setTimeout(()=>restartVoicePeer(peerId),350)");
+ return out;
 }
 for(const [name,before,after] of [['web',baseline,fs.readFileSync('index.html','utf8')],['desktop',desktop,fs.readFileSync('desktop/desktop-client.html','utf8')]]){
  for(const fn of functions){
-  if(fn==='stopScreenShare'||(name==='desktop'&&fn==='attachVoiceAudio'))continue;
+  if(fn==='stopScreenShare'||fn==='ycEnsureScreenAudio'||(name==='desktop'&&fn==='attachVoiceAudio'))continue;
   assert.equal(section(after,fn),section(before,fn),name+' transport changed: '+fn);
  }
+ assert.equal((after.match(/voicePeers\.get\(peerId\)===pc&&\(pc\.connectionState==='failed'\|\|pc\.iceConnectionState==='failed'\)/g)||[]).length,2,name+' failed reconnect timers must reject stale replacement peers');
  const stop=section(after,'stopScreenShare');
  assert(stop.includes("const ownerUserId=user?.id"),name+' stop must capture the stream owner before async cleanup');
  assert(stop.includes("await ycStopGlobalStreamPresence(ownerUserId)"),name+' stop must await serialized stream-presence cleanup');
+ const ensure=section(after,'ycEnsureScreenAudio');
+ for(const marker of ["ycWrapScreenAudioPc(peerId,pc)","pc.addTrack(track,streamRef)","await sender.replaceTrack(track)","await sender.replaceTrack(null)","ycScheduleScreenAudioNegotiation(peerId)"])assert(ensure.includes(marker),name+' screen-audio transport missing '+marker);
+ assert(ensure.includes("const generation=ycScreenAudioGeneration,streamRef=screenShareStream"),name+' screen-audio recovery must capture generation and stream');
+ assert(ensure.includes("if(generation!==ycScreenAudioGeneration)return"),name+' stale screen-audio recovery must abort after reset/restart');
+
  if(name==='desktop'){
   assert(stop.includes("if(typeof ycResetScreenAudioSenders==='function')await ycResetScreenAudioSenders()"),'desktop stop must retire stale stream-audio sender');
   assert(after.includes('async function ycResetScreenAudioSenders()'),'desktop fresh screen-audio transceiver helper missing');

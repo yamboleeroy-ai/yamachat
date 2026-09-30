@@ -79,14 +79,29 @@ async function ycPlayVoiceFileCue(action,onDone){
  }catch(e){finish();console.warn('voice join/leave cue',e);return null}
 }
 function ycVoiceSpeakEnhanced(text,onDone){
- if(!text||ycVoiceAnnounceMode()!=='speech'||!('speechSynthesis' in window)){try{onDone?.()}catch{};return null}
+ if(!text||ycVoiceAnnounceMode()!=='speech'||voiceDeafened||!('speechSynthesis' in window)){try{onDone?.()}catch{};return null}
  try{
   const u=new SpeechSynthesisUtterance(text),voices=ycVoiceAvailableVoices(),selected=ycVoiceSelectedVoice(voices);
   u.voice=selected;u.lang=selected?.lang||'cs-CZ';u.rate=1;u.pitch=1;u.volume=.94;
-  if(onDone){let done=false;const finish=()=>{if(done)return;done=true;try{onDone()}catch{}};u.onend=finish;u.onerror=finish;setTimeout(finish,5200)}
+  if(onDone){let done=false,timer=0;const finish=()=>{if(done)return;done=true;clearTimeout(timer);try{onDone()}catch{}};u.onend=finish;u.onerror=finish;timer=setTimeout(finish,5200)}
   speechSynthesis.speak(u);return u;
  }catch(e){try{onDone?.()}catch{};console.warn('voice participant TTS',e);return null}
 }
+function ycStopVoiceAnnouncementAudio(){
+ try{speechSynthesis?.cancel?.()}catch{}
+ for(const audio of [...ycVoiceCuePlayers]){
+  try{audio.pause();audio.onended?.()}catch{}
+  ycVoiceCuePlayers.delete(audio);
+ }
+}
+window.YamachatStopVoiceAnnouncements=ycStopVoiceAnnouncementAudio;
+const ycVoiceExperienceBaseToggleDeafen=toggleVoiceDeafen;
+toggleVoiceDeafen=async function(...args){
+ const out=await ycVoiceExperienceBaseToggleDeafen.apply(this,args);
+ if(voiceDeafened)window.YamachatStopVoiceAnnouncements?.();
+ return out;
+}
+
 function ycVoiceParticipantAnnouncement(row,action){
  try{
   if(!row)return;
@@ -108,7 +123,7 @@ function ycVoiceAnnounceOnce(row,action){
   const uid=String(row?.user_id||'');const channel=String(row?.channel_id||voiceChannel?.id||'');if(!uid||!channel)return;
   const key=action+'|'+channel+'|'+uid,now=Date.now(),last=Number(ycVoiceAnnouncementDedup.get(key)||0);
   if(now-last<6000)return;ycVoiceAnnouncementDedup.set(key,now);
-  if(ycVoiceAnnouncementDedup.size>120)for(const [k,ts] of ycVoiceAnnouncementDedup)if(now-ts>15000)ycVoiceAnnouncementDedup.delete(k);
+  if(ycVoiceAnnouncementDedup.size>120){for(const [k,ts] of [...ycVoiceAnnouncementDedup])if(now-ts>15000)ycVoiceAnnouncementDedup.delete(k);while(ycVoiceAnnouncementDedup.size>512)ycVoiceAnnouncementDedup.delete(ycVoiceAnnouncementDedup.keys().next().value)}
   ycVoiceParticipantAnnouncement({...row,channel_id:channel},action);
  }catch(e){console.warn('voice announcement dedup',e)}
 }
@@ -182,7 +197,7 @@ function ycBindVoiceExperienceSettings(root){
 
  };
  genderSelect.onchange=()=>{localStorage.setItem(YC_VOICE_GENDER_KEY,genderSelect.value);fillVoices()};
- fillVoices();try{speechSynthesis?.addEventListener?.('voiceschanged',fillVoices,{once:true})}catch{}
+ fillVoices();if(!ycVoiceAvailableVoices().length)try{speechSynthesis?.addEventListener?.('voiceschanged',fillVoices,{once:true})}catch{}
  mode.onchange=()=>{localStorage.setItem(YC_VOICE_ANNOUNCE_MODE_KEY,mode.value);syncVisibility()};
  voiceSelect.onchange=()=>{localStorage.setItem(YC_VOICE_ANNOUNCE_VOICE_KEY,voiceSelect.value);fillVoices()};
  const sb=root.querySelector('#ycSoundboardVolumeRange'),sbv=root.querySelector('#ycSoundboardVolumeValue');
@@ -326,13 +341,44 @@ export function withVoiceExperience(html){
  if(!html.includes(oldRefresh))throw Error('Voice participant refresh boundary missing');
  html=html.replace(oldRefresh,newRefresh);
 
+
+ // Release short Web Audio nodes deterministically and bound decoded custom-sound memory.
+ const sbStateOld="soundboardBuffers=new Map(),soundboardLastPlay=0";
+ const sbStateNew="soundboardBuffers=new Map(),soundboardBufferLoads=new Map(),soundboardLastPlay=0";
+ if(!html.includes(sbStateOld))throw Error('Soundboard buffer state boundary missing');
+ html=html.replace(sbStateOld,sbStateNew);
+ const unlockOld="function unlockVoiceAudio(){try{const C=window.AudioContext||window.webkitAudioContext;if(!C)return;if(!voiceAudioContext)voiceAudioContext=new C();voiceAudioContext.resume().catch(()=>{});const g=voiceAudioContext.createGain();g.gain.value=0;const o=voiceAudioContext.createOscillator();o.connect(g).connect(voiceAudioContext.destination);o.start();o.stop(voiceAudioContext.currentTime+.03);if(voiceOutputId&&typeof voiceAudioContext.setSinkId==='function')voiceAudioContext.setSinkId(voiceOutputId).catch(()=>{})}catch{}}";
+ const unlockNew="function ycReleaseShortAudioNodes(source,gain){if(!source)return;source.onended=()=>{try{source.disconnect()}catch{}try{gain?.disconnect()}catch{}}} function unlockVoiceAudio(){try{const C=window.AudioContext||window.webkitAudioContext;if(!C)return;if(!voiceAudioContext)voiceAudioContext=new C();voiceAudioContext.resume().catch(()=>{});const g=voiceAudioContext.createGain();g.gain.value=0;const o=voiceAudioContext.createOscillator();o.connect(g).connect(voiceAudioContext.destination);ycReleaseShortAudioNodes(o,g);o.start();o.stop(voiceAudioContext.currentTime+.03);if(voiceOutputId&&typeof voiceAudioContext.setSinkId==='function')voiceAudioContext.setSinkId(voiceOutputId).catch(()=>{})}catch{}}";
+ if(!html.includes(unlockOld))throw Error('Voice audio unlock boundary missing');
+ html=html.replace(unlockOld,unlockNew);
+ html=html.replace("o.connect(g).connect(ctx.destination);o.start(now+delay);o.stop(now+delay+dur+.02)","o.connect(g).connect(ctx.destination);ycReleaseShortAudioNodes(o,g);o.start(now+delay);o.stop(now+delay+dur+.02)");
+ html=html.replace("o.connect(g).connect(ctx.destination);o.start(now+start);o.stop(now+start+dur+.03)","o.connect(g).connect(ctx.destination);ycReleaseShortAudioNodes(o,g);o.start(now+start);o.stop(now+start+dur+.03)");
+ const getBufferOld="async function getSoundboardBuffer(sound){if(soundboardBuffers.has(sound.id))return soundboardBuffers.get(sound.id);const {data,error}=await sb.storage.from('soundboard').createSignedUrl(sound.storage_path,3600);if(error||!data?.signedUrl)throw error||new Error('Zvuk není dostupný');unlockVoiceAudio();const res=await fetch(data.signedUrl);const arr=await res.arrayBuffer();const buf=await voiceAudioContext.decodeAudioData(arr.slice(0));soundboardBuffers.set(sound.id,buf);return buf}";
+ const getBufferNew="function ycSoundboardBufferGet(id){if(!soundboardBuffers.has(id))return null;const buf=soundboardBuffers.get(id);soundboardBuffers.delete(id);soundboardBuffers.set(id,buf);return buf} async function getSoundboardBuffer(sound){const id=String(sound?.id||'');if(!id)throw new Error('Zvuk není dostupný');const cached=ycSoundboardBufferGet(id);if(cached)return cached;if(soundboardBufferLoads.has(id))return soundboardBufferLoads.get(id);const task=(async()=>{const {data,error}=await sb.storage.from('soundboard').createSignedUrl(sound.storage_path,3600);if(error||!data?.signedUrl)throw error||new Error('Zvuk není dostupný');unlockVoiceAudio();const res=await fetch(data.signedUrl);if(!res.ok)throw new Error('Zvuk se nepodařilo stáhnout');const arr=await res.arrayBuffer(),buf=await voiceAudioContext.decodeAudioData(arr.slice(0));soundboardBuffers.set(id,buf);while(soundboardBuffers.size>24)soundboardBuffers.delete(soundboardBuffers.keys().next().value);return buf})();soundboardBufferLoads.set(id,task);try{return await task}finally{if(soundboardBufferLoads.get(id)===task)soundboardBufferLoads.delete(id)}}";
+ if(!html.includes(getBufferOld))throw Error('Soundboard buffer loader boundary missing');
+ html=html.replace(getBufferOld,getBufferNew);
+ html=html.replace("src.buffer=buf;src.connect(g).connect(voiceAudioContext.destination);src.start()","src.buffer=buf;src.connect(g).connect(voiceAudioContext.destination);ycReleaseShortAudioNodes(src,g);src.start()");
+
+ const soundboardSubOld="async function subscribeSoundboardEvents(){if(!voiceChannel)return;if(soundboardSub){sb.removeChannel(soundboardSub);soundboardSub=null}const cid=voiceChannel.id;soundboardSub=sb.channel('yc-soundboard-'+cid+'-'+Date.now()).on('postgres_changes',{event:'INSERT',schema:'public',table:'soundboard_events',filter:'channel_id=eq.'+cid},({new:row})=>handleSoundboardEvent(row)).subscribe()}\nfunction cleanupSoundboardVoice(){if(soundboardSub){sb.removeChannel(soundboardSub);soundboardSub=null}soundboardEventSeen.clear()}";
+ const soundboardSubNew="async function subscribeSoundboardEvents(){const old=soundboardSub;soundboardSub=null;if(old)try{await sb.removeChannel(old)}catch{};if(!voiceChannel)return;const cid=String(voiceChannel.id||''),sessionId=String(voiceSessionId||''),uid=String(user?.id||'');if(!cid||!uid)return;const sub=sb.channel('yc-soundboard-'+cid+'-'+Date.now()).on('postgres_changes',{event:'INSERT',schema:'public',table:'soundboard_events',filter:'channel_id=eq.'+cid},({new:row})=>{if(soundboardSub!==sub||String(user?.id||'')!==uid||String(voiceChannel?.id||'')!==cid||String(voiceSessionId||'')!==sessionId)return;void handleSoundboardEvent(row)});if(String(user?.id||'')!==uid||String(voiceChannel?.id||'')!==cid||String(voiceSessionId||'')!==sessionId){try{await sb.removeChannel(sub)}catch{};return}soundboardSub=sub;sub.subscribe(status=>{if(soundboardSub!==sub||String(user?.id||'')!==uid||String(voiceChannel?.id||'')!==cid||String(voiceSessionId||'')!==sessionId)return;if(['CHANNEL_ERROR','TIMED_OUT','CLOSED'].includes(status)){soundboardSub=null;try{void sb.removeChannel(sub)}catch{}}})}\nfunction cleanupSoundboardVoice(){const sub=soundboardSub;soundboardSub=null;if(sub)try{void sb.removeChannel(sub)}catch{}soundboardEventSeen.clear()}";
+ if(!html.includes(soundboardSubOld))throw Error('Soundboard subscription lifecycle boundary missing');
+ html=html.replace(soundboardSubOld,soundboardSubNew);
+
  // Soundboard global volume + per-sender mute, while preserving existing presets/custom loading.
  html=html.replace("function playPresetSound(key){","function playPresetSound(key,gainScale=1){");
  html=html.replace("g.gain.exponentialRampToValueAtTime(gain,now+start+.015);","g.gain.exponentialRampToValueAtTime(gain*Math.max(0,Number(gainScale)||0),now+start+.015);");
  html=html.replace("async function playCustomSound(soundId){","async function playCustomSound(soundId,gainScale=1){");
  html=html.replace("g.gain.value=.72;src.buffer=buf;","g.gain.value=.72*Math.max(0,Number(gainScale)||0);src.buffer=buf;");
+ const staleSoundOld="async function playCustomSound(soundId,gainScale=1){if(voiceDeafened)return;let sound=soundboardSounds.find(s=>s.id===soundId);";
+ const staleSoundNew="async function playCustomSound(soundId,gainScale=1){if(voiceDeafened||!voiceChannel)return;const ycSoundRoomId=String(voiceChannel.id||''),ycSoundSessionId=String(voiceSessionId||'');let sound=soundboardSounds.find(s=>s.id===soundId);";
+ if(!html.includes(staleSoundOld))throw Error('Soundboard async room guard boundary missing');
+ html=html.replace(staleSoundOld,staleSoundNew);
+ const staleLookupOld="sound=data;if(sound)soundboardSounds.push(sound)}if(!sound)return;try{const buf=await getSoundboardBuffer(sound);unlockVoiceAudio();";
+ const staleLookupNew="if(String(voiceChannel?.id||'')!==ycSoundRoomId||String(voiceSessionId||'')!==ycSoundSessionId||voiceDeafened)return;sound=data;if(sound)soundboardSounds.push(sound)}if(!sound)return;try{const buf=await getSoundboardBuffer(sound);if(String(voiceChannel?.id||'')!==ycSoundRoomId||String(voiceSessionId||'')!==ycSoundSessionId||voiceDeafened)return;unlockVoiceAudio();";
+ if(!html.includes(staleLookupOld))throw Error('Soundboard async playback guard boundary missing');
+ html=html.replace(staleLookupOld,staleLookupNew);
  const oldHandle="async function handleSoundboardEvent(row){if(!row||!voiceChannel||row.channel_id!==voiceChannel.id||soundboardEventSeen.has(row.id))return;soundboardEventSeen.add(row.id);if(soundboardEventSeen.size>300)soundboardEventSeen.clear();if(row.sound_key)playPresetSound(row.sound_key);else if(row.sound_id)await playCustomSound(row.sound_id)}";
- const newHandle="async function handleSoundboardEvent(row){if(!row||!voiceChannel||row.channel_id!==voiceChannel.id||soundboardEventSeen.has(row.id))return;soundboardEventSeen.add(row.id);if(soundboardEventSeen.size>300)soundboardEventSeen.clear();const scale=ycSoundboardScaleFor(row.user_id);if(scale<=0)return;if(row.sound_key)playPresetSound(row.sound_key,scale);else if(row.sound_id)await playCustomSound(row.sound_id,scale)}";
+ const newHandle="async function handleSoundboardEvent(row){if(!row||!voiceChannel||row.channel_id!==voiceChannel.id||soundboardEventSeen.has(row.id))return;soundboardEventSeen.add(row.id);if(soundboardEventSeen.size>300)while(soundboardEventSeen.size>200)soundboardEventSeen.delete(soundboardEventSeen.values().next().value);const scale=ycSoundboardScaleFor(row.user_id);if(scale<=0)return;if(row.sound_key)playPresetSound(row.sound_key,scale);else if(row.sound_id)await playCustomSound(row.sound_id,scale)}";
  if(!html.includes(oldHandle))throw Error('Soundboard event boundary missing');
  html=html.replace(oldHandle,newHandle);
  html=html.replace("if(soundKey)playPresetSound(soundKey);else if(soundId)void playCustomSound(soundId);","const ycSbScale=ycSoundboardScaleFor(user?.id);if(soundKey)playPresetSound(soundKey,ycSbScale);else if(soundId)void playCustomSound(soundId,ycSbScale);");

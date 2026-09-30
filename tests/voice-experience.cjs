@@ -19,6 +19,16 @@ for(const forbidden of ['leaveVoiceChannel(','ycRequestVoiceDisconnect(','cleanu
 assert(html.includes("String(voiceChannel?.id||'')].filter(Boolean)"),'Joined voice room must remain included in batched roster refresh while browsing another server');
 assert(html.includes("function subscribeVoiceParticipants(){const id=voiceChannel?.id?String(voiceChannel.id):''"),'Active voice participant subscription must follow the joined room, not the browsed server');
 assert(html.includes("if(!voiceSignalSub||!voiceSignalReady)void subscribeVoiceSignals().catch(e=>console.warn('voice signal reconnect',e))"),'Targeted signaling must recover independently of the visible community');
+assert(html.includes('voiceSignalRecoverPromise=null'),'Voice signal recovery overlap guard state missing');
+assert(html.includes("String(row.to_user||'')!==String(user.id)"),'Recovered/realtime voice signals must be addressed to the current account');
+assert(html.includes("voiceSignalRecoverPromise=task"),'Voice signal recovery requests must coalesce');
+assert(html.includes("voiceSignalRecoverPromise=null;voiceSignalReady=false"),'Stopping signals must release an old-account recovery task');
+assert(html.includes("if(voiceSignalSeen.size>600)while(voiceSignalSeen.size>400)"),'Voice signal dedup must prune oldest ids instead of clearing all recent history');
+assert(html.includes("if(q.length>128)q.splice(0,q.length-128)"),'Pre-SDP ICE queue must remain bounded per peer');
+assert(html.includes("!q.some(c=>String(c?.candidate||'')===key)"),'Pre-SDP ICE candidates must be deduplicated');
+assert(html.includes('voiceRouteCheckFastTimer=null,voiceRouteCheckSlowTimer=null'),'Voice route diagnostics must coalesce peer connection bursts');
+assert(html.includes('function stopVoiceRouteChecks()'),'Pending voice route diagnostics must be cancellable on disconnect');
+assert(html.includes("if(soundboardEventSeen.size>300)while(soundboardEventSeen.size>200)"),'Soundboard dedup must keep recent ids instead of clearing all history');
 assert(html.includes('function ycVoiceCommunityId()'),'Independent voice community context missing');
 assert(html.includes("const ycVoiceCid=ycVoiceCommunityId();"),'Soundboard must load from voice community context');
 assert(html.includes("String(currentCommunity.id)===ycVoiceCommunityId()"),'Soundboard admin actions must stay on the joined voice server');
@@ -28,12 +38,25 @@ if(!isDesktop){
  assert(html.includes("function ycIosVoiceCommunityId(channel=voiceChannel)"),'iOS PWA voice target must track the joined channel community');
  assert(html.includes("communityId:ycIosVoiceCommunityId(channel)"),'iOS PWA saved voice target must not use the browsed community');
  assert(html.includes("communityId:ycIosVoiceCommunityId(live)"),'iOS PWA live reconnect target must not use the browsed community');
+ assert(html.includes('ycIosVoiceReconnectTimer=null'),'iOS PWA reconnect debounce state missing');
+ assert(html.includes("function ycIosScheduleVoiceReconnect(reason='resume',delay=250)"),'iOS PWA reconnect scheduler missing');
+ assert(html.includes("ycIosScheduleVoiceReconnect('visibility',220)"),'iOS PWA visibility reconnect must use the shared scheduler');
+ assert(html.includes("ycIosScheduleVoiceReconnect('pageshow',260)"),'iOS PWA pageshow reconnect must use the shared scheduler');
+ assert(html.includes("ycIosScheduleVoiceReconnect('focus',320)"),'iOS PWA focus reconnect must use the shared scheduler');
+ assert(html.includes("ycIosScheduleVoiceReconnect('online',420)"),'iOS PWA online reconnect must use the shared scheduler');
+ assert(html.includes("ycIosScheduleVoiceReconnect('community',500)"),'iOS PWA community reconnect must use the shared scheduler');
+ assert(!html.includes("setTimeout(()=>void ycIosVoiceReconnect('visibility')"),'Parallel iOS reconnect timeouts must not return');
  const findLive=html.indexOf("if(voiceChannel&&String(voiceChannel.id)===String(target.channelId))return voiceChannel;");
  const rejectOther=html.indexOf("if(target.communityId&&currentCommunity?.id&&String(target.communityId)!==String(currentCommunity.id))return null;");
  assert(findLive>=0&&rejectOther>findLive,'iOS PWA must prefer the still-live voice channel before rejecting a different browsed community');
 }
 assert(html.includes("const YC_VOICE_HEARTBEAT_MS=15000,YC_VOICE_TTL_MS=60000,YC_VOICE_ROSTER_MS=20000"),'Voice lease timing must be scale-safe');
 assert(html.includes("let voiceRosterRefreshDelay=0,voiceRosterContextKey=''"),'Voice roster scheduler state missing');
+assert(html.includes('voiceRosterGeneration=0'),'Voice roster generation guard state missing');
+assert(html.includes("if(generation!==voiceRosterGeneration||String(user?.id||'')!==uid)return"),'Stale voice roster results must be discarded after auth/context changes');
+assert(html.includes("if(contextChanged){++voiceRosterGeneration;voiceRosterRefreshBusy=null;voiceRosterLastRefresh=0}"),'Changing roster context must invalidate the previous in-flight query');
+assert(html.includes("function stopVoiceRosterRefresh(){++voiceRosterGeneration;voiceRosterRefreshBusy=null;voiceRosterLastRefresh=0"),'Logout cleanup must invalidate in-flight voice roster work');
+assert(html.includes("const clear=()=>{if(voiceRosterRefreshBusy===task)voiceRosterRefreshBusy=null};task.then(clear,clear)"),'Old roster completion must not clear a newer in-flight task');
 assert(html.includes("const delay=voiceChannel?YC_VOICE_HEARTBEAT_MS:YC_VOICE_ROSTER_MS"),'Voice roster scheduler must use one active/idle cadence');
 assert(html.includes("voiceRosterRefreshTimer=setTimeout(async()=>"),'Voice roster scheduler must use one self-rescheduling timeout');
 assert(html.includes("if(contextChanged)void refreshVoiceRosterSet(defs)"),'Unchanged channel renders must not refetch the whole voice roster');
@@ -51,6 +74,56 @@ assert(html.includes("if(ycVoiceParticipantSyncBusy)return ycVoiceParticipantSyn
 assert(html.includes("while(ycVoiceParticipantSyncDirty)"),'Participant sync must flush only the latest dirty state');
 assert(!html.includes("ycVoiceParticipantSyncQueue=ycVoiceParticipantSyncQueue.catch(()=>{}).then(run)"),'Unbounded participant RPC queue must not return');
 assert(html.includes("if(!voiceSignalSub||!voiceSignalReady)void subscribeVoiceSignals().catch(e=>console.warn('voice signal reconnect',e))"),'Voice heartbeat must recreate a dead targeted signal subscription');
+assert(html.includes('voiceSignalRecoverPromise=null'),'Voice signal recovery must have one coalesced in-flight task');
+assert(html.includes("String(row.to_user||'')!==String(user.id)"),'Recovered voice signals must never cross into a different authenticated account');
+assert(html.includes('if(voiceSignalRecoverPromise)return voiceSignalRecoverPromise'),'Concurrent voice signal recovery scans must coalesce');
+assert(html.includes("if(!key||!q.some(c=>String(c?.candidate||'')===key))"),'Queued ICE candidates must be deduplicated');
+assert(html.includes('if(q.length>128)q.splice(0,q.length-128)'),'ICE candidate queues must have a hard per-peer bound');
+assert(html.includes('let voiceRouteCheckFastTimer=null,voiceRouteCheckSlowTimer=null'),'Voice route diagnostics must coalesce timers');
+assert(html.includes('function stopVoiceRouteChecks()'),'Voice route diagnostic timers need an explicit cleanup path');
+assert.equal((html.match(/voicePeers\.get\(peerId\)===pc&&\(pc\.connectionState==='failed'\|\|pc\.iceConnectionState==='failed'\)/g)||[]).length,2,'Both failed-state reconnect timers must belong to the peer that scheduled them');
+assert(html.includes("if(cur===pc&&cur.connectionState!=='connected'&&!cur.remoteDescription"),'Delayed offer retry must never close a replacement peer');
+if(isDesktop){
+ assert(html.includes("const roomId=String(voiceChannel?.id||''),sessionId=String(voiceSessionId||'')"),'Background microphone recovery must capture the originating voice session');
+ assert(html.includes("if(!ycVoiceActive()||String(voiceChannel?.id||'')!==roomId||String(voiceSessionId||'')!==sessionId)return"),'Background microphone recovery must stop after a voice-session change');
+}
+assert(html.includes("if(ycMentionSub===sub&&String(user?.id||'')===uid)void ycRefreshNotificationCenter()"),'Mention realtime events must stay bound to their account subscription');
+assert(html.includes("if(ycReactionSub!==sub||String(user?.id||'')!==uid)return"),'Reaction realtime events must stay bound to their account subscription');
+assert(html.includes("if(ycAccountMessagesSub!==sub||String(user?.id||'')!==uid)return"),'Account-message realtime events must stay bound to their account subscription');
+assert(html.includes("if(ycReportSub!==sub||String(user?.id||'')!==uid)return"),'Admin report realtime events must stay bound to their account subscription');
+assert(html.includes("if(ycFeedbackSub!==sub||String(user?.id||'')!==uid)return"),'Admin feedback realtime events must stay bound to their account subscription');
+assert(html.includes("const channelId=String(voiceChannel?.id||''),sessionId=voiceSessionId,pc=voicePeers.get(peerId)"),'Remote screen callbacks must capture their voice peer/session');
+assert(html.includes("voiceSessionId===sessionId&&voicePeers.get(peerId)===pc"),'Remote screen callbacks must reject replacement peers/sessions');
+assert(html.includes("track.muted&&current()&&remoteScreenStreams.get(peerId)===stream"),'Delayed remote screen mute callback must not hide a replacement stream');
+assert(html.includes("const channelId=String(voiceChannel.id||''),sessionId=voiceSessionId,uid=String(user?.id||'')"),'Screen share startup must capture its originating account and voice session');
+assert(html.includes("startEpoch===ycScreenShareStartEpoch"),'Screen share startup must reject superseded starts');
+assert(html.includes("if(!current()){discard(stream);return}"),'Screen share selected after leaving voice must be discarded');
+if(isDesktop)assert(html.includes("if(!current()){discard(stream);await ycStopDesktopProcessAudio();return}"),'Desktop process-audio preparation must abort after a voice-session change');
+assert(html.includes("screenShareStream!==stream||!screenShareActive"),'Screen share startup must reject a stream superseded while awaiting audio setup');
+assert(html.includes("select('event_key,read_at').eq('user_id',user.id).order('read_at',{ascending:false}).limit(500)"),'Notification read-key cache must stay bounded to recent rows');
+assert(html.includes("screenShareActive=false,ycScreenShareStartEpoch=0,ycScreenShareStopPromise=Promise.resolve()"),'Screen share lifecycle must keep a serialized stop/start barrier');
+assert(html.includes("try{await ycScreenShareStopPromise}catch{}"),'A new screen share must wait for the previous stop cleanup');
+assert(html.includes("const startEpoch=++ycScreenShareStartEpoch"),'Screen share startup must invalidate older pending capture dialogs');
+assert(html.includes("++ycScreenShareStartEpoch"),'Stopping a screen share must invalidate pending starts');
+assert(html.includes("++ycScreenAudioGeneration"),'Stopping/resetting screen audio must invalidate stale recovery work');
+assert(html.includes("ycScreenShareStopPromise=task.catch"),'Screen share stop cleanup must be serialized before a restart');
+assert(html.includes("let ycScreenAudioBusy=false,ycScreenAudioGeneration=0"),'Screen audio recovery needs a generation guard');
+assert(html.includes("++ycScreenAudioGeneration"),'Resetting screen audio senders must invalidate stale recovery work');
+assert(html.includes("const generation=ycScreenAudioGeneration,streamRef=screenShareStream"),'Screen audio recovery must capture its stream generation');
+assert(html.includes("if(generation!==ycScreenAudioGeneration)return"),'Stale screen audio recovery must abort after reset/restart');
+
+assert(html.includes("let ycPresenceListenersInstalled=false,ycPresenceStartupTimer=null"),'Presence input listeners must be installed only once while timers can restart');
+assert(html.includes("function ycStopPresenceTimers()"),'Presence polling timers need an auth cleanup path');
+assert(html.includes("ycOnLifecycle('beforeAuth',()=>{ycStopPresenceTimers();void ycStopPresenceRealtime()})"),'Signing out must stop presence polling timers');
+assert(html.includes("soundboardSub!==sub||String(user?.id||'')!==uid||String(voiceChannel?.id||'')!==cid||String(voiceSessionId||'')!==sessionId"),'Soundboard realtime events must stay bound to their voice session');
+
+
+assert(html.includes("ycScreenShareStartEpoch=0,ycScreenShareStopPromise=Promise.resolve()"),'Screen share restart must have lifecycle serialization state');
+assert(html.includes("try{await ycScreenShareStopPromise}catch{}"),'A new screen share must wait for prior stop cleanup');
+assert(html.includes("++ycScreenShareStartEpoch"),'Stopping a screen share must invalidate pending starts');
+assert(html.includes("return ycScreenShareStopPromise"),'Repeated screen-share stop must join existing cleanup');
+assert(html.includes("window.__ycScreenAudioTrackHooks=window.__ycScreenAudioTrackHooks||new WeakSet()"),'Screen audio track listeners must be deduplicated');
+assert(html.includes("window.__ycScreenAudioTracks.get(peerId)!==track"),'Delayed screen-audio mute callbacks must reject replacement tracks');
 assert(html.includes("['CHANNEL_ERROR','TIMED_OUT','CLOSED'].includes(status)"),'Realtime subscriptions must recover from CLOSED/error channels');
 assert(!html.includes("config:{presence:{key:user.id}"),'Voice must not depend on Supabase Presence');
 assert(!html.includes(".on('presence'"),'Voice must not subscribe to Supabase Presence events');
@@ -140,6 +213,7 @@ assert(html.includes("ycVoiceDiffAnnouncements(id,before,after)"),'Participant d
 assert(html.includes("function ycVoiceHandleAnnouncement(payload){\n  if(window.__ycVoiceParticipantAnnouncements)return;"),'Legacy broadcast TTS path is not suppressed');
 assert(!html.includes("function ycVoiceSpeakPerson(row,action){")||html.includes("function ycVoiceSpeakPerson(row,action){\n  if(window.__ycVoiceParticipantAnnouncements)return;"),'Legacy participant TTS path must be absent or suppressed');
 assert(html.includes("if(now-last<6000)return"),'Voice announcement duplicate guard is too short or missing');
+assert(html.includes("while(ycVoiceAnnouncementDedup.size>512)"),'Voice announcement dedup memory must have a hard cap');
 assert(html.includes("row.username||cached?.username||cached?.display_name||'Uživatel'"),'Voice announcement username/fallback source missing');
 assert(html.includes("row.channel_id||''"),'Voice announcement active-channel inference missing');
 assert(html.includes("cached?.channel_id||activeChannel"),'Voice leave announcement cannot recover channel/name from cached presence');
@@ -164,7 +238,16 @@ assert(html.includes("previewRun(done=>void ycPlayVoiceFileCue('join',done),2600
 assert(html.includes("previewRun(done=>void ycPlayVoiceFileCue('leave',done),2600)"),'LEAVE preview cooldown is too short or missing');
 assert(html.includes('function ycVoiceSelectedVoice(voices)'),'Real system voice selector missing');
 assert(html.includes('u.voice=selected'),'Speech does not use the selected real system voice');
+assert(html.includes("if(!text||ycVoiceAnnounceMode()!=='speech'||voiceDeafened||!('speechSynthesis' in window))"),'Shared speech announcements must respect deafen');
+assert(html.includes('window.YamachatStopVoiceAnnouncements=ycStopVoiceAnnouncementAudio'),'Voice experience must expose one announcement cleanup path');
+assert(html.includes('if(voiceDeafened)window.YamachatStopVoiceAnnouncements?.()'),'Deafen must immediately stop queued/current announcement audio');
+const deafenStart=html.indexOf('async function toggleVoiceDeafen(){');
+const deafenEnd=html.indexOf('let ycInputSwitch=',deafenStart);
+assert(deafenStart>=0&&deafenEnd>deafenStart,'Deafen function boundary missing');
+assert(html.slice(deafenStart,deafenEnd).includes('!voiceDeafened&&!voiceMuted&&!ycMicTestVoiceHold'),'Deafen must never re-enable the outbound track during microphone test hold');
 assert(html.includes("u.rate=1;u.pitch=1"),'Speech must not fake different voices with rate/pitch profiles');
+assert(html.includes('clearTimeout(timer);try{onDone()}'),'Completed speech previews must clear their fallback timer instead of retaining it until timeout');
+assert(html.includes("if(!ycVoiceAvailableVoices().length)try{speechSynthesis?.addEventListener?.('voiceschanged',fillVoices,{once:true})}"),'Voice settings must not retain stale modal listeners after voices are already loaded');
 assert(html.includes('ycVoiceOptionsHtml(voices)'),'Real system voice option renderer missing');
 assert(!html.includes('male-deep')&&!html.includes('female-bright'),'Fake male/female pitch profiles must not remain');
 const crypto=require('node:crypto');
@@ -180,6 +263,13 @@ assert(html.includes("if(window.__ycVoiceParticipantAnnouncements)return;"),'Leg
 
 // Soundboard controls reuse the existing per-user voice mix store.
 assert(html.includes('soundboardMuted:!!raw.soundboardMuted'),'Per-user soundboard mute missing from voice mix');
+assert(html.includes('soundboardBufferLoads=new Map()'),'Soundboard in-flight buffer coalescing state missing');
+assert(html.includes('if(soundboardBufferLoads.has(id))return soundboardBufferLoads.get(id)'),'Simultaneous custom sound loads must share one request');
+assert(html.includes('while(soundboardBuffers.size>24)'),'Decoded custom sound cache must stay bounded');
+assert(html.includes("const ycSoundRoomId=String(voiceChannel.id||''),ycSoundSessionId=String(voiceSessionId||'')"),'Async custom sound playback must capture its originating voice session');
+assert(html.includes("String(voiceChannel?.id||'')!==ycSoundRoomId||String(voiceSessionId||'')!==ycSoundSessionId||voiceDeafened"),'Custom sound downloads must be discarded after room/session changes or deafen');
+assert(html.includes('function ycReleaseShortAudioNodes(source,gain)'),'Short Web Audio node cleanup helper missing');
+assert(html.includes('ycReleaseShortAudioNodes(src,g)'),'Custom sound source/gain nodes must disconnect after playback');
 assert(html.includes('data-yc-soundboard-mute-user')||html.includes('data.ycSoundboardMuteUser')||html.includes('ycSoundboardMuteUser'),'Per-user soundboard menu action missing');
 assert(html.includes('YC_SOUNDBOARD_VOLUME_KEY'),'Soundboard master volume preference missing');
 assert(html.includes('ycSoundboardScaleFor(row.user_id)'),'Incoming soundboard sender mix missing');

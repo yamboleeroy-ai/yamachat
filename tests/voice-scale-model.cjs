@@ -29,6 +29,9 @@ assert.equal(meshPairs(1000),499500);
 
 assert(desktop.includes("const YC_VOICE_HEARTBEAT_MS=15000,YC_VOICE_TTL_MS=60000,YC_VOICE_ROSTER_MS=20000"),'Scale timings missing');
 assert(desktop.includes("const delay=voiceChannel?YC_VOICE_HEARTBEAT_MS:YC_VOICE_ROSTER_MS"),'Roster scale model must match the 15s active / 20s idle scheduler');
+assert(desktop.includes('voiceRosterGeneration=0'),'Voice roster generation state missing');
+assert(desktop.includes("if(generation!==voiceRosterGeneration||String(user?.id||'')!==uid)return"),'Stale voice roster response guard missing');
+assert(desktop.includes("if(contextChanged){++voiceRosterGeneration;voiceRosterRefreshBusy=null;voiceRosterLastRefresh=0}"),'Voice roster context switch must invalidate an old query');
 assert(desktop.includes("event:'INSERT',schema:'public',table:'voice_participants',filter"),'Scoped INSERT subscription missing');
 assert(desktop.includes("event:'DELETE',schema:'public',table:'voice_participants',filter"),'Scoped DELETE subscription missing');
 assert(desktop.includes(".in('channel_id',ids).gt('last_seen',cutoff)"),'Batched roster query missing');
@@ -55,6 +58,10 @@ assert(scaleSql.includes("created_at < now() - interval '5 minutes'"),'Signal cl
 
 
 assert(desktop.includes("async function recoverVoiceSignals()"),'Voice signal recovery missing');
+assert(desktop.includes('voiceSignalRecoverPromise=task'),'Voice recovery overlap coalescing missing');
+assert(desktop.includes("String(row.to_user||'')!==String(user.id)"),'Cross-account recovered signal guard missing');
+assert(desktop.includes("if(q.length>128)q.splice(0,q.length-128)"),'ICE queue bound missing');
+assert(desktop.includes('voiceRouteCheckFastTimer=null,voiceRouteCheckSlowTimer=null'),'Route diagnostics burst coalescing missing');
 assert(desktop.includes("lt('created_at',stale)"),'Stale voice signals are not pruned');
 assert(desktop.includes("gt('created_at',recent)"),'Recent missed voice signals are not recovered');
 

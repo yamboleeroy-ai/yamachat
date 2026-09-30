@@ -47,8 +47,11 @@ for(const file of ['desktop/desktop-client.html','index.html']){
   assert(roleBlock.includes("syncRealtimeSnapshot(cid){if(String(currentCommunity?.id||'')!==String(cid))return;window.__ycInvalidateRoleVisuals();void refreshSocialTabCounts(true)"),file+' role/social reconnect snapshot must force fresh counts');
   assert(!roleBlock.includes("table:'community_members'"),file+' role/social layer still duplicates the core community_members subscription');
   assert(roleBlock.includes("['CHANNEL_ERROR','TIMED_OUT','CLOSED'].includes(status)"),file+' role/social dead-channel recovery missing');
-  assert(roleBlock.includes("setInterval(()=>{if(user?.id){if(!userRealtimeSub)subscribeUserRealtime();if(currentCommunity?.id&&!communityRealtimeSub)subscribeCommunityRealtime(currentCommunity.id);ensureRealtime()}},20000)"),file+' realtime watchdog must restore user, core community and role subscriptions');
-  const watchdog=roleBlock.slice(roleBlock.indexOf('setInterval(()=>{if(user?.id)'),roleBlock.indexOf('setTimeout(()=>',roleBlock.indexOf('setInterval(()=>{if(user?.id)')));
+  assert(roleBlock.includes("ycRealtimeWatchdogTimer=setInterval(runRealtimeWatchdog,20000)"),file+' realtime watchdog cadence missing');
+  assert(roleBlock.includes("ycOnLifecycle('init',startRealtimeWatchdog)"),file+' realtime watchdog must start with authenticated lifecycle');
+  assert(roleBlock.includes("ycOnLifecycle('beforeAuth',stopRealtimeWatchdog)"),file+' realtime watchdog must stop on logout');
+  const watchdog=roleBlock.slice(roleBlock.indexOf('const runRealtimeWatchdog='),roleBlock.indexOf("ycOnLifecycle('beforeAuth',stopRealtimeWatchdog)"));
+  assert(watchdog.includes('subscribeUserRealtime()')&&watchdog.includes('subscribeCommunityRealtime(currentCommunity.id)')&&watchdog.includes('ensureRealtime()'),file+' realtime watchdog must restore user, core community and role subscriptions');
   assert(!watchdog.includes('refreshSocialTabCounts()'),file+' realtime watchdog still polls social counts');
   assert(!watchdog.includes('applyMessageRoleColors()'),file+' realtime watchdog still reloads role data');
   const hiddenBlock=html.slice(html.indexOf('const ycHiddenBaseSubscribeCommunityRealtime'),html.indexOf('// Password entry guards:'));

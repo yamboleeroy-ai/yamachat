@@ -1,0 +1,238 @@
+name: Yamachat Stability Preview
+
+on:
+  push:
+    branches: [optimize/voice-mute-tts-20260929]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  cross-platform:
+    name: Cross-platform stability regression
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Generate Web/PWA client
+        run: node scripts/build-web.mjs
+      - name: Shared source checks
+        run: node scripts/check.mjs
+      - name: Install browser test runtime
+        run: |
+          npm install --no-save --package-lock=false playwright@1.62.1
+          npx playwright install --with-deps chromium
+      - name: Prepare generated Android client for cross-platform checks
+        working-directory: mobile
+        run: |
+          npm ci
+          npm run prepare:web
+          if [ ! -d android ]; then
+            npx cap add android
+          fi
+          npx cap sync android
+          node scripts/patch-native.mjs android
+      - name: Voice, auth, realtime and stream regression suite
+        run: |
+          node tests/voice-experience.cjs
+          YC_CLIENT=desktop/desktop-client.html node tests/voice-experience.cjs
+          node tests/windows-natural-voices.cjs
+          node tests/android-natural-voices.cjs
+          node tests/web-mobile-desktop-behavior-sync.cjs
+          node tests/auth-login-flow.cjs
+          node tests/auth-relogin-lifecycle.cjs
+          node tests/cross-platform-chat-realtime.cjs
+          node tests/cross-platform-voice-interop.cjs
+          node tests/ios-pwa-microphone.cjs
+          node tests/full-platform-user-journey.cjs
+          node tests/cross-platform-multiclient-voice.cjs
+          node tests/stability-10-client-load.cjs
+          node tests/voice-scale-model.cjs
+          node tests/realtime-scope-model.cjs
+          node tests/stream-scale.cjs
+          node tests/stream-transport.mjs
+          node tests/stream-viewer.cjs
+          node tests/windows-stream-lifecycle.cjs
+      - name: Package Web/PWA preview
+        run: |
+          mkdir -p web-preview
+          cp index.html reset-password.html sw.js boot-guard.js favicon.ico manifest.webmanifest offline.html CNAME .nojekyll web-preview/
+          cp -r icons audio vendor build download web-preview/
+      - uses: actions/upload-artifact@v4
+        with:
+          name: yamachat-web-pwa-stability-preview
+          path: web-preview
+          retention-days: 7
+
+  windows-preview:
+    name: Windows isolated portable preview
+    runs-on: windows-latest
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Desktop regression checks
+        shell: pwsh
+        run: |
+          $env:YC_CLIENT='desktop/desktop-client.html'
+          node tests/voice-experience.cjs
+          node tests/windows-natural-voices.cjs
+          node tests/windows-stream-lifecycle.cjs
+      - name: Build native process audio helper
+        shell: pwsh
+        run: ./scripts/build-windows-process-audio.ps1
+      - name: Prepare desktop runtime
+        shell: pwsh
+        run: |
+          Copy-Item -Recurse -Force build desktop/build
+          Copy-Item -Recurse -Force audio desktop/audio
+          Copy-Item boot-guard.js desktop/boot-guard.js
+      - name: Install desktop dependencies
+        working-directory: desktop
+        run: npm ci
+      - name: Build unpacked Windows preview
+        working-directory: desktop
+        run: npx electron-builder --win dir --x64 --publish never
+      - name: Isolate preview and disable updater
+        shell: pwsh
+        run: |
+          $appRoot='desktop/dist/win-unpacked/resources/app'
+          Set-Content -Path "$appRoot/preview.json" -Value '{"kind":"stability-preview","isolated":true,"release":false}' -Encoding UTF8
+          foreach ($file in @('main.js','updater.js','preload.js','desktop.html','desktop-client.html','preview.json')) {
+            if (-not (Test-Path "$appRoot/$file")) { throw "Missing preview runtime: $file" }
+          }
+          if ((Get-FileHash "$appRoot/desktop-client.html").Hash -ne (Get-FileHash 'desktop/desktop-client.html').Hash) { throw 'Preview desktop client mismatch' }
+          if ((Get-Content "$appRoot/main.js" -Raw) -notmatch "app.setName\('Yamachat Preview'\)") { throw 'Preview profile isolation missing' }
+          if ((Get-Content "$appRoot/updater.js" -Raw) -notmatch "if \(this.preview\) return this.setState") { throw 'Preview updater disable guard missing' }
+          @'
+          YAMACHAT STABILITY PREVIEW
+          - Rozbal ZIP do samostatne slozky.
+          - Spust Yamachat.exe primo z teto slozky.
+          - Preview pouziva vlastni profil Yamachat Preview.
+          - Automaticky updater je v preview vypnuty.
+          - Nejde o produkcni release ani instalator.
+          '@ | Set-Content -Path 'desktop/dist/win-unpacked/README-PREVIEW.txt' -Encoding UTF8
+          Compress-Archive -Path 'desktop/dist/win-unpacked/*' -DestinationPath 'yamachat-windows-stability-preview-portable.zip' -Force
+      - uses: actions/upload-artifact@v4
+        with:
+          name: yamachat-windows-stability-preview-portable
+          path: yamachat-windows-stability-preview-portable.zip
+          if-no-files-found: error
+          retention-days: 7
+
+  android-preview:
+    name: Android isolated preview
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Generate Web/PWA client
+        run: node scripts/build-web.mjs
+      - name: Install mobile dependencies
+        working-directory: mobile
+        run: npm ci
+      - name: Prepare shared mobile web bundle
+        working-directory: mobile
+        run: npm run prepare:web
+      - name: Create Android project when missing
+        working-directory: mobile
+        run: |
+          if [ ! -d android ]; then
+            npx cap add android
+          fi
+      - name: Sync and patch Android
+        working-directory: mobile
+        run: |
+          npx cap sync android
+          node scripts/patch-native.mjs android
+      - name: Install Android preview browser test runtime
+        run: |
+          npm install --no-save --package-lock=false playwright@1.62.1
+          npx playwright install --with-deps chromium
+      - name: Verify Android regression guards
+        run: |
+          node scripts/check.mjs
+          node tests/android-natural-voices.cjs
+          node tests/voice-experience.cjs
+          node tests/cross-platform-voice-interop.cjs
+          node tests/ios-pwa-microphone.cjs
+      - name: Isolate Android preview package
+        working-directory: mobile
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+
+          gradle=Path('android/app/build.gradle')
+          text=gradle.read_text(encoding='utf-8')
+          if 'applicationIdSuffix ".preview"' not in text:
+              text,count=re.subn(
+                  r'(buildTypes\s*\{)',
+                  r'\1\n        debug {\n            applicationIdSuffix ".preview"\n            versionNameSuffix "-stability-preview"\n        }',
+                  text,
+                  count=1
+              )
+              if count!=1:
+                  raise SystemExit('Could not isolate Android debug applicationId')
+              gradle.write_text(text,encoding='utf-8')
+
+          strings=Path('android/app/src/main/res/values/strings.xml')
+          data=strings.read_text(encoding='utf-8')
+          data,count=re.subn(r'(<string name="app_name">)(.*?)(</string>)',r'\1Yamachat Preview\3',data,count=1)
+          if count!=1:
+              raise SystemExit('Could not set Android preview app name')
+          strings.write_text(data,encoding='utf-8')
+          PY
+      - name: Build isolated Android preview APK
+        working-directory: mobile/android
+        env:
+          ANDROID_KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_B64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+        run: |
+          set -euo pipefail
+          : "${ANDROID_KEYSTORE_B64:?Configure the permanent Android keystore secret}"
+          : "${ANDROID_KEYSTORE_PASSWORD:?Configure the permanent Android keystore password}"
+          export ANDROID_KEYSTORE_PATH="$RUNNER_TEMP/yamachat-preview.p12"
+          trap 'rm -f "$ANDROID_KEYSTORE_PATH"' EXIT
+          umask 077
+          python - <<'PY'
+          import base64, os
+          from pathlib import Path
+          encoded=''.join(os.environ['ANDROID_KEYSTORE_B64'].split())
+          Path(os.environ['ANDROID_KEYSTORE_PATH']).write_bytes(base64.b64decode(encoded,validate=True))
+          PY
+          chmod +x gradlew
+          ./gradlew assembleDebug
+          cp app/build/outputs/apk/debug/app-debug.apk ../../yamachat-android-stability-preview.apk
+      - name: Verify preview application id
+        run: |
+          BUILD_TOOLS="$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -n 1)"
+          "$BUILD_TOOLS/aapt" dump badging yamachat-android-stability-preview.apk | grep -q "package: name='eu.yamachat.app.preview'"
+          "$BUILD_TOOLS/apksigner" verify --verbose yamachat-android-stability-preview.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: yamachat-android-stability-preview
+          path: yamachat-android-stability-preview.apk
+          if-no-files-found: error
+          retention-days: 7
+

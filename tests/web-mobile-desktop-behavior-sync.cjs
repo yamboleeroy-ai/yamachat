@@ -3,6 +3,39 @@ const root=path.resolve(__dirname,'..');
 const client=fs.readFileSync(path.join(root,'index.html'),'utf8');
 const friends=fs.readFileSync(path.join(root,'scripts/friends-panel-refresh.mjs'),'utf8');
 const interaction=fs.readFileSync(path.join(root,'scripts/interaction-notifications.mjs'),'utf8');
+assert(client.includes('ycDmNotifyGeneration=0')&&client.includes('ycDmMembershipGeneration=0')&&client.includes('ycDmUnreadGeneration=0'),
+  'DM notification lifecycle generation guards missing');
+assert(client.includes('ycWinNotifyGeneration=0'),'Windows/browser notification subscription generation guard missing');
+assert(client.includes("current=()=>generation===ycWinNotifyGeneration&&ycWinNotifySub===sub&&String(user?.id||'')===uid"),
+  'Notification realtime callbacks must belong to the current account/subscription');
+assert(client.includes("ycWinShowMessage(payload.new||{},uid)"),
+  'Notification async rendering must retain the subscription owner uid');
+assert(client.includes("async function ycWinShowMessage(m,ownerUserId=user?.id)"),
+  'Notification display must be account-bound across awaits');
+assert(client.includes("++ycWinNotifyGeneration;const ch=ycWinNotifySub;ycWinNotifySub=null"),
+  'Stopping notifications must invalidate old callbacks before channel removal');
+assert(!client.includes("setTimeout(()=>{if(user)void ycStartWinNotifications()},1200)"),
+  'Duplicate delayed notification subscription startup must not return');
+assert(client.includes("const uid=String(user?.id||'');if(!uid)return;const generation=++ycDmUnreadGeneration"),
+  'DM unread loads must bind to one account/generation');
+assert(client.includes("notifyGeneration!==ycDmNotifyGeneration||String(user?.id||'')!==uid"),
+  'DM targeted subscription must reject stale-account starts');
+assert(client.includes("ycDmNotifySub===sub&&String(user?.id||'')===uid"),
+  'DM message callbacks must belong to the current subscription/account');
+assert(client.includes("membershipGeneration!==ycDmMembershipGeneration||ycDmMembershipSub!==sub"),
+  'DM membership callbacks must reject stale subscriptions');
+assert(client.includes("++ycDmNotifyGeneration;++ycDmMembershipGeneration;++ycDmUnreadGeneration"),
+  'DM stop must invalidate all in-flight notification work before async channel removal');
+assert(client.includes("setTimeout(()=>ycArmDmAudio(),900)"),
+  'DM startup timeout must only arm audio and must not duplicate subscription initialization');
+assert(!client.includes("setTimeout(()=>{ycArmDmAudio();if(user){void ycLoadDmUnread();void ycStartDmNotifications()}},900)"),
+  'Legacy duplicate DM startup initialization must not return');
+assert(client.includes("src.onended=()=>{try{src.disconnect()}catch{}try{gain.disconnect()}catch{}}"),
+  'DM notification Web Audio nodes must disconnect after playback');
+assert(client.includes('let ycWebUiPulseTimer=null'),'Web UI pulse lifecycle state missing');
+assert(client.includes("ycOnLifecycle('init',ycWebStartUiPulse)"),'Web UI pulse must start only after authentication');
+assert(client.includes("ycWebStopUiPulse();document.title='Yamachat'"),'Web UI pulse must stop/reset on logout');
+assert(!client.includes("setInterval(()=>{void ycWebSyncWakeLock();const count="),'Always-on pre-auth web UI interval must not return');
 
 // These are behavior-only deltas verified in preview/social-hover-context-7.
 // The generated Web/PWA/Android client must contain them without inheriting desktop layout.
@@ -55,6 +88,14 @@ assert(client.includes("table:'profiles',filter:'id=eq.'+user.id"),'Generated cl
 
 assert(!client.includes("const signed={};await Promise.all((atts||[]).map"),
   'Initial chat paint must not wait for every attachment signed URL');
+assert(client.includes("while(ycChatRolePackCache.size>12)ycChatRolePackCache.delete(ycChatRolePackCache.keys().next().value)"),
+  'Chat role pack cache must not retain every visited community until logout');
+assert(client.includes("ycOnLifecycle('beforeCommunity',()=>{\n ycPresenceRowsByUser.clear();ycPresenceRenderedStateByUser.clear();ycVisibleMemberIds.clear();"),
+  'Member presence caches must be released when switching communities');
+assert(client.includes("ycChatRolePackCache.delete(key);ycChatRolePackCache.set(key,cached)"),
+  'Chat role pack cache hits must refresh LRU order');
+assert(client.includes("while(ycChatSignedUrlCache.size>600)ycChatSignedUrlCache.delete(ycChatSignedUrlCache.keys().next().value)"),
+  'Attachment signed URL cache must enforce its size limit even when all entries are still valid');
 
 const selectStart=client.indexOf('async function selectThread(id)');
 const selectEnd=client.indexOf("$('newDmBtn').onclick",selectStart);
