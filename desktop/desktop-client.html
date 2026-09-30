@@ -3771,7 +3771,8 @@ async function ycWinShowMessage(m,ownerUserId=user?.id){
  const uid=String(ownerUserId||''),current=()=>!!uid&&String(user?.id||'')===uid
  try{
   if(!m||!current()||String(m.author_id||'')===uid)return
-  if(!await ycShouldNotifyMessage(m)||!current())return
+  if(!await ycShouldNotifyMessage(m))return
+  if(!current())return
   if(typeof ycPresencePreference==='function'&&ycPresencePreference()==='dnd')return
   if(window.__ycWnsActive===true)return
   const mentioned=ycWinMentioned(m.body)
