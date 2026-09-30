@@ -98,6 +98,12 @@ assert(html.includes("startEpoch===ycScreenShareStartEpoch"),'Screen share start
 assert(html.includes("if(!current()){discard(stream);return}"),'Screen share selected after leaving voice must be discarded');
 if(isDesktop)assert(html.includes("if(!current()){discard(stream);await ycStopDesktopProcessAudio();return}"),'Desktop process-audio preparation must abort after a voice-session change');
 assert(html.includes("screenShareStream!==stream||!screenShareActive"),'Screen share startup must reject a stream superseded while awaiting audio setup');
+assert(html.includes("screenShareActive=false,ycScreenShareStartEpoch=0,ycScreenShareStopPromise=Promise.resolve()"),'Screen share lifecycle must keep a serialized stop/start barrier');
+assert(html.includes("try{await ycScreenShareStopPromise}catch{}"),'A new screen share must wait for the previous stop cleanup');
+assert(html.includes("const startEpoch=++ycScreenShareStartEpoch"),'Screen share startup must invalidate older pending capture dialogs');
+assert(html.includes("++ycScreenShareStartEpoch\n  const ownerUserId=user?.id,stream=screenShareStream"),'Stopping a screen share must invalidate pending starts');
+assert(html.includes("ycScreenShareStopPromise=task.catch"),'Screen share stop cleanup must be serialized before a restart');
+
 assert(html.includes("ycScreenShareStartEpoch=0,ycScreenShareStopPromise=Promise.resolve()"),'Screen share restart must have lifecycle serialization state');
 assert(html.includes("try{await ycScreenShareStopPromise}catch{}"),'A new screen share must wait for prior stop cleanup');
 assert(html.includes("++ycScreenShareStartEpoch"),'Stopping a screen share must invalidate pending starts');
