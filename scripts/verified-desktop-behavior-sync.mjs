@@ -159,6 +159,11 @@ const patches=[
     "after": "function ycOpenUiMenu({kind='generic',title='',anchor=null,x=12,y=12,items=[],context=null}={}){\n  ycHoverHide?.();delete document.documentElement.dataset.ycContextPending;document.documentElement.dataset.ycUiMenuOpen='1';"
   },
   {
+    "label": "presence-timer-lifecycle",
+    "before": "ycOnLifecycle('init',async()=>{ycLastInputAt=Date.now();await ycTouchPresence(true);ycEnsurePresenceRealtime();ycRefreshVisibleSocialSoon()})\nycOnLifecycle('beforeAuth',()=>{void ycStopPresenceRealtime()})",
+    "after": "ycOnLifecycle('init',async()=>{ycStartPresence();ycLastInputAt=Date.now();await ycTouchPresence(true);ycEnsurePresenceRealtime();ycRefreshVisibleSocialSoon()})\nycOnLifecycle('beforeAuth',()=>{ycStopPresenceTimers();void ycStopPresenceRealtime()})"
+  },
+  {
     "label": "presence-rendered-state",
     "before": "if(rightMode!=='members'||String(currentCommunity?.id)!==String(ycRightCommunityId))return;\n  $('rightContent').innerHTML=out;\n  try{window.__ycRefreshSocialTabCounts?.()}catch{}",
     "after": "if(rightMode!=='members'||String(currentCommunity?.id)!==String(ycRightCommunityId))return;\n  $('rightContent').innerHTML=out;\n  for(const uid of ids){const key=String(uid);ycPresenceRenderedStateByUser.set(key,ycPresenceState(um[uid]||null))}\n  try{window.__ycRefreshSocialTabCounts?.()}catch{}"
