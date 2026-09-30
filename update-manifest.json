@@ -1,12 +1,12 @@
 {
   "schemaVersion": 1,
-  "publishedAt": "2026-09-30T21:07:12Z",
+  "publishedAt": "2026-10-01T00:00:00Z",
   "windows": {
-    "latestVersion": "1.0.109",
+    "latestVersion": "1.0.110",
     "required": true,
-    "notes": "Yamachat 1.0.109: dokončený deep stability audit, cleanup voice/stream/realtime lifecycle a veřejná distribuce Windows mimo GitHub přes Cloudflare.",
+    "notes": "Yamachat 1.0.110: stabilita voice/stream/realtime, reconnect a multi-platform interoperabilita ověřena před vydáním.",
     "feedUrl": "https://updates.yamachat.eu/windows/",
-    "installerUrl": "https://updates.yamachat.eu/windows/Yamachat-Setup-1.0.109.exe"
+    "installerUrl": "https://updates.yamachat.eu/windows/Yamachat-Setup-1.0.110.exe"
   },
   "android": {
     "latestVersion": "1.1.0.788",

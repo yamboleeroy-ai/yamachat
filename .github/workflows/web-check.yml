@@ -19,6 +19,11 @@ jobs:
           node-version: '22'
       - name: Generate shared Web/PWA client from reviewed sources
         run: node scripts/build-web.mjs
+      - name: Build native WebView bridge required by the mobile bundle check
+        working-directory: mobile
+        run: |
+          npm ci
+          npm run build:bridge
       - run: node scripts/check.mjs
       - name: Verify proprietary legal baseline packaging
         run: node scripts/check-legal-baseline.mjs

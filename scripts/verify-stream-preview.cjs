@@ -7,5 +7,5 @@ for(const p of ['index.html','desktop/desktop-client.html','desktop/desktop.html
 }
 for(const p of ['desktop/main.js','desktop/updater.js','desktop/preload.js','web/stream-viewer.js'])cp.execFileSync(process.execPath,['--check',p],{stdio:'inherit'});
 for(const p of ['stream-transport.mjs','windows-process-audio.cjs','windows-stream-lifecycle.cjs','windows-dm-media-performance.cjs','windows-presence-stability.cjs','windows-social-hover-context.cjs','windows-taskbar-restore.cjs','windows-interaction-notifications.cjs','windows-wns-desktop.cjs'])cp.execFileSync(process.execPath,['tests/'+p],{stdio:'inherit'});
-assert.equal(require('../desktop/package.json').version,'1.0.109');
+assert.equal(require('../desktop/package.json').version,'1.0.110');
 console.log('PASS current-source syntax and release regression checks');
