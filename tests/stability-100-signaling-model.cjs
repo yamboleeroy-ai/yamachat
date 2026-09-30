@@ -3,12 +3,12 @@ const root=path.resolve(__dirname,'..');
 const clients=100,communities=5,roomsPerCommunity=4,roomSize=5;
 assert.equal(communities*roomsPerCommunity*roomSize,clients);
 
-for(const file of ['desktop/desktop-client.html','index.html']){
+for(const file of ['desktop/desktop-client.html','index.html','mobile/www/index.html']){
   const src=fs.readFileSync(path.join(root,file),'utf8');
   assert(src.includes("event:'INSERT',schema:'public',table:'voice_participants',filter"),file+' room-scoped participant INSERT missing');
   assert(src.includes("event:'DELETE',schema:'public',table:'voice_participants',filter"),file+' room-scoped participant DELETE missing');
   assert(!src.includes("event:'UPDATE',schema:'public',table:'voice_participants'"),file+' participant heartbeat UPDATE returned to realtime');
-  assert(src.includes("filter:'to_user=eq.'+user.id"),file+' targeted signaling recipient filter missing');
+  assert(src.includes("filter:'to_user=eq.'+uid"),file+' targeted signaling recipient filter missing');
   assert(src.includes(".in('channel_id',ids).gt('last_seen',cutoff)"),file+' batched voice roster query missing');
   assert(src.includes("const delay=voiceChannel?YC_VOICE_HEARTBEAT_MS:YC_VOICE_ROSTER_MS"),file+' single roster scheduler missing');
 }
