@@ -1,0 +1,125 @@
+name: Yamachat Stability Preview
+
+on:
+  push:
+    branches: [optimize/voice-mute-tts-20260929]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  cross-platform:
+    name: Cross-platform stability regression
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Generate Web/PWA client
+        run: node scripts/build-web.mjs
+      - name: Shared source checks
+        run: node scripts/check.mjs
+      - name: Voice, auth, realtime and stream regression suite
+        run: |
+          node tests/voice-experience.cjs
+          YC_CLIENT=desktop/desktop-client.html node tests/voice-experience.cjs
+          node tests/windows-natural-voices.cjs
+          node tests/android-natural-voices.cjs
+          node tests/web-mobile-desktop-behavior-sync.cjs
+          node tests/auth-login-flow.cjs
+          node tests/auth-relogin-lifecycle.cjs
+          node tests/cross-platform-chat-realtime.cjs
+          node tests/cross-platform-voice-interop.cjs
+          node tests/ios-pwa-microphone.cjs
+          node tests/full-platform-user-journey.cjs
+          node tests/cross-platform-multiclient-voice.cjs
+          node tests/stability-10-client-load.cjs
+          node tests/voice-scale-model.cjs
+          node tests/realtime-scope-model.cjs
+          node tests/stream-scale.cjs
+          node tests/stream-transport.mjs
+          node tests/stream-viewer.cjs
+          node tests/windows-stream-lifecycle.cjs
+      - name: Package Web/PWA preview
+        run: |
+          mkdir -p web-preview
+          cp index.html reset-password.html sw.js boot-guard.js favicon.ico manifest.webmanifest offline.html CNAME .nojekyll web-preview/
+          cp -r icons audio vendor build download web-preview/
+      - uses: actions/upload-artifact@v4
+        with:
+          name: yamachat-web-pwa-stability-preview
+          path: web-preview
+          retention-days: 7
+
+  windows-preview:
+    name: Windows isolated portable preview
+    runs-on: windows-latest
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Desktop regression checks
+        shell: pwsh
+        run: |
+          $env:YC_CLIENT='desktop/desktop-client.html'
+          node tests/voice-experience.cjs
+          node tests/windows-natural-voices.cjs
+          node tests/windows-stream-lifecycle.cjs
+      - name: Build native process audio helper
+        shell: pwsh
+        run: ./scripts/build-windows-process-audio.ps1
+      - name: Prepare desktop runtime
+        shell: pwsh
+        run: |
+          Copy-Item -Recurse -Force build desktop/build
+          Copy-Item -Recurse -Force audio desktop/audio
+          Copy-Item boot-guard.js desktop/boot-guard.js
+      - name: Install desktop dependencies
+        working-directory: desktop
+        run: npm ci
+      - name: Build unpacked Windows preview
+        working-directory: desktop
+        run: npx electron-builder --win dir --x64 --publish never
+      - name: Isolate preview and disable updater
+        shell: pwsh
+        run: |
+          $appRoot='desktop/dist/win-unpacked/resources/app'
+          Set-Content -Path "$appRoot/preview.json" -Value '{"kind":"stability-preview","isolated":true,"release":false}' -Encoding UTF8
+          foreach ($file in @('main.js','updater.js','preload.js','desktop.html','desktop-client.html','preview.json')) {
+            if (-not (Test-Path "$appRoot/$file")) { throw "Missing preview runtime: $file" }
+          }
+          if ((Get-FileHash "$appRoot/desktop-client.html").Hash -ne (Get-FileHash 'desktop/desktop-client.html').Hash) { throw 'Preview desktop client mismatch' }
+          if ((Get-Content "$appRoot/main.js" -Raw) -notmatch "app.setName\('Yamachat Preview'\)") { throw 'Preview profile isolation missing' }
+          if ((Get-Content "$appRoot/updater.js" -Raw) -notmatch "if \(this.preview\) return this.setState") { throw 'Preview updater disable guard missing' }
+          @'
+          YAMACHAT STABILITY PREVIEW
+          - Rozbal ZIP do samostatne slozky.
+          - Spust Yamachat.exe primo z teto slozky.
+          - Preview pouziva vlastni profil Yamachat Preview.
+          - Automaticky updater je v preview vypnuty.
+          - Nejde o produkcni release ani instalator.
+          '@ | Set-Content -Path 'desktop/dist/win-unpacked/README-PREVIEW.txt' -Encoding UTF8
+          Compress-Archive -Path 'desktop/dist/win-unpacked/*' -DestinationPath 'yamachat-windows-stability-preview-portable.zip' -Force
+      - uses: actions/upload-artifact@v4
+        with:
+          name: yamachat-windows-stability-preview-portable
+          path: yamachat-windows-stability-preview-portable.zip
+          if-no-files-found: error
+          retention-days: 7
+
+  android:
+    name: Android APK preview build
+    uses: ./.github/workflows/mobile-android.yml
+    secrets: inherit
+
+  ios:
+    name: iOS Capacitor simulator compile
+    uses: ./.github/workflows/mobile-ios.yml
