@@ -67,17 +67,12 @@ async function ycStartCommunityStreamWatch(){
   if(html.includes(screenAudioStateOld))html=html.replace(screenAudioStateOld,screenAudioStateNew);
   else if(!html.includes(screenAudioStateNew))throw Error('Screen audio generation state boundary missing');
 
-  const screenAudioScheduleOld="function ycScheduleScreenAudioNegotiation(peerId){if(peerId)ycScreenAudioNegotiationPeers.add(peerId);clearTimeout(ycScreenAudioNegotiationTimer);ycScreenAudioNegotiationTimer=setTimeout(async()=>{ycScreenAudioNegotiationTimer=null;const ids=[...ycScreenAudioNegotiationPeers];ycScreenAudioNegotiationPeers.clear();for(const id of ids){try{if(typeof ycRenegotiateScreenPeer==='function')await ycRenegotiateScreenPeer(id)}catch(e){console.warn('screen audio renegotiate',id,e)}}},140)}";
+  const scheduleStart=html.indexOf('function ycScheduleScreenAudioNegotiation(peerId){'),scheduleEnd=html.indexOf('\nfunction ycRemoveScreenAudioElement(peerId)',scheduleStart);
+  if(scheduleStart<0||scheduleEnd<0)throw Error('Screen audio negotiation boundary missing');
   const screenAudioScheduleNew="function ycScheduleScreenAudioNegotiation(peerId){if(peerId)ycScreenAudioNegotiationPeers.add(peerId);const generation=ycScreenAudioGeneration;clearTimeout(ycScreenAudioNegotiationTimer);ycScreenAudioNegotiationTimer=setTimeout(async()=>{ycScreenAudioNegotiationTimer=null;if(generation!==ycScreenAudioGeneration)return;const ids=[...ycScreenAudioNegotiationPeers];ycScreenAudioNegotiationPeers.clear();for(const id of ids){if(generation!==ycScreenAudioGeneration)return;try{if(typeof ycRenegotiateScreenPeer==='function')await ycRenegotiateScreenPeer(id)}catch(e){console.warn('screen audio renegotiate',id,e)}}},140)}";
-  if(html.includes(screenAudioScheduleOld))html=html.replace(screenAudioScheduleOld,screenAudioScheduleNew);
-  else if(!html.includes(screenAudioScheduleNew))throw Error('Screen audio negotiation generation boundary missing');
+  html=html.slice(0,scheduleStart)+screenAudioScheduleNew+html.slice(scheduleEnd);
 
-  const screenAudioResetOld="async function ycResetScreenAudioSenders(){\n clearTimeout(ycScreenAudioNegotiationTimer);ycScreenAudioNegotiationTimer=null;ycScreenAudioNegotiationPeers.clear()";
-  const screenAudioResetNew="async function ycResetScreenAudioSenders(){\n ++ycScreenAudioGeneration\n clearTimeout(ycScreenAudioNegotiationTimer);ycScreenAudioNegotiationTimer=null;ycScreenAudioNegotiationPeers.clear()";
-  if(html.includes(screenAudioResetOld))html=html.replace(screenAudioResetOld,screenAudioResetNew);
-  else if(!html.includes(screenAudioResetNew))throw Error('Screen audio reset generation boundary missing');
-
-  const ensureStart=html.indexOf('async function ycEnsureScreenAudio(){'),ensureEnd=html.indexOf('\n}\nsetInterval(()=>{if(voiceChannel&&(screenShareActive||screenWatchingByUser.size||screenShareViewers.size))void ycEnsureScreenAudio()},900)',ensureStart);
+  const ensureStart=html.indexOf('async function ycEnsureScreenAudio(){'),ensureEnd=html.indexOf('\n}\nfunction ycSyncScreenAudioVolumes()',ensureStart);
   if(ensureStart<0||ensureEnd<0)throw Error('Screen audio ensure lifecycle boundary missing');
   const ensureBlock=`async function ycEnsureScreenAudio(){
  if(ycScreenAudioBusy)return
@@ -111,7 +106,7 @@ async function ycStartCommunityStreamWatch(){
   else if(!html.includes(screenLifecycleStateNew))throw Error('Screen share lifecycle state boundary missing');
 
   const streamStopOld="async function stopScreenShare(silent=false){\n  const stream=screenShareStream;if(!screenShareActive&&!stream)return";
-  const streamStopNew="async function stopScreenShare(silent=false){\n  const ownerUserId=user?.id,stream=screenShareStream;if(!screenShareActive&&!stream)return";
+  const streamStopNew="async function stopScreenShare(silent=false){\n  ++ycScreenAudioGeneration\n  const ownerUserId=user?.id,stream=screenShareStream;if(!screenShareActive&&!stream)return";
   if(!html.includes(streamStopOld))throw Error('Stream owner cleanup boundary missing');
   html=html.replace(streamStopOld,streamStopNew);
   const stopFnStart=html.indexOf('async function stopScreenShare(silent=false){');
@@ -181,7 +176,7 @@ async function ycStopGlobalStreamPresence(ownerUserId=user?.id){
   if(lifecycleStopStart<0||lifecycleStopEnd<0)throw Error('Screen share serialized stop boundary missing');
   let lifecycleStop=html.slice(lifecycleStopStart,lifecycleStopEnd);
   if(!lifecycleStop.includes('++ycScreenShareStartEpoch')){
-    lifecycleStop=lifecycleStop.replace("async function stopScreenShare(silent=false){\n  const ownerUserId=user?.id,stream=screenShareStream;if(!screenShareActive&&!stream)return","async function stopScreenShare(silent=false){\n  ++ycScreenShareStartEpoch\n  const ownerUserId=user?.id,stream=screenShareStream;if(!screenShareActive&&!stream)return ycScreenShareStopPromise");
+    lifecycleStop=lifecycleStop.replace("async function stopScreenShare(silent=false){\n  ++ycScreenAudioGeneration\n  const ownerUserId=user?.id,stream=screenShareStream;if(!screenShareActive&&!stream)return","async function stopScreenShare(silent=false){\n  ++ycScreenShareStartEpoch\n  ++ycScreenAudioGeneration\n  const ownerUserId=user?.id,stream=screenShareStream;if(!screenShareActive&&!stream)return ycScreenShareStopPromise");
     lifecycleStop=lifecycleStop.replace("  screenShareActive=false;screenShareStream=null;screenShareViewers.clear()","  screenShareActive=false;screenShareStream=null;screenShareViewers.clear()\n  const task=(async()=>{");
     const finish="renderVoiceControls();if(!silent)toast('Sdílení obrazovky ukončeno.')";
     if(!lifecycleStop.includes(finish))throw Error('Screen share stop completion boundary missing');
