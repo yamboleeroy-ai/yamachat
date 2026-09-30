@@ -213,7 +213,10 @@ jobs:
           set -euo pipefail
           git fetch origin main
           git fetch origin tag legal-baseline-2026-09-27 --force
-          git merge-base --is-ancestor origin/main HEAD
+          # The Web/PWA job may publish the deterministic generated index while
+          # this release waits for native artifacts. In that normal race the
+          # release SHA is an ancestor of main, not the other way around.
+          git merge-base --is-ancestor HEAD origin/main
           git merge-base --is-ancestor legal-baseline-2026-09-27 HEAD
           node scripts/check-legal-baseline.mjs
           node scripts/verify-release-assets.cjs release-assets
