@@ -3304,6 +3304,7 @@ const ycScreenAudioNegotiationPeers=new Set()
 let ycScreenAudioBusy=false
 window.__ycScreenAudioEls=window.__ycScreenAudioEls||new Map()
 window.__ycScreenAudioTracks=window.__ycScreenAudioTracks||new Map()
+window.__ycScreenAudioTrackHooks=window.__ycScreenAudioTrackHooks||new WeakSet()
 function ycScreenAudioWanted(){return localStorage.getItem('yc_screen_audio')!=='0'}
 function ycCurrentScreenAudioTrack(){try{return screenShareActive&&ycScreenAudioWanted()?screenShareStream?.getAudioTracks?.().find(t=>t.readyState==='live')||null:null}catch{return null}}
 function ycScreenAudioStoredVolume(peerId){try{const map=JSON.parse(localStorage.getItem('yc_stream_volume_by_user_safe_v1')||'{}')||{},n=Number(map[String(peerId)]);return Number.isFinite(n)?Math.max(0,Math.min(1,n)):1}catch{return 1}}
@@ -3338,8 +3339,11 @@ function ycAttachRemoteScreenAudio(peerId,track){
   const v=ycScreenAudioStoredVolume(peerId);a.volume=v;a.muted=v<=0
   try{if(voiceOutputId&&typeof a.setSinkId==='function')a.setSinkId(voiceOutputId).catch(()=>{})}catch{}
   a.play().catch(()=>{})
-  track.addEventListener('ended',()=>ycForgetScreenAudioTrack(peerId),{once:true})
-  track.addEventListener('mute',()=>setTimeout(()=>{try{const active=(typeof voiceScreenActiveByUser!=='undefined'&&voiceScreenActiveByUser?.has?.(peerId))||remoteScreenStreams?.has?.(peerId);if(!active)ycRemoveScreenAudioElement(peerId)}catch{}},700))
+  if(!window.__ycScreenAudioTrackHooks.has(track)){
+   window.__ycScreenAudioTrackHooks.add(track)
+   track.addEventListener('ended',()=>{if(window.__ycScreenAudioTracks.get(peerId)===track)ycForgetScreenAudioTrack(peerId)},{once:true})
+   track.addEventListener('mute',()=>setTimeout(()=>{try{if(window.__ycScreenAudioTracks.get(peerId)!==track)return;const active=(typeof voiceScreenActiveByUser!=='undefined'&&voiceScreenActiveByUser?.has?.(peerId))||remoteScreenStreams?.has?.(peerId);if(!active)ycRemoveScreenAudioElement(peerId)}catch{}},700))
+  }
  }catch(e){console.warn('screen audio receiver',e)}
 }
 function ycWrapScreenAudioPc(peerId,pc){
