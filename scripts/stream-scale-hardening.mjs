@@ -62,6 +62,11 @@ async function ycStartCommunityStreamWatch(){
 `;
   html=replaceBetween(html,'async function ycStopCommunityStreamWatch(){','function ycClearStreamPublishTimers(){',watch,'community stream watch');
 
+  const screenLifecycleStateOld="screenShareStream=null,screenShareActive=false,voiceScreenSenders=new Map()";
+  const screenLifecycleStateNew="screenShareStream=null,screenShareActive=false,ycScreenShareStartEpoch=0,ycScreenShareStopPromise=Promise.resolve(),voiceScreenSenders=new Map()";
+  if(html.includes(screenLifecycleStateOld))html=html.replace(screenLifecycleStateOld,screenLifecycleStateNew);
+  else if(!html.includes(screenLifecycleStateNew))throw Error('Screen share lifecycle state boundary missing');
+
   const streamStopOld="async function stopScreenShare(silent=false){\n  const stream=screenShareStream;if(!screenShareActive&&!stream)return";
   const streamStopNew="async function stopScreenShare(silent=false){\n  const ownerUserId=user?.id,stream=screenShareStream;if(!screenShareActive&&!stream)return";
   if(!html.includes(streamStopOld))throw Error('Stream owner cleanup boundary missing');
@@ -129,6 +134,18 @@ async function ycStopGlobalStreamPresence(ownerUserId=user?.id){
   else if(!/\bawait\s+ycStopGlobalStreamPresence\s*\(\s*ownerUserId\s*\)/.test(stopBlock))throw Error('Stream stop await boundary missing');
   html=html.slice(0,stopStart)+stopBlock+html.slice(stopEnd);
 
+  const lifecycleStopStart=html.indexOf('async function stopScreenShare(silent=false){'),lifecycleStopEnd=html.indexOf('\n}\n',lifecycleStopStart);
+  if(lifecycleStopStart<0||lifecycleStopEnd<0)throw Error('Screen share serialized stop boundary missing');
+  let lifecycleStop=html.slice(lifecycleStopStart,lifecycleStopEnd);
+  if(!lifecycleStop.includes('++ycScreenShareStartEpoch')){
+    lifecycleStop=lifecycleStop.replace("async function stopScreenShare(silent=false){\n  const ownerUserId=user?.id,stream=screenShareStream;if(!screenShareActive&&!stream)return","async function stopScreenShare(silent=false){\n  ++ycScreenShareStartEpoch\n  const ownerUserId=user?.id,stream=screenShareStream;if(!screenShareActive&&!stream)return ycScreenShareStopPromise");
+    lifecycleStop=lifecycleStop.replace("  screenShareActive=false;screenShareStream=null;screenShareViewers.clear()","  screenShareActive=false;screenShareStream=null;screenShareViewers.clear()\n  const task=(async()=>{");
+    const finish="renderVoiceControls();if(!silent)toast('Sdílení obrazovky ukončeno.')";
+    if(!lifecycleStop.includes(finish))throw Error('Screen share stop completion boundary missing');
+    lifecycleStop=lifecycleStop.replace(finish,finish+"\n  })()\n  ycScreenShareStopPromise=task.catch(e=>console.warn('screen share stop',e))\n  await ycScreenShareStopPromise");
+    html=html.slice(0,lifecycleStopStart)+lifecycleStop+html.slice(lifecycleStopEnd);
+  }
+
   const screenStartOld=`async function startScreenShare(){
   if(!voiceChannel){toast('Nejdřív se připoj do hlasového kanálu.',true);return}
   const media=getScreenMediaDevices();if(!media?.getDisplayMedia){toast('Tento prohlížeč nepodporuje sdílení obrazovky.',true);return}
@@ -138,8 +155,11 @@ async function ycStopGlobalStreamPresence(ownerUserId=user?.id){
   screenShareStream=stream;screenShareActive=true;screenShareViewers.clear()
   await enableScreenShareAudio(stream)`;
   const screenStartNew=`async function startScreenShare(){
+  const startEpoch=++ycScreenShareStartEpoch
+  try{await ycScreenShareStopPromise}catch{}
+  if(startEpoch!==ycScreenShareStartEpoch)return
   if(!voiceChannel){toast('Nejdřív se připoj do hlasového kanálu.',true);return}
-  const channelId=String(voiceChannel.id||''),sessionId=voiceSessionId,uid=String(user?.id||''),current=()=>!!voiceChannel&&String(voiceChannel.id||'')===channelId&&voiceSessionId===sessionId&&String(user?.id||'')===uid
+  const channelId=String(voiceChannel.id||''),sessionId=voiceSessionId,uid=String(user?.id||''),current=()=>startEpoch===ycScreenShareStartEpoch&&!!voiceChannel&&String(voiceChannel.id||'')===channelId&&voiceSessionId===sessionId&&String(user?.id||'')===uid
   const discard=stream=>{try{stream?.getTracks?.().forEach(t=>{t.onended=null;try{t.stop()}catch{}})}catch{}}
   const media=getScreenMediaDevices();if(!media?.getDisplayMedia){toast('Tento prohlížeč nepodporuje sdílení obrazovky.',true);return}
   let stream
