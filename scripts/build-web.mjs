@@ -14,6 +14,7 @@ import {withVoiceThemePolish} from './voice-theme-polish.mjs';
 import {withVoiceExperience} from './voice-experience.mjs';
 import {withVoiceScaleHardening} from './voice-scale-hardening.mjs';
 import {withRuntimeStabilityHardening} from './runtime-stability-hardening.mjs';
+import {withVoiceHotPathCleanup} from './voice-hot-path.mjs';
 import {withCommunityRealtimeConsolidation} from './community-realtime-consolidation.mjs';
 import {withStreamScaleHardening} from './stream-scale-hardening.mjs';
 import {withMessageNotificationSound} from './message-notification-sound.mjs';
@@ -174,6 +175,7 @@ html=withStreamViewer(html);
 html=withLegalUi(html);
 html=withPlatformInstallUi(html);
 html=withDeadCodeCleanup(html);
+html=withVoiceHotPathCleanup(html);
 fs.writeFileSync(path.join(root,'index.html'),html);
 console.log('Web generated from verified desktop 1.0.78 reference; desktop files were not modified.');
 
