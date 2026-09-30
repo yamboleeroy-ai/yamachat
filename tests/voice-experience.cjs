@@ -100,6 +100,7 @@ assert(html.includes("startEpoch===ycScreenShareStartEpoch"),'Screen share start
 assert(html.includes("if(!current()){discard(stream);return}"),'Screen share selected after leaving voice must be discarded');
 if(isDesktop)assert(html.includes("if(!current()){discard(stream);await ycStopDesktopProcessAudio();return}"),'Desktop process-audio preparation must abort after a voice-session change');
 assert(html.includes("screenShareStream!==stream||!screenShareActive"),'Screen share startup must reject a stream superseded while awaiting audio setup');
+assert(html.includes("select('event_key,read_at').eq('user_id',user.id).order('read_at',{ascending:false}).limit(500)"),'Notification read-key cache must stay bounded to recent rows');
 assert(html.includes("screenShareActive=false,ycScreenShareStartEpoch=0,ycScreenShareStopPromise=Promise.resolve()"),'Screen share lifecycle must keep a serialized stop/start barrier');
 assert(html.includes("try{await ycScreenShareStopPromise}catch{}"),'A new screen share must wait for the previous stop cleanup');
 assert(html.includes("const startEpoch=++ycScreenShareStartEpoch"),'Screen share startup must invalidate older pending capture dialogs');
