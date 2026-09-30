@@ -150,8 +150,8 @@ async function ycStopGlobalStreamPresence(ownerUserId=user?.id){
   if(!voiceChannel){toast('Nejdřív se připoj do hlasového kanálu.',true);return}
   const media=getScreenMediaDevices();if(!media?.getDisplayMedia){toast('Tento prohlížeč nepodporuje sdílení obrazovky.',true);return}
   let stream
-  try{stream=await media.getDisplayMedia({video:{width:{ideal:ycScreenShareProfile().width,max:ycScreenShareProfile().width},height:{ideal:ycScreenShareProfile().height,max:ycScreenShareProfile().height},frameRate:{ideal:ycScreenShareProfile().fps,max:ycScreenShareProfile().fps}},audio:{restrictOwnAudio:true},systemAudio:'include',surfaceSwitching:'include'})}catch(e){toast('Sdílení bylo zrušeno nebo jej Windows nepovolil. Pokud výběr proběhl, zkus běžné spuštění Yamachatu a stejná oprávnění jako u hry. Chyba: '+(e?.message||e),true);return}
-  await ycPrepareDesktopProcessAudio(stream);const track=stream.getVideoTracks()[0];if(!track){stream.getTracks().forEach(t=>t.stop());toast('Nebyl vybrán žádný obraz.',true);return}
+  try{stream=await media.getDisplayMedia({video:{width:{ideal:ycScreenShareProfile().width,max:ycScreenShareProfile().width},height:{ideal:ycScreenShareProfile().height,max:ycScreenShareProfile().height},frameRate:{ideal:ycScreenShareProfile().fps,max:ycScreenShareProfile().fps}},audio:true,systemAudio:'include',surfaceSwitching:'include'})}catch(e){if(e?.name!=='NotAllowedError')toast('Sdílení obrazovky se nepodařilo spustit: '+(e?.message||e),true);return}
+  const track=stream.getVideoTracks()[0];if(!track){stream.getTracks().forEach(t=>t.stop());toast('Nebyl vybrán žádný obraz.',true);return}
   screenShareStream=stream;screenShareActive=true;screenShareViewers.clear()
   await enableScreenShareAudio(stream)`;
   const screenStartNew=`async function startScreenShare(){
@@ -163,19 +163,19 @@ async function ycStopGlobalStreamPresence(ownerUserId=user?.id){
   const discard=stream=>{try{stream?.getTracks?.().forEach(t=>{t.onended=null;try{t.stop()}catch{}})}catch{}}
   const media=getScreenMediaDevices();if(!media?.getDisplayMedia){toast('Tento prohlížeč nepodporuje sdílení obrazovky.',true);return}
   let stream
-  try{stream=await media.getDisplayMedia({video:{width:{ideal:ycScreenShareProfile().width,max:ycScreenShareProfile().width},height:{ideal:ycScreenShareProfile().height,max:ycScreenShareProfile().height},frameRate:{ideal:ycScreenShareProfile().fps,max:ycScreenShareProfile().fps}},audio:{restrictOwnAudio:true},systemAudio:'include',surfaceSwitching:'include'})}catch(e){if(current())toast('Sdílení bylo zrušeno nebo jej Windows nepovolil. Pokud výběr proběhl, zkus běžné spuštění Yamachatu a stejná oprávnění jako u hry. Chyba: '+(e?.message||e),true);return}
+  try{stream=await media.getDisplayMedia({video:{width:{ideal:ycScreenShareProfile().width,max:ycScreenShareProfile().width},height:{ideal:ycScreenShareProfile().height,max:ycScreenShareProfile().height},frameRate:{ideal:ycScreenShareProfile().fps,max:ycScreenShareProfile().fps}},audio:true,systemAudio:'include',surfaceSwitching:'include'})}catch(e){if(current()&&e?.name!=='NotAllowedError')toast('Sdílení obrazovky se nepodařilo spustit: '+(e?.message||e),true);return}
   if(!current()){discard(stream);return}
-  await ycPrepareDesktopProcessAudio(stream);if(!current()){discard(stream);await ycStopDesktopProcessAudio();return}const track=stream.getVideoTracks()[0];if(!track){discard(stream);toast('Nebyl vybrán žádný obraz.',true);return}
+  const track=stream.getVideoTracks()[0];if(!track){discard(stream);toast('Nebyl vybrán žádný obraz.',true);return}
   screenShareStream=stream;screenShareActive=true;screenShareViewers.clear()
   await enableScreenShareAudio(stream)
-  if(!current()||screenShareStream!==stream||!screenShareActive){if(screenShareStream===stream){screenShareStream=null;screenShareActive=false}discard(stream);await ycStopDesktopProcessAudio();return}`;
+  if(!current()||screenShareStream!==stream||!screenShareActive){if(screenShareStream===stream){screenShareStream=null;screenShareActive=false}discard(stream);return}`;
   if(html.includes(screenStartOld))html=html.replace(screenStartOld,screenStartNew);
   else if(!html.includes(screenStartNew))throw Error('Screen share startup lifecycle boundary missing');
 
   const screenAttachOld=`function attachVoiceScreen(peerId,stream){
   const track=stream?.getVideoTracks?.()[0];if(!track)return
-  const show=()=>{if(track.readyState!=='live'||!screenWatchingByUser.has(peerId))return;ycClearScreenWatchTimer(peerId);screenWatchPendingByUser.delete(peerId);remoteScreenStreams.set(peerId,stream);ycSyncStreamViewer();renderVoiceChannels(voiceChannelDefs)}
-  const hide=()=>{if(remoteScreenStreams.get(peerId)===stream){if(screenWatchingByUser.has(peerId)&&(voiceScreenActiveByUser.has(peerId)||ycStreamInfo(peerId))){screenWatchPendingByUser.add(peerId);ycArmScreenWatch(peerId)}ycSyncStreamViewer();renderVoiceChannels(voiceChannelDefs)}}
+  const show=()=>{if(track.readyState!=='live'||!screenWatchingByUser.has(peerId))return;ycClearScreenWatchTimer(peerId);screenWatchPendingByUser.delete(peerId);remoteScreenStreams.set(peerId,stream);renderScreenShareStage();renderVoiceChannels(voiceChannelDefs)}
+  const hide=()=>{if(remoteScreenStreams.get(peerId)===stream){if(screenWatchingByUser.has(peerId)&&(voiceScreenActiveByUser.has(peerId)||ycStreamInfo(peerId))){screenWatchPendingByUser.add(peerId);ycArmScreenWatch(peerId)}renderScreenShareStage();renderVoiceChannels(voiceChannelDefs)}}
   track.onunmute=show
   track.onmute=()=>setTimeout(()=>{if(track.muted)hide()},900)
   track.onended=hide
@@ -185,8 +185,8 @@ async function ycStopGlobalStreamPresence(ownerUserId=user?.id){
   const track=stream?.getVideoTracks?.()[0];if(!track)return
   const channelId=String(voiceChannel?.id||''),sessionId=voiceSessionId,pc=voicePeers.get(peerId)
   const current=()=>!!voiceChannel&&String(voiceChannel.id)===channelId&&voiceSessionId===sessionId&&voicePeers.get(peerId)===pc
-  const show=()=>{if(!current()||track.readyState!=='live'||!screenWatchingByUser.has(peerId))return;ycClearScreenWatchTimer(peerId);screenWatchPendingByUser.delete(peerId);remoteScreenStreams.set(peerId,stream);ycSyncStreamViewer();renderVoiceChannels(voiceChannelDefs)}
-  const hide=()=>{if(!current()||remoteScreenStreams.get(peerId)!==stream)return;if(screenWatchingByUser.has(peerId)&&(voiceScreenActiveByUser.has(peerId)||ycStreamInfo(peerId))){screenWatchPendingByUser.add(peerId);ycArmScreenWatch(peerId)}ycSyncStreamViewer();renderVoiceChannels(voiceChannelDefs)}
+  const show=()=>{if(!current()||track.readyState!=='live'||!screenWatchingByUser.has(peerId))return;ycClearScreenWatchTimer(peerId);screenWatchPendingByUser.delete(peerId);remoteScreenStreams.set(peerId,stream);renderScreenShareStage();renderVoiceChannels(voiceChannelDefs)}
+  const hide=()=>{if(!current()||remoteScreenStreams.get(peerId)!==stream)return;if(screenWatchingByUser.has(peerId)&&(voiceScreenActiveByUser.has(peerId)||ycStreamInfo(peerId))){screenWatchPendingByUser.add(peerId);ycArmScreenWatch(peerId)}renderScreenShareStage();renderVoiceChannels(voiceChannelDefs)}
   track.onunmute=show
   track.onmute=()=>setTimeout(()=>{if(track.muted&&current()&&remoteScreenStreams.get(peerId)===stream)hide()},900)
   track.onended=hide
