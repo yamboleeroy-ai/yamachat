@@ -175,7 +175,7 @@ async function ycStopGlobalStreamPresence(ownerUserId=user?.id){
   const screenAttachOld=`function attachVoiceScreen(peerId,stream){
   const track=stream?.getVideoTracks?.()[0];if(!track)return
   const show=()=>{if(track.readyState!=='live'||!screenWatchingByUser.has(peerId))return;ycClearScreenWatchTimer(peerId);screenWatchPendingByUser.delete(peerId);remoteScreenStreams.set(peerId,stream);renderScreenShareStage();renderVoiceChannels(voiceChannelDefs)}
-  const hide=()=>{if(remoteScreenStreams.get(peerId)===stream){if(screenWatchingByUser.has(peerId)&&(voiceScreenActiveByUser.has(peerId)||ycStreamInfo(peerId))){screenWatchPendingByUser.add(peerId);ycArmScreenWatch(peerId)}renderScreenShareStage();renderVoiceChannels(voiceChannelDefs)}}
+  const hide=()=>{if(remoteScreenStreams.get(peerId)===stream){remoteScreenStreams.delete(peerId);if(screenWatchingByUser.has(peerId)&&(voiceScreenActiveByUser.has(peerId)||ycStreamInfo(peerId))){screenWatchPendingByUser.add(peerId);ycArmScreenWatch(peerId)}renderScreenShareStage();renderVoiceChannels(voiceChannelDefs)}}
   track.onunmute=show
   track.onmute=()=>setTimeout(()=>{if(track.muted)hide()},900)
   track.onended=hide
@@ -186,7 +186,7 @@ async function ycStopGlobalStreamPresence(ownerUserId=user?.id){
   const channelId=String(voiceChannel?.id||''),sessionId=voiceSessionId,pc=voicePeers.get(peerId)
   const current=()=>!!voiceChannel&&String(voiceChannel.id)===channelId&&voiceSessionId===sessionId&&voicePeers.get(peerId)===pc
   const show=()=>{if(!current()||track.readyState!=='live'||!screenWatchingByUser.has(peerId))return;ycClearScreenWatchTimer(peerId);screenWatchPendingByUser.delete(peerId);remoteScreenStreams.set(peerId,stream);renderScreenShareStage();renderVoiceChannels(voiceChannelDefs)}
-  const hide=()=>{if(!current()||remoteScreenStreams.get(peerId)!==stream)return;if(screenWatchingByUser.has(peerId)&&(voiceScreenActiveByUser.has(peerId)||ycStreamInfo(peerId))){screenWatchPendingByUser.add(peerId);ycArmScreenWatch(peerId)}renderScreenShareStage();renderVoiceChannels(voiceChannelDefs)}
+  const hide=()=>{if(!current()||remoteScreenStreams.get(peerId)!==stream)return;remoteScreenStreams.delete(peerId);if(screenWatchingByUser.has(peerId)&&(voiceScreenActiveByUser.has(peerId)||ycStreamInfo(peerId))){screenWatchPendingByUser.add(peerId);ycArmScreenWatch(peerId)}renderScreenShareStage();renderVoiceChannels(voiceChannelDefs)}
   track.onunmute=show
   track.onmute=()=>setTimeout(()=>{if(track.muted&&current()&&remoteScreenStreams.get(peerId)===stream)hide()},900)
   track.onended=hide
