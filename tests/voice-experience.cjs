@@ -74,6 +74,13 @@ assert(html.includes("if(ycVoiceParticipantSyncBusy)return ycVoiceParticipantSyn
 assert(html.includes("while(ycVoiceParticipantSyncDirty)"),'Participant sync must flush only the latest dirty state');
 assert(!html.includes("ycVoiceParticipantSyncQueue=ycVoiceParticipantSyncQueue.catch(()=>{}).then(run)"),'Unbounded participant RPC queue must not return');
 assert(html.includes("if(!voiceSignalSub||!voiceSignalReady)void subscribeVoiceSignals().catch(e=>console.warn('voice signal reconnect',e))"),'Voice heartbeat must recreate a dead targeted signal subscription');
+assert(html.includes('voiceSignalRecoverPromise=null'),'Voice signal recovery must have one coalesced in-flight task');
+assert(html.includes("String(row.to_user||'')!==String(user.id)"),'Recovered voice signals must never cross into a different authenticated account');
+assert(html.includes('if(voiceSignalRecoverPromise)return voiceSignalRecoverPromise'),'Concurrent voice signal recovery scans must coalesce');
+assert(html.includes("if(!key||!q.some(c=>String(c?.candidate||'')===key))"),'Queued ICE candidates must be deduplicated');
+assert(html.includes('if(q.length>128)q.splice(0,q.length-128)'),'ICE candidate queues must have a hard per-peer bound');
+assert(html.includes('let voiceRouteCheckFastTimer=null,voiceRouteCheckSlowTimer=null'),'Voice route diagnostics must coalesce timers');
+assert(html.includes('function stopVoiceRouteChecks()'),'Voice route diagnostic timers need an explicit cleanup path');
 assert(html.includes("['CHANNEL_ERROR','TIMED_OUT','CLOSED'].includes(status)"),'Realtime subscriptions must recover from CLOSED/error channels');
 assert(!html.includes("config:{presence:{key:user.id}"),'Voice must not depend on Supabase Presence');
 assert(!html.includes(".on('presence'"),'Voice must not subscribe to Supabase Presence events');
