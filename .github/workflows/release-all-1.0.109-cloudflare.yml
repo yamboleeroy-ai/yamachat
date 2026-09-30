@@ -1,5 +1,5 @@
 name: Yamachat 1.0.109 Cloudflare release
-# release-trigger: 2026-09-30
+# release-trigger: production
 # validated-cutover: 2b592d9
 
 on:
