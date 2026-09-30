@@ -1881,12 +1881,16 @@ window.addEventListener('message',event=>{if(event.source===window.parent&&event
 async function toggleScreenShare(){if(screenShareActive)return stopScreenShare(false);return startScreenShare()}
 async function startScreenShare(){
   if(!voiceChannel){toast('Nejdřív se připoj do hlasového kanálu.',true);return}
+  const channelId=String(voiceChannel.id||''),sessionId=voiceSessionId,uid=String(user?.id||''),current=()=>!!voiceChannel&&String(voiceChannel.id||'')===channelId&&voiceSessionId===sessionId&&String(user?.id||'')===uid
+  const discard=stream=>{try{stream?.getTracks?.().forEach(t=>{t.onended=null;try{t.stop()}catch{}})}catch{}}
   const media=getScreenMediaDevices();if(!media?.getDisplayMedia){toast('Tento prohlížeč nepodporuje sdílení obrazovky.',true);return}
   let stream
-  try{stream=await media.getDisplayMedia({video:{width:{ideal:ycScreenShareProfile().width,max:ycScreenShareProfile().width},height:{ideal:ycScreenShareProfile().height,max:ycScreenShareProfile().height},frameRate:{ideal:ycScreenShareProfile().fps,max:ycScreenShareProfile().fps}},audio:{restrictOwnAudio:true},systemAudio:'include',surfaceSwitching:'include'})}catch(e){toast('Sdílení bylo zrušeno nebo jej Windows nepovolil. Pokud výběr proběhl, zkus běžné spuštění Yamachatu a stejná oprávnění jako u hry. Chyba: '+(e?.message||e),true);return}
-  await ycPrepareDesktopProcessAudio(stream);const track=stream.getVideoTracks()[0];if(!track){stream.getTracks().forEach(t=>t.stop());toast('Nebyl vybrán žádný obraz.',true);return}
+  try{stream=await media.getDisplayMedia({video:{width:{ideal:ycScreenShareProfile().width,max:ycScreenShareProfile().width},height:{ideal:ycScreenShareProfile().height,max:ycScreenShareProfile().height},frameRate:{ideal:ycScreenShareProfile().fps,max:ycScreenShareProfile().fps}},audio:{restrictOwnAudio:true},systemAudio:'include',surfaceSwitching:'include'})}catch(e){if(current())toast('Sdílení bylo zrušeno nebo jej Windows nepovolil. Pokud výběr proběhl, zkus běžné spuštění Yamachatu a stejná oprávnění jako u hry. Chyba: '+(e?.message||e),true);return}
+  if(!current()){discard(stream);return}
+  await ycPrepareDesktopProcessAudio(stream);if(!current()){discard(stream);await ycStopDesktopProcessAudio();return}const track=stream.getVideoTracks()[0];if(!track){discard(stream);toast('Nebyl vybrán žádný obraz.',true);return}
   screenShareStream=stream;screenShareActive=true;screenShareViewers.clear()
   await enableScreenShareAudio(stream)
+  if(!current()||screenShareStream!==stream||!screenShareActive){if(screenShareStream===stream){screenShareStream=null;screenShareActive=false}discard(stream);await ycStopDesktopProcessAudio();return}
   track.onended=()=>{if(screenShareActive)void stopScreenShare(false)}
   for(const [,sender] of voiceScreenSenders){try{await sender.replaceTrack(null)}catch(e){console.warn('screen viewer reset',e)}}
   if(typeof ycEnsureScreenAudio==='function')await ycEnsureScreenAudio()
