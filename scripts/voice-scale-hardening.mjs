@@ -164,7 +164,8 @@ function cleanupVoiceRooms(){
   return ycVoiceCleanupPromise;
 }
 `;
-  html=replaceBetween(html,'function cleanupVoiceRooms(){','function unlockVoiceAudio()',cleanupBlock,'voice auth cleanup');
+  const cleanupEndMarker=html.includes('function ycReleaseShortAudioNodes(source,gain)')?'function ycReleaseShortAudioNodes(source,gain)':'function unlockVoiceAudio()';
+  html=replaceBetween(html,'function cleanupVoiceRooms(){',cleanupEndMarker,cleanupBlock,'voice auth cleanup');
 
   const initBarrierOld="async function initApp(s){\n  window.YamachatBootGuard?.begin();\n  const generation=++ycAuthGeneration,uid=s.user.id;\n  const active=()=>generation===ycAuthGeneration&&user?.id===uid;\n  session=s;user=s.user;";
   const initBarrierNew="async function initApp(s){\n  window.YamachatBootGuard?.begin();\n  const generation=++ycAuthGeneration,uid=s.user.id,authActive=()=>generation===ycAuthGeneration;\n  try{await ycVoiceCleanupPromise}catch(e){console.warn('previous voice cleanup',e)}\n  if(!authActive())return false;\n  session=s;user=s.user;const active=()=>generation===ycAuthGeneration&&user?.id===uid;";
