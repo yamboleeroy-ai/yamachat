@@ -93,6 +93,10 @@ assert(html.includes("if(ycFeedbackSub!==sub||String(user?.id||'')!==uid)return"
 assert(html.includes("const channelId=String(voiceChannel?.id||''),sessionId=voiceSessionId,pc=voicePeers.get(peerId)"),'Remote screen callbacks must capture their voice peer/session');
 assert(html.includes("voiceSessionId===sessionId&&voicePeers.get(peerId)===pc"),'Remote screen callbacks must reject replacement peers/sessions');
 assert(html.includes("track.muted&&current()&&remoteScreenStreams.get(peerId)===stream"),'Delayed remote screen mute callback must not hide a replacement stream');
+assert(html.includes("const channelId=String(voiceChannel.id||''),sessionId=voiceSessionId,uid=String(user?.id||''),current=()=>!!voiceChannel"),'Screen share startup must capture its originating account and voice session');
+assert(html.includes("if(!current()){discard(stream);return}"),'Screen share selected after leaving voice must be discarded');
+assert(html.includes("if(!current()){discard(stream);await ycStopDesktopProcessAudio();return}"),'Screen share audio preparation must abort after a voice-session change');
+assert(html.includes("screenShareStream!==stream||!screenShareActive"),'Screen share startup must reject a stream superseded while awaiting audio setup');
 assert(html.includes("['CHANNEL_ERROR','TIMED_OUT','CLOSED'].includes(status)"),'Realtime subscriptions must recover from CLOSED/error channels');
 assert(!html.includes("config:{presence:{key:user.id}"),'Voice must not depend on Supabase Presence');
 assert(!html.includes(".on('presence'"),'Voice must not subscribe to Supabase Presence events');
