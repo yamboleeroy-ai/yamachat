@@ -203,7 +203,22 @@ jobs:
           PY
       - name: Build isolated Android preview APK
         working-directory: mobile/android
+        env:
+          ANDROID_KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_B64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
         run: |
+          set -euo pipefail
+          : "${ANDROID_KEYSTORE_B64:?Configure the permanent Android keystore secret}"
+          : "${ANDROID_KEYSTORE_PASSWORD:?Configure the permanent Android keystore password}"
+          export ANDROID_KEYSTORE_PATH="$RUNNER_TEMP/yamachat-preview.p12"
+          trap 'rm -f "$ANDROID_KEYSTORE_PATH"' EXIT
+          umask 077
+          python - <<'PY'
+          import base64, os
+          from pathlib import Path
+          encoded=''.join(os.environ['ANDROID_KEYSTORE_B64'].split())
+          Path(os.environ['ANDROID_KEYSTORE_PATH']).write_bytes(base64.b64decode(encoded,validate=True))
+          PY
           chmod +x gradlew
           ./gradlew assembleDebug
           cp app/build/outputs/apk/debug/app-debug.apk ../../yamachat-android-stability-preview.apk
