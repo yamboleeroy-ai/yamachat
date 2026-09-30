@@ -83,8 +83,10 @@ assert(html.includes('let voiceRouteCheckFastTimer=null,voiceRouteCheckSlowTimer
 assert(html.includes('function stopVoiceRouteChecks()'),'Voice route diagnostic timers need an explicit cleanup path');
 assert.equal((html.match(/voicePeers\.get\(peerId\)===pc&&\(pc\.connectionState==='failed'\|\|pc\.iceConnectionState==='failed'\)/g)||[]).length,2,'Both failed-state reconnect timers must belong to the peer that scheduled them');
 assert(html.includes("if(cur===pc&&cur.connectionState!=='connected'&&!cur.remoteDescription"),'Delayed offer retry must never close a replacement peer');
-assert(html.includes("const roomId=String(voiceChannel?.id||''),sessionId=String(voiceSessionId||'')"),'Background microphone recovery must capture the originating voice session');
-assert(html.includes("if(!ycVoiceActive()||String(voiceChannel?.id||'')!==roomId||String(voiceSessionId||'')!==sessionId)return"),'Background microphone recovery must stop after a voice-session change');
+if(isDesktop){
+ assert(html.includes("const roomId=String(voiceChannel?.id||''),sessionId=String(voiceSessionId||'')"),'Background microphone recovery must capture the originating voice session');
+ assert(html.includes("if(!ycVoiceActive()||String(voiceChannel?.id||'')!==roomId||String(voiceSessionId||'')!==sessionId)return"),'Background microphone recovery must stop after a voice-session change');
+}
 assert(html.includes("if(ycMentionSub===sub&&String(user?.id||'')===uid)void ycRefreshNotificationCenter()"),'Mention realtime events must stay bound to their account subscription');
 assert(html.includes("if(ycReactionSub!==sub||String(user?.id||'')!==uid)return"),'Reaction realtime events must stay bound to their account subscription');
 assert(html.includes("if(ycAccountMessagesSub!==sub||String(user?.id||'')!==uid)return"),'Account-message realtime events must stay bound to their account subscription');
