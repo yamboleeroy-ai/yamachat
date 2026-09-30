@@ -216,6 +216,8 @@ assert(html.includes('soundboardMuted:!!raw.soundboardMuted'),'Per-user soundboa
 assert(html.includes('soundboardBufferLoads=new Map()'),'Soundboard in-flight buffer coalescing state missing');
 assert(html.includes('if(soundboardBufferLoads.has(id))return soundboardBufferLoads.get(id)'),'Simultaneous custom sound loads must share one request');
 assert(html.includes('while(soundboardBuffers.size>24)'),'Decoded custom sound cache must stay bounded');
+assert(html.includes("const ycSoundRoomId=String(voiceChannel.id||''),ycSoundSessionId=String(voiceSessionId||'')"),'Async custom sound playback must capture its originating voice session');
+assert(html.includes("String(voiceChannel?.id||'')!==ycSoundRoomId||String(voiceSessionId||'')!==ycSoundSessionId||voiceDeafened"),'Custom sound downloads must be discarded after room/session changes or deafen');
 assert(html.includes('function ycReleaseShortAudioNodes(source,gain)'),'Short Web Audio node cleanup helper missing');
 assert(html.includes('ycReleaseShortAudioNodes(src,g)'),'Custom sound source/gain nodes must disconnect after playback');
 assert(html.includes('data-yc-soundboard-mute-user')||html.includes('data.ycSoundboardMuteUser')||html.includes('ycSoundboardMuteUser'),'Per-user soundboard menu action missing');
