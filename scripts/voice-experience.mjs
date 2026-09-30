@@ -364,6 +364,14 @@ export function withVoiceExperience(html){
  html=html.replace("g.gain.exponentialRampToValueAtTime(gain,now+start+.015);","g.gain.exponentialRampToValueAtTime(gain*Math.max(0,Number(gainScale)||0),now+start+.015);");
  html=html.replace("async function playCustomSound(soundId){","async function playCustomSound(soundId,gainScale=1){");
  html=html.replace("g.gain.value=.72;src.buffer=buf;","g.gain.value=.72*Math.max(0,Number(gainScale)||0);src.buffer=buf;");
+ const staleSoundOld="async function playCustomSound(soundId,gainScale=1){if(voiceDeafened)return;let sound=soundboardSounds.find(s=>s.id===soundId);";
+ const staleSoundNew="async function playCustomSound(soundId,gainScale=1){if(voiceDeafened||!voiceChannel)return;const ycSoundRoomId=String(voiceChannel.id||''),ycSoundSessionId=String(voiceSessionId||'');let sound=soundboardSounds.find(s=>s.id===soundId);";
+ if(!html.includes(staleSoundOld))throw Error('Soundboard async room guard boundary missing');
+ html=html.replace(staleSoundOld,staleSoundNew);
+ const staleLookupOld="sound=data;if(sound)soundboardSounds.push(sound)}if(!sound)return;try{const buf=await getSoundboardBuffer(sound);unlockVoiceAudio();";
+ const staleLookupNew="if(String(voiceChannel?.id||'')!==ycSoundRoomId||String(voiceSessionId||'')!==ycSoundSessionId||voiceDeafened)return;sound=data;if(sound)soundboardSounds.push(sound)}if(!sound)return;try{const buf=await getSoundboardBuffer(sound);if(String(voiceChannel?.id||'')!==ycSoundRoomId||String(voiceSessionId||'')!==ycSoundSessionId||voiceDeafened)return;unlockVoiceAudio();";
+ if(!html.includes(staleLookupOld))throw Error('Soundboard async playback guard boundary missing');
+ html=html.replace(staleLookupOld,staleLookupNew);
  const oldHandle="async function handleSoundboardEvent(row){if(!row||!voiceChannel||row.channel_id!==voiceChannel.id||soundboardEventSeen.has(row.id))return;soundboardEventSeen.add(row.id);if(soundboardEventSeen.size>300)soundboardEventSeen.clear();if(row.sound_key)playPresetSound(row.sound_key);else if(row.sound_id)await playCustomSound(row.sound_id)}";
  const newHandle="async function handleSoundboardEvent(row){if(!row||!voiceChannel||row.channel_id!==voiceChannel.id||soundboardEventSeen.has(row.id))return;soundboardEventSeen.add(row.id);if(soundboardEventSeen.size>300)while(soundboardEventSeen.size>200)soundboardEventSeen.delete(soundboardEventSeen.values().next().value);const scale=ycSoundboardScaleFor(row.user_id);if(scale<=0)return;if(row.sound_key)playPresetSound(row.sound_key,scale);else if(row.sound_id)await playCustomSound(row.sound_id,scale)}";
  if(!html.includes(oldHandle))throw Error('Soundboard event boundary missing');
