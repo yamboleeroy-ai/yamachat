@@ -153,6 +153,10 @@ jobs:
         run: |
           npx cap sync android
           node scripts/patch-native.mjs android
+      - name: Install Android preview browser test runtime
+        run: |
+          npm install --no-save --package-lock=false playwright@1.62.1
+          npx playwright install --with-deps chromium
       - name: Verify Android regression guards
         run: |
           node scripts/check.mjs
