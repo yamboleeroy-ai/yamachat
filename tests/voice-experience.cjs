@@ -90,6 +90,9 @@ assert(html.includes("if(ycReactionSub!==sub||String(user?.id||'')!==uid)return"
 assert(html.includes("if(ycAccountMessagesSub!==sub||String(user?.id||'')!==uid)return"),'Account-message realtime events must stay bound to their account subscription');
 assert(html.includes("if(ycReportSub!==sub||String(user?.id||'')!==uid)return"),'Admin report realtime events must stay bound to their account subscription');
 assert(html.includes("if(ycFeedbackSub!==sub||String(user?.id||'')!==uid)return"),'Admin feedback realtime events must stay bound to their account subscription');
+assert(html.includes("const channelId=String(voiceChannel?.id||''),sessionId=voiceSessionId,pc=voicePeers.get(peerId)"),'Remote screen callbacks must capture their voice peer/session');
+assert(html.includes("voiceSessionId===sessionId&&voicePeers.get(peerId)===pc"),'Remote screen callbacks must reject replacement peers/sessions');
+assert(html.includes("track.muted&&current()&&remoteScreenStreams.get(peerId)===stream"),'Delayed remote screen mute callback must not hide a replacement stream');
 assert(html.includes("['CHANNEL_ERROR','TIMED_OUT','CLOSED'].includes(status)"),'Realtime subscriptions must recover from CLOSED/error channels');
 assert(!html.includes("config:{presence:{key:user.id}"),'Voice must not depend on Supabase Presence');
 assert(!html.includes(".on('presence'"),'Voice must not subscribe to Supabase Presence events');
