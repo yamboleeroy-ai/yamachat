@@ -65,7 +65,7 @@ function section(s,start,end){const a=s.indexOf(start),b=s.indexOf(end,a);assert
   assert.equal(await page.locator('.yc-stream-viewer').getAttribute('data-controls'),'visible','Pointer movement should reveal fullscreen controls');
   assert(await page.locator('.yc-sv-footer input').isVisible());
   assert(read('web/stream-viewer.css').includes('[data-controls="hidden"] .yc-sv-footer'));
-  assert(read('web/stream-viewer.css').includes('[data-mode="fullscreen"][data-desktop="true"] .yc-sv-media video{object-fit:fill'));
+  assert(read('web/stream-viewer.css').includes('[data-mode="fullscreen"][data-desktop="true"] .yc-sv-media video{object-fit:contain'),'Desktop fullscreen stream must preserve aspect ratio with black letterboxing');
   assert(!read('web/stream-viewer.js').includes("session.panel.matches(':focus-within')"));
   assert(read('web/stream-viewer.js').includes("audio.muted=v<=0"));
   await page.locator('.yc-sv-footer input').fill('32');
