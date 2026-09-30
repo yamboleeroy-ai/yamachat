@@ -129,6 +129,29 @@ async function ycStopGlobalStreamPresence(ownerUserId=user?.id){
   else if(!/\bawait\s+ycStopGlobalStreamPresence\s*\(\s*ownerUserId\s*\)/.test(stopBlock))throw Error('Stream stop await boundary missing');
   html=html.slice(0,stopStart)+stopBlock+html.slice(stopEnd);
 
+  const screenStartOld=`async function startScreenShare(){
+  if(!voiceChannel){toast('Nejdřív se připoj do hlasového kanálu.',true);return}
+  const media=getScreenMediaDevices();if(!media?.getDisplayMedia){toast('Tento prohlížeč nepodporuje sdílení obrazovky.',true);return}
+  let stream
+  try{stream=await media.getDisplayMedia({video:{width:{ideal:ycScreenShareProfile().width,max:ycScreenShareProfile().width},height:{ideal:ycScreenShareProfile().height,max:ycScreenShareProfile().height},frameRate:{ideal:ycScreenShareProfile().fps,max:ycScreenShareProfile().fps}},audio:{restrictOwnAudio:true},systemAudio:'include',surfaceSwitching:'include'})}catch(e){toast('Sdílení bylo zrušeno nebo jej Windows nepovolil. Pokud výběr proběhl, zkus běžné spuštění Yamachatu a stejná oprávnění jako u hry. Chyba: '+(e?.message||e),true);return}
+  await ycPrepareDesktopProcessAudio(stream);const track=stream.getVideoTracks()[0];if(!track){stream.getTracks().forEach(t=>t.stop());toast('Nebyl vybrán žádný obraz.',true);return}
+  screenShareStream=stream;screenShareActive=true;screenShareViewers.clear()
+  await enableScreenShareAudio(stream)`;
+  const screenStartNew=`async function startScreenShare(){
+  if(!voiceChannel){toast('Nejdřív se připoj do hlasového kanálu.',true);return}
+  const channelId=String(voiceChannel.id||''),sessionId=voiceSessionId,uid=String(user?.id||''),current=()=>!!voiceChannel&&String(voiceChannel.id||'')===channelId&&voiceSessionId===sessionId&&String(user?.id||'')===uid
+  const discard=stream=>{try{stream?.getTracks?.().forEach(t=>{t.onended=null;try{t.stop()}catch{}})}catch{}}
+  const media=getScreenMediaDevices();if(!media?.getDisplayMedia){toast('Tento prohlížeč nepodporuje sdílení obrazovky.',true);return}
+  let stream
+  try{stream=await media.getDisplayMedia({video:{width:{ideal:ycScreenShareProfile().width,max:ycScreenShareProfile().width},height:{ideal:ycScreenShareProfile().height,max:ycScreenShareProfile().height},frameRate:{ideal:ycScreenShareProfile().fps,max:ycScreenShareProfile().fps}},audio:{restrictOwnAudio:true},systemAudio:'include',surfaceSwitching:'include'})}catch(e){if(current())toast('Sdílení bylo zrušeno nebo jej Windows nepovolil. Pokud výběr proběhl, zkus běžné spuštění Yamachatu a stejná oprávnění jako u hry. Chyba: '+(e?.message||e),true);return}
+  if(!current()){discard(stream);return}
+  await ycPrepareDesktopProcessAudio(stream);if(!current()){discard(stream);await ycStopDesktopProcessAudio();return}const track=stream.getVideoTracks()[0];if(!track){discard(stream);toast('Nebyl vybrán žádný obraz.',true);return}
+  screenShareStream=stream;screenShareActive=true;screenShareViewers.clear()
+  await enableScreenShareAudio(stream)
+  if(!current()||screenShareStream!==stream||!screenShareActive){if(screenShareStream===stream){screenShareStream=null;screenShareActive=false}discard(stream);await ycStopDesktopProcessAudio();return}`;
+  if(html.includes(screenStartOld))html=html.replace(screenStartOld,screenStartNew);
+  else if(!html.includes(screenStartNew))throw Error('Screen share startup lifecycle boundary missing');
+
   const screenAttachOld=`function attachVoiceScreen(peerId,stream){
   const track=stream?.getVideoTracks?.()[0];if(!track)return
   const show=()=>{if(track.readyState!=='live'||!screenWatchingByUser.has(peerId))return;ycClearScreenWatchTimer(peerId);screenWatchPendingByUser.delete(peerId);remoteScreenStreams.set(peerId,stream);ycSyncStreamViewer();renderVoiceChannels(voiceChannelDefs)}
