@@ -97,6 +97,12 @@ assert(html.includes("const channelId=String(voiceChannel.id||''),sessionId=voic
 assert(html.includes("if(!current()){discard(stream);return}"),'Screen share selected after leaving voice must be discarded');
 assert(html.includes("if(!current()){discard(stream);await ycStopDesktopProcessAudio();return}"),'Screen share audio preparation must abort after a voice-session change');
 assert(html.includes("screenShareStream!==stream||!screenShareActive"),'Screen share startup must reject a stream superseded while awaiting audio setup');
+assert(html.includes("ycScreenShareStartEpoch=0,ycScreenShareStopPromise=Promise.resolve()"),'Screen share restart must have lifecycle serialization state');
+assert(html.includes("try{await ycScreenShareStopPromise}catch{}"),'A new screen share must wait for prior stop cleanup');
+assert(html.includes("++ycScreenShareStartEpoch"),'Stopping a screen share must invalidate pending starts');
+assert(html.includes("return ycScreenShareStopPromise"),'Repeated screen-share stop must join existing cleanup');
+assert(html.includes("window.__ycScreenAudioTrackHooks=window.__ycScreenAudioTrackHooks||new WeakSet()"),'Screen audio track listeners must be deduplicated');
+assert(html.includes("window.__ycScreenAudioTracks.get(peerId)!==track"),'Delayed screen-audio mute callbacks must reject replacement tracks');
 assert(html.includes("['CHANNEL_ERROR','TIMED_OUT','CLOSED'].includes(status)"),'Realtime subscriptions must recover from CLOSED/error channels');
 assert(!html.includes("config:{presence:{key:user.id}"),'Voice must not depend on Supabase Presence');
 assert(!html.includes(".on('presence'"),'Voice must not subscribe to Supabase Presence events');
