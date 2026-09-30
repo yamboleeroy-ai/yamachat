@@ -5961,10 +5961,11 @@ ycRegisterAppSettingsSection({
    Local Windows/Electron speech (normally Microsoft Jakub on Czech Windows)
    remains the fallback whenever the online provider is unavailable. */
 const YC_DESKTOP_NATURAL_PREFIX='azure:';
-let ycDesktopNaturalVoices=[],ycDesktopNaturalState='idle',ycDesktopNaturalPromise=null;
+let ycDesktopNaturalVoices=[],ycDesktopNaturalState='idle',ycDesktopNaturalPromise=null,ycDesktopNaturalQueue=Promise.resolve(),ycDesktopNaturalQueueGeneration=0,ycDesktopNaturalQueued=0;
 const ycDesktopNaturalPlayers=new Set();
 const ycDesktopStopAnnouncementsBase=window.YamachatStopVoiceAnnouncements;
 window.YamachatStopVoiceAnnouncements=function(){
+ ++ycDesktopNaturalQueueGeneration;
  try{ycDesktopStopAnnouncementsBase?.()}catch{}
  for(const audio of [...ycDesktopNaturalPlayers]){
   try{audio.pause();audio.onended?.()}catch{}
@@ -6045,15 +6046,26 @@ async function ycDesktopNaturalSpeak(text,voice,onDone){
   return ycDesktopLocalVoiceSpeakEnhanced(text,onDone);
  }
 }
+function ycDesktopNaturalEnqueue(text,voice,onDone){
+ const generation=ycDesktopNaturalQueueGeneration;if(ycDesktopNaturalQueued>=16){try{onDone?.()}catch{};return}
+ ++ycDesktopNaturalQueued;
+ const task=ycDesktopNaturalQueue.catch(()=>{}).then(async()=>{
+  if(generation!==ycDesktopNaturalQueueGeneration||voiceDeafened){try{onDone?.()}catch{};return}
+  await new Promise(resolve=>{let done=false,timer=0;const finish=()=>{if(done)return;done=true;clearTimeout(timer);try{onDone?.()}catch{}resolve()};timer=setTimeout(finish,9000);void ycDesktopNaturalSpeak(text,voice,finish).then(result=>{if(!result)finish()},finish)})
+ }).finally(()=>{ycDesktopNaturalQueued=Math.max(0,ycDesktopNaturalQueued-1)});
+ ycDesktopNaturalQueue=task.catch(()=>{});
+}
 ycVoiceSpeakEnhanced=function(text,onDone){
  if(!text||ycVoiceAnnounceMode()!=='speech'||voiceDeafened){try{onDone?.()}catch{};return null}
  const wanted=localStorage.getItem(YC_VOICE_ANNOUNCE_VOICE_KEY)||'',gender=ycVoiceGender();
  const wantsNatural=wanted.startsWith(YC_DESKTOP_NATURAL_PREFIX)||gender==='female'||gender==='male';
  if(!wantsNatural)return ycDesktopLocalVoiceSpeakEnhanced(text,onDone);
+ const generation=ycDesktopNaturalQueueGeneration;
  void (async()=>{
   if(ycDesktopNaturalState!=='ready')await ycDesktopNaturalVoiceLoad();
+  if(generation!==ycDesktopNaturalQueueGeneration||voiceDeafened){try{onDone?.()}catch{};return}
   const voice=ycDesktopNaturalVoiceForPreference();
-  if(voice)await ycDesktopNaturalSpeak(text,voice,onDone);
+  if(voice)ycDesktopNaturalEnqueue(text,voice,onDone);
   else ycDesktopLocalVoiceSpeakEnhanced(text,onDone);
  })();
  return {natural:true};
