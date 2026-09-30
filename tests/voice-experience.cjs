@@ -81,6 +81,8 @@ assert(html.includes("if(!key||!q.some(c=>String(c?.candidate||'')===key))"),'Qu
 assert(html.includes('if(q.length>128)q.splice(0,q.length-128)'),'ICE candidate queues must have a hard per-peer bound');
 assert(html.includes('let voiceRouteCheckFastTimer=null,voiceRouteCheckSlowTimer=null'),'Voice route diagnostics must coalesce timers');
 assert(html.includes('function stopVoiceRouteChecks()'),'Voice route diagnostic timers need an explicit cleanup path');
+assert.equal((html.match(/voicePeers\.get\(peerId\)===pc&&\(pc\.connectionState==='failed'\|\|pc\.iceConnectionState==='failed'\)/g)||[]).length,2,'Both failed-state reconnect timers must belong to the peer that scheduled them');
+assert(html.includes("if(cur===pc&&cur.connectionState!=='connected'&&!cur.remoteDescription"),'Delayed offer retry must never close a replacement peer');
 assert(html.includes("['CHANNEL_ERROR','TIMED_OUT','CLOSED'].includes(status)"),'Realtime subscriptions must recover from CLOSED/error channels');
 assert(!html.includes("config:{presence:{key:user.id}"),'Voice must not depend on Supabase Presence');
 assert(!html.includes(".on('presence'"),'Voice must not subscribe to Supabase Presence events');
