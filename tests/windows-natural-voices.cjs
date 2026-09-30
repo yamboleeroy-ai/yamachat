@@ -26,6 +26,11 @@ assert(client.includes("if(ycDesktopNaturalState!=='ready'){ycDesktopNaturalStat
 assert(!client.includes("const loadNatural=async()=>{ycDesktopNaturalState='loading';fillVoices();await ycDesktopNaturalVoiceLoad()"),'Desktop settings must not force a Natural voice refetch when already ready');
 assert(client.includes("if(audio){ycDesktopNaturalPlayers.delete(audio);try{audio.pause()}catch{}}"),'Failed desktop Natural playback must release its tracked audio object');
 assert(client.includes("if(!ycVoiceAvailableVoices().length)try{speechSynthesis?.addEventListener?.('voiceschanged',fillVoices,{once:true})}"),'Desktop settings must not add a stale voiceschanged listener when voices are already loaded');
+assert(client.includes("ycDesktopNaturalQueue=Promise.resolve(),ycDesktopNaturalQueueGeneration=0,ycDesktopNaturalQueued=0"),'Desktop Natural TTS must use a serialized bounded queue');
+assert(client.includes("if(ycDesktopNaturalQueued>=16)"),'Desktop Natural TTS queue must be bounded during join/leave bursts');
+assert(client.includes("++ycDesktopNaturalQueueGeneration"),'Desktop deafen/announcement cleanup must invalidate queued Natural requests');
+assert(client.includes("try{await ycScreenShareStopPromise}catch{}"),'Windows screen share restart must wait for previous cleanup');
+assert(client.includes("window.__ycScreenAudioTrackHooks=window.__ycScreenAudioTrackHooks||new WeakSet()"),'Windows screen audio listeners must be deduplicated');
 
 for(const marker of [
   "Deno.env.get('AZURE_SPEECH_KEY')",
