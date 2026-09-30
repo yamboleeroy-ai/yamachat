@@ -80,6 +80,12 @@ export function withStreamViewer(input,{desktop=false}={}) {
   if(!html.includes('window.__ycScreenAudioTracks=window.__ycScreenAudioTracks||new Map()'))throw Error('Screen audio track cache missing');
   if(!html.includes('window.__ycScreenAudioTrackHooks=window.__ycScreenAudioTrackHooks||new WeakSet()'))throw Error('Screen audio track listener guard missing');
 
+  html=html.replace(
+    "setTimeout(()=>{try{const laterWatching=typeof screenWatchingByUser!=='undefined'&&screenWatchingByUser?.has?.(peerId),laterRemote=remoteScreenStreams?.get?.(peerId)||null,laterScreen=laterWatching&&((typeof voiceScreenActiveByUser!=='undefined'&&voiceScreenActiveByUser?.has?.(peerId))||!!laterRemote),laterLooks=!!stream?.getVideoTracks?.().length||!!(laterRemote&&stream&&laterRemote.id===stream.id);if(laterScreen&&laterLooks)ycAttachRemoteScreenAudio(peerId,e.track);else if(previous)previous.call(pc,e)}catch{if(previous)previous.call(pc,e)}},260)",
+    "setTimeout(()=>{try{if(voicePeers.get(peerId)!==pc)return;const laterWatching=typeof screenWatchingByUser!=='undefined'&&screenWatchingByUser?.has?.(peerId),laterRemote=remoteScreenStreams?.get?.(peerId)||null,laterScreen=laterWatching&&((typeof voiceScreenActiveByUser!=='undefined'&&voiceScreenActiveByUser?.has?.(peerId))||!!laterRemote),laterLooks=!!stream?.getVideoTracks?.().length||!!(laterRemote&&stream&&laterRemote.id===stream.id);if(laterScreen&&laterLooks)ycAttachRemoteScreenAudio(peerId,e.track);else if(previous)previous.call(pc,e)}catch{if(voicePeers.get(peerId)===pc&&previous)previous.call(pc,e)}},260)"
+  );
+  if(!html.includes("if(voicePeers.get(peerId)!==pc)return;const laterWatching"))throw Error('Delayed screen audio peer guard missing');
+
   // Never feed Yamachat's own voice playback back into a shared stream.
   // Chromium/Electron honors restrictOwnAudio by excluding the capturing app's
   // playback from loopback while keeping the selected display/window audio request.
