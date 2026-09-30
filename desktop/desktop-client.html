@@ -3360,7 +3360,7 @@ function ycWrapScreenAudioPc(peerId,pc){
     const secondaryAudio=!!e.transceiver&&audioTx.indexOf(e.transceiver)>0
     const streamLooksLikeScreen=watching&&(!!stream?.getVideoTracks?.().length||!!(remote&&stream&&remote.id===stream.id))
     if(watching&&(secondaryAudio||streamLooksLikeScreen)){ycAttachRemoteScreenAudio(peerId,e.track);return}
-    setTimeout(()=>{try{const laterWatching=typeof screenWatchingByUser!=='undefined'&&screenWatchingByUser?.has?.(peerId),laterRemote=remoteScreenStreams?.get?.(peerId)||null,laterTx=(pc.getTransceivers?.()||[]).filter(tx=>tx.receiver?.track?.kind==='audio'),laterSecondary=!!e.transceiver&&laterTx.indexOf(e.transceiver)>0,laterLooks=laterWatching&&(!!stream?.getVideoTracks?.().length||!!(laterRemote&&stream&&laterRemote.id===stream.id));if(laterWatching&&(laterSecondary||laterLooks))ycAttachRemoteScreenAudio(peerId,e.track);else if(previous)previous.call(pc,e)}catch{if(previous)previous.call(pc,e)}},700)
+    setTimeout(()=>{try{if(voicePeers.get(peerId)!==pc)return;const laterWatching=typeof screenWatchingByUser!=='undefined'&&screenWatchingByUser?.has?.(peerId),laterRemote=remoteScreenStreams?.get?.(peerId)||null,laterTx=(pc.getTransceivers?.()||[]).filter(tx=>tx.receiver?.track?.kind==='audio'),laterSecondary=!!e.transceiver&&laterTx.indexOf(e.transceiver)>0,laterLooks=laterWatching&&(!!stream?.getVideoTracks?.().length||!!(laterRemote&&stream&&laterRemote.id===stream.id));if(laterWatching&&(laterSecondary||laterLooks))ycAttachRemoteScreenAudio(peerId,e.track);else if(previous)previous.call(pc,e)}catch{if(voicePeers.get(peerId)===pc&&previous)previous.call(pc,e)}},700)
     return
    }
   }catch(err){console.warn('screen audio classify',err)}
