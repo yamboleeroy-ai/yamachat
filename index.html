@@ -1022,7 +1022,7 @@ html body .yc-ss-note{
 .yc-stream-viewer[data-mode="fullscreen"] .yc-sv-footer{display:flex;position:absolute;bottom:max(8px,env(safe-area-inset-bottom));left:max(8px,env(safe-area-inset-left));right:max(8px,env(safe-area-inset-right));z-index:6;padding:10px 14px;background:#071019e8;border-radius:10px;opacity:1;transform:translateY(0);transition:opacity .18s ease,transform .18s ease}
 .yc-stream-viewer[data-mode="fullscreen"][data-controls="hidden"] .yc-sv-footer{opacity:0;transform:translateY(12px);pointer-events:none}
 
-.yc-stream-viewer[data-mode="fullscreen"][data-desktop="true"] .yc-sv-media video{object-fit:fill;width:100%;height:100%}
+.yc-stream-viewer[data-mode="fullscreen"][data-desktop="true"] .yc-sv-media video{object-fit:contain;width:100%;height:100%;background:#000}
 </style>
 </head>
 <body>
@@ -2352,7 +2352,7 @@ $('ycPasswordRequestBack')?.addEventListener('click',e=>{if(e.target===e.current
 $('ycPasswordRequestForm')?.addEventListener('submit',ycPasswordRequestSend);
 window.ycOpenPasswordRecovery=ycPasswordRequestOpen;
 })();
-let mode='login',session=null,user=null,profile=null,myStats={xp:0,message_count:0},communityRealtimeSub=null,userRealtimeSub=null,visibleMessageIds=new Set(),communities=[],currentCommunity=null,currentRole=null,currentChannel=null,currentThread=null,messageSub=null,attachmentSub=null,pendingFile=null,rightMode='members',dmThreads=[],voiceRooms=new Map(),voicePresenceByChannel={},voiceChannelDefs=[],voiceChannel=null,voiceStream=null,voicePeers=new Map(),voiceIceQueues=new Map(),voiceMuted=localStorage.getItem('yc_voice_muted')==='1',voiceDeafened=localStorage.getItem('yc_voice_deafened')==='1',voiceDeviceId=localStorage.getItem('yc_voice_mic')||'',voiceOutputId=localStorage.getItem('yc_voice_output')||'',voiceEcho=localStorage.getItem('yc_voice_echo')!=='0',voiceNoise=localStorage.getItem('yc_voice_noise')!=='0',voiceAgc=localStorage.getItem('yc_voice_agc')==='1',voiceMeterStop=null,voiceAudioContext=null,voiceAudioNodes=new Map(),voicePeerStates=new Map(),voiceIceRestarted=new Set(),voiceIceServers=[{urls:['stun:stun.l.google.com:19302','stun:stun.cloudflare.com:3478']}],voiceTurnReady=false,voiceTurnProvider='none',voiceSpeaking=false,voiceVadStop=null,voiceJoinSoundArmed=false,voiceSignalSub=null,voiceSignalReady=false,voiceSignalSeen=new Set(),voiceSignalError='',voiceSessionId='',voicePeerSessions=new Map(),voiceRelayCandidates=new Set(),voiceIceGatherDone=new Set(),voiceActionSeq=0,chatFollowBottomUntil=0,voiceParticipantSub=null,voiceParticipantSubChannelId='',voiceHeartbeatTimer=null,voiceRosterRefreshTimer=null,voiceRosterLastRefresh=0,voiceRosterRefreshBusy=null,voiceRemoteSpeaking=new Set(),voiceRemoteVadStops=new Map(),voiceMissingSince=new Map(),soundboardSub=null,soundboardSounds=[],soundboardEventSeen=new Set(),soundboardBuffers=new Map(),soundboardLastPlay=0,voiceUserMix={},voiceContextUser=null,screenShareStream=null,screenShareActive=false,voiceScreenSenders=new Map(),remoteScreenStreams=new Map(),voiceScreenActiveByUser=new Set(),screenShareViewers=new Set(),screenWatchingByUser=new Set(),screenWatchPendingByUser=new Set(),screenWatchTimers=new Map(),screenAudioContext=null,screenAudioDestination=null,screenAudioMixedTrack=null
+let mode='login',session=null,user=null,profile=null,myStats={xp:0,message_count:0},communityRealtimeSub=null,userRealtimeSub=null,visibleMessageIds=new Set(),communities=[],currentCommunity=null,currentRole=null,currentChannel=null,currentThread=null,messageSub=null,attachmentSub=null,pendingFile=null,rightMode='members',dmThreads=[],voiceRooms=new Map(),voicePresenceByChannel={},voiceChannelDefs=[],voiceChannel=null,voiceStream=null,voicePeers=new Map(),voiceIceQueues=new Map(),voiceMuted=localStorage.getItem('yc_voice_muted')==='1',voiceDeafened=localStorage.getItem('yc_voice_deafened')==='1',voiceDeviceId=localStorage.getItem('yc_voice_mic')||'',voiceOutputId=localStorage.getItem('yc_voice_output')||'',voiceEcho=localStorage.getItem('yc_voice_echo')!=='0',voiceNoise=localStorage.getItem('yc_voice_noise')!=='0',voiceAgc=localStorage.getItem('yc_voice_agc')==='1',voiceMeterStop=null,voiceAudioContext=null,voiceAudioNodes=new Map(),voicePeerStates=new Map(),voiceIceRestarted=new Set(),voiceIceServers=[{urls:['stun:stun.l.google.com:19302','stun:stun.cloudflare.com:3478']}],voiceTurnReady=false,voiceTurnProvider='none',voiceSpeaking=false,voiceVadStop=null,voiceJoinSoundArmed=false,voiceSignalSub=null,voiceSignalReady=false,voiceSignalRecoverPromise=null,voiceSignalSeen=new Set(),voiceSignalError='',voiceSessionId='',voicePeerSessions=new Map(),voiceRelayCandidates=new Set(),voiceIceGatherDone=new Set(),voiceActionSeq=0,chatFollowBottomUntil=0,voiceParticipantSub=null,voiceParticipantSubChannelId='',voiceHeartbeatTimer=null,voiceRosterRefreshTimer=null,voiceRosterLastRefresh=0,voiceRosterRefreshBusy=null,voiceRosterGeneration=0,voiceRemoteSpeaking=new Set(),voiceRemoteVadStops=new Map(),voiceMissingSince=new Map(),soundboardSub=null,soundboardSounds=[],soundboardEventSeen=new Set(),soundboardBuffers=new Map(),soundboardBufferLoads=new Map(),soundboardLastPlay=0,voiceUserMix={},voiceContextUser=null,screenShareStream=null,screenShareActive=false,ycScreenShareStartEpoch=0,ycScreenShareStopPromise=Promise.resolve(),voiceScreenSenders=new Map(),remoteScreenStreams=new Map(),voiceScreenActiveByUser=new Set(),screenShareViewers=new Set(),screenWatchingByUser=new Set(),screenWatchPendingByUser=new Set(),screenWatchTimers=new Map(),screenAudioContext=null,screenAudioDestination=null,screenAudioMixedTrack=null
 let ycMessageLoadSeq=0,ycAuthGeneration=0,ycChatInteractionSeq=0;
 let ycMessageSendBusy=false,ycMessageSubscriptionGeneration=0,ycMessageRefreshTimer=null,ycMessageRefreshRunning=false,ycMessageRefreshPending=null
 // CHAT SCROLL MEMORY v1.0.65 — per-channel/DM position, no jumpy auto-scroll, explicit latest-message button
@@ -2367,14 +2367,14 @@ function ycAbortableQuery(q,signal){try{return signal&&typeof q?.abortSignal==='
 function ycInvalidateChatRoleCache(){ycChatRolePackCache.clear()}
 async function ycChatGetRolePack(communityId){
   if(!communityId)return null;const key=String(communityId),now=Date.now(),cached=ycChatRolePackCache.get(key);
-  if(cached&&now-cached.at<5000)return cached.data;
+  if(cached&&now-cached.at<5000){ycChatRolePackCache.delete(key);ycChatRolePackCache.set(key,cached);return cached.data}
   const data=await Promise.all([
     sb.from('community_roles').select('id,name,color,position,permissions').eq('community_id',communityId),
     sb.from('desktop_server_role_layout').select('automatic,role_order').eq('community_id',communityId).maybeSingle(),
     sb.from('community_member_roles').select('user_id,role_id').eq('community_id',communityId),
     sb.from('community_members').select('user_id,role').eq('community_id',communityId)
   ]).then(([rr,lr,ar,mr])=>({rr,lr,ar,mr})).catch(()=>null);
-  ycChatRolePackCache.set(key,{at:now,data});return data;
+  ycChatRolePackCache.set(key,{at:Date.now(),data});while(ycChatRolePackCache.size>12)ycChatRolePackCache.delete(ycChatRolePackCache.keys().next().value);return data;
 }
 function ycChatCachedSignedUrl(a){
   if(!a?.id||!a?.storage_path)return'';const key=String(a.id)+'|'+String(a.storage_path),cached=ycChatSignedUrlCache.get(key),now=Date.now();
@@ -2392,7 +2392,7 @@ async function ycChatGetSignedUrl(a,{signal,timeoutMs=YC_CHAT_SIGN_TIMEOUT_MS}={
   const outcome=await Promise.race([request,stop]);clearTimeout(timer);if(signal&&abortHandler)signal.removeEventListener('abort',abortHandler);
   if(signal?.aborted||outcome?.kind!=='result')return'';
   const url=outcome.value?.data?.signedUrl||'';if(url)ycChatSignedUrlCache.set(key,{url,expiresAt:Date.now()+3300000});
-  if(ycChatSignedUrlCache.size>800){const cut=Date.now();for(const [k,v] of ycChatSignedUrlCache){if(v.expiresAt<cut)ycChatSignedUrlCache.delete(k);if(ycChatSignedUrlCache.size<=600)break}}
+  if(ycChatSignedUrlCache.size>800){const cut=Date.now();for(const [k,v] of [...ycChatSignedUrlCache])if(v.expiresAt<cut)ycChatSignedUrlCache.delete(k);while(ycChatSignedUrlCache.size>600)ycChatSignedUrlCache.delete(ycChatSignedUrlCache.keys().next().value)}
   return url;
 }
 function ycPatchChatAttachment(a,url,{loadSeq,chatKey,signal}){
@@ -2891,11 +2891,11 @@ const YC_VOICE_HEARTBEAT_MS=15000,YC_VOICE_TTL_MS=60000,YC_VOICE_ROSTER_MS=20000
 let voiceRosterRefreshDelay=0,voiceRosterContextKey=''
 function stopVoiceParticipantSubscription(){if(voiceParticipantSub){try{sb.removeChannel(voiceParticipantSub)}catch{}voiceParticipantSub=null}voiceParticipantSubChannelId=''}
 function subscribeVoiceParticipants(){const id=voiceChannel?.id?String(voiceChannel.id):'';if(!id){stopVoiceParticipantSubscription();return}if(voiceParticipantSub&&voiceParticipantSubChannelId===id)return;stopVoiceParticipantSubscription();const filter='channel_id=eq.'+id,sub=sb.channel('yc-voice-participants-'+user.id+'-'+id+'-'+Date.now()).on('postgres_changes',{event:'INSERT',schema:'public',table:'voice_participants',filter},()=>{void refreshVoiceParticipants(id)}).on('postgres_changes',{event:'DELETE',schema:'public',table:'voice_participants',filter},payload=>{const uid=payload.old?.user_id;if(uid&&uid!==user.id)closeVoicePeer(uid);void refreshVoiceParticipants(id)}).subscribe(status=>{if(['CHANNEL_ERROR','TIMED_OUT','CLOSED'].includes(status)&&voiceParticipantSub===sub){try{sb.removeChannel(sub)}catch{}voiceParticipantSub=null;voiceParticipantSubChannelId=''}});voiceParticipantSub=sub;voiceParticipantSubChannelId=id}
-async function refreshVoiceParticipants(id){if(!id)return;const before=[...(voicePresenceByChannel[id]||[])],cutoff=new Date(Date.now()-YC_VOICE_TTL_MS).toISOString();const {data,error}=await sb.from('voice_participants').select('channel_id,user_id,session_id,username,muted,deafened,speaking,joined_at,last_seen').eq('channel_id',id).gt('last_seen',cutoff).order('joined_at');if(error){console.warn('voice participants',error);return}const after=data||[];voicePresenceByChannel[id]=after;ycVoiceDiffAnnouncements(id,before,after);renderVoiceChannels(voiceChannelDefs);if(voiceChannel?.id===id)syncVoicePeers()}
-async function refreshVoiceRosterSet(chs=voiceChannelDefs,force=false){const ids=[...new Set([...(chs||[]).map(c=>String(c.id||'')),String(voiceChannel?.id||'')].filter(Boolean))];if(!ids.length)return;const now=Date.now();if(!force&&now-voiceRosterLastRefresh<3000)return;if(voiceRosterRefreshBusy)return voiceRosterRefreshBusy;voiceRosterLastRefresh=now;voiceRosterRefreshBusy=(async()=>{const cutoff=new Date(Date.now()-YC_VOICE_TTL_MS).toISOString(),{data,error}=await sb.from('voice_participants').select('channel_id,user_id,session_id,username,muted,deafened,speaking,joined_at,last_seen').in('channel_id',ids).gt('last_seen',cutoff).order('joined_at');if(error){console.warn('voice roster refresh',error);return}const grouped=new Map(ids.map(id=>[id,[]]));for(const row of data||[]){const id=String(row.channel_id||'');if(grouped.has(id))grouped.get(id).push(row)}for(const id of ids){const before=[...(voicePresenceByChannel[id]||[])],after=grouped.get(id)||[];voicePresenceByChannel[id]=after;if(String(voiceChannel?.id||'')===id)ycVoiceDiffAnnouncements(id,before,after)}renderVoiceChannels(voiceChannelDefs);if(voiceChannel?.id)syncVoicePeers()})().finally(()=>{voiceRosterRefreshBusy=null});return voiceRosterRefreshBusy}
+async function refreshVoiceParticipants(id){if(!id)return;const generation=voiceRosterGeneration,uid=String(user?.id||''),before=[...(voicePresenceByChannel[id]||[])],cutoff=new Date(Date.now()-YC_VOICE_TTL_MS).toISOString();const {data,error}=await sb.from('voice_participants').select('channel_id,user_id,session_id,username,muted,deafened,speaking,joined_at,last_seen').eq('channel_id',id).gt('last_seen',cutoff).order('joined_at');if(error){console.warn('voice participants',error);return}if(generation!==voiceRosterGeneration||String(user?.id||'')!==uid)return;const after=data||[];voicePresenceByChannel[id]=after;ycVoiceDiffAnnouncements(id,before,after);renderVoiceChannels(voiceChannelDefs);if(voiceChannel?.id===id)syncVoicePeers()}
+async function refreshVoiceRosterSet(chs=voiceChannelDefs,force=false){const ids=[...new Set([...(chs||[]).map(c=>String(c.id||'')),String(voiceChannel?.id||'')].filter(Boolean))];if(!ids.length)return;const now=Date.now();if(!force&&now-voiceRosterLastRefresh<3000)return;if(voiceRosterRefreshBusy)return voiceRosterRefreshBusy;const generation=voiceRosterGeneration,uid=String(user?.id||'');voiceRosterLastRefresh=now;const task=(async()=>{const cutoff=new Date(Date.now()-YC_VOICE_TTL_MS).toISOString(),{data,error}=await sb.from('voice_participants').select('channel_id,user_id,session_id,username,muted,deafened,speaking,joined_at,last_seen').in('channel_id',ids).gt('last_seen',cutoff).order('joined_at');if(error){console.warn('voice roster refresh',error);return}if(generation!==voiceRosterGeneration||String(user?.id||'')!==uid)return;const grouped=new Map(ids.map(id=>[id,[]]));for(const row of data||[]){const id=String(row.channel_id||'');if(grouped.has(id))grouped.get(id).push(row)}for(const id of ids){const before=[...(voicePresenceByChannel[id]||[])],after=grouped.get(id)||[];voicePresenceByChannel[id]=after;if(String(voiceChannel?.id||'')===id)ycVoiceDiffAnnouncements(id,before,after)}renderVoiceChannels(voiceChannelDefs);if(voiceChannel?.id)syncVoicePeers()})();voiceRosterRefreshBusy=task;const clear=()=>{if(voiceRosterRefreshBusy===task)voiceRosterRefreshBusy=null};task.then(clear,clear);return task}
 function startVoiceRosterRefresh(){const delay=voiceChannel?YC_VOICE_HEARTBEAT_MS:YC_VOICE_ROSTER_MS;if(voiceRosterRefreshTimer&&voiceRosterRefreshDelay===delay)return;if(voiceRosterRefreshTimer)clearTimeout(voiceRosterRefreshTimer);voiceRosterRefreshDelay=delay;voiceRosterRefreshTimer=setTimeout(async()=>{voiceRosterRefreshTimer=null;voiceRosterRefreshDelay=0;try{await refreshVoiceRosterSet(voiceChannelDefs,true)}finally{if(voiceChannelDefs.length||voiceChannel?.id)startVoiceRosterRefresh()}},delay)}
-function stopVoiceRosterRefresh(){if(voiceRosterRefreshTimer){clearTimeout(voiceRosterRefreshTimer);voiceRosterRefreshTimer=null}voiceRosterRefreshDelay=0;voiceRosterContextKey=''}
-function ensureVoiceRooms(chs){const defs=[...(chs||[])];if(voiceChannel?.id&&!defs.some(c=>String(c.id)===String(voiceChannel.id)))defs.push(voiceChannel);const ids=[...new Set(defs.map(c=>String(c.id||'')).filter(Boolean))].sort(),contextKey=String(voiceChannel?.id||'')+'|'+ids.join(',');const contextChanged=contextKey!==voiceRosterContextKey;voiceRosterContextKey=contextKey;const wanted=new Set(ids);for(const id of Object.keys(voicePresenceByChannel))if(!wanted.has(String(id)))delete voicePresenceByChannel[id];subscribeVoiceParticipants();startVoiceRosterRefresh();if(contextChanged)void refreshVoiceRosterSet(defs)}
+function stopVoiceRosterRefresh(){++voiceRosterGeneration;voiceRosterRefreshBusy=null;voiceRosterLastRefresh=0;if(voiceRosterRefreshTimer){clearTimeout(voiceRosterRefreshTimer);voiceRosterRefreshTimer=null}voiceRosterRefreshDelay=0;voiceRosterContextKey=''}
+function ensureVoiceRooms(chs){const defs=[...(chs||[])];if(voiceChannel?.id&&!defs.some(c=>String(c.id)===String(voiceChannel.id)))defs.push(voiceChannel);const ids=[...new Set(defs.map(c=>String(c.id||'')).filter(Boolean))].sort(),contextKey=String(voiceChannel?.id||'')+'|'+ids.join(',');const contextChanged=contextKey!==voiceRosterContextKey;if(contextChanged){++voiceRosterGeneration;voiceRosterRefreshBusy=null;voiceRosterLastRefresh=0}voiceRosterContextKey=contextKey;const wanted=new Set(ids);for(const id of Object.keys(voicePresenceByChannel))if(!wanted.has(String(id)))delete voicePresenceByChannel[id];subscribeVoiceParticipants();startVoiceRosterRefresh();if(contextChanged)void refreshVoiceRosterSet(defs)}
 
 function updateVoicePresence(id){refreshVoiceParticipants(id)}
 function getVoiceMediaDevices(){try{const f=window.frameElement;if(f){f.setAttribute('allow','microphone; camera; display-capture; autoplay; fullscreen; clipboard-read; clipboard-write; speaker-selection; picture-in-picture');f.setAttribute('allowfullscreen','')}}catch{}try{if(window.parent&&window.parent!==window&&window.parent.navigator?.mediaDevices)return window.parent.navigator.mediaDevices}catch{}return navigator.mediaDevices}
@@ -2948,7 +2948,7 @@ async function leaveVoiceChannel(silent=false){
       const leavingUserId=user?.id;
       await stopScreenShare(true);const old=voiceChannel;cleanupSoundboardVoice();$('soundboardPanel')?.classList.add('hidden');
       if(old){
-        if(!silent)playVoiceCue('self-leave');voiceJoinSoundArmed=false;stopVoiceHeartbeat();stopVoiceActivityDetector();voiceSpeaking=false;
+        if(!silent)playVoiceCue('self-leave');voiceJoinSoundArmed=false;stopVoiceHeartbeat();stopVoiceActivityDetector();stopVoiceRouteChecks();voiceSpeaking=false;
         const sid=voiceSessionId;
         const clearPromise=(async()=>{try{const {error}=await sb.rpc('clear_voice_participant',{p_session_id:sid});if(error)console.warn('clear voice participant',error)}catch(e){console.warn('clear voice participant',e)}})();
         const cleanupSettled=Promise.allSettled([clearPromise]);if(ycVoiceKeepMicDuringSwitch){void cleanupSettled.catch(e=>console.warn('voice switch cleanup',e))}else{await cleanupSettled}
@@ -2978,7 +2978,7 @@ function cleanupVoiceRooms(){
   return ycVoiceCleanupPromise;
 }
 
-function unlockVoiceAudio(){try{const C=window.AudioContext||window.webkitAudioContext;if(!C)return;if(!voiceAudioContext)voiceAudioContext=new C();voiceAudioContext.resume().catch(()=>{});const g=voiceAudioContext.createGain();g.gain.value=0;const o=voiceAudioContext.createOscillator();o.connect(g).connect(voiceAudioContext.destination);o.start();o.stop(voiceAudioContext.currentTime+.03);if(voiceOutputId&&typeof voiceAudioContext.setSinkId==='function')voiceAudioContext.setSinkId(voiceOutputId).catch(()=>{})}catch{}}
+function ycReleaseShortAudioNodes(source,gain){if(!source)return;source.onended=()=>{try{source.disconnect()}catch{}try{gain?.disconnect()}catch{}}} function unlockVoiceAudio(){try{const C=window.AudioContext||window.webkitAudioContext;if(!C)return;if(!voiceAudioContext)voiceAudioContext=new C();voiceAudioContext.resume().catch(()=>{});const g=voiceAudioContext.createGain();g.gain.value=0;const o=voiceAudioContext.createOscillator();o.connect(g).connect(voiceAudioContext.destination);ycReleaseShortAudioNodes(o,g);o.start();o.stop(voiceAudioContext.currentTime+.03);if(voiceOutputId&&typeof voiceAudioContext.setSinkId==='function')voiceAudioContext.setSinkId(voiceOutputId).catch(()=>{})}catch{}}
 
 let voiceRouteMode='checking',voiceRouteDetail=''
 async function detectVoiceRoute(){
@@ -2996,7 +2996,9 @@ async function detectVoiceRoute(){
   voiceRouteDetail=voiceRouteMode==='turn'?(hasSrflx?' · direct kandidát existuje, ale NAT/firewall ho nepustil':hasHost?' · STUN veřejný kandidát chybí':' · přímé ICE kandidáty chybí'):''
   updateVoiceConnectionStatus()
 }
-function scheduleVoiceRouteCheck(){setTimeout(()=>void detectVoiceRoute(),450);setTimeout(()=>void detectVoiceRoute(),2200)}
+let voiceRouteCheckFastTimer=null,voiceRouteCheckSlowTimer=null
+function stopVoiceRouteChecks(){if(voiceRouteCheckFastTimer){clearTimeout(voiceRouteCheckFastTimer);voiceRouteCheckFastTimer=null}if(voiceRouteCheckSlowTimer){clearTimeout(voiceRouteCheckSlowTimer);voiceRouteCheckSlowTimer=null}}
+function scheduleVoiceRouteCheck(){if(!voiceRouteCheckFastTimer)voiceRouteCheckFastTimer=setTimeout(()=>{voiceRouteCheckFastTimer=null;void detectVoiceRoute()},450);if(voiceRouteCheckSlowTimer)clearTimeout(voiceRouteCheckSlowTimer);voiceRouteCheckSlowTimer=setTimeout(()=>{voiceRouteCheckSlowTimer=null;void detectVoiceRoute()},2200)}
 
 
 // VOICE STATUS CLEAN v3.0.19 — user-facing status only; route diagnostics stay internal.
@@ -3014,26 +3016,28 @@ function updateVoiceConnectionStatus(){
   sub.textContent='Připravuji spojení…'
 }
 async function restartVoicePeer(peerId){const pc=voicePeers.get(peerId);if(!pc||!voiceChannel||String(user.id)>=String(peerId))return;try{const offer=await pc.createOffer({iceRestart:true});await pc.setLocalDescription(offer);await sendVoiceSignal(peerId,{signal_type:'offer',sdp:pc.localDescription})}catch{}}
-function voicePeer(peerId){if(voicePeers.has(peerId))return voicePeers.get(peerId);const pc=new RTCPeerConnection({iceServers:voiceIceServers,iceTransportPolicy:'all',iceCandidatePoolSize:8,bundlePolicy:'max-bundle'});if(voiceStream)voiceStream.getTracks().forEach(t=>pc.addTrack(t,voiceStream));if(screenAudioMixedTrack){const aSender=pc.getSenders().find(s=>s.track?.kind==='audio');if(aSender)aSender.replaceTrack(screenAudioMixedTrack).catch(()=>{})}try{const tx=pc.addTransceiver('video',{direction:'sendrecv'});voiceScreenSenders.set(peerId,tx.sender);const st=screenShareViewers.has(peerId)?screenShareStream?.getVideoTracks?.()[0]:null;if(st)tx.sender.replaceTrack(st).then(()=>tuneScreenSender(tx.sender)).catch(()=>{})}catch(e){console.warn('screen transceiver',e)}pc.onicecandidate=e=>{if(e.candidate){const cs=e.candidate.candidate||'';if(/ typ relay(?: |$)/.test(cs))voiceRelayCandidates.add(peerId);sendVoiceSignal(peerId,{signal_type:'ice',candidate:e.candidate});updateVoiceConnectionStatus()}else{voiceIceGatherDone.add(peerId);updateVoiceConnectionStatus()}};pc.ontrack=e=>{const s=e.streams?.[0]||new MediaStream([e.track]);if(e.track.kind==='video')attachVoiceScreen(peerId,s);else attachVoiceAudio(peerId,s)};pc.onconnectionstatechange=()=>{voicePeerStates.set(peerId,pc.connectionState);updateVoiceConnectionStatus();if(pc.connectionState==='connected'){voiceIceRestarted.delete(peerId);voiceMissingSince.delete(peerId);scheduleVoiceRouteCheck();if(screenShareActive)void sendVoiceSignal(peerId,{signal_type:'screen-state',active:true});if(screenShareViewers.has(peerId))void ycApplyScreenViewer(peerId,true)}else if(pc.connectionState==='disconnected'){setTimeout(()=>{if(voicePeers.get(peerId)===pc&&pc.connectionState==='disconnected'){voiceIceRestarted.delete(peerId);restartVoicePeer(peerId)}},4000)}else if(pc.connectionState==='failed'&&!voiceIceRestarted.has(peerId)){voiceIceRestarted.add(peerId);setTimeout(()=>restartVoicePeer(peerId),350)}if(pc.connectionState==='closed')closeVoicePeer(peerId)};pc.oniceconnectionstatechange=()=>{if(pc.iceConnectionState==='connected'||pc.iceConnectionState==='completed')voiceIceRestarted.delete(peerId);if(pc.iceConnectionState==='failed'){voicePeerStates.set(peerId,'failed');updateVoiceConnectionStatus();if(!voiceIceRestarted.has(peerId)){voiceIceRestarted.add(peerId);setTimeout(()=>restartVoicePeer(peerId),350)}}};if(typeof ycWrapScreenAudioPc==='function')ycWrapScreenAudioPc(peerId,pc);pc.addEventListener('connectionstatechange',()=>{if(pc.connectionState==='connected')void ycApplyVoiceQuality(voiceChannel?.id)});ycTuneMicPc(pc);voicePeers.set(peerId,pc);voicePeerStates.set(peerId,'connecting');updateVoiceConnectionStatus();return pc}
+function voicePeer(peerId){if(voicePeers.has(peerId))return voicePeers.get(peerId);const pc=new RTCPeerConnection({iceServers:voiceIceServers,iceTransportPolicy:'all',iceCandidatePoolSize:8,bundlePolicy:'max-bundle'});if(voiceStream)voiceStream.getTracks().forEach(t=>pc.addTrack(t,voiceStream));if(screenAudioMixedTrack){const aSender=pc.getSenders().find(s=>s.track?.kind==='audio');if(aSender)aSender.replaceTrack(screenAudioMixedTrack).catch(()=>{})}try{const tx=pc.addTransceiver('video',{direction:'sendrecv'});voiceScreenSenders.set(peerId,tx.sender);const st=screenShareViewers.has(peerId)?screenShareStream?.getVideoTracks?.()[0]:null;if(st)tx.sender.replaceTrack(st).then(()=>tuneScreenSender(tx.sender)).catch(()=>{})}catch(e){console.warn('screen transceiver',e)}pc.onicecandidate=e=>{if(e.candidate){const cs=e.candidate.candidate||'';if(/ typ relay(?: |$)/.test(cs))voiceRelayCandidates.add(peerId);sendVoiceSignal(peerId,{signal_type:'ice',candidate:e.candidate});updateVoiceConnectionStatus()}else{voiceIceGatherDone.add(peerId);updateVoiceConnectionStatus()}};pc.ontrack=e=>{const s=e.streams?.[0]||new MediaStream([e.track]);if(e.track.kind==='video')attachVoiceScreen(peerId,s);else attachVoiceAudio(peerId,s)};pc.onconnectionstatechange=()=>{voicePeerStates.set(peerId,pc.connectionState);updateVoiceConnectionStatus();if(pc.connectionState==='connected'){voiceIceRestarted.delete(peerId);voiceMissingSince.delete(peerId);scheduleVoiceRouteCheck();if(screenShareActive)void sendVoiceSignal(peerId,{signal_type:'screen-state',active:true});if(screenShareViewers.has(peerId))void ycApplyScreenViewer(peerId,true)}else if(pc.connectionState==='disconnected'){setTimeout(()=>{if(voicePeers.get(peerId)===pc&&pc.connectionState==='disconnected'){voiceIceRestarted.delete(peerId);restartVoicePeer(peerId)}},4000)}else if(pc.connectionState==='failed'&&!voiceIceRestarted.has(peerId)){voiceIceRestarted.add(peerId);setTimeout(()=>{if(voicePeers.get(peerId)===pc&&(pc.connectionState==='failed'||pc.iceConnectionState==='failed'))restartVoicePeer(peerId)},350)}if(pc.connectionState==='closed')closeVoicePeer(peerId)};pc.oniceconnectionstatechange=()=>{if(pc.iceConnectionState==='connected'||pc.iceConnectionState==='completed')voiceIceRestarted.delete(peerId);if(pc.iceConnectionState==='failed'){voicePeerStates.set(peerId,'failed');updateVoiceConnectionStatus();if(!voiceIceRestarted.has(peerId)){voiceIceRestarted.add(peerId);setTimeout(()=>{if(voicePeers.get(peerId)===pc&&(pc.connectionState==='failed'||pc.iceConnectionState==='failed'))restartVoicePeer(peerId)},350)}}};if(typeof ycWrapScreenAudioPc==='function')ycWrapScreenAudioPc(peerId,pc);pc.addEventListener('connectionstatechange',()=>{if(pc.connectionState==='connected')void ycApplyVoiceQuality(voiceChannel?.id)});ycTuneMicPc(pc);voicePeers.set(peerId,pc);voicePeerStates.set(peerId,'connecting');updateVoiceConnectionStatus();return pc}
 function closeVoicePeer(peerId){ycStopRemoteVoiceActivityDetector(peerId);voiceMissingSince.delete(peerId);const pc=voicePeers.get(peerId);if(pc){try{pc.close()}catch{}voicePeers.delete(peerId)}const nodes=voiceAudioNodes.get(peerId);if(nodes){try{nodes.src?.disconnect()}catch{}try{nodes.gain?.disconnect()}catch{}voiceAudioNodes.delete(peerId)}voiceScreenSenders.delete(peerId);screenShareViewers.delete(peerId);ycClearScreenWatchTimer(peerId);screenWatchingByUser.delete(peerId);screenWatchPendingByUser.delete(peerId);remoteScreenStreams.delete(peerId);voiceScreenActiveByUser.delete(peerId);try{ycRemoveScreenAudioElement(peerId)}catch{}ycSyncStreamViewer();renderVoiceChannels(voiceChannelDefs);voicePeerStates.delete(peerId);voicePeerSessions.delete(peerId);voiceRelayCandidates.delete(peerId);voiceIceGatherDone.delete(peerId);voiceIceRestarted.delete(peerId);voiceIceQueues.delete(peerId);const a=$('voice-audio-'+peerId);if(a)a.remove();updateVoiceConnectionStatus()}
-async function recoverVoiceSignals(){if(!user?.id)return;try{const stale=new Date(Date.now()-60000).toISOString();await sb.from('voice_signals').delete().eq('to_user',user.id).lt('created_at',stale);const recent=new Date(Date.now()-30000).toISOString(),{data,error}=await sb.from('voice_signals').select('id,channel_id,from_user,to_user,signal_type,payload,created_at').eq('to_user',user.id).gt('created_at',recent).order('created_at').limit(200);if(error){console.warn('voice signal recovery',error);return}for(const row of data||[])await consumeVoiceSignalRow(row)}catch(e){console.warn('voice signal recovery',e)}}
-async function stopVoiceSignals(){const ch=voiceSignalSub;voiceSignalSub=null;voiceSignalReady=false;voiceSignalError='';if(ch)try{await sb.removeChannel(ch)}catch{}}
-async function subscribeVoiceSignals(){if(voiceSignalSub&&voiceSignalReady)return;if(voiceSignalSub){sb.removeChannel(voiceSignalSub);voiceSignalSub=null}voiceSignalReady=false;await new Promise(resolve=>{let settled=false;voiceSignalSub=sb.channel('yc-voice-db-'+user.id+'-'+Date.now()).on('postgres_changes',{event:'INSERT',schema:'public',table:'voice_signals',filter:'to_user=eq.'+user.id},({new:row})=>consumeVoiceSignalRow(row)).subscribe(status=>{if(status==='SUBSCRIBED'){voiceSignalReady=true;voiceSignalError='';updateVoiceConnectionStatus();void recoverVoiceSignals();if(!settled){settled=true;resolve(null)}}else if(['CHANNEL_ERROR','TIMED_OUT','CLOSED'].includes(status)){voiceSignalReady=false;voiceSignalError='Realtime '+status.toLowerCase();updateVoiceConnectionStatus();if(!settled){settled=true;resolve(null)}}});setTimeout(()=>{if(!settled){settled=true;resolve(null)}},2500)})}
+async function recoverVoiceSignals(){const uid=String(user?.id||'');if(!uid)return;if(voiceSignalRecoverPromise)return voiceSignalRecoverPromise;const task=(async()=>{try{const stale=new Date(Date.now()-60000).toISOString();await sb.from('voice_signals').delete().eq('to_user',uid).lt('created_at',stale);if(String(user?.id||'')!==uid)return;const recent=new Date(Date.now()-30000).toISOString(),{data,error}=await sb.from('voice_signals').select('id,channel_id,from_user,to_user,signal_type,payload,created_at').eq('to_user',uid).gt('created_at',recent).order('created_at').limit(200);if(error){console.warn('voice signal recovery',error);return}if(String(user?.id||'')!==uid)return;for(const row of data||[]){if(String(user?.id||'')!==uid)break;await consumeVoiceSignalRow(row)}}catch(e){console.warn('voice signal recovery',e)}})();voiceSignalRecoverPromise=task;const clear=()=>{if(voiceSignalRecoverPromise===task)voiceSignalRecoverPromise=null};task.then(clear,clear);return task}
+async function stopVoiceSignals(){const ch=voiceSignalSub;voiceSignalSub=null;voiceSignalRecoverPromise=null;voiceSignalReady=false;voiceSignalError='';if(ch)try{await sb.removeChannel(ch)}catch{}}
+async function subscribeVoiceSignals(){if(voiceSignalSub&&voiceSignalReady)return;const uid=String(user?.id||'');if(!uid)return;if(voiceSignalSub){const old=voiceSignalSub;voiceSignalSub=null;try{await sb.removeChannel(old)}catch{}}voiceSignalReady=false;await new Promise(resolve=>{let settled=false,timer=null;const settle=()=>{if(settled)return;settled=true;if(timer)clearTimeout(timer);resolve(null)};const sub=sb.channel('yc-voice-db-'+uid+'-'+Date.now()).on('postgres_changes',{event:'INSERT',schema:'public',table:'voice_signals',filter:'to_user=eq.'+uid},({new:row})=>{if(voiceSignalSub===sub&&String(user?.id||'')===uid)void consumeVoiceSignalRow(row)});voiceSignalSub=sub;sub.subscribe(status=>{if(voiceSignalSub!==sub||String(user?.id||'')!==uid){settle();return}if(status==='SUBSCRIBED'){voiceSignalReady=true;voiceSignalError='';updateVoiceConnectionStatus();void recoverVoiceSignals();settle();return}if(['CHANNEL_ERROR','TIMED_OUT','CLOSED'].includes(status)){voiceSignalReady=false;voiceSignalError='Realtime '+status.toLowerCase();voiceSignalSub=null;updateVoiceConnectionStatus();try{void sb.removeChannel(sub)}catch{}settle()}});timer=setTimeout(settle,2500)})}
 
-async function consumeVoiceSignalRow(row){if(!row||!voiceChannel||row.channel_id!==voiceChannel.id)return;const payload=row.payload||{},age=Date.now()-new Date(row.created_at).getTime();const discard=()=>{try{const q=sb.from('voice_signals').delete().eq('id',row.id);if(q&&typeof q.then==='function')q.then(()=>{}).catch(()=>{})}catch{}};if(age>30000){discard();return}const sender=(voicePresenceByChannel[voiceChannel.id]||[]).find(p=>p.user_id===row.from_user);if(payload.from_session&&sender?.session_id&&payload.from_session!==sender.session_id){discard();return}if(voiceSignalSeen.has(row.id)){discard();return}voiceSignalSeen.add(row.id);if(voiceSignalSeen.size>600)voiceSignalSeen.clear();try{await handleVoiceSignal({...payload,signal_type:row.signal_type,from:row.from_user,to:row.to_user,channel_id:row.channel_id})}catch(e){console.warn('consume voice signal',e)}finally{try{await sb.from('voice_signals').delete().eq('id',row.id)}catch{}}}
+async function consumeVoiceSignalRow(row){if(!row||!user?.id||String(row.to_user||'')!==String(user.id)||!voiceChannel||row.channel_id!==voiceChannel.id)return;const payload=row.payload||{},age=Date.now()-new Date(row.created_at).getTime();const discard=()=>{try{const q=sb.from('voice_signals').delete().eq('id',row.id);if(q&&typeof q.then==='function')q.then(()=>{}).catch(()=>{})}catch{}};if(age>30000){discard();return}const sender=(voicePresenceByChannel[voiceChannel.id]||[]).find(p=>p.user_id===row.from_user);if(payload.from_session&&sender?.session_id&&payload.from_session!==sender.session_id){discard();return}if(voiceSignalSeen.has(row.id)){discard();return}voiceSignalSeen.add(row.id);if(voiceSignalSeen.size>600)while(voiceSignalSeen.size>400)voiceSignalSeen.delete(voiceSignalSeen.values().next().value);try{await handleVoiceSignal({...payload,signal_type:row.signal_type,from:row.from_user,to:row.to_user,channel_id:row.channel_id})}catch(e){console.warn('consume voice signal',e)}finally{try{await sb.from('voice_signals').delete().eq('id',row.id)}catch{}}}
 async function sendVoiceSignal(to,data){if(!voiceChannel||!to||to===user.id)return;const wire=JSON.parse(JSON.stringify({...data,from_session:voiceSessionId}));const {error}=await sb.from('voice_signals').insert({channel_id:voiceChannel.id,from_user:user.id,to_user:to,signal_type:data.signal_type,payload:wire});if(error){voiceSignalError=error.message||'chyba zápisu';updateVoiceConnectionStatus();console.warn('voice signal insert',error);if(data.signal_type==='screen-watch')throw new Error(error.message||'Chyba požadavku na stream')}}
-async function syncVoicePeers(){if(!voiceChannel||!voiceStream)return;const people=(voicePresenceByChannel[voiceChannel.id]||[]).filter(p=>p.user_id&&p.user_id!==user.id),ids=new Set(people.map(p=>p.user_id)),now=Date.now();for(const id of [...voicePeers.keys()]){if(ids.has(id)){voiceMissingSince.delete(id);continue}const since=voiceMissingSince.get(id)||now;voiceMissingSince.set(id,since);if(now-since>60000)closeVoicePeer(id)}for(const p of people){voiceMissingSince.delete(p.user_id);const known=voicePeerSessions.get(p.user_id);if(known&&p.session_id&&known!==p.session_id)closeVoicePeer(p.user_id);if(p.session_id)voicePeerSessions.set(p.user_id,p.session_id);const existing=voicePeers.get(p.user_id);if(existing&&existing.connectionState==='closed')closeVoicePeer(p.user_id);if(!voicePeers.has(p.user_id)&&String(user.id)<String(p.user_id)){try{const pc=voicePeer(p.user_id),offer=await pc.createOffer();await pc.setLocalDescription(offer);await sendVoiceSignal(p.user_id,{signal_type:'offer',sdp:pc.localDescription});const expectedSession=p.session_id||null;setTimeout(()=>{const cur=voicePeers.get(p.user_id),current=(voicePresenceByChannel[voiceChannel?.id]||[]).find(x=>x.user_id===p.user_id);if(cur&&cur.connectionState!=='connected'&&!cur.remoteDescription&&(!expectedSession||current?.session_id===expectedSession)){closeVoicePeer(p.user_id);void syncVoicePeers()}},3200)}catch(e){console.warn('offer',e)}}}}
-async function handleVoiceSignal(msg){if(!voiceChannel||!msg||msg.to!==user.id||msg.channel_id!==voiceChannel.id||msg.from===user.id)return;const peerId=msg.from;try{if(msg.signal_type==='screen-state'){if(msg.active){voiceScreenActiveByUser.add(peerId);ycSyncStreamViewer();toast(screenShareName(peerId)+' sdílí obrazovku.')}else{voiceScreenActiveByUser.delete(peerId);remoteScreenStreams.delete(peerId);ycSyncStreamViewer()}return}else if(msg.signal_type==='offer'){const previous=voicePeerSessions.get(peerId);if(msg.from_session&&previous&&previous!==msg.from_session)closeVoicePeer(peerId);if(msg.from_session)voicePeerSessions.set(peerId,msg.from_session);const pc=voicePeer(peerId);await pc.setRemoteDescription(new RTCSessionDescription(msg.sdp));await flushVoiceIce(peerId);const answer=await pc.createAnswer();await pc.setLocalDescription(answer);await sendVoiceSignal(peerId,{signal_type:'answer',sdp:pc.localDescription})}else if(msg.signal_type==='answer'){const pc=voicePeers.get(peerId);if(pc){await pc.setRemoteDescription(new RTCSessionDescription(msg.sdp));await flushVoiceIce(peerId)}}else if(msg.signal_type==='ice'){const pc=voicePeers.get(peerId);if(pc?.remoteDescription){await pc.addIceCandidate(new RTCIceCandidate(msg.candidate))}else{const q=voiceIceQueues.get(peerId)||[];q.push(msg.candidate);voiceIceQueues.set(peerId,q)}}}catch(e){console.warn('voice signal',e)}}
+async function syncVoicePeers(){if(!voiceChannel||!voiceStream)return;const people=(voicePresenceByChannel[voiceChannel.id]||[]).filter(p=>p.user_id&&p.user_id!==user.id),ids=new Set(people.map(p=>p.user_id)),now=Date.now();for(const id of [...voicePeers.keys()]){if(ids.has(id)){voiceMissingSince.delete(id);continue}const since=voiceMissingSince.get(id)||now;voiceMissingSince.set(id,since);if(now-since>60000)closeVoicePeer(id)}for(const p of people){voiceMissingSince.delete(p.user_id);const known=voicePeerSessions.get(p.user_id);if(known&&p.session_id&&known!==p.session_id)closeVoicePeer(p.user_id);if(p.session_id)voicePeerSessions.set(p.user_id,p.session_id);const existing=voicePeers.get(p.user_id);if(existing&&existing.connectionState==='closed')closeVoicePeer(p.user_id);if(!voicePeers.has(p.user_id)&&String(user.id)<String(p.user_id)){try{const pc=voicePeer(p.user_id),offer=await pc.createOffer();await pc.setLocalDescription(offer);await sendVoiceSignal(p.user_id,{signal_type:'offer',sdp:pc.localDescription});const expectedSession=p.session_id||null;setTimeout(()=>{const cur=voicePeers.get(p.user_id),current=(voicePresenceByChannel[voiceChannel?.id]||[]).find(x=>x.user_id===p.user_id);if(cur===pc&&cur.connectionState!=='connected'&&!cur.remoteDescription&&(!expectedSession||current?.session_id===expectedSession)){closeVoicePeer(p.user_id);void syncVoicePeers()}},3200)}catch(e){console.warn('offer',e)}}}}
+async function handleVoiceSignal(msg){if(!voiceChannel||!msg||msg.to!==user.id||msg.channel_id!==voiceChannel.id||msg.from===user.id)return;const peerId=msg.from;try{if(msg.signal_type==='screen-state'){if(msg.active){voiceScreenActiveByUser.add(peerId);ycSyncStreamViewer();toast(screenShareName(peerId)+' sdílí obrazovku.')}else{voiceScreenActiveByUser.delete(peerId);remoteScreenStreams.delete(peerId);ycSyncStreamViewer()}return}else if(msg.signal_type==='offer'){const previous=voicePeerSessions.get(peerId);if(msg.from_session&&previous&&previous!==msg.from_session)closeVoicePeer(peerId);if(msg.from_session)voicePeerSessions.set(peerId,msg.from_session);const pc=voicePeer(peerId);await pc.setRemoteDescription(new RTCSessionDescription(msg.sdp));await flushVoiceIce(peerId);const answer=await pc.createAnswer();await pc.setLocalDescription(answer);await sendVoiceSignal(peerId,{signal_type:'answer',sdp:pc.localDescription})}else if(msg.signal_type==='answer'){const pc=voicePeers.get(peerId);if(pc){await pc.setRemoteDescription(new RTCSessionDescription(msg.sdp));await flushVoiceIce(peerId)}}else if(msg.signal_type==='ice'){const pc=voicePeers.get(peerId);if(pc?.remoteDescription){await pc.addIceCandidate(new RTCIceCandidate(msg.candidate))}else{const q=voiceIceQueues.get(peerId)||[],key=String(msg.candidate?.candidate||'');if(!key||!q.some(c=>String(c?.candidate||'')===key)){q.push(msg.candidate);if(q.length>128)q.splice(0,q.length-128)}voiceIceQueues.set(peerId,q)}}}catch(e){console.warn('voice signal',e)}}
 async function flushVoiceIce(peerId){const pc=voicePeers.get(peerId),q=voiceIceQueues.get(peerId)||[];if(!pc)return;for(const c of q){try{await pc.addIceCandidate(new RTCIceCandidate(c))}catch{}}voiceIceQueues.delete(peerId)}
 
 function screenShareName(uid){const p=(voicePresenceByChannel[voiceChannel?.id]||[]).find(x=>x.user_id===uid);return p?.username||'Uživatel'}
 function ycSyncStreamViewer(){ycStreamViewer.sync()}
 function attachVoiceScreen(peerId,stream){
   const track=stream?.getVideoTracks?.()[0];if(!track)return
-  const show=()=>{if(track.readyState!=='live'||!screenWatchingByUser.has(peerId))return;ycClearScreenWatchTimer(peerId);screenWatchPendingByUser.delete(peerId);remoteScreenStreams.set(peerId,stream);ycSyncStreamViewer();renderVoiceChannels(voiceChannelDefs)}
-  const hide=()=>{if(remoteScreenStreams.get(peerId)===stream){if(screenWatchingByUser.has(peerId)&&(voiceScreenActiveByUser.has(peerId)||ycStreamInfo(peerId))){screenWatchPendingByUser.add(peerId);ycArmScreenWatch(peerId)}ycSyncStreamViewer();renderVoiceChannels(voiceChannelDefs)}}
+  const channelId=String(voiceChannel?.id||''),sessionId=voiceSessionId,pc=voicePeers.get(peerId)
+  const current=()=>!!voiceChannel&&String(voiceChannel.id)===channelId&&voiceSessionId===sessionId&&voicePeers.get(peerId)===pc
+  const show=()=>{if(!current()||track.readyState!=='live'||!screenWatchingByUser.has(peerId))return;ycClearScreenWatchTimer(peerId);screenWatchPendingByUser.delete(peerId);remoteScreenStreams.set(peerId,stream);ycSyncStreamViewer();renderVoiceChannels(voiceChannelDefs)}
+  const hide=()=>{if(!current()||remoteScreenStreams.get(peerId)!==stream)return;if(screenWatchingByUser.has(peerId)&&(voiceScreenActiveByUser.has(peerId)||ycStreamInfo(peerId))){screenWatchPendingByUser.add(peerId);ycArmScreenWatch(peerId)}ycSyncStreamViewer();renderVoiceChannels(voiceChannelDefs)}
   track.onunmute=show
-  track.onmute=()=>setTimeout(()=>{if(track.muted)hide()},900)
+  track.onmute=()=>setTimeout(()=>{if(track.muted&&current()&&remoteScreenStreams.get(peerId)===stream)hide()},900)
   track.onended=hide
   if(!track.muted)show()
 }
@@ -3066,25 +3070,38 @@ async function enableScreenShareAudio(stream){
 
 async function toggleScreenShare(){if(screenShareActive)return stopScreenShare(false);return startScreenShare()}
 async function startScreenShare(){
+  const startEpoch=++ycScreenShareStartEpoch
+  try{await ycScreenShareStopPromise}catch{}
+  if(startEpoch!==ycScreenShareStartEpoch)return
   if(!voiceChannel){toast('Nejdřív se připoj do hlasového kanálu.',true);return}
+  const channelId=String(voiceChannel.id||''),sessionId=voiceSessionId,uid=String(user?.id||''),current=()=>startEpoch===ycScreenShareStartEpoch&&!!voiceChannel&&String(voiceChannel.id||'')===channelId&&voiceSessionId===sessionId&&String(user?.id||'')===uid
+  const discard=stream=>{try{stream?.getTracks?.().forEach(t=>{t.onended=null;try{t.stop()}catch{}})}catch{}}
   const media=getScreenMediaDevices();if(!media?.getDisplayMedia){toast('Tento prohlížeč nepodporuje sdílení obrazovky.',true);return}
   let stream
-  try{stream=await media.getDisplayMedia({video:{width:{ideal:ycScreenShareProfile().width,max:ycScreenShareProfile().width},height:{ideal:ycScreenShareProfile().height,max:ycScreenShareProfile().height},frameRate:{ideal:ycScreenShareProfile().fps,max:ycScreenShareProfile().fps}},audio:{restrictOwnAudio:true},systemAudio:'include',surfaceSwitching:'include'})}catch(e){if(e?.name!=='NotAllowedError')toast('Sdílení obrazovky se nepodařilo spustit: '+(e?.message||e),true);return}
-  const track=stream.getVideoTracks()[0];if(!track){stream.getTracks().forEach(t=>t.stop());toast('Nebyl vybrán žádný obraz.',true);return}
+  try{stream=await media.getDisplayMedia({video:{width:{ideal:ycScreenShareProfile().width,max:ycScreenShareProfile().width},height:{ideal:ycScreenShareProfile().height,max:ycScreenShareProfile().height},frameRate:{ideal:ycScreenShareProfile().fps,max:ycScreenShareProfile().fps}},audio:{restrictOwnAudio:true},systemAudio:'include',surfaceSwitching:'include'})}catch(e){if(current()&&e?.name!=='NotAllowedError')toast('Sdílení obrazovky se nepodařilo spustit: '+(e?.message||e),true);return}
+  if(!current()){discard(stream);return}
+  const track=stream.getVideoTracks()[0];if(!track){discard(stream);toast('Nebyl vybrán žádný obraz.',true);return}
   screenShareStream=stream;screenShareActive=true;screenShareViewers.clear()
   await enableScreenShareAudio(stream)
+  if(!current()||screenShareStream!==stream||!screenShareActive){if(screenShareStream===stream){screenShareStream=null;screenShareActive=false}discard(stream);return}
   track.onended=()=>{if(screenShareActive)void stopScreenShare(false)}
   for(const [,sender] of voiceScreenSenders){try{await sender.replaceTrack(null)}catch(e){console.warn('screen viewer reset',e)}}
   if(typeof ycEnsureScreenAudio==='function')await ycEnsureScreenAudio()
   await broadcastScreenState(true);void ycStartGlobalStreamPresence();ycSyncStreamViewer();renderVoiceControls();toast('Sdílení obrazovky spuštěno · diváci se připojí až po kliknutí Sledovat stream.')
 }
 async function stopScreenShare(silent=false){
-  const ownerUserId=user?.id,stream=screenShareStream;if(!screenShareActive&&!stream)return
+  ++ycScreenShareStartEpoch
+  ++ycScreenAudioGeneration
+  const ownerUserId=user?.id,stream=screenShareStream;if(!screenShareActive&&!stream)return ycScreenShareStopPromise
   screenShareActive=false;screenShareStream=null;screenShareViewers.clear()
+  const task=(async()=>{
   for(const [,sender] of voiceScreenSenders){try{await sender.replaceTrack(null)}catch{}}
   if(typeof ycEnsureScreenAudio==='function')await ycEnsureScreenAudio()
   await broadcastScreenState(false);await disableScreenShareAudio(true);if(stream)for(const t of stream.getTracks()){t.onended=null;try{t.stop()}catch{}}
   await ycStopGlobalStreamPresence(ownerUserId);ycSyncStreamViewer();renderVoiceControls();if(!silent)toast('Sdílení obrazovky ukončeno.')
+  })()
+  ycScreenShareStopPromise=task.catch(e=>console.warn('screen share stop',e))
+  await ycScreenShareStopPromise
 }
 
 function ycStopRemoteVoiceActivityDetector(peerId){const stop=voiceRemoteVadStops.get(peerId);if(stop){try{stop()}catch{}voiceRemoteVadStops.delete(peerId)}voiceRemoteSpeaking.delete(peerId);const row=document.querySelector('.voice-user[data-user-id="'+CSS.escape(String(peerId))+'"]');row?.classList.remove('is-speaking')}
@@ -3094,7 +3111,7 @@ const ycAttachVoiceAudioBase=attachVoiceAudio
 attachVoiceAudio=(peerId,stream)=>{if(!voiceChannel||!voicePeers.has(peerId))return;ycStartRemoteVoiceActivityDetector(peerId,stream);return ycAttachVoiceAudioBase(peerId,stream)}
 function attachVoiceAudio(peerId,stream){unlockVoiceAudio();const old=voiceAudioNodes.get(peerId);if(old){try{old.src?.disconnect()}catch{}try{old.compressor?.disconnect()}catch{}try{old.gain?.disconnect()}catch{}}let usingContext=false;try{if(voiceAudioContext){const src=voiceAudioContext.createMediaStreamSource(stream),compressor=voiceAudioContext.createDynamicsCompressor(),gain=voiceAudioContext.createGain();compressor.threshold.value=-18;compressor.knee.value=16;compressor.ratio.value=4;compressor.attack.value=.004;compressor.release.value=.22;src.connect(compressor).connect(gain).connect(voiceAudioContext.destination);voiceAudioNodes.set(peerId,{src,compressor,gain});usingContext=true}}catch{}let a=$('voice-audio-'+peerId);if(!a){a=document.createElement('audio');a.id='voice-audio-'+peerId;a.autoplay=true;a.playsInline=true;document.body.appendChild(a)}a.srcObject=stream;if(voiceOutputId&&typeof a.setSinkId==='function')a.setSinkId(voiceOutputId).catch(()=>{});applyVoiceUserMix(peerId);if(!usingContext)a.play().catch(()=>{const sub=$('voiceStatusSub');if(sub)sub.textContent='Klikni znovu na voice – prohlížeč blokuje zvuk'})}
 async function toggleVoiceMute(){voiceMuted=!voiceMuted;localStorage.setItem('yc_voice_muted',voiceMuted?'1':'0');if(voiceStream)voiceStream.getAudioTracks().forEach(t=>t.enabled=!voiceMuted&&!voiceDeafened&&!ycMicTestVoiceHold);if(voiceChannel)void trackVoicePresence();renderVoiceControls()}
-async function toggleVoiceDeafen(){voiceDeafened=!voiceDeafened;localStorage.setItem('yc_voice_deafened',voiceDeafened?'1':'0');applyAllVoiceUserMix();if(voiceStream)voiceStream.getAudioTracks().forEach(t=>t.enabled=!voiceDeafened&&!voiceMuted);if(voiceChannel)void trackVoicePresence();renderVoiceControls()}
+async function toggleVoiceDeafen(){voiceDeafened=!voiceDeafened;localStorage.setItem('yc_voice_deafened',voiceDeafened?'1':'0');applyAllVoiceUserMix();if(voiceStream)voiceStream.getAudioTracks().forEach(t=>t.enabled=!voiceDeafened&&!voiceMuted&&!ycMicTestVoiceHold);if(voiceChannel)void trackVoicePresence();renderVoiceControls()}
 let ycInputSwitch=Promise.resolve();
 function restartVoiceInput(){const operation=ycInputSwitch.catch(()=>{}).then(ycSwitchVoiceInput);ycInputSwitch=operation;return operation}
 async function ycSwitchVoiceInput(){
@@ -3105,7 +3122,7 @@ async function ycSwitchVoiceInput(){
   }catch(e){if(voiceStream===old){for(const sender of changed)try{await sender.replaceTrack(oldTrack)}catch{};if(next)await ycStopManagedMicStream(next)}throw e}
 }
 async function applyVoiceOutput(){if(voiceAudioContext&&typeof voiceAudioContext.setSinkId==='function')try{await voiceAudioContext.setSinkId(voiceOutputId||'default')}catch{}for(const a of document.querySelectorAll('audio[id^="voice-audio-"]')){if(typeof a.setSinkId==='function')try{await a.setSinkId(voiceOutputId||'default')}catch{}}}
-function playVoiceCue(type){try{unlockVoiceAudio();const ctx=voiceAudioContext;if(!ctx)return;const now=ctx.currentTime;const pattern=type==='self-join'?[[523,.00,.08],[659,.09,.10]]:type==='self-leave'?[[659,.00,.07],[440,.08,.11]]:type==='other-join'?[[740,.00,.06],[880,.07,.07]]:[[440,.00,.06],[330,.07,.08]];for(const [freq,delay,dur] of pattern){const o=ctx.createOscillator(),g=ctx.createGain();o.type='sine';o.frequency.setValueAtTime(freq,now+delay);g.gain.setValueAtTime(0,now+delay);g.gain.linearRampToValueAtTime(type.startsWith('other')?.035:.055,now+delay+.01);g.gain.exponentialRampToValueAtTime(.001,now+delay+dur);o.connect(g).connect(ctx.destination);o.start(now+delay);o.stop(now+delay+dur+.02)}}catch{}}
+function playVoiceCue(type){try{unlockVoiceAudio();const ctx=voiceAudioContext;if(!ctx)return;const now=ctx.currentTime;const pattern=type==='self-join'?[[523,.00,.08],[659,.09,.10]]:type==='self-leave'?[[659,.00,.07],[440,.08,.11]]:type==='other-join'?[[740,.00,.06],[880,.07,.07]]:[[440,.00,.06],[330,.07,.08]];for(const [freq,delay,dur] of pattern){const o=ctx.createOscillator(),g=ctx.createGain();o.type='sine';o.frequency.setValueAtTime(freq,now+delay);g.gain.setValueAtTime(0,now+delay);g.gain.linearRampToValueAtTime(type.startsWith('other')?.035:.055,now+delay+.01);g.gain.exponentialRampToValueAtTime(.001,now+delay+dur);o.connect(g).connect(ctx.destination);ycReleaseShortAudioNodes(o,g);o.start(now+delay);o.stop(now+delay+dur+.02)}}catch{}}
 function stopVoiceActivityDetector(){if(voiceVadStop){voiceVadStop();voiceVadStop=null}}
 function startVoiceActivityDetector(){stopVoiceActivityDetector();if(!voiceStream)return;window.__ycVoiceLastMicActivityAt=Date.now();try{const C=window.AudioContext||window.webkitAudioContext,ctx=new C(),an=ctx.createAnalyser(),src=ctx.createMediaStreamSource(voiceStream);ctx.resume().catch(()=>{});an.fftSize=256;an.smoothingTimeConstant=.35;src.connect(an);const arr=new Uint8Array(an.fftSize);let raf=0,lastState=false,lastSend=0,lastSample=0,noiseFloor=.004,speakingUntil=0;const tick=ts=>{if(!lastSample||ts-lastSample>=32){lastSample=ts;an.getByteTimeDomainData(arr);let sum=0;for(const v of arr){const x=(v-128)/128;sum+=x*x}const rms=Math.sqrt(sum/arr.length),now=performance.now();if(!lastState&&rms<.04)noiseFloor=noiseFloor*.97+rms*.03;const threshold=Math.max(.009,noiseFloor*2.15);if(!voiceMuted&&!voiceDeafened&&!ycMicTestVoiceHold&&rms>threshold){speakingUntil=now+420;window.__ycVoiceLastMicActivityAt=Date.now()}const next=!voiceMuted&&!voiceDeafened&&!ycMicTestVoiceHold&&now<speakingUntil;if(next!==lastState&&now-lastSend>80){lastState=next;lastSend=now;voiceSpeaking=next;if(next&&ycLastPresenceSig.startsWith('afk|'))void ycTouchPresence(true);renderVoiceChannels(voiceChannelDefs)}}raf=requestAnimationFrame(tick)};raf=requestAnimationFrame(tick);voiceVadStop=()=>{cancelAnimationFrame(raf);try{src.disconnect()}catch{}ctx.close().catch(()=>{})}}catch{}}
 function stopVoiceMeter(){if(voiceMeterStop){voiceMeterStop();voiceMeterStop=null}}
@@ -3183,15 +3200,15 @@ const SOUND_PRESETS=[
   {key:'laser',icon:'⚡',name:'Laser'}
 ];
 function soundboardCanManage(){return !!currentCommunity&&String(currentCommunity.id)===ycVoiceCommunityId()&&canCommunityPermission('manage_soundboard')}
-async function subscribeSoundboardEvents(){if(!voiceChannel)return;if(soundboardSub){sb.removeChannel(soundboardSub);soundboardSub=null}const cid=voiceChannel.id;soundboardSub=sb.channel('yc-soundboard-'+cid+'-'+Date.now()).on('postgres_changes',{event:'INSERT',schema:'public',table:'soundboard_events',filter:'channel_id=eq.'+cid},({new:row})=>handleSoundboardEvent(row)).subscribe()}
-function cleanupSoundboardVoice(){if(soundboardSub){sb.removeChannel(soundboardSub);soundboardSub=null}soundboardEventSeen.clear()}
+async function subscribeSoundboardEvents(){const old=soundboardSub;soundboardSub=null;if(old)try{await sb.removeChannel(old)}catch{};if(!voiceChannel)return;const cid=String(voiceChannel.id||''),sessionId=String(voiceSessionId||''),uid=String(user?.id||'');if(!cid||!uid)return;const sub=sb.channel('yc-soundboard-'+cid+'-'+Date.now()).on('postgres_changes',{event:'INSERT',schema:'public',table:'soundboard_events',filter:'channel_id=eq.'+cid},({new:row})=>{if(soundboardSub!==sub||String(user?.id||'')!==uid||String(voiceChannel?.id||'')!==cid||String(voiceSessionId||'')!==sessionId)return;void handleSoundboardEvent(row)});if(String(user?.id||'')!==uid||String(voiceChannel?.id||'')!==cid||String(voiceSessionId||'')!==sessionId){try{await sb.removeChannel(sub)}catch{};return}soundboardSub=sub;sub.subscribe(status=>{if(soundboardSub!==sub||String(user?.id||'')!==uid||String(voiceChannel?.id||'')!==cid||String(voiceSessionId||'')!==sessionId)return;if(['CHANNEL_ERROR','TIMED_OUT','CLOSED'].includes(status)){soundboardSub=null;try{void sb.removeChannel(sub)}catch{}}})}
+function cleanupSoundboardVoice(){const sub=soundboardSub;soundboardSub=null;if(sub)try{void sb.removeChannel(sub)}catch{}soundboardEventSeen.clear()}
 async function loadSoundboardSounds(){const ycVoiceCid=ycVoiceCommunityId();if(!ycVoiceCid)return[];const {data,error}=await sb.from('soundboard_sounds').select('*').eq('community_id',ycVoiceCid).order('created_at');if(error){console.warn('soundboard sounds',error);return soundboardSounds}soundboardSounds=data||[];if(!$('soundboardPanel')?.classList.contains('hidden'))renderSoundboardPanel();return soundboardSounds}
 function renderSoundboardPanel(){const panel=$('soundboardPanel');if(!panel)return;const built=SOUND_PRESETS.map(s=>'<button class="soundboard-sound" data-sound-key="'+esc(s.key)+'"><span class="sb-icon">'+s.icon+'</span><span class="sb-name">'+esc(s.name)+'</span></button>').join('');const custom=soundboardSounds.map(s=>'<button class="soundboard-sound soundboard-custom" data-sound-id="'+s.id+'"><span class="sb-icon">🔊</span><span class="sb-name">'+esc(s.name)+'</span>'+(soundboardCanManage()?'<span class="soundboard-delete" data-delete-sound="'+s.id+'" title="Smazat">×</span>':'')+'</button>').join('');panel.innerHTML='<div class="soundboard-head"><strong>Soundboard</strong><button class="soundboard-close" id="soundboardCloseBtn">×</button></div><div class="soundboard-grid">'+built+custom+'</div>'+(soundboardCanManage()?'<button id="soundboardUploadBtn" class="soundboard-upload">＋ Přidat vlastní zvuk</button>':'')+'<div class="soundboard-note">Zvuk se přehraje všem ve stejném hlasovém kanálu.</div>'}
 async function toggleSoundboardPanel(){if(!voiceChannel){toast('Nejdřív se připoj do voice.',true);return}const panel=$('soundboardPanel');if(!panel)return;const opening=panel.classList.contains('hidden');panel.classList.toggle('hidden',!opening);if(opening){await loadSoundboardSounds();renderSoundboardPanel()}}
-function playPresetSound(key,gainScale=1){unlockVoiceAudio();const ctx=voiceAudioContext;if(!ctx||voiceDeafened)return;const now=ctx.currentTime;const make=(type,freq,start,dur,gain=.08,endFreq=null)=>{const o=ctx.createOscillator(),g=ctx.createGain();o.type=type;o.frequency.setValueAtTime(freq,now+start);if(endFreq)o.frequency.exponentialRampToValueAtTime(endFreq,now+start+dur);g.gain.setValueAtTime(.0001,now+start);g.gain.exponentialRampToValueAtTime(gain*Math.max(0,Number(gainScale)||0),now+start+.015);g.gain.exponentialRampToValueAtTime(.0001,now+start+dur);o.connect(g).connect(ctx.destination);o.start(now+start);o.stop(now+start+dur+.03)};if(key==='airhorn'){make('sawtooth',420,0,.42,.055,315);make('square',210,0,.42,.025,165)}else if(key==='bell'){make('sine',880,0,.55,.09);make('sine',1320,0,.42,.04)}else if(key==='error'){make('square',180,0,.18,.05);make('square',145,.2,.28,.045)}else if(key==='victory'){[523,659,784,1047].forEach((f,i)=>make('triangle',f,i*.11,.18,.055))}else if(key==='boing'){make('sine',190,0,.45,.08,520)}else if(key==='laser'){make('sawtooth',1250,0,.3,.045,140)} }
-async function getSoundboardBuffer(sound){if(soundboardBuffers.has(sound.id))return soundboardBuffers.get(sound.id);const {data,error}=await sb.storage.from('soundboard').createSignedUrl(sound.storage_path,3600);if(error||!data?.signedUrl)throw error||new Error('Zvuk není dostupný');unlockVoiceAudio();const res=await fetch(data.signedUrl);const arr=await res.arrayBuffer();const buf=await voiceAudioContext.decodeAudioData(arr.slice(0));soundboardBuffers.set(sound.id,buf);return buf}
-async function playCustomSound(soundId,gainScale=1){if(voiceDeafened)return;let sound=soundboardSounds.find(s=>s.id===soundId);if(!sound){const {data}=await sb.from('soundboard_sounds').select('*').eq('id',soundId).maybeSingle();sound=data;if(sound)soundboardSounds.push(sound)}if(!sound)return;try{const buf=await getSoundboardBuffer(sound);unlockVoiceAudio();const src=voiceAudioContext.createBufferSource(),g=voiceAudioContext.createGain();g.gain.value=.72*Math.max(0,Number(gainScale)||0);src.buffer=buf;src.connect(g).connect(voiceAudioContext.destination);src.start()}catch(e){console.warn('soundboard audio',e)}}
-async function handleSoundboardEvent(row){if(!row||!voiceChannel||row.channel_id!==voiceChannel.id||soundboardEventSeen.has(row.id))return;soundboardEventSeen.add(row.id);if(soundboardEventSeen.size>300)soundboardEventSeen.clear();const scale=ycSoundboardScaleFor(row.user_id);if(scale<=0)return;if(row.sound_key)playPresetSound(row.sound_key,scale);else if(row.sound_id)await playCustomSound(row.sound_id,scale)}
+function playPresetSound(key,gainScale=1){unlockVoiceAudio();const ctx=voiceAudioContext;if(!ctx||voiceDeafened)return;const now=ctx.currentTime;const make=(type,freq,start,dur,gain=.08,endFreq=null)=>{const o=ctx.createOscillator(),g=ctx.createGain();o.type=type;o.frequency.setValueAtTime(freq,now+start);if(endFreq)o.frequency.exponentialRampToValueAtTime(endFreq,now+start+dur);g.gain.setValueAtTime(.0001,now+start);g.gain.exponentialRampToValueAtTime(gain*Math.max(0,Number(gainScale)||0),now+start+.015);g.gain.exponentialRampToValueAtTime(.0001,now+start+dur);o.connect(g).connect(ctx.destination);ycReleaseShortAudioNodes(o,g);o.start(now+start);o.stop(now+start+dur+.03)};if(key==='airhorn'){make('sawtooth',420,0,.42,.055,315);make('square',210,0,.42,.025,165)}else if(key==='bell'){make('sine',880,0,.55,.09);make('sine',1320,0,.42,.04)}else if(key==='error'){make('square',180,0,.18,.05);make('square',145,.2,.28,.045)}else if(key==='victory'){[523,659,784,1047].forEach((f,i)=>make('triangle',f,i*.11,.18,.055))}else if(key==='boing'){make('sine',190,0,.45,.08,520)}else if(key==='laser'){make('sawtooth',1250,0,.3,.045,140)} }
+function ycSoundboardBufferGet(id){if(!soundboardBuffers.has(id))return null;const buf=soundboardBuffers.get(id);soundboardBuffers.delete(id);soundboardBuffers.set(id,buf);return buf} async function getSoundboardBuffer(sound){const id=String(sound?.id||'');if(!id)throw new Error('Zvuk není dostupný');const cached=ycSoundboardBufferGet(id);if(cached)return cached;if(soundboardBufferLoads.has(id))return soundboardBufferLoads.get(id);const task=(async()=>{const {data,error}=await sb.storage.from('soundboard').createSignedUrl(sound.storage_path,3600);if(error||!data?.signedUrl)throw error||new Error('Zvuk není dostupný');unlockVoiceAudio();const res=await fetch(data.signedUrl);if(!res.ok)throw new Error('Zvuk se nepodařilo stáhnout');const arr=await res.arrayBuffer(),buf=await voiceAudioContext.decodeAudioData(arr.slice(0));soundboardBuffers.set(id,buf);while(soundboardBuffers.size>24)soundboardBuffers.delete(soundboardBuffers.keys().next().value);return buf})();soundboardBufferLoads.set(id,task);try{return await task}finally{if(soundboardBufferLoads.get(id)===task)soundboardBufferLoads.delete(id)}}
+async function playCustomSound(soundId,gainScale=1){if(voiceDeafened||!voiceChannel)return;const ycSoundRoomId=String(voiceChannel.id||''),ycSoundSessionId=String(voiceSessionId||'');let sound=soundboardSounds.find(s=>s.id===soundId);if(!sound){const {data}=await sb.from('soundboard_sounds').select('*').eq('id',soundId).maybeSingle();if(String(voiceChannel?.id||'')!==ycSoundRoomId||String(voiceSessionId||'')!==ycSoundSessionId||voiceDeafened)return;sound=data;if(sound)soundboardSounds.push(sound)}if(!sound)return;try{const buf=await getSoundboardBuffer(sound);if(String(voiceChannel?.id||'')!==ycSoundRoomId||String(voiceSessionId||'')!==ycSoundSessionId||voiceDeafened)return;unlockVoiceAudio();const src=voiceAudioContext.createBufferSource(),g=voiceAudioContext.createGain();g.gain.value=.72*Math.max(0,Number(gainScale)||0);src.buffer=buf;src.connect(g).connect(voiceAudioContext.destination);ycReleaseShortAudioNodes(src,g);src.start()}catch(e){console.warn('soundboard audio',e)}}
+async function handleSoundboardEvent(row){if(!row||!voiceChannel||row.channel_id!==voiceChannel.id||soundboardEventSeen.has(row.id))return;soundboardEventSeen.add(row.id);if(soundboardEventSeen.size>300)while(soundboardEventSeen.size>200)soundboardEventSeen.delete(soundboardEventSeen.values().next().value);const scale=ycSoundboardScaleFor(row.user_id);if(scale<=0)return;if(row.sound_key)playPresetSound(row.sound_key,scale);else if(row.sound_id)await playCustomSound(row.sound_id,scale)}
 async function triggerSoundboard(soundKey=null,soundId=null){if(!voiceChannel){toast('Nejdřív se připoj do voice.',true);return}const now=Date.now();if(now-soundboardLastPlay<650)return;soundboardLastPlay=now;const id=crypto.randomUUID();soundboardEventSeen.add(id);const ycSbScale=ycSoundboardScaleFor(user?.id);if(soundKey)playPresetSound(soundKey,ycSbScale);else if(soundId)void playCustomSound(soundId,ycSbScale);const {error}=await sb.from('soundboard_events').insert({id,channel_id:voiceChannel.id,user_id:user.id,sound_key:soundKey,sound_id:soundId});if(error)toast('Soundboard: '+error.message,true)}
 async function validateSoundFile(file){if(!file)return false;if(file.size>5*1024*1024){toast('Soundboard zvuk může mít maximálně 5 MB.',true);return false}if(!file.type.startsWith('audio/')){toast('Vyber audio soubor MP3, WAV, OGG nebo WebM.',true);return false}return await new Promise(resolve=>{const a=document.createElement('audio'),u=URL.createObjectURL(file);a.preload='metadata';a.onloadedmetadata=()=>{URL.revokeObjectURL(u);if(!Number.isFinite(a.duration)||a.duration>12){toast('Zvuk může mít maximálně 12 sekund.',true);resolve(false)}else resolve(true)};a.onerror=()=>{URL.revokeObjectURL(u);toast('Zvuk se nepodařilo načíst.',true);resolve(false)};a.src=u})}
 async function uploadSoundboardSound(){if(!soundboardCanManage()||!currentCommunity)return;const input=document.createElement('input');input.type='file';input.accept='audio/mpeg,audio/wav,audio/x-wav,audio/ogg,audio/webm,audio/mp4';input.onchange=async()=>{const file=input.files?.[0];if(!await validateSoundFile(file))return;const name=(await ycDesktopPrompt('Název zvuku:',file.name.replace(/.[^.]+$/,''))||'').trim().slice(0,40);if(!name)return;const safe=file.name.replace(/[^a-zA-Z0-9._-]/g,'_'),path=currentCommunity.id+'/'+crypto.randomUUID()+'-'+safe;const {error:upErr}=await sb.storage.from('soundboard').upload(path,file,{contentType:file.type,upsert:false});if(upErr){toast('Upload zvuku: '+upErr.message,true);return}const {error}=await sb.from('soundboard_sounds').insert({community_id:currentCommunity.id,uploader_id:user.id,name,storage_path:path,mime_type:file.type,size_bytes:file.size});if(error){await sb.storage.from('soundboard').remove([path]);toast('Soundboard: '+error.message,true);return}toast('Zvuk přidán do soundboardu.');await loadSoundboardSounds()};input.click()}
@@ -3228,7 +3245,7 @@ function ycRequestVoiceDisconnect(){
   window.__ycVoiceSwitchBusy=false;window.__ycVoiceSwitchTargetId='';window.__ycVoiceSwitchTargetName='';
   try{if(old)playVoiceCue('self-leave')}catch{}
   voiceJoinSoundArmed=false;
-  try{stopVoiceHeartbeat()}catch{};try{stopVoiceActivityDetector()}catch{};try{stopVoiceMeter()}catch{};voiceSpeaking=false;
+  try{stopVoiceHeartbeat()}catch{};try{stopVoiceActivityDetector()}catch{};try{stopVoiceRouteChecks()}catch{};try{stopVoiceMeter()}catch{};voiceSpeaking=false;
   try{cleanupSoundboardVoice()}catch{};try{$('soundboardPanel')?.classList.add('hidden')}catch{}
   const share=screenShareStream,wasShare=!!screenShareActive;screenShareActive=false;screenShareStream=null;
   try{screenShareViewers.clear()}catch{};try{for(const [,sender] of voiceScreenSenders)void sender.replaceTrack(null)}catch{}
@@ -3555,7 +3572,9 @@ async function ycTouchPresence(force=false){
 async function ycPresenceOffline(){ycPresenceRemoteOnlineUntil=0;return Promise.resolve()}
 let ycDmPeriodicRefreshAt=0,ycDmPeriodicRefreshBusy=false;
 async function ycMaybePeriodicDmRefresh(){const now=Date.now();if(!ycFriendsHomeMode||document.hidden||ycDmPeriodicRefreshBusy||now-ycDmPeriodicRefreshAt<60000)return;ycDmPeriodicRefreshAt=now;ycDmPeriodicRefreshBusy=true;try{await loadDmThreads()}catch(e){console.warn('periodic DM refresh',e)}finally{ycDmPeriodicRefreshBusy=false}}
-function ycStartPresence(){if(ycPresenceTimer)return;ycPresenceTimer=setInterval(()=>{if(user&&profile)ycTouchPresence(true)},20000);ycSocialRefreshTimer=setInterval(()=>{if(!user||document.hidden)return;if(rightMode==='friends')void ycRefreshVisibleFriendPresence();else if(rightMode==='members')void ycRefreshVisibleMemberPresence();if(ycFriendsHomeMode)void ycMaybePeriodicDmRefresh()},15000);for(const ev of ['pointerdown','keydown','touchstart'])window.addEventListener(ev,()=>{ycLastInputAt=Date.now();if(user&&profile&&ycPresencePreference()==='online'&&ycLastPresenceSig.startsWith('afk|'))ycTouchPresence(true)},{passive:true});let ycLastMouseMark=0;window.addEventListener('mousemove',()=>{const now=Date.now();if(now-ycLastMouseMark>=1000){ycLastMouseMark=now;ycLastInputAt=now}},{passive:true});document.addEventListener('visibilitychange',()=>{if(!document.hidden)ycLastInputAt=Date.now();ycTouchPresence(true)});setTimeout(()=>{ycTouchPresence(true);ycSyncDiscordIdentity()},700)}
+let ycPresenceListenersInstalled=false,ycPresenceStartupTimer=null
+function ycStartPresence(){if(!ycPresenceTimer)ycPresenceTimer=setInterval(()=>{if(user&&profile)ycTouchPresence(true)},20000);if(!ycSocialRefreshTimer)ycSocialRefreshTimer=setInterval(()=>{if(!user||document.hidden)return;if(rightMode==='friends')void ycRefreshVisibleFriendPresence();else if(rightMode==='members')void ycRefreshVisibleMemberPresence();if(ycFriendsHomeMode)void ycMaybePeriodicDmRefresh()},15000);if(!ycPresenceListenersInstalled){ycPresenceListenersInstalled=true;for(const ev of ['pointerdown','keydown','touchstart'])window.addEventListener(ev,()=>{ycLastInputAt=Date.now();if(user&&profile&&ycPresencePreference()==='online'&&ycLastPresenceSig.startsWith('afk|'))ycTouchPresence(true)},{passive:true});let ycLastMouseMark=0;window.addEventListener('mousemove',()=>{const now=Date.now();if(now-ycLastMouseMark>=1000){ycLastMouseMark=now;ycLastInputAt=now}},{passive:true});document.addEventListener('visibilitychange',()=>{if(!document.hidden)ycLastInputAt=Date.now();if(user&&profile)ycTouchPresence(true)})}clearTimeout(ycPresenceStartupTimer);ycPresenceStartupTimer=setTimeout(()=>{ycPresenceStartupTimer=null;if(user&&profile){ycTouchPresence(true);ycSyncDiscordIdentity()}},700)}
+function ycStopPresenceTimers(){if(ycPresenceTimer){clearInterval(ycPresenceTimer);ycPresenceTimer=null}if(ycSocialRefreshTimer){clearInterval(ycSocialRefreshTimer);ycSocialRefreshTimer=null}if(ycPresenceStartupTimer){clearTimeout(ycPresenceStartupTimer);ycPresenceStartupTimer=null}}
 ycStartPresence()
 window.addEventListener('resize',()=>{$('mobileMenu').classList.toggle('hidden',innerWidth>720)})
 // Yamachat desktop bridge - read-only state for Electron tray integration.
@@ -3675,8 +3694,8 @@ async function ycRunLifecycle(type,ctx={},reverse=false){
  for(const fn of list){try{await fn(ctx)}catch(e){console.warn('Yamachat lifecycle '+type,e)}}
 }
 function ycRunLifecycleSync(type,ctx={},reverse=false){const list=[...(ycLifecycle[type]||[])];if(reverse)list.reverse();for(const fn of list){try{const out=fn(ctx);if(out&&typeof out.catch==='function')out.catch(e=>console.warn('Yamachat lifecycle '+type,e))}catch(e){console.warn('Yamachat lifecycle '+type,e)}}}
-ycOnLifecycle('init',async()=>{ycLastInputAt=Date.now();await ycTouchPresence(true);ycEnsurePresenceRealtime();ycRefreshVisibleSocialSoon()})
-ycOnLifecycle('beforeAuth',()=>{void ycStopPresenceRealtime()})
+ycOnLifecycle('init',async()=>{ycStartPresence();ycLastInputAt=Date.now();await ycTouchPresence(true);ycEnsurePresenceRealtime();ycRefreshVisibleSocialSoon()})
+ycOnLifecycle('beforeAuth',()=>{ycStopPresenceTimers();void ycStopPresenceRealtime()})
 window.addEventListener('focus',()=>{ycLastInputAt=Date.now();if(user&&profile){void ycTouchPresence(true);ycEnsurePresenceRealtime()}})
 window.addEventListener('online',()=>{ycLastInputAt=Date.now();if(user&&profile){void ycTouchPresence(true);ycEnsurePresenceRealtime()}})
 if(user&&profile){void ycTouchPresence(true);ycEnsurePresenceRealtime()}
@@ -3746,7 +3765,7 @@ async function ycRefreshPlatformFeedbackBadge(){if(!window.__ycPlatformAdmin)ret
 function ycFeedbackCard(f){return '<div class="yc-feedback-card '+esc(f.status||'open')+'"><div class="yc-feedback-top"><strong>'+esc(ycFeedbackCategoryLabel(f.category))+'</strong><span class="yc-admin-pill">'+esc(f.status||'open')+'</span></div><div class="yc-feedback-meta">'+esc(f.sender_name||'Uživatel')+' · @'+esc(f.sender_username||'')+' · '+esc(fmt(f.created_at))+'</div><div class="yc-feedback-message">'+esc(f.message||'')+'</div>'+(f.admin_note?'<div class="yc-feedback-meta">Poznámka admina: '+esc(f.admin_note)+'</div>':'')+'<div class="yc-feedback-actions"><button class="smallbtn" data-feedback-read="'+esc(f.id)+'">Přečteno</button><button class="smallbtn" data-feedback-open="'+esc(f.id)+'">Znovu otevřít</button><button class="smallbtn" data-feedback-close="'+esc(f.id)+'">Uzavřít</button></div></div>'}
 async function ycOpenPlatformFeedback(status='open'){if(!window.__ycPlatformAdmin){toast('Platform Admin není aktivní.',true);return}ycInstallDeveloperStyle();const {data,error}=await sb.rpc('platform_admin_list_feedback',{p_status:status});if(error){toast('Zpětná vazba: '+error.message,true);return}const rows=data||[];$('modalRoot').innerHTML='<div class="modal-back"><div class="modal yc-admin-directory"><div class="modal-head"><h3>📨 Zpětná vazba k Yamachatu</h3><button class="x" id="closeModal">×</button></div><div class="yc-admin-headline"><button class="smallbtn" id="ycFeedbackBack">← Servery</button><button class="smallbtn" data-feedback-filter="open">Otevřené</button><button class="smallbtn" data-feedback-filter="all">Všechny</button><span>'+rows.length+' zpráv</span></div><div>'+(rows.length?rows.map(ycFeedbackCard).join(''):'<div class="yc-admin-empty">Žádná zpětná vazba.</div>')+'</div></div></div>';$('closeModal').onclick=closeModal;$('ycFeedbackBack').onclick=ycOpenPlatformAdmin;document.querySelectorAll('[data-feedback-filter]').forEach(b=>b.onclick=()=>ycOpenPlatformFeedback(b.dataset.feedbackFilter));document.querySelectorAll('[data-feedback-read]').forEach(b=>b.onclick=()=>ycReviewPlatformFeedback(b.dataset.feedbackRead,'read',status));document.querySelectorAll('[data-feedback-open]').forEach(b=>b.onclick=()=>ycReviewPlatformFeedback(b.dataset.feedbackOpen,'open',status));document.querySelectorAll('[data-feedback-close]').forEach(b=>b.onclick=()=>ycReviewPlatformFeedback(b.dataset.feedbackClose,'closed',status))}
 async function ycReviewPlatformFeedback(id,state,currentFilter='open'){const note=state==='closed'?(await ycDesktopPrompt('Poznámka k uzavření (volitelné):')||''):'';const {data,error}=await sb.rpc('platform_admin_review_feedback',{p_feedback_id:id,p_status:state,p_note:note});if(error||!data){toast('Změna stavu selhala: '+(error?.message||'neznámá chyba'),true);return}await ycRefreshPlatformFeedbackBadge();await ycOpenPlatformFeedback(currentFilter)}
-async function ycStartPlatformFeedbackWatch(){if(ycFeedbackSub){try{await sb.removeChannel(ycFeedbackSub)}catch{}ycFeedbackSub=null}if(!window.__ycPlatformAdmin||!user?.id)return;ycFeedbackSub=sb.channel('yc-platform-feedback-'+user.id+'-'+Date.now()).on('postgres_changes',{event:'INSERT',schema:'public',table:'project_feedback'},()=>{void ycRefreshPlatformFeedbackBadge();toast('📨 Nová zpětná vazba k Yamachatu.')}).on('postgres_changes',{event:'UPDATE',schema:'public',table:'project_feedback'},()=>void ycRefreshPlatformFeedbackBadge()).subscribe();await ycRefreshPlatformFeedbackBadge()}
+async function ycStartPlatformFeedbackWatch(){if(ycFeedbackSub){try{await sb.removeChannel(ycFeedbackSub)}catch{}ycFeedbackSub=null}const uid=String(user?.id||'');if(!window.__ycPlatformAdmin||!uid)return;const sub=sb.channel('yc-platform-feedback-'+uid+'-'+Date.now()).on('postgres_changes',{event:'INSERT',schema:'public',table:'project_feedback'},()=>{if(ycFeedbackSub!==sub||String(user?.id||'')!==uid)return;void ycRefreshPlatformFeedbackBadge();toast('📨 Nová zpětná vazba k Yamachatu.')}).on('postgres_changes',{event:'UPDATE',schema:'public',table:'project_feedback'},()=>{if(ycFeedbackSub===sub&&String(user?.id||'')===uid)void ycRefreshPlatformFeedbackBadge()});if(String(user?.id||'')!==uid){try{await sb.removeChannel(sub)}catch{};return}ycFeedbackSub=sub;sub.subscribe(status=>{if(ycFeedbackSub!==sub||String(user?.id||'')!==uid)return;if(['CHANNEL_ERROR','TIMED_OUT','CLOSED'].includes(status)){ycFeedbackSub=null;try{void sb.removeChannel(sub)}catch{}}});await ycRefreshPlatformFeedbackBadge()}
 ycOnLifecycle('init',()=>{ycInstallDeveloperStyle()})
 ycOnLifecycle('beforeAuth',()=>{if(ycFeedbackSub){try{sb.removeChannel(ycFeedbackSub)}catch{}ycFeedbackSub=null}})
 
@@ -3863,10 +3882,11 @@ async function ycCheckOwnBanStatus(){
 }
 async function ycStartAccountMessages(){
   if(ycAccountMessagesSub){try{await sb.removeChannel(ycAccountMessagesSub)}catch{}ycAccountMessagesSub=null}
-  if(!user?.id)return;
-  let rows=[];try{rows=await ycLoadAccountMessages()}catch(e){console.warn('account messages load',e);return}
-  const unread=rows.filter(x=>!x.read_at).length;if(unread){toast('📨 Máš '+unread+' '+(unread===1?'novou zprávu':'nové zprávy')+' od Yamachatu.');setTimeout(()=>void ycOpenAccountInbox(true),800)}
-  ycAccountMessagesSub=sb.channel('yc-account-messages-'+user.id+'-'+Date.now()).on('postgres_changes',{event:'INSERT',schema:'public',table:'account_messages',filter:'recipient_user_id=eq.'+user.id},async()=>{try{await ycLoadAccountMessages()}catch{}toast('📨 Nový vzkaz od Yamachatu.');setTimeout(()=>void ycOpenAccountInbox(true),250)}).subscribe()
+  const uid=String(user?.id||'');if(!uid)return;
+  let rows=[];try{rows=await ycLoadAccountMessages()}catch(e){if(String(user?.id||'')===uid)console.warn('account messages load',e);return}
+  if(String(user?.id||'')!==uid)return;
+  const unread=rows.filter(x=>!x.read_at).length;if(unread){toast('📨 Máš '+unread+' '+(unread===1?'novou zprávu':'nové zprávy')+' od Yamachatu.');setTimeout(()=>{if(String(user?.id||'')===uid)void ycOpenAccountInbox(true)},800)}
+  const sub=sb.channel('yc-account-messages-'+uid+'-'+Date.now()).on('postgres_changes',{event:'INSERT',schema:'public',table:'account_messages',filter:'recipient_user_id=eq.'+uid},async()=>{if(ycAccountMessagesSub!==sub||String(user?.id||'')!==uid)return;try{await ycLoadAccountMessages()}catch{}if(ycAccountMessagesSub!==sub||String(user?.id||'')!==uid)return;toast('📨 Nový vzkaz od Yamachatu.');setTimeout(()=>{if(ycAccountMessagesSub===sub&&String(user?.id||'')===uid)void ycOpenAccountInbox(true)},250)});if(String(user?.id||'')!==uid){try{await sb.removeChannel(sub)}catch{};return}ycAccountMessagesSub=sub;sub.subscribe(status=>{if(ycAccountMessagesSub!==sub||String(user?.id||'')!==uid)return;if(['CHANNEL_ERROR','TIMED_OUT','CLOSED'].includes(status)){ycAccountMessagesSub=null;try{void sb.removeChannel(sub)}catch{}}})
 }
 ycOnLifecycle('init',()=>{void ycStartAccountMessages();void ycCheckOwnBanStatus();clearInterval(ycBanStatusTimer);ycBanStatusTimer=setInterval(()=>void ycCheckOwnBanStatus(),60000)});
 ycOnLifecycle('beforeAuth',()=>{ycAccountMessagesCache=[];clearInterval(ycBanStatusTimer);ycBanStatusTimer=null;if(ycAccountMessagesSub){try{sb.removeChannel(ycAccountMessagesSub)}catch{}ycAccountMessagesSub=null}});
@@ -3926,7 +3946,7 @@ function ycOpenMessageMenu(mid,x,y){const m=ycMessageRows.get(mid);if(!m)return;
 document.addEventListener('contextmenu',e=>{const row=e.target.closest('.message[data-message-id]');if(!row)return;e.preventDefault();e.stopPropagation();ycOpenMessageMenu(row.dataset.messageId,e.clientX,e.clientY)},true);
 document.addEventListener('click',e=>{const react=e.target.closest('[data-yc-react],[data-yc-reaction-chip],[data-yc-menu-react],[data-yc-picker-react]');if(react){e.preventDefault();const mid=react.dataset.ycReact||react.dataset.ycReactionChip||react.dataset.ycMenuReact||react.dataset.ycPickerReact;ycCloseMessageMenu();void ycToggleReaction(mid,react.dataset.emoji);return}const pick=e.target.closest('[data-yc-pick-reaction],[data-yc-open-reactions]');if(pick){e.preventDefault();const mid=pick.dataset.ycPickReaction||pick.dataset.ycOpenReactions,r=pick.getBoundingClientRect();ycCloseMessageMenu();ycOpenReactionPicker(mid,r.left,r.bottom+5);return}const rep=e.target.closest('[data-yc-reply],[data-yc-menu-reply]');if(rep){ycSetReplyTarget(ycMessageRows.get(rep.dataset.ycReply||rep.dataset.ycMenuReply));ycCloseMessageMenu();return}const more=e.target.closest('[data-yc-more]');if(more){const r=more.getBoundingClientRect();ycOpenMessageMenu(more.dataset.ycMore,r.right-245,r.bottom+4);return}const jump=e.target.closest('[data-yc-jump-reply]');if(jump){document.querySelector('[data-message-id="'+CSS.escape(jump.dataset.ycJumpReply)+'"]')?.scrollIntoView({behavior:'smooth',block:'center'});return}const unread=e.target.closest('[data-yc-unread]');if(unread){void ycMarkMessageUnread(unread.dataset.ycUnread);return}const clear=e.target.closest('[data-yc-clear-unread]');if(clear){void ycClearMessageUnread(clear.dataset.ycClearUnread);return}const cp=e.target.closest('[data-yc-copy-text]');if(cp){void ycCopyText(ycMessageRows.get(cp.dataset.ycCopyText)?.body||'','Text zkopírován.');ycCloseMessageMenu();return}const link=e.target.closest('[data-yc-copy-link]');if(link){const m=ycMessageRows.get(link.dataset.ycCopyLink);if(m)void ycCopyText(ycMessageShareLink(m),'Odkaz na zprávu zkopírován.');ycCloseMessageMenu();return}const del=e.target.closest('[data-yc-delete-message]');if(del){void ycDeleteMessage(del.dataset.ycDeleteMessage);return}const report=e.target.closest('[data-yc-report]');if(report){ycOpenReportMessage(ycMessageRows.get(report.dataset.ycReport));return}if(e.target.closest('#ycAdminReports')){void ycOpenPlatformReports('open');return}const unreadRow=e.target.closest('.message[data-message-id]');if(unreadRow&&unreadRow.dataset.messageId===ycUnreadMessageId){void ycClearMessageUnread(unreadRow.dataset.messageId)}if(ycMessageMenu&&!ycMessageMenu.contains(e.target))ycCloseMessageMenu();if(ycReactionPicker&&!ycReactionPicker.contains(e.target))ycCloseReactionPicker()});
 window.addEventListener('blur',()=>{ycCloseMessageMenu();ycCloseReactionPicker()});window.addEventListener('resize',()=>{ycCloseMessageMenu();ycCloseReactionPicker()});
-async function ycStartReactionWatch(){if(ycReactionSub){try{await sb.removeChannel(ycReactionSub)}catch{}ycReactionSub=null}if(!user?.id)return;ycReactionSub=sb.channel('yc-message-reactions-'+user.id+'-'+Date.now()).on('postgres_changes',{event:'*',schema:'public',table:'message_reactions'},p=>{const mid=p.new?.message_id||p.old?.message_id,who=p.new?.user_id||p.old?.user_id;if(who===user?.id){void ycLoadQuickReactions().then(()=>{if(mid&&visibleMessageIds.has(String(mid)))return ycDecorateMessageActions([mid])})}else if(mid&&visibleMessageIds.has(String(mid)))void ycDecorateMessageActions([mid])}).subscribe()}
+async function ycStartReactionWatch(){if(ycReactionSub){try{await sb.removeChannel(ycReactionSub)}catch{}ycReactionSub=null}const uid=String(user?.id||'');if(!uid)return;const sub=sb.channel('yc-message-reactions-'+uid+'-'+Date.now()).on('postgres_changes',{event:'*',schema:'public',table:'message_reactions'},p=>{if(ycReactionSub!==sub||String(user?.id||'')!==uid)return;const mid=p.new?.message_id||p.old?.message_id,who=p.new?.user_id||p.old?.user_id;if(String(who||'')===uid){void ycLoadQuickReactions().then(()=>{if(ycReactionSub!==sub||String(user?.id||'')!==uid)return;if(mid&&visibleMessageIds.has(String(mid)))return ycDecorateMessageActions([mid])})}else if(mid&&visibleMessageIds.has(String(mid)))void ycDecorateMessageActions([mid])});ycReactionSub=sub;sub.subscribe(status=>{if(ycReactionSub!==sub||String(user?.id||'')!==uid)return;if(['CHANNEL_ERROR','TIMED_OUT','CLOSED'].includes(status)){ycReactionSub=null;try{void sb.removeChannel(sub)}catch{}}})}
 async function ycStopReactionWatch(){const ch=ycReactionSub;ycReactionSub=null;if(ch)try{await sb.removeChannel(ch)}catch{}}
 function ycReportCard(r){const where=r.is_direct?'Soukromá zpráva':((r.community_name||'Server')+(r.channel_name?' · #'+r.channel_name:''));return '<div class="yc-report-card '+esc(r.status)+'" data-report-card="'+esc(r.id)+'"><div class="yc-report-meta"><span class="yc-admin-pill '+(r.status==='open'?'private':'')+'">'+esc(r.status.toUpperCase())+'</span><span>'+esc(where)+'</span><span>'+esc(fmt(r.created_at))+'</span></div><div><strong>'+esc(r.reported_author_name||'Neznámý')+'</strong> · nahlásil '+esc(r.reporter_name||'Neznámý')+'</div><div class="yc-report-message">'+esc(r.body_snapshot||'Zpráva už není dostupná.')+'</div><div class="yc-report-reason">Důvod: '+esc(r.reason||'Bez uvedení důvodu')+'</div>'+(r.review_note?'<div class="notice">Poznámka: '+esc(r.review_note)+'</div>':'')+'<div class="yc-report-actions">'+(r.community_id?'<button class="smallbtn" data-report-open-server="'+esc(r.community_id)+'">Otevřít server</button>':'')+(r.message_id?'<button class="smallbtn yc-admin-danger" data-report-delete-message="'+esc(r.id)+'">Smazat zprávu</button>':'')+'<button class="smallbtn" data-report-resolve="'+esc(r.id)+'">Vyřešit</button><button class="smallbtn" data-report-dismiss="'+esc(r.id)+'">Zamítnout</button></div></div>'}
 async function ycOpenPlatformReports(status='open'){if(!window.__ycPlatformAdmin){toast('Platform Admin není aktivní.',true);return}const {data,error}=await sb.rpc('platform_admin_list_reports',{p_status:status});if(error){toast('Reporty: '+error.message,true);return}const rows=data||[];$('modalRoot').innerHTML='<div class="modal-back"><div class="modal yc-admin-directory"><div class="modal-head"><h3>🚩 Platform Admin · nahlášení</h3><button class="x" id="closeModal">×</button></div><div class="yc-admin-headline"><button class="smallbtn" id="ycReportsBack">← Servery</button><button class="smallbtn" data-report-filter="open">Otevřené</button><button class="smallbtn" data-report-filter="all">Všechny</button><span>'+rows.length+' záznamů</span></div><div>'+ (rows.length?rows.map(ycReportCard).join(''):'<div class="yc-admin-empty">Žádná nahlášení.</div>') +'</div></div></div>';$('closeModal').onclick=closeModal;$('ycReportsBack').onclick=ycOpenPlatformAdmin;document.querySelectorAll('[data-report-filter]').forEach(b=>b.onclick=()=>ycOpenPlatformReports(b.dataset.reportFilter));document.querySelectorAll('[data-report-resolve]').forEach(b=>b.onclick=()=>ycReviewReport(b.dataset.reportResolve,'resolved'));document.querySelectorAll('[data-report-dismiss]').forEach(b=>b.onclick=()=>ycReviewReport(b.dataset.reportDismiss,'dismissed'));document.querySelectorAll('[data-report-delete-message]').forEach(b=>b.onclick=async()=>{if(!confirm('Smazat původní nahlášenou zprávu?'))return;const {error}=await sb.rpc('platform_admin_delete_reported_message',{p_report_id:b.dataset.reportDeleteMessage});if(error){toast(error.message,true);return}toast('Zpráva smazána a report vyřešen.');await ycOpenPlatformReports(status)});document.querySelectorAll('[data-report-open-server]').forEach(b=>b.onclick=()=>ycOpenReportServer(b.dataset.reportOpenServer))}
@@ -3934,7 +3954,7 @@ async function ycReviewReport(id,status){const note=status==='dismissed'?(await 
 async function ycOpenReportServer(id){const {data,error}=await sb.rpc('platform_admin_list_communities',{p_search:''});if(error){toast(error.message,true);return}const c=(data||[]).find(x=>x.id===id);if(!c){toast('Server už neexistuje.',true);return}await ycPlatformAdminOpenCommunity(c)}
 async function ycRefreshPlatformReportBadge(){if(!window.__ycPlatformAdmin)return;const {data,error}=await sb.rpc('platform_admin_list_reports',{p_status:'open'});if(error)return;const n=(data||[]).length,b=$('ycAdminReportBadge'),inline=$('ycAdminReportCountInline');if(b){b.textContent=n>99?'99+':String(n);b.classList.toggle('hidden',n===0)}if(inline)inline.textContent=n?'('+n+')':''}
 async function ycReportWindowsNotify(r){try{toast('🚩 Nové nahlášení zprávy');if(typeof ycWinPermission==='function'&&typeof ycWinHasFocus==='function'&&!ycWinHasFocus()&&await ycWinPermission()){const n=new Notification('🚩 Nové nahlášení v Yamachatu',{body:String(r?.reason||'Nový report').slice(0,180),tag:'yamachat-report-'+String(r?.id||Date.now())});n.onclick=()=>{void ycOpenPlatformReports('open');try{n.close()}catch{}}}}catch(e){console.warn('report notification',e)}}
-async function ycStartPlatformReportWatch(){if(ycReportSub){try{await sb.removeChannel(ycReportSub)}catch{}ycReportSub=null}if(!window.__ycPlatformAdmin||!user?.id)return;ycReportSub=sb.channel('yc-platform-reports-'+user.id+'-'+Date.now()).on('postgres_changes',{event:'INSERT',schema:'public',table:'message_reports'},p=>{void ycRefreshPlatformReportBadge();void ycReportWindowsNotify(p.new||{})}).on('postgres_changes',{event:'UPDATE',schema:'public',table:'message_reports'},()=>void ycRefreshPlatformReportBadge()).subscribe();await ycRefreshPlatformReportBadge()}
+async function ycStartPlatformReportWatch(){if(ycReportSub){try{await sb.removeChannel(ycReportSub)}catch{}ycReportSub=null}const uid=String(user?.id||'');if(!window.__ycPlatformAdmin||!uid)return;const sub=sb.channel('yc-platform-reports-'+uid+'-'+Date.now()).on('postgres_changes',{event:'INSERT',schema:'public',table:'message_reports'},p=>{if(ycReportSub!==sub||String(user?.id||'')!==uid)return;void ycRefreshPlatformReportBadge();void ycReportWindowsNotify(p.new||{})}).on('postgres_changes',{event:'UPDATE',schema:'public',table:'message_reports'},()=>{if(ycReportSub===sub&&String(user?.id||'')===uid)void ycRefreshPlatformReportBadge()});if(String(user?.id||'')!==uid){try{await sb.removeChannel(sub)}catch{};return}ycReportSub=sub;sub.subscribe(status=>{if(ycReportSub!==sub||String(user?.id||'')!==uid)return;if(['CHANNEL_ERROR','TIMED_OUT','CLOSED'].includes(status)){ycReportSub=null;try{void sb.removeChannel(sub)}catch{}}});await ycRefreshPlatformReportBadge()}
 async function ycStopPlatformReportWatch(){const ch=ycReportSub;ycReportSub=null;if(ch)try{await sb.removeChannel(ch)}catch{}}
 ycOnLifecycle('init',async()=>{ycInstallMessageActionsStyle();ycEnsureReplyBar();await ycLoadQuickReactions();await ycStartReactionWatch();setTimeout(()=>void ycDecorateMessageActions(),150)});
 ycOnLifecycle('community',async()=>{ycClearReplyTarget();ycCloseReactionPicker();await ycLoadQuickReactions();setTimeout(()=>void ycDecorateMessageActions(),60)});
@@ -4371,7 +4391,7 @@ ycSetupThemeLogo()
 
 
 // persistent DM unread state and notification sound
-let ycDmNotifySub=null,ycDmUnreadByThread={},ycDmAudioCtx=null,ycDmAudioArmed=false
+let ycDmNotifySub=null,ycDmMembershipSub=null,ycDmUnreadByThread={},ycDmNotifyGeneration=0,ycDmMembershipGeneration=0,ycDmUnreadGeneration=0,ycDmAudioCtx=null,ycDmAudioArmed=false
 function ycUnreadLabel(n){n=Number(n||0);return n>9?'9+':String(n)}
 function ycDmUnreadTotal(){return Object.values(ycDmUnreadByThread).reduce((a,b)=>a+Number(b||0),0)}
 function ycEnsureDmAudio(){
@@ -4398,7 +4418,7 @@ async function ycPlayDmSound(){
   ycEnsureDmAudio();const ctx=ycDmAudioCtx;if(!ctx||ctx.state!=='running')return
   const buffer=await ycLoadMessageSound();if(!buffer)return
   const src=ctx.createBufferSource(),gain=ctx.createGain();gain.gain.value=.88
-  src.buffer=buffer;src.connect(gain).connect(ctx.destination);src.start()
+  src.buffer=buffer;src.connect(gain).connect(ctx.destination);src.onended=()=>{try{src.disconnect()}catch{}try{gain.disconnect()}catch{}};src.start()
  }catch(e){console.warn('dm sound',e)}
 }
 function ycUpdateDmBadge(){
@@ -4409,17 +4429,39 @@ function ycDecorateDmRows(){
  const root=$('dmList');if(!root)return;root.querySelectorAll('[data-thread]').forEach(b=>{const n=Number(ycDmUnreadByThread[b.dataset.thread]||0);b.querySelector('.yc-dm-row-badge')?.remove();if(n>0){const s=document.createElement('span');s.className='yc-dm-row-badge';s.textContent=ycUnreadLabel(n);b.appendChild(s)}})
 }
 async function ycLoadDmUnread(){
- if(!user?.id)return;const ids=(dmThreads||[]).map(t=>t.id);ycDmUnreadByThread={};if(!ids.length){ycUpdateDmBadge();ycDecorateDmRows();return}
- try{const [{data:reads},{data:msgs}]=await Promise.all([sb.from('direct_thread_reads').select('thread_id,last_read_at').eq('user_id',user.id).in('thread_id',ids),sb.from('messages').select('direct_thread_id,author_id,created_at').in('direct_thread_id',ids).neq('author_id',user.id).order('created_at',{ascending:false}).limit(1000)]);const rm=Object.fromEntries((reads||[]).map(x=>[x.thread_id,new Date(x.last_read_at).getTime()]));for(const id of ids)ycDmUnreadByThread[id]=0;for(const m of msgs||[]){const t=m.direct_thread_id;if(!t)continue;const when=new Date(m.created_at).getTime();if(when>(rm[t]||0))ycDmUnreadByThread[t]=(ycDmUnreadByThread[t]||0)+1}if(currentThread?.id)ycDmUnreadByThread[currentThread.id]=0;ycUpdateDmBadge();ycDecorateDmRows()}catch(e){console.warn('dm unread load',e)}
+ const uid=String(user?.id||'');if(!uid)return;const generation=++ycDmUnreadGeneration,ids=(dmThreads||[]).map(t=>String(t.id||'')).filter(Boolean),current=()=>generation===ycDmUnreadGeneration&&String(user?.id||'')===uid;
+ if(!ids.length){if(!current())return;ycDmUnreadByThread={};ycUpdateDmBadge();ycDecorateDmRows();return}
+ try{
+  const [{data:reads},{data:msgs}]=await Promise.all([
+   sb.from('direct_thread_reads').select('thread_id,last_read_at').eq('user_id',uid).in('thread_id',ids),
+   sb.from('messages').select('direct_thread_id,author_id,created_at').in('direct_thread_id',ids).neq('author_id',uid).order('created_at',{ascending:false}).limit(1000)
+  ]);
+  if(!current())return;
+  const rm=Object.fromEntries((reads||[]).map(x=>[x.thread_id,new Date(x.last_read_at).getTime()])),next={};for(const id of ids)next[id]=0;
+  for(const m of msgs||[]){const t=String(m.direct_thread_id||'');if(!t||!(t in next))continue;const when=new Date(m.created_at).getTime();if(when>(rm[t]||0))next[t]=(next[t]||0)+1}
+  if(currentThread?.id&&String(currentThread.id) in next)next[String(currentThread.id)]=0;
+  if(!current())return;ycDmUnreadByThread=next;ycUpdateDmBadge();ycDecorateDmRows()
+ }catch(e){if(current())console.warn('dm unread load',e)}
 }
 async function ycMarkDmRead(threadId){
- if(!threadId||!user?.id)return;ycDmUnreadByThread[threadId]=0;ycUpdateDmBadge();ycDecorateDmRows();const now=new Date().toISOString();try{await sb.from('direct_thread_reads').upsert({thread_id:threadId,user_id:user.id,last_read_at:now,updated_at:now},{onConflict:'thread_id,user_id'})}catch(e){console.warn('dm mark read',e)}
+ const uid=String(user?.id||'');if(!threadId||!uid)return;if(String(user?.id||'')===uid){ycDmUnreadByThread[threadId]=0;ycUpdateDmBadge();ycDecorateDmRows()}const now=new Date().toISOString();try{await sb.from('direct_thread_reads').upsert({thread_id:threadId,user_id:uid,last_read_at:now,updated_at:now},{onConflict:'thread_id,user_id'})}catch(e){if(String(user?.id||'')===uid)console.warn('dm mark read',e)}
 }
-async function ycStartDmNotifications(){
- if(!user?.id)return;ycArmDmAudio();if(ycDmNotifySub){try{await sb.removeChannel(ycDmNotifySub)}catch{}ycDmNotifySub=null}
- ycDmNotifySub=sb.channel('yc-dm-global-'+user.id+'-'+Date.now()).on('postgres_changes',{event:'INSERT',schema:'public',table:'messages'},async payload=>{const m=payload.new||{};if(!m.direct_thread_id||m.author_id===user.id)return;const tid=m.direct_thread_id;if(currentThread?.id===tid){await ycMarkDmRead(tid);return}if(!(dmThreads||[]).some(t=>t.id===tid)){try{await loadDmThreads()}catch{}}ycDmUnreadByThread[tid]=(ycDmUnreadByThread[tid]||0)+1;ycUpdateDmBadge();ycDecorateDmRows();if(await ycShouldNotifyMessage(m))ycPlayDmSound()}).subscribe()
+async function ycStartDmNotifications(rebuildMembership=true){
+ const uid=String(user?.id||'');if(!uid)return;ycArmDmAudio();const notifyGeneration=++ycDmNotifyGeneration,oldNotify=ycDmNotifySub;ycDmNotifySub=null;if(oldNotify)try{await sb.removeChannel(oldNotify)}catch{};if(notifyGeneration!==ycDmNotifyGeneration||String(user?.id||'')!==uid)return;
+ const ids=[...new Set((dmThreads||[]).map(t=>String(t.id||'')).filter(Boolean))]
+ if(ids.length){
+  let sub=sb.channel('yc-dm-targeted-'+uid+'-'+Date.now())
+  const current=()=>notifyGeneration===ycDmNotifyGeneration&&ycDmNotifySub===sub&&String(user?.id||'')===uid;
+  const onMessage=async payload=>{if(!current())return;const m=payload.new||{};if(!m.direct_thread_id||String(m.author_id||'')===uid)return;const tid=String(m.direct_thread_id);if(currentThread?.id===tid){await ycMarkDmRead(tid);return}if(!current())return;ycDmUnreadByThread[tid]=(ycDmUnreadByThread[tid]||0)+1;ycUpdateDmBadge();ycDecorateDmRows();if(await ycShouldNotifyMessage(m)){if(current())void ycPlayDmSound()}}
+  for(const tid of ids)sub=sub.on('postgres_changes',{event:'INSERT',schema:'public',table:'messages',filter:'direct_thread_id=eq.'+tid},onMessage)
+  ycDmNotifySub=sub;sub.subscribe(status=>{if(!current())return;if(['CHANNEL_ERROR','TIMED_OUT','CLOSED'].includes(status)&&ycDmNotifySub===sub){ycDmNotifySub=null;try{void sb.removeChannel(sub)}catch{}}})
+ }
+ if(rebuildMembership){
+  const membershipGeneration=++ycDmMembershipGeneration,oldMembership=ycDmMembershipSub;ycDmMembershipSub=null;if(oldMembership)try{await sb.removeChannel(oldMembership)}catch{};if(membershipGeneration!==ycDmMembershipGeneration||String(user?.id||'')!==uid)return;
+  const sub=sb.channel('yc-dm-membership-'+uid+'-'+Date.now()).on('postgres_changes',{event:'*',schema:'public',table:'direct_thread_members',filter:'user_id=eq.'+uid},async()=>{if(membershipGeneration!==ycDmMembershipGeneration||ycDmMembershipSub!==sub||String(user?.id||'')!==uid)return;try{await loadDmThreads();if(membershipGeneration!==ycDmMembershipGeneration||String(user?.id||'')!==uid)return;await ycLoadDmUnread();await ycStartDmNotifications(false);if(membershipGeneration!==ycDmMembershipGeneration||String(user?.id||'')!==uid)return;ycUpdateDmBadge();ycDecorateDmRows()}catch(e){if(String(user?.id||'')===uid)console.warn('dm membership refresh',e)}});ycDmMembershipSub=sub;sub.subscribe(status=>{if(membershipGeneration!==ycDmMembershipGeneration||ycDmMembershipSub!==sub||String(user?.id||'')!==uid)return;if(['CHANNEL_ERROR','TIMED_OUT','CLOSED'].includes(status)){ycDmMembershipSub=null;try{void sb.removeChannel(sub)}catch{}}})
+ }
 }
-async function ycStopDmNotifications(){const ch=ycDmNotifySub;ycDmNotifySub=null;if(ch)try{await sb.removeChannel(ch)}catch{};ycDmUnreadByThread={};ycUpdateDmBadge()}
+async function ycStopDmNotifications(){++ycDmNotifyGeneration;++ycDmMembershipGeneration;++ycDmUnreadGeneration;const channels=[ycDmNotifySub,ycDmMembershipSub];ycDmNotifySub=null;ycDmMembershipSub=null;ycDmUnreadByThread={};ycUpdateDmBadge();for(const ch of channels)if(ch)try{await sb.removeChannel(ch)}catch{}}
 const ycBridgeRenderDmListUnread=renderDmList
 renderDmList=function(...args){const out=ycBridgeRenderDmListUnread.apply(this,args);ycDecorateDmRows();ycUpdateDmBadge();return out}
 const ycBridgeEnsureFriendsRailButtonUnread=ycEnsureFriendsRailButton
@@ -4428,7 +4470,7 @@ const ycBridgeSelectThreadUnread=selectThread
 selectThread=async function(id,...rest){const out=await ycBridgeSelectThreadUnread.call(this,id,...rest);if(currentThread?.id===id)await ycMarkDmRead(id);return out}
 ycOnLifecycle('init',async()=>{await ycLoadDmUnread();await ycStartDmNotifications();ycUpdateDmBadge()})
 ycOnLifecycle('beforeAuth',()=>{void ycStopDmNotifications()})
-setTimeout(()=>{ycArmDmAudio();if(user){void ycLoadDmUnread();void ycStartDmNotifications()}},900)
+setTimeout(()=>ycArmDmAudio(),900)
 
 
 // choose screen quality before browser share picker
@@ -4451,13 +4493,14 @@ const ycScreenAudioSenders=new Map()
 const ycScreenAudioWrapped=new WeakMap()
 let ycScreenAudioNegotiationTimer=null
 const ycScreenAudioNegotiationPeers=new Set()
-let ycScreenAudioBusy=false
+let ycScreenAudioBusy=false,ycScreenAudioGeneration=0
 window.__ycScreenAudioEls=window.__ycScreenAudioEls||new Map()
 window.__ycScreenAudioTracks=window.__ycScreenAudioTracks||new Map()
+window.__ycScreenAudioTrackHooks=window.__ycScreenAudioTrackHooks||new WeakSet()
 function ycScreenAudioWanted(){return localStorage.getItem('yc_screen_audio')!=='0'}
 function ycCurrentScreenAudioTrack(){try{return screenShareActive&&ycScreenAudioWanted()?screenShareStream?.getAudioTracks?.().find(t=>t.readyState==='live')||null:null}catch{return null}}
 function ycScreenAudioStoredVolume(peerId){try{const map=JSON.parse(localStorage.getItem('yc_stream_volume_by_user_safe_v1')||'{}')||{},n=Number(map[String(peerId)]);return Number.isFinite(n)?Math.max(0,Math.min(1,n)):1}catch{return 1}}
-function ycScheduleScreenAudioNegotiation(peerId){if(peerId)ycScreenAudioNegotiationPeers.add(peerId);clearTimeout(ycScreenAudioNegotiationTimer);ycScreenAudioNegotiationTimer=setTimeout(async()=>{const ids=[...ycScreenAudioNegotiationPeers];ycScreenAudioNegotiationPeers.clear();for(const id of ids){try{if(typeof ycRenegotiateScreenPeer==='function')await ycRenegotiateScreenPeer(id)}catch(e){console.warn('screen audio renegotiate',id,e)}}},140)}
+function ycScheduleScreenAudioNegotiation(peerId){if(peerId)ycScreenAudioNegotiationPeers.add(peerId);const generation=ycScreenAudioGeneration;clearTimeout(ycScreenAudioNegotiationTimer);ycScreenAudioNegotiationTimer=setTimeout(async()=>{ycScreenAudioNegotiationTimer=null;if(generation!==ycScreenAudioGeneration)return;const ids=[...ycScreenAudioNegotiationPeers];ycScreenAudioNegotiationPeers.clear();for(const id of ids){if(generation!==ycScreenAudioGeneration)return;try{if(typeof ycRenegotiateScreenPeer==='function')await ycRenegotiateScreenPeer(id)}catch(e){console.warn('screen audio renegotiate',id,e)}}},140)}
 function ycRemoveScreenAudioElement(peerId){try{const a=window.__ycScreenAudioEls.get(peerId);if(a){a.pause();a.srcObject=null;a.remove()}window.__ycScreenAudioEls.delete(peerId)}catch{}}
 function ycForgetScreenAudioTrack(peerId){ycRemoveScreenAudioElement(peerId);try{window.__ycScreenAudioTracks.delete(peerId)}catch{}}
 function ycAttachExistingScreenAudioReceiver(peerId){try{const track=window.__ycScreenAudioTracks.get(peerId);if(track&&track.readyState==='live')ycAttachRemoteScreenAudio(peerId,track)}catch{}}
@@ -4471,8 +4514,11 @@ function ycAttachRemoteScreenAudio(peerId,track){
   const v=ycScreenAudioStoredVolume(peerId);a.volume=v;a.muted=v<=0
   try{if(voiceOutputId&&typeof a.setSinkId==='function')a.setSinkId(voiceOutputId).catch(()=>{})}catch{}
   a.play().catch(()=>{})
-  track.addEventListener('ended',()=>ycForgetScreenAudioTrack(peerId),{once:true})
-  track.addEventListener('mute',()=>setTimeout(()=>{try{const active=(typeof voiceScreenActiveByUser!=='undefined'&&voiceScreenActiveByUser?.has?.(peerId))||remoteScreenStreams?.has?.(peerId);if(!active)ycRemoveScreenAudioElement(peerId)}catch{}},700))
+  if(!window.__ycScreenAudioTrackHooks.has(track)){
+   window.__ycScreenAudioTrackHooks.add(track)
+   track.addEventListener('ended',()=>{if(window.__ycScreenAudioTracks.get(peerId)===track)ycForgetScreenAudioTrack(peerId)},{once:true})
+   track.addEventListener('mute',()=>setTimeout(()=>{try{if(window.__ycScreenAudioTracks.get(peerId)!==track)return;const active=(typeof voiceScreenActiveByUser!=='undefined'&&voiceScreenActiveByUser?.has?.(peerId))||remoteScreenStreams?.has?.(peerId);if(!active)ycRemoveScreenAudioElement(peerId)}catch{}},700))
+  }
  }catch(e){console.warn('screen audio receiver',e)}
 }
 function ycWrapScreenAudioPc(peerId,pc){
@@ -4488,7 +4534,7 @@ function ycWrapScreenAudioPc(peerId,pc){
     const screenKnown=watching&&(((typeof voiceScreenActiveByUser!=='undefined'&&voiceScreenActiveByUser?.has?.(peerId))||!!remote))
     const streamLooksLikeScreen=watching&&(!!stream?.getVideoTracks?.().length||!!(remote&&stream&&remote.id===stream.id))
     if(screenKnown&&streamLooksLikeScreen){ycAttachRemoteScreenAudio(peerId,e.track);return}
-    setTimeout(()=>{try{const laterWatching=typeof screenWatchingByUser!=='undefined'&&screenWatchingByUser?.has?.(peerId),laterRemote=remoteScreenStreams?.get?.(peerId)||null,laterScreen=laterWatching&&((typeof voiceScreenActiveByUser!=='undefined'&&voiceScreenActiveByUser?.has?.(peerId))||!!laterRemote),laterLooks=!!stream?.getVideoTracks?.().length||!!(laterRemote&&stream&&laterRemote.id===stream.id);if(laterScreen&&laterLooks)ycAttachRemoteScreenAudio(peerId,e.track);else if(previous)previous.call(pc,e)}catch{if(previous)previous.call(pc,e)}},260)
+    setTimeout(()=>{try{if(voicePeers.get(peerId)!==pc)return;const laterWatching=typeof screenWatchingByUser!=='undefined'&&screenWatchingByUser?.has?.(peerId),laterRemote=remoteScreenStreams?.get?.(peerId)||null,laterScreen=laterWatching&&((typeof voiceScreenActiveByUser!=='undefined'&&voiceScreenActiveByUser?.has?.(peerId))||!!laterRemote),laterLooks=!!stream?.getVideoTracks?.().length||!!(laterRemote&&stream&&laterRemote.id===stream.id);if(laterScreen&&laterLooks)ycAttachRemoteScreenAudio(peerId,e.track);else if(previous)previous.call(pc,e)}catch{if(voicePeers.get(peerId)===pc&&previous)previous.call(pc,e)}},260)
     return
    }
   }catch(err){console.warn('screen audio classify',err)}
@@ -4501,7 +4547,7 @@ function ycWrapScreenAudioPc(peerId,pc){
 async function ycEnsureScreenAudio(){
  if(ycScreenAudioBusy)return
  ycScreenAudioBusy=true
- const negotiatePeers=new Set()
+ const generation=ycScreenAudioGeneration,streamRef=screenShareStream,negotiatePeers=new Set()
  try{
   const peers=(typeof voicePeers!=='undefined'&&voicePeers?.entries)?[...voicePeers.entries()]:[]
   const liveIds=new Set(peers.map(([id])=>id))
@@ -4509,15 +4555,17 @@ async function ycEnsureScreenAudio(){
   for(const [id] of window.__ycScreenAudioEls)if(!liveIds.has(id))ycRemoveScreenAudioElement(id)
   const track=ycCurrentScreenAudioTrack()
   for(const [peerId,pc] of peers){
+   if(generation!==ycScreenAudioGeneration)return
    ycWrapScreenAudioPc(peerId,pc)
    let sender=ycScreenAudioSenders.get(peerId)
    if(track&&screenShareViewers.has(peerId)&&pc?.connectionState!=='closed'){
-    try{const videoSender=typeof voiceScreenSenders!=='undefined'?voiceScreenSenders?.get?.(peerId):null;if(videoSender?.setStreams&&screenShareStream)videoSender.setStreams(screenShareStream)}catch{}
-    if(!sender||!(pc.getSenders?.()||[]).includes(sender)){try{sender=pc.addTrack(track,screenShareStream);ycScreenAudioSenders.set(peerId,sender);negotiatePeers.add(peerId)}catch(e){console.warn('screen audio addTrack',peerId,e)}}
-    else if(sender.track!==track){try{await sender.replaceTrack(track);if(sender.setStreams&&screenShareStream)sender.setStreams(screenShareStream)}catch(e){console.warn('screen audio replaceTrack',peerId,e)}}
-   }else if(sender?.track){try{await sender.replaceTrack(null)}catch{}}
+    try{const videoSender=typeof voiceScreenSenders!=='undefined'?voiceScreenSenders?.get?.(peerId):null;if(videoSender?.setStreams&&screenShareStream===streamRef)videoSender.setStreams(streamRef)}catch{}
+    if(!sender||!(pc.getSenders?.()||[]).includes(sender)){try{if(generation!==ycScreenAudioGeneration)return;sender=pc.addTrack(track,streamRef);ycScreenAudioSenders.set(peerId,sender);negotiatePeers.add(peerId)}catch(e){console.warn('screen audio addTrack',peerId,e)}}
+    else if(sender.track!==track){try{await sender.replaceTrack(track);if(generation!==ycScreenAudioGeneration)return;if(sender.setStreams&&screenShareStream===streamRef)sender.setStreams(streamRef)}catch(e){console.warn('screen audio replaceTrack',peerId,e)}}
+   }else if(sender?.track){try{await sender.replaceTrack(null);if(generation!==ycScreenAudioGeneration)return}catch{}}
   }
  }finally{ycScreenAudioBusy=false}
+ if(generation!==ycScreenAudioGeneration)return
  for(const peerId of negotiatePeers)ycScheduleScreenAudioNegotiation(peerId)
 }
 function ycSyncScreenAudioVolumes(){for(const [peerId,a] of window.__ycScreenAudioEls){try{const v=ycScreenAudioStoredVolume(peerId);a.volume=v;a.muted=v<=0}catch{}}}
@@ -4527,15 +4575,15 @@ setTimeout(()=>void ycEnsureScreenAudio(),100)
 
 // community-wide stream discovery + lightweight preview.
 const ycCommunityStreams=new Map()
-let ycCommunityStreamSub=null,ycCommunityStreamPollTimer=null,ycCommunityStreamLoadBusy=null,ycStreamPresenceTimer=null,ycStreamPreviewTimer=null,ycStreamPublishEpoch=0,ycStreamPublishQueue=Promise.resolve(),ycStreamPresenceClearedUserId=''
+let ycCommunityStreamSub=null,ycCommunityStreamPollTimer=null,ycCommunityStreamLoadBusy=null,ycCommunityStreamLoadCid='',ycCommunityStreamWatchGeneration=0,ycCommunityStreamFreshnessTimer=null,ycStreamPresenceTimer=null,ycStreamPreviewTimer=null,ycStreamPublishEpoch=0,ycStreamPublishQueue=Promise.resolve(),ycStreamPresenceClearedUserId=''
 function ycStreamPresenceFresh(row){if(!row?.updated_at)return false;const age=Date.now()-new Date(row.updated_at).getTime();return Number.isFinite(age)&&age<50000}
 function ycStreamInfo(uid){const row=ycCommunityStreams.get(String(uid));if(row&&!ycStreamPresenceFresh(row)){ycCommunityStreams.delete(String(uid));return null}return row||null}
 // STREAM SCALE HARDENING 2026-09-28
 async function ycLoadCommunityStreams(){
   if(!currentCommunity?.id){ycCommunityStreams.clear();renderVoiceChannels(voiceChannelDefs);return}
-  if(ycCommunityStreamLoadBusy)return ycCommunityStreamLoadBusy
   const cid=String(currentCommunity.id)
-  ycCommunityStreamLoadBusy=(async()=>{
+  if(ycCommunityStreamLoadBusy&&ycCommunityStreamLoadCid===cid)return ycCommunityStreamLoadBusy
+  const task=(async()=>{
     try{
       const cutoff=new Date(Date.now()-50000).toISOString(),{data,error}=await sb.from('community_stream_presence').select('*').eq('community_id',cid).gt('updated_at',cutoff)
       if(error)throw error
@@ -4545,25 +4593,37 @@ async function ycLoadCommunityStreams(){
       if(!changed)for(const [uid,row] of next){const old=ycCommunityStreams.get(uid);if(!old||old.updated_at!==row.updated_at||old.channel_id!==row.channel_id||old.preview_data!==row.preview_data){changed=true;break}}
       ycCommunityStreams.clear();for(const [uid,row] of next)ycCommunityStreams.set(uid,row)
       if(changed)renderVoiceChannels(voiceChannelDefs)
-    }catch(e){console.warn('community stream load',e)}
-  })().finally(()=>{ycCommunityStreamLoadBusy=null})
-  return ycCommunityStreamLoadBusy
+    }catch(e){if(String(currentCommunity?.id||'')===cid)console.warn('community stream load',e)}
+  })()
+  ycCommunityStreamLoadBusy=task;ycCommunityStreamLoadCid=cid
+  const clear=()=>{if(ycCommunityStreamLoadBusy===task){ycCommunityStreamLoadBusy=null;ycCommunityStreamLoadCid=''}}
+  task.then(clear,clear)
+  return task
 }
-async function ycStopCommunityStreamWatch(){
+
+async function ycStopCommunityStreamWatch(invalidate=true){
+  if(invalidate)++ycCommunityStreamWatchGeneration
   if(ycCommunityStreamPollTimer){clearInterval(ycCommunityStreamPollTimer);ycCommunityStreamPollTimer=null}
   const ch=ycCommunityStreamSub;ycCommunityStreamSub=null;if(ch)try{await sb.removeChannel(ch)}catch{}
 }
 async function ycStartCommunityStreamWatch(){
-  await ycStopCommunityStreamWatch();if(!currentCommunity?.id){ycCommunityStreams.clear();renderVoiceChannels(voiceChannelDefs);return}const cid=String(currentCommunity.id)
-  const removeStream=key=>{ycCommunityStreams.delete(key);if(screenWatchingByUser.has(key)){screenWatchingByUser.delete(key);screenWatchPendingByUser.delete(key);remoteScreenStreams.delete(key);try{ycRemoveScreenAudioElement(key)}catch{}ycSyncStreamViewer()}renderVoiceChannels(voiceChannelDefs)}
+  const generation=++ycCommunityStreamWatchGeneration
+  await ycStopCommunityStreamWatch(false)
+  if(generation!==ycCommunityStreamWatchGeneration)return
+  if(!currentCommunity?.id){ycCommunityStreams.clear();renderVoiceChannels(voiceChannelDefs);return}
+  const cid=String(currentCommunity.id),current=()=>generation===ycCommunityStreamWatchGeneration&&String(currentCommunity?.id||'')===cid
+  const removeStream=key=>{if(!current())return;ycCommunityStreams.delete(key);if(screenWatchingByUser.has(key)){screenWatchingByUser.delete(key);screenWatchPendingByUser.delete(key);remoteScreenStreams.delete(key);try{ycRemoveScreenAudioElement(key)}catch{}ycSyncStreamViewer()}renderVoiceChannels(voiceChannelDefs)}
   const sub=sb.channel('yc-community-streams-'+cid+'-'+Date.now())
-    .on('postgres_changes',{event:'INSERT',schema:'public',table:'community_stream_presence',filter:'community_id=eq.'+cid},payload=>{const row=payload.new;if(!row?.user_id||!ycStreamPresenceFresh(row))return;ycCommunityStreams.set(String(row.user_id),row);renderVoiceChannels(voiceChannelDefs)})
-    .on('postgres_changes',{event:'DELETE',schema:'public',table:'community_stream_presence'},payload=>{const row=payload.old;if(!row?.user_id||String(row.community_id||'')!==cid)return;removeStream(String(row.user_id))})
+    .on('postgres_changes',{event:'INSERT',schema:'public',table:'community_stream_presence',filter:'community_id=eq.'+cid},payload=>{if(!current())return;const row=payload.new;if(!row?.user_id||!ycStreamPresenceFresh(row))return;ycCommunityStreams.set(String(row.user_id),row);renderVoiceChannels(voiceChannelDefs)})
+    .on('postgres_changes',{event:'DELETE',schema:'public',table:'community_stream_presence'},payload=>{if(!current())return;const row=payload.old;if(!row?.user_id||String(row.community_id||'')!==cid)return;removeStream(String(row.user_id))})
+  if(!current()){try{await sb.removeChannel(sub)}catch{};return}
   ycCommunityStreamSub=sub
-  sub.subscribe(status=>{if(String(currentCommunity?.id||'')!==cid)return;if(status==='SUBSCRIBED'){void ycLoadCommunityStreams();return}if(['CHANNEL_ERROR','TIMED_OUT','CLOSED'].includes(status)&&ycCommunityStreamSub===sub){ycCommunityStreamSub=null;try{void sb.removeChannel(sub)}catch{}}})
+  sub.subscribe(status=>{if(!current()){if(ycCommunityStreamSub===sub)ycCommunityStreamSub=null;try{void sb.removeChannel(sub)}catch{};return}if(status==='SUBSCRIBED'){void ycLoadCommunityStreams();return}if(['CHANNEL_ERROR','TIMED_OUT','CLOSED'].includes(status)&&ycCommunityStreamSub===sub){ycCommunityStreamSub=null;try{void sb.removeChannel(sub)}catch{}}})
   await ycLoadCommunityStreams()
-  ycCommunityStreamPollTimer=setInterval(()=>{if(String(currentCommunity?.id||'')!==cid)return;if(!ycCommunityStreamSub){void ycStartCommunityStreamWatch();return}if(ycCommunityStreams.size)void ycLoadCommunityStreams()},20000)
+  if(!current()){if(ycCommunityStreamSub===sub)ycCommunityStreamSub=null;try{await sb.removeChannel(sub)}catch{};return}
+  ycCommunityStreamPollTimer=setInterval(()=>{if(!current())return;if(!ycCommunityStreamSub){void ycStartCommunityStreamWatch();return}if(ycCommunityStreams.size)void ycLoadCommunityStreams()},20000)
 }
+
 function ycClearStreamPublishTimers(){if(ycStreamPresenceTimer){clearInterval(ycStreamPresenceTimer);ycStreamPresenceTimer=null}if(ycStreamPreviewTimer){clearInterval(ycStreamPreviewTimer);ycStreamPreviewTimer=null}}
 async function ycCaptureStreamPreviewData(){
   try{const stream=screenShareStream,track=stream?.getVideoTracks?.()[0];if(!screenShareActive||!track||track.readyState!=='live')return null;const v=document.createElement('video');v.muted=true;v.playsInline=true;v.srcObject=stream;try{await v.play()}catch{};for(let i=0;i<12&&!v.videoWidth;i++)await new Promise(r=>setTimeout(r,80));if(!v.videoWidth||!v.videoHeight){v.srcObject=null;return null}const c=document.createElement('canvas');c.width=320;c.height=180;const ctx=c.getContext('2d');if(!ctx){v.srcObject=null;return null}ctx.fillStyle='#071019';ctx.fillRect(0,0,c.width,c.height);const scale=Math.min(c.width/v.videoWidth,c.height/v.videoHeight),dw=Math.max(1,Math.round(v.videoWidth*scale)),dh=Math.max(1,Math.round(v.videoHeight*scale)),dx=Math.round((c.width-dw)/2),dy=Math.round((c.height-dh)/2);ctx.drawImage(v,dx,dy,dw,dh);v.srcObject=null;return c.toDataURL('image/jpeg',.5)}catch(e){console.warn('stream preview capture',e);return null}
@@ -4610,7 +4670,10 @@ ycOnLifecycle('init',async()=>{ycStreamPresenceClearedUserId='';try{if(user?.id&
 ycOnLifecycle('beforeCommunity',()=>{void ycStopCommunityStreamWatch();ycCommunityStreams.clear()})
 ycOnLifecycle('community',()=>{void ycStartCommunityStreamWatch()})
 ycOnLifecycle('beforeAuth',()=>{void ycStopCommunityStreamWatch();void ycStopGlobalStreamPresence()})
-setInterval(()=>{let changed=false;for(const [uid,row] of [...ycCommunityStreams])if(!ycStreamPresenceFresh(row)){ycCommunityStreams.delete(uid);changed=true}if(changed)renderVoiceChannels(voiceChannelDefs)},10000)
+function ycStartCommunityStreamFreshnessTimer(){if(ycCommunityStreamFreshnessTimer)return;ycCommunityStreamFreshnessTimer=setInterval(()=>{let changed=false;for(const [uid,row] of [...ycCommunityStreams])if(!ycStreamPresenceFresh(row)){ycCommunityStreams.delete(uid);changed=true}if(changed)renderVoiceChannels(voiceChannelDefs)},10000)}
+function ycStopCommunityStreamFreshnessTimer(){if(ycCommunityStreamFreshnessTimer){clearInterval(ycCommunityStreamFreshnessTimer);ycCommunityStreamFreshnessTimer=null}}
+ycOnLifecycle('init',ycStartCommunityStreamFreshnessTimer)
+ycOnLifecycle('beforeAuth',ycStopCommunityStreamFreshnessTimer)
 
 // opt-in screen stream viewers.
 async function ycRenegotiateScreenPeer(peerId){
@@ -4801,7 +4864,7 @@ ycHoverShow=async function(anchor,uid){
 }
 
 // native Windows notifications for new messages and mentions.
-let ycWinNotifySub=null
+let ycWinNotifySub=null,ycWinNotifyGeneration=0
 const ycWinNotifyCache=new Map()
 function ycWinHasFocus(){
  try{return !!(document.hasFocus()||window.parent?.document?.hasFocus?.())}catch{return document.hasFocus()}
@@ -4864,17 +4927,20 @@ window.ycOpenDesktopNotificationTarget=async function(target){
   await ycWinOpenTarget(m,ch)
  }catch(e){console.warn('desktop notification target',e)}
 }
-async function ycWinShowMessage(m){
+async function ycWinShowMessage(m,ownerUserId=user?.id){
+ const uid=String(ownerUserId||''),current=()=>!!uid&&String(user?.id||'')===uid
  try{
-  if(!m||!user?.id||m.author_id===user.id)return
+  if(!m||!current()||String(m.author_id||'')===uid)return
   if(!await ycShouldNotifyMessage(m))return
+  if(!current())return
   if(typeof ycPresencePreference==='function'&&ycPresencePreference()==='dnd')return
+  if(window.__ycWnsActive===true)return
   const mentioned=ycWinMentioned(m.body)
   if(ycWinHasFocus()&&!mentioned)return
-  const p=await ycWinProfile(m.author_id)
+  const p=await ycWinProfile(m.author_id);if(!current())return
   const sender=p?.display_name||p?.username||'Uživatel'
   let ch=null,where='Yamachat'
-  if(m.channel_id){ch=await ycWinChannel(m.channel_id);if(!ch)return;where='#'+ch.name}
+  if(m.channel_id){ch=await ycWinChannel(m.channel_id);if(!current()||!ch)return;where='#'+ch.name}
   else if(m.direct_thread_id)where='Soukromá zpráva'
   const bodyText=String(m.body||'Nová zpráva').replace(/\s+/g,' ').trim().slice(0,180)||'Nová zpráva'
   const icon=ycWinAvatar(p)
@@ -4882,20 +4948,28 @@ async function ycWinShowMessage(m){
   const target={messageId:m.id||'',channelId:m.channel_id||'',threadId:m.direct_thread_id||'',communityId:ch?.community_id||'',channelName:ch?.name||''}
   const desktopNotify=window.parent?.yamachatDesktop?.showNotification
   if(typeof desktopNotify==='function'){
-   try{const accent=(currentCommunity&&String(currentCommunity.id)===String(ch?.community_id)&&typeof ycCommunityColor==='function')?ycCommunityColor(currentCommunity):undefined;const shown=await desktopNotify({title,sender,where,body:bodyText,avatar:icon||'',mentioned,accent,target});if(shown)return}catch(e){console.warn('custom desktop notification',e)}
+   try{const accent=(currentCommunity&&String(currentCommunity.id)===String(ch?.community_id)&&typeof ycCommunityColor==='function')?ycCommunityColor(currentCommunity):undefined;const shown=await desktopNotify({title,sender,where,body:bodyText,avatar:icon||'',mentioned,accent,target});if(!current())return;if(shown)return}catch(e){if(current())console.warn('custom desktop notification',e)}
   }
-  if(!(await ycWinPermission()))return
+  if(!(await ycWinPermission())||!current())return
   const opts={body:where+' · '+bodyText,tag:'yamachat-msg-'+String(m.id||Date.now())};if(icon)opts.icon=icon
   const n=new Notification(title,opts)
-  n.onclick=()=>{void ycWinOpenTarget(m,ch);try{n.close()}catch{}}
- }catch(e){console.warn('windows notification',e)}
+  n.onclick=()=>{if(current())void ycWinOpenTarget(m,ch);try{n.close()}catch{}}
+ }catch(e){if(current())console.warn('windows notification',e)}
+}
+async function ycWinNotificationTargets(){
+ const communityIds=[...new Set((communities||[]).map(c=>String(c.id||'')).filter(Boolean))],dmIds=[...new Set((dmThreads||[]).map(t=>String(t.id||'')).filter(Boolean))];let channelIds=[]
+ if(communityIds.length)try{const {data,error}=await sb.from('channels').select('id,kind').in('community_id',communityIds);if(!error)channelIds=(data||[]).filter(c=>c.kind!=='voice').map(c=>String(c.id))}catch(e){console.warn('windows notification targets',e)}
+ return{channelIds:[...new Set(channelIds)],dmIds}
 }
 async function ycStartWinNotifications(){
- if(!user?.id)return
- if(ycWinNotifySub){try{await sb.removeChannel(ycWinNotifySub)}catch{}ycWinNotifySub=null}
- ycWinNotifySub=sb.channel('yc-win-notify-'+user.id+'-'+Date.now()).on('postgres_changes',{event:'INSERT',schema:'public',table:'messages'},payload=>{void ycWinShowMessage(payload.new||{})}).subscribe()
+ const uid=String(user?.id||'');if(!uid)return;const generation=++ycWinNotifyGeneration,old=ycWinNotifySub;ycWinNotifySub=null;if(old)try{await sb.removeChannel(old)}catch{};if(generation!==ycWinNotifyGeneration||String(user?.id||'')!==uid)return
+ const {channelIds,dmIds}=await ycWinNotificationTargets();if(generation!==ycWinNotifyGeneration||String(user?.id||'')!==uid||(!channelIds.length&&!dmIds.length))return
+ let sub=sb.channel('yc-win-notify-targeted-'+uid+'-'+Date.now()),current=()=>generation===ycWinNotifyGeneration&&ycWinNotifySub===sub&&String(user?.id||'')===uid,handler=payload=>{if(current())void ycWinShowMessage(payload.new||{},uid)}
+ for(const id of channelIds)sub=sub.on('postgres_changes',{event:'INSERT',schema:'public',table:'messages',filter:'channel_id=eq.'+id},handler)
+ for(const id of dmIds)sub=sub.on('postgres_changes',{event:'INSERT',schema:'public',table:'messages',filter:'direct_thread_id=eq.'+id},handler)
+ ycWinNotifySub=sub;sub.subscribe(status=>{if(!current())return;if(['CHANNEL_ERROR','TIMED_OUT','CLOSED'].includes(status)&&ycWinNotifySub===sub){ycWinNotifySub=null;try{void sb.removeChannel(sub)}catch{}}})
 }
-async function ycStopWinNotifications(){const ch=ycWinNotifySub;ycWinNotifySub=null;if(ch)try{await sb.removeChannel(ch)}catch{}}
+async function ycStopWinNotifications(){++ycWinNotifyGeneration;const ch=ycWinNotifySub;ycWinNotifySub=null;if(ch)try{await sb.removeChannel(ch)}catch{}}
 ycOnLifecycle('init',()=>{void ycStartWinNotifications()})
 ycOnLifecycle('beforeAuth',()=>{void ycStopWinNotifications()})
 ycOnLifecycle('beforeAuth',()=>{
@@ -4904,7 +4978,10 @@ ycOnLifecycle('beforeAuth',()=>{
  ycHoverCache.clear();ycHoverHide();ycWinNotifyCache.clear();
  ycPresenceRowsByUser.clear();ycPresenceRenderedStateByUser.clear();ycVisibleMemberIds.clear();
 })
-setTimeout(()=>{if(user)void ycStartWinNotifications()},1200)
+ycOnLifecycle('beforeCommunity',()=>{
+ ycPresenceRowsByUser.clear();ycPresenceRenderedStateByUser.clear();ycVisibleMemberIds.clear();
+})
+
 
 
 // keep speaking indicator alive after microphone restart
@@ -4931,7 +5008,7 @@ function ycEnsureNotifyUi(){
  return true
 }
 function ycNotifyTime(v){try{return new Intl.DateTimeFormat('cs-CZ',{day:'numeric',month:'numeric',hour:'2-digit',minute:'2-digit'}).format(new Date(v))}catch{return''}}
-async function ycLoadNotifyReadKeys(){if(!user?.id){ycNotifyReadKeys=new Set();return}try{const {data}=await sb.from('user_notification_reads').select('event_key').eq('user_id',user.id);ycNotifyReadKeys=new Set((data||[]).map(x=>x.event_key))}catch(e){console.warn('notification reads',e)}}
+async function ycLoadNotifyReadKeys(){if(!user?.id){ycNotifyReadKeys=new Set();return}try{const {data}=await sb.from('user_notification_reads').select('event_key,read_at').eq('user_id',user.id).order('read_at',{ascending:false}).limit(500);ycNotifyReadKeys=new Set((data||[]).map(x=>x.event_key))}catch(e){console.warn('notification reads',e)}}
 async function ycBuildNotificationItems(){
  const uid=String(user?.id||'');if(!uid)return[]
  const items=[]
@@ -5059,7 +5136,7 @@ ycOpenNotification=async function(index){
 }
 const ycBridgeMarkAllNotificationsReadMentions=ycMarkAllNotificationsRead
 ycMarkAllNotificationsRead=async function(...args){if(user?.id){try{await sb.from('message_mentions').update({read_at:new Date().toISOString()}).eq('mentioned_user_id',user.id).is('read_at',null)}catch(e){console.warn('mention mark all',e)}}return ycBridgeMarkAllNotificationsReadMentions.apply(this,args)}
-async function ycStartMentionSub(){if(!user?.id)return;if(ycMentionSub){try{await sb.removeChannel(ycMentionSub)}catch{}ycMentionSub=null}ycMentionSub=sb.channel('yc-mentions-'+user.id+'-'+Date.now()).on('postgres_changes',{event:'INSERT',schema:'public',table:'message_mentions',filter:'mentioned_user_id=eq.'+user.id},()=>void ycRefreshNotificationCenter()).subscribe()}
+async function ycStartMentionSub(){const uid=String(user?.id||'');if(!uid)return;if(ycMentionSub){try{await sb.removeChannel(ycMentionSub)}catch{}ycMentionSub=null}const sub=sb.channel('yc-mentions-'+uid+'-'+Date.now()).on('postgres_changes',{event:'INSERT',schema:'public',table:'message_mentions',filter:'mentioned_user_id=eq.'+uid},()=>{if(ycMentionSub===sub&&String(user?.id||'')===uid)void ycRefreshNotificationCenter()});ycMentionSub=sub;sub.subscribe(status=>{if(ycMentionSub!==sub||String(user?.id||'')!==uid)return;if(['CHANNEL_ERROR','TIMED_OUT','CLOSED'].includes(status)){ycMentionSub=null;try{void sb.removeChannel(sub)}catch{}}})}
 async function ycStopMentionSub(){const ch=ycMentionSub;ycMentionSub=null;if(ch)try{await sb.removeChannel(ch)}catch{}}
 ycOnLifecycle('init',async()=>{await ycStartMentionSub();ycRenderMentions()})
 ycOnLifecycle('beforeAuth',()=>{void ycStopMentionSub()})
@@ -6319,8 +6396,12 @@ let ycHiddenInitTries=0;const ycHiddenInitTimer=setInterval(()=>{ycHiddenInitTri
   ycOnLifecycle('beforeCommunity',stopRealtime);
   ycOnLifecycle('community',ensureRealtime);
   ycOnLifecycle('beforeAuth',stopRealtime);
-  setInterval(()=>{if(user?.id){if(!userRealtimeSub)subscribeUserRealtime();if(currentCommunity?.id&&!communityRealtimeSub)subscribeCommunityRealtime(currentCommunity.id);ensureRealtime()}},20000);
-  setTimeout(()=>{if(user?.id&&!userRealtimeSub)subscribeUserRealtime();if(currentCommunity?.id&&!communityRealtimeSub)subscribeCommunityRealtime(currentCommunity.id);ensureRealtime()},700);
+  let ycRealtimeWatchdogTimer=null,ycRealtimeWatchdogKick=null;
+  const runRealtimeWatchdog=()=>{if(!user?.id)return;if(!userRealtimeSub)subscribeUserRealtime();if(currentCommunity?.id&&!communityRealtimeSub)subscribeCommunityRealtime(currentCommunity.id);ensureRealtime()};
+  const stopRealtimeWatchdog=()=>{if(ycRealtimeWatchdogTimer){clearInterval(ycRealtimeWatchdogTimer);ycRealtimeWatchdogTimer=null}if(ycRealtimeWatchdogKick){clearTimeout(ycRealtimeWatchdogKick);ycRealtimeWatchdogKick=null}};
+  const startRealtimeWatchdog=()=>{if(ycRealtimeWatchdogTimer)return;ycRealtimeWatchdogKick=setTimeout(()=>{ycRealtimeWatchdogKick=null;runRealtimeWatchdog()},700);ycRealtimeWatchdogTimer=setInterval(runRealtimeWatchdog,20000)};
+  ycOnLifecycle('init',startRealtimeWatchdog);
+  ycOnLifecycle('beforeAuth',stopRealtimeWatchdog);
 })();
 
 
@@ -6799,14 +6880,29 @@ async function ycPlayVoiceFileCue(action,onDone){
  }catch(e){finish();console.warn('voice join/leave cue',e);return null}
 }
 function ycVoiceSpeakEnhanced(text,onDone){
- if(!text||ycVoiceAnnounceMode()!=='speech'||!('speechSynthesis' in window)){try{onDone?.()}catch{};return null}
+ if(!text||ycVoiceAnnounceMode()!=='speech'||voiceDeafened||!('speechSynthesis' in window)){try{onDone?.()}catch{};return null}
  try{
   const u=new SpeechSynthesisUtterance(text),voices=ycVoiceAvailableVoices(),selected=ycVoiceSelectedVoice(voices);
   u.voice=selected;u.lang=selected?.lang||'cs-CZ';u.rate=1;u.pitch=1;u.volume=.94;
-  if(onDone){let done=false;const finish=()=>{if(done)return;done=true;try{onDone()}catch{}};u.onend=finish;u.onerror=finish;setTimeout(finish,5200)}
+  if(onDone){let done=false,timer=0;const finish=()=>{if(done)return;done=true;clearTimeout(timer);try{onDone()}catch{}};u.onend=finish;u.onerror=finish;timer=setTimeout(finish,5200)}
   speechSynthesis.speak(u);return u;
  }catch(e){try{onDone?.()}catch{};console.warn('voice participant TTS',e);return null}
 }
+function ycStopVoiceAnnouncementAudio(){
+ try{speechSynthesis?.cancel?.()}catch{}
+ for(const audio of [...ycVoiceCuePlayers]){
+  try{audio.pause();audio.onended?.()}catch{}
+  ycVoiceCuePlayers.delete(audio);
+ }
+}
+window.YamachatStopVoiceAnnouncements=ycStopVoiceAnnouncementAudio;
+const ycVoiceExperienceBaseToggleDeafen=toggleVoiceDeafen;
+toggleVoiceDeafen=async function(...args){
+ const out=await ycVoiceExperienceBaseToggleDeafen.apply(this,args);
+ if(voiceDeafened)window.YamachatStopVoiceAnnouncements?.();
+ return out;
+}
+
 function ycVoiceParticipantAnnouncement(row,action){
  try{
   if(!row)return;
@@ -6828,7 +6924,7 @@ function ycVoiceAnnounceOnce(row,action){
   const uid=String(row?.user_id||'');const channel=String(row?.channel_id||voiceChannel?.id||'');if(!uid||!channel)return;
   const key=action+'|'+channel+'|'+uid,now=Date.now(),last=Number(ycVoiceAnnouncementDedup.get(key)||0);
   if(now-last<6000)return;ycVoiceAnnouncementDedup.set(key,now);
-  if(ycVoiceAnnouncementDedup.size>120)for(const [k,ts] of ycVoiceAnnouncementDedup)if(now-ts>15000)ycVoiceAnnouncementDedup.delete(k);
+  if(ycVoiceAnnouncementDedup.size>120){for(const [k,ts] of [...ycVoiceAnnouncementDedup])if(now-ts>15000)ycVoiceAnnouncementDedup.delete(k);while(ycVoiceAnnouncementDedup.size>512)ycVoiceAnnouncementDedup.delete(ycVoiceAnnouncementDedup.keys().next().value)}
   ycVoiceParticipantAnnouncement({...row,channel_id:channel},action);
  }catch(e){console.warn('voice announcement dedup',e)}
 }
@@ -6902,7 +6998,7 @@ function ycBindVoiceExperienceSettings(root){
 
  };
  genderSelect.onchange=()=>{localStorage.setItem(YC_VOICE_GENDER_KEY,genderSelect.value);fillVoices()};
- fillVoices();try{speechSynthesis?.addEventListener?.('voiceschanged',fillVoices,{once:true})}catch{}
+ fillVoices();if(!ycVoiceAvailableVoices().length)try{speechSynthesis?.addEventListener?.('voiceschanged',fillVoices,{once:true})}catch{}
  mode.onchange=()=>{localStorage.setItem(YC_VOICE_ANNOUNCE_MODE_KEY,mode.value);syncVisibility()};
  voiceSelect.onchange=()=>{localStorage.setItem(YC_VOICE_ANNOUNCE_VOICE_KEY,voiceSelect.value);fillVoices()};
  const sb=root.querySelector('#ycSoundboardVolumeRange'),sbv=root.querySelector('#ycSoundboardVolumeValue');
@@ -7102,7 +7198,7 @@ window.YamachatNotificationPreferences={
 const YC_STREAM_DESKTOP=false;
 const ycStreamViewer=(()=>{
   const sessions=new Map();
-  let layer=null,safe=null,layoutFrame=0,recovering=false,localDismissed=null;
+  let layer=null,safe=null,layoutFrame=0,monitorTimer=0,recovering=false,localDismissed=null;
   const mobile=()=>!YC_STREAM_DESKTOP&&matchMedia('(pointer: coarse)').matches;
   const iosPwa=()=>!YC_STREAM_DESKTOP&&(/iP(?:hone|ad|od)/i.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1))&&(navigator.standalone===true||matchMedia('(display-mode: standalone)').matches);
   const clamp=(n,a,b)=>Math.max(a,Math.min(b,n));
@@ -7172,6 +7268,13 @@ const ycStreamViewer=(()=>{
   function scheduleLayout(){
     if(layoutFrame||!sessions.size)return;
     layoutFrame=requestAnimationFrame(()=>{layoutFrame=0;for(const session of sessions.values())layout(session)});
+  }
+  function stopMonitor(){if(monitorTimer){clearInterval(monitorTimer);monitorTimer=0}}
+  function syncMonitor(){
+    const needed=!!sessions.size&&!document.hidden;
+    if(!needed){stopMonitor();return}
+    if(monitorTimer)return;
+    monitorTimer=setInterval(()=>{if(!sessions.size||document.hidden){syncMonitor();return}scheduleLayout();for(const session of sessions.values())update(session)},500);
   }
   function showFullscreenControls(session,hold=2400){
     if(!session?.panel)return;
@@ -7286,7 +7389,7 @@ const ycStreamViewer=(()=>{
   function remove(session){
     if(session.mode==='fullscreen'&&YC_STREAM_DESKTOP)void window.parent?.YamachatDesktopStreamFullscreen?.set?.(false).catch?.(()=>{});
     clearTimeout(session.controlsTimer);session.controlsTimer=null;
-    session.abort.abort();session.trackAbort?.abort();session.video.pause();session.video.srcObject=null;session.panel.remove();sessions.delete(session.id);
+    session.abort.abort();session.trackAbort?.abort();session.video.pause();session.video.srcObject=null;session.panel.remove();sessions.delete(session.id);syncMonitor();
     // Receiver tracks belong to RTC, so closing a viewer must never stop them.
     if(!sessions.size){layer?.remove();layer=null;safe=null}
   }
@@ -7326,7 +7429,7 @@ const ycStreamViewer=(()=>{
     };
     bindMove(session,panel.querySelector('header'));bindMove(session,panel.querySelector('.yc-sv-resize'),true);
     for(const event of ['loadedmetadata','playing','waiting','stalled'])session.video.addEventListener(event,()=>update(session),{signal:session.abort.signal});
-    sessions.set(id,session);layer.append(panel);layout(session);return session;
+    sessions.set(id,session);syncMonitor();layer.append(panel);layout(session);return session;
   }
   async function play(session){
     try{await session.video.play();session.blocked=false}catch(error){if(error.name!=='AbortError')session.blocked=true}
@@ -7394,7 +7497,7 @@ const ycStreamViewer=(()=>{
   for(const event of ['resize','orientationchange','pageshow'])window.addEventListener(event,scheduleLayout);
   window.visualViewport?.addEventListener('resize',scheduleLayout);window.visualViewport?.addEventListener('scroll',scheduleLayout);
   window.addEventListener('online',()=>void resume());window.addEventListener('offline',()=>{for(const s of sessions.values())update(s)});
-  document.addEventListener('visibilitychange',()=>void resume());
+  document.addEventListener('visibilitychange',()=>{syncMonitor();void resume()});
   const onFullscreenChange=()=>{
     for(const s of sessions.values()){
       if(s.elementFullscreen&&!document.fullscreenElement&&!document.webkitFullscreenElement){s.mode=s.fullscreenReturnMode||'floating';s.elementFullscreen=false}
@@ -7423,8 +7526,8 @@ const ycStreamViewer=(()=>{
       else if(!active&&session.mode==='fullscreen'){session.nativeFullscreenPending=false;session.mode=session.fullscreenReturnMode||'floating';layout(session)}
     }
   });
-  // Only layout is sampled; no DOM reconstruction and no RTC mutations.
-  setInterval(()=>{if(!sessions.size||document.hidden)return;scheduleLayout();for(const s of sessions.values())update(s)},500);
+  // Stall/layout sampling is demand-driven: no 500 ms wakeups with no viewer or while hidden.
+  syncMonitor();
   ycOnLifecycle('beforeAuth',()=>{recovering=false;for(const s of [...sessions.values()]){if(!s.local)void ycStopWatchingScreenShare(s.id);remove(s)}});
   return {sync,beginRecovery,endRecovery};
 })();
@@ -7548,7 +7651,7 @@ const YC_IOS_VOICE_RESUME_KEY='yc_ios_voice_resume_v1';
 const YC_IOS_VOICE_RESUME_TTL=15*60*1000;
 const ycWebIsIosDevice=()=>/iP(?:hone|ad|od)/i.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
 const ycWebIsIosPwa=()=>ycWebIsIosDevice()&&(navigator.standalone===true||matchMedia('(display-mode: standalone)').matches);
-let ycIosVoiceHiddenAt=0,ycIosVoiceReconnectBusy=false,ycIosVoiceReconnectPromise=null,ycIosVoiceReconnectLastAt=0;
+let ycIosVoiceHiddenAt=0,ycIosVoiceReconnectBusy=false,ycIosVoiceReconnectPromise=null,ycIosVoiceReconnectLastAt=0,ycIosVoiceReconnectTimer=null;
 function ycIosVoiceCommunityId(channel=voiceChannel){
   return String(channel?.community_id||channel?.communityId||currentCommunity?.id||'');
 }
@@ -7572,6 +7675,11 @@ function ycIosVoiceFindChannel(target){
   if(voiceChannel&&String(voiceChannel.id)===String(target.channelId))return voiceChannel;
   if(target.communityId&&currentCommunity?.id&&String(target.communityId)!==String(currentCommunity.id))return null;
   return (voiceChannelDefs||[]).find(ch=>String(ch.id)===String(target.channelId))||null;
+}
+function ycIosScheduleVoiceReconnect(reason='resume',delay=250){
+  if(!ycWebIsIosPwa())return;
+  if(ycIosVoiceReconnectTimer)clearTimeout(ycIosVoiceReconnectTimer);
+  ycIosVoiceReconnectTimer=setTimeout(()=>{ycIosVoiceReconnectTimer=null;void ycIosVoiceReconnect(reason)},Math.max(0,Number(delay)||0));
 }
 async function ycIosVoiceReconnect(reason='resume'){
   if(!ycWebIsIosPwa()||document.visibilityState!=='visible'||!user)return false;
@@ -7633,14 +7741,14 @@ leaveVoiceChannel=async function(...args){
 };
 document.addEventListener('visibilitychange',()=>{
   if(!ycWebIsIosPwa())return;
-  if(document.hidden){ycIosVoiceHiddenAt=Date.now();if(voiceChannel)ycIosVoiceSaveTarget(voiceChannel);return}
-  setTimeout(()=>void ycIosVoiceReconnect('visibility'),220);
+  if(document.hidden){if(ycIosVoiceReconnectTimer){clearTimeout(ycIosVoiceReconnectTimer);ycIosVoiceReconnectTimer=null}ycIosVoiceHiddenAt=Date.now();if(voiceChannel)ycIosVoiceSaveTarget(voiceChannel);return}
+  ycIosScheduleVoiceReconnect('visibility',220);
 });
-window.addEventListener('pageshow',()=>{if(ycWebIsIosPwa())setTimeout(()=>void ycIosVoiceReconnect('pageshow'),260)});
-window.addEventListener('focus',()=>{if(ycWebIsIosPwa())setTimeout(()=>void ycIosVoiceReconnect('focus'),320)});
-window.addEventListener('online',()=>{if(ycWebIsIosPwa())setTimeout(()=>void ycIosVoiceReconnect('online'),420)});
-ycOnLifecycle('community',()=>{if(ycWebIsIosPwa())setTimeout(()=>void ycIosVoiceReconnect('community'),500)});
-ycOnLifecycle('beforeAuth',()=>{if(ycWebIsIosPwa())ycIosVoiceClearTarget()});
+window.addEventListener('pageshow',()=>ycIosScheduleVoiceReconnect('pageshow',260));
+window.addEventListener('focus',()=>ycIosScheduleVoiceReconnect('focus',320));
+window.addEventListener('online',()=>ycIosScheduleVoiceReconnect('online',420));
+ycOnLifecycle('community',()=>ycIosScheduleVoiceReconnect('community',500));
+ycOnLifecycle('beforeAuth',()=>{if(ycIosVoiceReconnectTimer){clearTimeout(ycIosVoiceReconnectTimer);ycIosVoiceReconnectTimer=null}if(ycWebIsIosPwa())ycIosVoiceClearTarget()});
 ycOnLifecycle('init',()=>{if(!window.Capacitor?.isNativePlatform?.()&&('Notification' in window)&&Notification.permission==='granted')setTimeout(()=>void ycWebPushSync(false),900)});
 async function ycWebOpenLaunchNotificationTarget(){
  try{
@@ -7666,9 +7774,13 @@ ycOnLifecycle('init',()=>setTimeout(()=>void ycWebOpenLaunchNotificationTarget()
 
 async function ycWebSyncWakeLock(){if(!('wakeLock' in navigator))return;const needed=!!voiceChannel&&document.visibilityState==='visible';if(!needed){if(ycWebWakeLock){const lock=ycWebWakeLock;ycWebWakeLock=null;await lock.release().catch(()=>{})}return}if(ycWebWakeLock||ycWebWakePending)return;ycWebWakePending=true;try{const lock=await navigator.wakeLock.request('screen');ycWebWakeLock=lock;lock.addEventListener('release',()=>{if(ycWebWakeLock===lock)ycWebWakeLock=null});if(!voiceChannel||document.visibilityState!=='visible'){ycWebWakeLock=null;await lock.release()}}catch{}finally{ycWebWakePending=false}}
 document.addEventListener('visibilitychange',()=>void ycWebSyncWakeLock());
-setInterval(()=>{void ycWebSyncWakeLock();const count=window.__ycDesktopState?.().notificationUnreadCount||0;document.title=(count?'('+count+') ':'')+'Yamachat';try{if(count)navigator.setAppBadge?.(count)?.catch(()=>{});else navigator.clearAppBadge?.()?.catch(()=>{})}catch{}},3000);
+let ycWebUiPulseTimer=null;
+function ycWebUiPulse(){void ycWebSyncWakeLock();const count=window.__ycDesktopState?.().notificationUnreadCount||0;document.title=(count?'('+count+') ':'')+'Yamachat';try{if(count)navigator.setAppBadge?.(count)?.catch(()=>{});else navigator.clearAppBadge?.()?.catch(()=>{})}catch{}}
+function ycWebStartUiPulse(){if(ycWebUiPulseTimer)return;ycWebUiPulse();ycWebUiPulseTimer=setInterval(ycWebUiPulse,3000)}
+function ycWebStopUiPulse(){if(ycWebUiPulseTimer){clearInterval(ycWebUiPulseTimer);ycWebUiPulseTimer=null}}
+ycOnLifecycle('init',ycWebStartUiPulse);
 window.addEventListener('beforeunload',event=>{if(voiceChannel||screenShareActive){event.preventDefault();event.returnValue=''}});
-ycOnLifecycle('beforeAuth',()=>{void ycWebSyncWakeLock();navigator.clearAppBadge?.()?.catch(()=>{})});
+ycOnLifecycle('beforeAuth',()=>{ycWebStopUiPulse();document.title='Yamachat';void ycWebSyncWakeLock();navigator.clearAppBadge?.()?.catch(()=>{})});
 const ycWebInstallButton=document.createElement('button');ycWebInstallButton.type='button';ycWebInstallButton.className='ghost';ycWebInstallButton.dataset.ycWebInstall='';ycWebInstallButton.style.cssText='width:100%;margin-top:12px';ycWebInstallButton.textContent='Nainstalovat Yamachat';ycWebInstallButton.onclick=()=>void ycWebInstall();document.querySelector('.auth-card')?.appendChild(ycWebInstallButton);ycWebSyncInstallButtons();
 
 // Installation offers appear in both login and settings; omit the running platform.
@@ -10529,7 +10641,7 @@ window.YamachatLegalUI=Object.freeze({open,close});
 </style>
 <script id="ycPlatformInstallRuntime">
 (()=>{
-const PLATFORMS={"windows":{"id":"windows","icon":"⊞","label":"Windows","eyebrow":"Windows aplikace","title":"Yamachat pro Windows","text":"Samostatná desktopová aplikace Yamachat pro Windows. Instalační balíček je distribuovaný přes oficiální Yamachat Cloudflare úložiště.","steps":["Stáhni aktuální instalační balíček pouze z tohoto oficiálního odkazu.","Spusť instalátor Yamachat a dokonči instalaci.","Přihlas se stejným Yamachat účtem."],"action":"Stáhnout Windows aplikaci","url":"https://updates.yamachat.eu/windows/Yamachat-Setup-1.0.108.exe","note":"Aktuální Windows release: 1.0.108. Windows build zatím nemá code-signing podpis. Prohlížeč nebo Microsoft Defender SmartScreen proto může při stažení nebo prvním spuštění zobrazit varování o neznámé či málo používané aplikaci. Samotné takové varování neznamená, že soubor je virus; před pokračováním vždy ověř, že soubor pochází z domény updates.yamachat.eu."},"android":{"id":"android","icon":"◉","label":"Android","eyebrow":"Android APK","title":"Yamachat pro Android","text":"Yamachat je pro Android distribuovaný jako APK. Není vydaný přes Google Play.","steps":["Stáhni oficiální Yamachat APK.","Android může požádat o povolení instalace z tohoto zdroje.","Po instalaci aplikaci otevři a přihlas se."],"action":"Stáhnout Android APK","url":"https://updates.yamachat.eu/android/Yamachat-Android-200787.apk","note":"Aktuální Android verze: 1.1.0.787"},"web":{"id":"web","icon":"◎","label":"Web","eyebrow":"Web v prohlížeči","title":"Yamachat ve webu","text":"Yamachat můžeš používat přímo na yamachat.eu bez instalace dalšího programu.","steps":["Otevři yamachat.eu v běžném moderním prohlížeči.","Přihlas se stejným Yamachat účtem jako v ostatních klientech.","Web můžeš používat přímo v kartě prohlížeče."],"action":"Otevřít Yamachat Web","url":"https://yamachat.eu/","note":"Přímé použití v prohlížeči bez instalace"},"pwa":{"id":"pwa","icon":"▤","label":"Web app","eyebrow":"Instalovatelná webová aplikace","title":"Yamachat jako webová aplikace","text":"Na počítači můžeš yamachat.eu nainstalovat jako samostatnou webovou aplikaci (PWA), která se potom otevírá ve vlastním okně.","steps":["Otevři yamachat.eu v podporovaném prohlížeči, například Microsoft Edge nebo Google Chrome.","V nabídce / nastavení prohlížeče otevři Aplikace a zvol „Nainstalovat Yamachat“, „Nainstalovat tento web jako aplikaci“ nebo obdobnou volbu; přesný název se může podle prohlížeče lišit.","Potvrď instalaci. Yamachat se potom objeví mezi aplikacemi a používá stejný účet jako web, Windows i mobilní verze."],"action":"Otevřít yamachat.eu","url":"https://yamachat.eu/","note":"Nabídka prohlížeče → Aplikace → nainstalovat tento web jako aplikaci"},"ios":{"id":"ios","icon":"▣","label":"iOS / PWA","eyebrow":"iPhone / iPad","title":"Yamachat na iPhonu a iPadu","text":"Na iOS se Yamachat používá jako webová aplikace / PWA. Veřejná aplikace v App Store není součástí současné distribuce.","steps":["Otevři https://yamachat.eu v Safari.","Klepni na Sdílet.","Zvol „Přidat na plochu“ a potvrď."],"action":"Otevřít yamachat.eu","url":"https://yamachat.eu/","note":"Safari → Sdílet → Přidat na plochu"}};
+const PLATFORMS={"windows":{"id":"windows","icon":"⊞","label":"Windows","eyebrow":"Windows aplikace","title":"Yamachat pro Windows","text":"Samostatná desktopová aplikace Yamachat pro Windows. Instalační balíček je distribuovaný přes oficiální Yamachat Cloudflare úložiště.","steps":["Stáhni aktuální instalační balíček pouze z tohoto oficiálního odkazu.","Spusť instalátor Yamachat a dokonči instalaci.","Přihlas se stejným Yamachat účtem."],"action":"Stáhnout Windows aplikaci","url":"https://updates.yamachat.eu/windows/Yamachat-Setup-1.0.109.exe","note":"Aktuální Windows release: 1.0.109. Windows build zatím nemá code-signing podpis. Prohlížeč nebo Microsoft Defender SmartScreen proto může při stažení nebo prvním spuštění zobrazit varování o neznámé či málo používané aplikaci. Samotné takové varování neznamená, že soubor je virus; před pokračováním vždy ověř, že soubor pochází z domény updates.yamachat.eu."},"android":{"id":"android","icon":"◉","label":"Android","eyebrow":"Android APK","title":"Yamachat pro Android","text":"Yamachat je pro Android distribuovaný jako APK. Není vydaný přes Google Play.","steps":["Stáhni oficiální Yamachat APK.","Android může požádat o povolení instalace z tohoto zdroje.","Po instalaci aplikaci otevři a přihlas se."],"action":"Stáhnout Android APK","url":"https://updates.yamachat.eu/android/Yamachat-Android-200787.apk","note":"Aktuální Android verze: 1.1.0.787"},"web":{"id":"web","icon":"◎","label":"Web","eyebrow":"Web v prohlížeči","title":"Yamachat ve webu","text":"Yamachat můžeš používat přímo na yamachat.eu bez instalace dalšího programu.","steps":["Otevři yamachat.eu v běžném moderním prohlížeči.","Přihlas se stejným Yamachat účtem jako v ostatních klientech.","Web můžeš používat přímo v kartě prohlížeče."],"action":"Otevřít Yamachat Web","url":"https://yamachat.eu/","note":"Přímé použití v prohlížeči bez instalace"},"pwa":{"id":"pwa","icon":"▤","label":"Web app","eyebrow":"Instalovatelná webová aplikace","title":"Yamachat jako webová aplikace","text":"Na počítači můžeš yamachat.eu nainstalovat jako samostatnou webovou aplikaci (PWA), která se potom otevírá ve vlastním okně.","steps":["Otevři yamachat.eu v podporovaném prohlížeči, například Microsoft Edge nebo Google Chrome.","V nabídce / nastavení prohlížeče otevři Aplikace a zvol „Nainstalovat Yamachat“, „Nainstalovat tento web jako aplikaci“ nebo obdobnou volbu; přesný název se může podle prohlížeče lišit.","Potvrď instalaci. Yamachat se potom objeví mezi aplikacemi a používá stejný účet jako web, Windows i mobilní verze."],"action":"Otevřít yamachat.eu","url":"https://yamachat.eu/","note":"Nabídka prohlížeče → Aplikace → nainstalovat tento web jako aplikaci"},"ios":{"id":"ios","icon":"▣","label":"iOS / PWA","eyebrow":"iPhone / iPad","title":"Yamachat na iPhonu a iPadu","text":"Na iOS se Yamachat používá jako webová aplikace / PWA. Veřejná aplikace v App Store není součástí současné distribuce.","steps":["Otevři https://yamachat.eu v Safari.","Klepni na Sdílet.","Zvol „Přidat na plochu“ a potvrď."],"action":"Otevřít yamachat.eu","url":"https://yamachat.eu/","note":"Safari → Sdílet → Přidat na plochu"}};
 function portal(){
  let root=document.getElementById('ycPlatformPortal');
  if(!root){root=document.createElement('div');root.id='ycPlatformPortal';document.body.appendChild(root)}
