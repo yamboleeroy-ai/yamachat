@@ -3,6 +3,8 @@ name: Yamachat Stability Preview
 on:
   push:
     branches: [optimize/voice-mute-tts-20260929]
+  pull_request:
+    branches: [main]
   workflow_dispatch:
 
 permissions:
