@@ -1172,7 +1172,7 @@ $('ycPasswordRequestBack')?.addEventListener('click',e=>{if(e.target===e.current
 $('ycPasswordRequestForm')?.addEventListener('submit',ycPasswordRequestSend);
 window.ycOpenPasswordRecovery=ycPasswordRequestOpen;
 })();
-let mode='login',session=null,user=null,profile=null,myStats={xp:0,message_count:0},communityRealtimeSub=null,userRealtimeSub=null,visibleMessageIds=new Set(),communities=[],currentCommunity=null,currentRole=null,currentChannel=null,currentThread=null,messageSub=null,attachmentSub=null,pendingFile=null,rightMode='members',dmThreads=[],voiceRooms=new Map(),voicePresenceByChannel={},voiceChannelDefs=[],voiceChannel=null,voiceStream=null,voicePeers=new Map(),voiceIceQueues=new Map(),voiceMuted=localStorage.getItem('yc_voice_muted')==='1',voiceDeafened=localStorage.getItem('yc_voice_deafened')==='1',voiceDeviceId=localStorage.getItem('yc_voice_mic')||'',voiceOutputId=localStorage.getItem('yc_voice_output')||'',voiceEcho=localStorage.getItem('yc_voice_echo')!=='0',voiceNoise=localStorage.getItem('yc_voice_noise')!=='0',voiceAgc=localStorage.getItem('yc_voice_agc')==='1',voiceMeterStop=null,voiceAudioContext=null,voiceAudioNodes=new Map(),voicePeerStates=new Map(),voiceIceRestarted=new Set(),voiceIceServers=[{urls:['stun:stun.l.google.com:19302','stun:stun.cloudflare.com:3478']}],voiceTurnReady=false,voiceTurnProvider='none',voiceSpeaking=false,voiceVadStop=null,voiceJoinSoundArmed=false,voiceSignalSub=null,voiceSignalReady=false,voiceSignalRecoverPromise=null,voiceSignalSeen=new Set(),voiceSignalError='',voiceSessionId='',voicePeerSessions=new Map(),voiceRelayCandidates=new Set(),voiceIceGatherDone=new Set(),voiceActionSeq=0,chatFollowBottomUntil=0,voiceParticipantSub=null,voiceParticipantSubChannelId='',voiceHeartbeatTimer=null,voiceRosterRefreshTimer=null,voiceRosterLastRefresh=0,voiceRosterRefreshBusy=null,voiceRosterGeneration=0,voiceRemoteSpeaking=new Set(),voiceRemoteVadStops=new Map(),voiceMissingSince=new Map(),soundboardSub=null,soundboardSounds=[],soundboardEventSeen=new Set(),soundboardBuffers=new Map(),soundboardBufferLoads=new Map(),soundboardLastPlay=0,voiceUserMix={},voiceContextUser=null,screenShareStream=null,screenShareActive=false,voiceScreenSenders=new Map(),remoteScreenStreams=new Map(),voiceScreenActiveByUser=new Set(),screenShareViewers=new Set(),screenWatchingByUser=new Set(),screenWatchPendingByUser=new Set(),screenWatchTimers=new Map(),screenAudioContext=null,screenAudioDestination=null,screenAudioMixedTrack=null
+let mode='login',session=null,user=null,profile=null,myStats={xp:0,message_count:0},communityRealtimeSub=null,userRealtimeSub=null,visibleMessageIds=new Set(),communities=[],currentCommunity=null,currentRole=null,currentChannel=null,currentThread=null,messageSub=null,attachmentSub=null,pendingFile=null,rightMode='members',dmThreads=[],voiceRooms=new Map(),voicePresenceByChannel={},voiceChannelDefs=[],voiceChannel=null,voiceStream=null,voicePeers=new Map(),voiceIceQueues=new Map(),voiceMuted=localStorage.getItem('yc_voice_muted')==='1',voiceDeafened=localStorage.getItem('yc_voice_deafened')==='1',voiceDeviceId=localStorage.getItem('yc_voice_mic')||'',voiceOutputId=localStorage.getItem('yc_voice_output')||'',voiceEcho=localStorage.getItem('yc_voice_echo')!=='0',voiceNoise=localStorage.getItem('yc_voice_noise')!=='0',voiceAgc=localStorage.getItem('yc_voice_agc')==='1',voiceMeterStop=null,voiceAudioContext=null,voiceAudioNodes=new Map(),voicePeerStates=new Map(),voiceIceRestarted=new Set(),voiceIceServers=[{urls:['stun:stun.l.google.com:19302','stun:stun.cloudflare.com:3478']}],voiceTurnReady=false,voiceTurnProvider='none',voiceSpeaking=false,voiceVadStop=null,voiceJoinSoundArmed=false,voiceSignalSub=null,voiceSignalReady=false,voiceSignalRecoverPromise=null,voiceSignalSeen=new Set(),voiceSignalError='',voiceSessionId='',voicePeerSessions=new Map(),voiceRelayCandidates=new Set(),voiceIceGatherDone=new Set(),voiceActionSeq=0,chatFollowBottomUntil=0,voiceParticipantSub=null,voiceParticipantSubChannelId='',voiceHeartbeatTimer=null,voiceRosterRefreshTimer=null,voiceRosterLastRefresh=0,voiceRosterRefreshBusy=null,voiceRosterGeneration=0,voiceRemoteSpeaking=new Set(),voiceRemoteVadStops=new Map(),voiceMissingSince=new Map(),soundboardSub=null,soundboardSounds=[],soundboardEventSeen=new Set(),soundboardBuffers=new Map(),soundboardBufferLoads=new Map(),soundboardLastPlay=0,voiceUserMix={},voiceContextUser=null,screenShareStream=null,screenShareActive=false,ycScreenShareStartEpoch=0,ycScreenShareStopPromise=Promise.resolve(),voiceScreenSenders=new Map(),remoteScreenStreams=new Map(),voiceScreenActiveByUser=new Set(),screenShareViewers=new Set(),screenWatchingByUser=new Set(),screenWatchPendingByUser=new Set(),screenWatchTimers=new Map(),screenAudioContext=null,screenAudioDestination=null,screenAudioMixedTrack=null
 let ycMessageLoadSeq=0,ycAuthGeneration=0,ycChatInteractionSeq=0;
 let ycMessageSendBusy=false,ycMessageSubscriptionGeneration=0,ycMessageRefreshTimer=null,ycMessageRefreshRunning=false,ycMessageRefreshPending=null
 // CHAT SCROLL MEMORY v1.0.65 — per-channel/DM position, no jumpy auto-scroll, explicit latest-message button
@@ -1880,8 +1880,11 @@ async function ycStopDesktopProcessAudio(){window.__ycDesktopProcessAudioMode='n
 window.addEventListener('message',event=>{if(event.source===window.parent&&event.data?.type==='yamachat:stream-audio-failed'&&screenShareActive)toast('Zachytávání zvuku se přerušilo. Obraz pokračuje bez zvuku; spusť sdílení znovu. Ověř oprávnění hry a Yamachatu.',true)});
 async function toggleScreenShare(){if(screenShareActive)return stopScreenShare(false);return startScreenShare()}
 async function startScreenShare(){
+  const startEpoch=++ycScreenShareStartEpoch
+  try{await ycScreenShareStopPromise}catch{}
+  if(startEpoch!==ycScreenShareStartEpoch)return
   if(!voiceChannel){toast('Nejdřív se připoj do hlasového kanálu.',true);return}
-  const channelId=String(voiceChannel.id||''),sessionId=voiceSessionId,uid=String(user?.id||''),current=()=>!!voiceChannel&&String(voiceChannel.id||'')===channelId&&voiceSessionId===sessionId&&String(user?.id||'')===uid
+  const channelId=String(voiceChannel.id||''),sessionId=voiceSessionId,uid=String(user?.id||''),current=()=>startEpoch===ycScreenShareStartEpoch&&!!voiceChannel&&String(voiceChannel.id||'')===channelId&&voiceSessionId===sessionId&&String(user?.id||'')===uid
   const discard=stream=>{try{stream?.getTracks?.().forEach(t=>{t.onended=null;try{t.stop()}catch{}})}catch{}}
   const media=getScreenMediaDevices();if(!media?.getDisplayMedia){toast('Tento prohlížeč nepodporuje sdílení obrazovky.',true);return}
   let stream
@@ -1897,13 +1900,18 @@ async function startScreenShare(){
   await broadcastScreenState(true);void ycStartGlobalStreamPresence();ycSyncStreamViewer();renderVoiceControls();toast('Sdílení obrazovky spuštěno · diváci se připojí až po kliknutí Sledovat stream.')
 }
 async function stopScreenShare(silent=false){
-  const ownerUserId=user?.id,stream=screenShareStream;if(!screenShareActive&&!stream)return
+  ++ycScreenShareStartEpoch
+  const ownerUserId=user?.id,stream=screenShareStream;if(!screenShareActive&&!stream)return ycScreenShareStopPromise
   screenShareActive=false;screenShareStream=null;screenShareViewers.clear()
-  for(const [,sender] of voiceScreenSenders){try{await sender.replaceTrack(null)}catch{}}
-  if(typeof ycResetScreenAudioSenders==='function')await ycResetScreenAudioSenders()
-  else if(typeof ycEnsureScreenAudio==='function')await ycEnsureScreenAudio()
-  await broadcastScreenState(false);await disableScreenShareAudio(true);await ycStopDesktopProcessAudio();if(stream)for(const t of stream.getTracks()){t.onended=null;try{t.stop()}catch{}}
-  await ycStopGlobalStreamPresence(ownerUserId);ycSyncStreamViewer();renderVoiceControls();if(!silent)toast('Sdílení obrazovky ukončeno.')
+  const task=(async()=>{
+    for(const [,sender] of voiceScreenSenders){try{await sender.replaceTrack(null)}catch{}}
+    if(typeof ycResetScreenAudioSenders==='function')await ycResetScreenAudioSenders()
+    else if(typeof ycEnsureScreenAudio==='function')await ycEnsureScreenAudio()
+    await broadcastScreenState(false);await disableScreenShareAudio(true);await ycStopDesktopProcessAudio();if(stream)for(const t of stream.getTracks()){t.onended=null;try{t.stop()}catch{}}
+    await ycStopGlobalStreamPresence(ownerUserId);ycSyncStreamViewer();renderVoiceControls();if(!silent)toast('Sdílení obrazovky ukončeno.')
+  })()
+  ycScreenShareStopPromise=task.catch(e=>console.warn('screen share stop',e))
+  await ycScreenShareStopPromise
 }
 
 function ycStopRemoteVoiceActivityDetector(peerId){const stop=voiceRemoteVadStops.get(peerId);if(stop){try{stop()}catch{}voiceRemoteVadStops.delete(peerId)}voiceRemoteSpeaking.delete(peerId);const row=document.querySelector('.voice-user[data-user-id="'+CSS.escape(String(peerId))+'"]');row?.classList.remove('is-speaking')}
