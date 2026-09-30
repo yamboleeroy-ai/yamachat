@@ -117,11 +117,3 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
-  android:
-    name: Android APK preview build
-    uses: ./.github/workflows/mobile-android.yml
-    secrets: inherit
-
-  ios:
-    name: iOS Capacitor simulator compile
-    uses: ./.github/workflows/mobile-ios.yml
