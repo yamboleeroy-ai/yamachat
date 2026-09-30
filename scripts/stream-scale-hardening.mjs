@@ -62,6 +62,49 @@ async function ycStartCommunityStreamWatch(){
 `;
   html=replaceBetween(html,'async function ycStopCommunityStreamWatch(){','function ycClearStreamPublishTimers(){',watch,'community stream watch');
 
+  const screenAudioStateOld="let ycScreenAudioBusy=false";
+  const screenAudioStateNew="let ycScreenAudioBusy=false,ycScreenAudioGeneration=0";
+  if(html.includes(screenAudioStateOld))html=html.replace(screenAudioStateOld,screenAudioStateNew);
+  else if(!html.includes(screenAudioStateNew))throw Error('Screen audio generation state boundary missing');
+
+  const screenAudioScheduleOld="function ycScheduleScreenAudioNegotiation(peerId){if(peerId)ycScreenAudioNegotiationPeers.add(peerId);clearTimeout(ycScreenAudioNegotiationTimer);ycScreenAudioNegotiationTimer=setTimeout(async()=>{ycScreenAudioNegotiationTimer=null;const ids=[...ycScreenAudioNegotiationPeers];ycScreenAudioNegotiationPeers.clear();for(const id of ids){try{if(typeof ycRenegotiateScreenPeer==='function')await ycRenegotiateScreenPeer(id)}catch(e){console.warn('screen audio renegotiate',id,e)}}},140)}";
+  const screenAudioScheduleNew="function ycScheduleScreenAudioNegotiation(peerId){if(peerId)ycScreenAudioNegotiationPeers.add(peerId);const generation=ycScreenAudioGeneration;clearTimeout(ycScreenAudioNegotiationTimer);ycScreenAudioNegotiationTimer=setTimeout(async()=>{ycScreenAudioNegotiationTimer=null;if(generation!==ycScreenAudioGeneration)return;const ids=[...ycScreenAudioNegotiationPeers];ycScreenAudioNegotiationPeers.clear();for(const id of ids){if(generation!==ycScreenAudioGeneration)return;try{if(typeof ycRenegotiateScreenPeer==='function')await ycRenegotiateScreenPeer(id)}catch(e){console.warn('screen audio renegotiate',id,e)}}},140)}";
+  if(html.includes(screenAudioScheduleOld))html=html.replace(screenAudioScheduleOld,screenAudioScheduleNew);
+  else if(!html.includes(screenAudioScheduleNew))throw Error('Screen audio negotiation generation boundary missing');
+
+  const screenAudioResetOld="async function ycResetScreenAudioSenders(){\n clearTimeout(ycScreenAudioNegotiationTimer);ycScreenAudioNegotiationTimer=null;ycScreenAudioNegotiationPeers.clear()";
+  const screenAudioResetNew="async function ycResetScreenAudioSenders(){\n ++ycScreenAudioGeneration\n clearTimeout(ycScreenAudioNegotiationTimer);ycScreenAudioNegotiationTimer=null;ycScreenAudioNegotiationPeers.clear()";
+  if(html.includes(screenAudioResetOld))html=html.replace(screenAudioResetOld,screenAudioResetNew);
+  else if(!html.includes(screenAudioResetNew))throw Error('Screen audio reset generation boundary missing');
+
+  const ensureStart=html.indexOf('async function ycEnsureScreenAudio(){'),ensureEnd=html.indexOf('\n}\nsetInterval(()=>{if(voiceChannel&&(screenShareActive||screenWatchingByUser.size||screenShareViewers.size))void ycEnsureScreenAudio()},900)',ensureStart);
+  if(ensureStart<0||ensureEnd<0)throw Error('Screen audio ensure lifecycle boundary missing');
+  const ensureBlock=`async function ycEnsureScreenAudio(){
+ if(ycScreenAudioBusy)return
+ ycScreenAudioBusy=true
+ const generation=ycScreenAudioGeneration,streamRef=screenShareStream,negotiatePeers=new Set()
+ try{
+  const peers=(typeof voicePeers!=='undefined'&&voicePeers?.entries)?[...voicePeers.entries()]:[]
+  const liveIds=new Set(peers.map(([id])=>id))
+  for(const [id] of ycScreenAudioSenders)if(!liveIds.has(id))ycScreenAudioSenders.delete(id)
+  for(const [id] of window.__ycScreenAudioEls)if(!liveIds.has(id))ycRemoveScreenAudioElement(id)
+  const track=ycCurrentScreenAudioTrack()
+  for(const [peerId,pc] of peers){
+   if(generation!==ycScreenAudioGeneration)return
+   ycWrapScreenAudioPc(peerId,pc)
+   let sender=ycScreenAudioSenders.get(peerId)
+   if(track&&screenShareViewers.has(peerId)&&pc?.connectionState!=='closed'){
+    try{const videoSender=typeof voiceScreenSenders!=='undefined'?voiceScreenSenders?.get?.(peerId):null;if(videoSender?.setStreams&&screenShareStream===streamRef)videoSender.setStreams(streamRef)}catch{}
+    if(!sender||!(pc.getSenders?.()||[]).includes(sender)){try{if(generation!==ycScreenAudioGeneration)return;sender=pc.addTrack(track,streamRef);ycScreenAudioSenders.set(peerId,sender);negotiatePeers.add(peerId)}catch(e){console.warn('screen audio addTrack',peerId,e)}}
+    else if(sender.track!==track){try{await sender.replaceTrack(track);if(generation!==ycScreenAudioGeneration)return;if(sender.setStreams&&screenShareStream===streamRef)sender.setStreams(streamRef)}catch(e){console.warn('screen audio replaceTrack',peerId,e)}}
+   }else if(sender?.track){try{await sender.replaceTrack(null);if(generation!==ycScreenAudioGeneration)return}catch{}}
+  }
+ }finally{ycScreenAudioBusy=false}
+ if(generation!==ycScreenAudioGeneration)return
+ for(const peerId of negotiatePeers)ycScheduleScreenAudioNegotiation(peerId)
+}`;
+  html=html.slice(0,ensureStart)+ensureBlock+html.slice(ensureEnd+2);
+
   const screenLifecycleStateOld="screenShareStream=null,screenShareActive=false,voiceScreenSenders=new Map()";
   const screenLifecycleStateNew="screenShareStream=null,screenShareActive=false,ycScreenShareStartEpoch=0,ycScreenShareStopPromise=Promise.resolve(),voiceScreenSenders=new Map()";
   if(html.includes(screenLifecycleStateOld))html=html.replace(screenLifecycleStateOld,screenLifecycleStateNew);
