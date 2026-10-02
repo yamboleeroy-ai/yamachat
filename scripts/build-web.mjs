@@ -25,6 +25,7 @@ import {withLegalUi} from './legal-ui.mjs';
 import {withPlatformInstallUi} from './platform-install-ui.mjs';
 import {withDeadCodeCleanup} from './dead-code-cleanup.mjs';
 import {withIosPwaMicrophone} from './ios-pwa-microphone.mjs';
+import {withEgressHardening} from './egress-hardening.mjs';
 
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
 const read=p=>fs.readFileSync(path.join(root,p),'utf8');
@@ -176,6 +177,7 @@ html=withLegalUi(html);
 html=withPlatformInstallUi(html);
 html=withDeadCodeCleanup(html);
 html=withVoiceHotPathCleanup(html);
+ html=withEgressHardening(html);
 fs.writeFileSync(path.join(root,'index.html'),html);
 console.log('Web generated from verified desktop 1.0.78 reference; desktop files were not modified.');
 
