@@ -167,12 +167,14 @@ jobs:
       - name: Verify Windows Cloudflare updater package
         shell: pwsh
         run: |
+          $version = (Get-Content desktop/package.json -Raw | ConvertFrom-Json).version
+          if ([string]::IsNullOrWhiteSpace($version)) { throw 'Desktop package version is missing' }
           $appRoot='desktop/dist/win-unpacked/resources/app'
           foreach ($file in @('main.js','preload.js','updater.js','desktop.html','desktop-client.html')) {
             if ((Get-FileHash "$appRoot/$file").Hash -ne (Get-FileHash "desktop/$file").Hash) { throw "Packaged source mismatch: $file" }
           }
-          if ((Get-Content desktop/dist/latest.yml -Raw) -notmatch 'version:\s*1\.0\.110') { throw 'Wrong updater version' }
-          foreach ($file in @('Yamachat-Setup-1.0.111.exe','Yamachat-Setup-1.0.111.exe.blockmap','latest.yml')) {
+          if ((Get-Content desktop/dist/latest.yml -Raw) -notmatch ("version:\s*" + [regex]::Escape($version) + "(?:\\s|$)")) { throw "Wrong updater version: expected $version" }
+          foreach ($file in @("Yamachat-Setup-$version.exe","Yamachat-Setup-$version.exe.blockmap",'latest.yml')) {
             if (-not (Test-Path "desktop/dist/$file")) { throw "Missing updater asset: $file" }
           }
           $cfg=Get-Content desktop/dist/win-unpacked/resources/app-update.yml -Raw
@@ -189,9 +191,11 @@ jobs:
           retention-days: 30
           compression-level: 0
 
-  publish:
-    needs: [cloudflare-preflight, web, android, ios-pwa, windows]
-    if: ${{ always() && needs.cloudflare-preflight.result == 'success' && needs.web.result == 'success' && needs.android.result == 'success' && needs.ios-pwa.result == 'success' && needs.windows.result == 'success' }}
+  publish-windows:
+    # Windows publication is deliberately independent of the Android job: an
+    # Android-only FCM failure must not withhold a verified Windows security release.
+    needs: [cloudflare-preflight, windows]
+    if: ${{ always() && needs.cloudflare-preflight.result == 'success' && needs.windows.result == 'success' }}
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
@@ -205,10 +209,6 @@ jobs:
         with:
           name: Yamachat-Windows-1.0.111
           path: release-assets
-      - uses: actions/download-artifact@v4
-        with:
-          name: Yamachat-Android
-          path: release-assets
       - name: Validate final artifacts
         run: |
           set -euo pipefail
@@ -220,10 +220,10 @@ jobs:
           git merge-base --is-ancestor HEAD origin/main
           git merge-base --is-ancestor legal-baseline-2026-09-27 HEAD
           node scripts/check-legal-baseline.mjs
-          node scripts/verify-release-assets.cjs release-assets
+          node scripts/verify-windows-release-assets.cjs release-assets
           node tests/no-public-github-distribution.cjs
           cd release-assets
-          sha256sum Yamachat-Setup-1.0.111.exe Yamachat-Setup-1.0.111.exe.blockmap latest.yml Yamachat-Android.apk > SHA256SUMS.txt
+          sha256sum Yamachat-Setup-1.0.111.exe Yamachat-Setup-1.0.111.exe.blockmap latest.yml > SHA256SUMS.txt
       - name: Provision Cloudflare R2 distribution
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
@@ -238,26 +238,20 @@ jobs:
           if ! npx --yes wrangler@latest r2 bucket domain get "$BUCKET" --domain updates.yamachat.eu >/dev/null 2>&1; then
             npx --yes wrangler@latest r2 bucket domain add "$BUCKET" --domain updates.yamachat.eu --zone-id "$ZONE_ID" --force
           fi
-      - name: Upload Windows and Android release assets to Cloudflare R2
+      - name: Upload Windows release assets to Cloudflare R2
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: |
           set -euo pipefail
           W='npx --yes wrangler@latest'
-          ANDROID_CODE="$(node -p "require('./release-assets/android-artifact.json').artifact.versionCode")"
-          test -n "$ANDROID_CODE"
           $W r2 object put yamachat-releases/windows/Yamachat-Setup-1.0.111.exe --file release-assets/Yamachat-Setup-1.0.111.exe --content-type application/vnd.microsoft.portable-executable --content-disposition 'attachment; filename="Yamachat-Setup-1.0.111.exe"' --cache-control 'public, max-age=31536000, immutable' --remote
           $W r2 object put yamachat-releases/windows/Yamachat-Setup-1.0.111.exe.blockmap --file release-assets/Yamachat-Setup-1.0.111.exe.blockmap --content-type application/octet-stream --cache-control 'public, max-age=31536000, immutable' --remote
           $W r2 object put yamachat-releases/windows/SHA256SUMS.txt --file release-assets/SHA256SUMS.txt --content-type text/plain --cache-control 'no-cache' --remote
           $W r2 object put yamachat-releases/windows/latest.yml --file release-assets/latest.yml --content-type text/yaml --cache-control 'no-cache, no-store' --remote
-          $W r2 object put "yamachat-releases/android/Yamachat-Android-$ANDROID_CODE.apk" --file release-assets/Yamachat-Android.apk --content-type application/vnd.android.package-archive --content-disposition 'attachment; filename="Yamachat-Android.apk"' --cache-control 'public, max-age=31536000, immutable' --remote
-          $W r2 object put yamachat-releases/android/Yamachat-Android.apk --file release-assets/Yamachat-Android.apk --content-type application/vnd.android.package-archive --content-disposition 'attachment; filename="Yamachat-Android.apk"' --cache-control 'no-cache, no-store' --remote
-          $W r2 object put yamachat-releases/android/SHA256SUMS.txt --file release-assets/SHA256SUMS.txt --content-type text/plain --cache-control 'no-cache' --remote
       - name: Verify Cloudflare public release feeds
         run: |
           set -euo pipefail
-          ANDROID_CODE="$(node -p "require('./release-assets/android-artifact.json').artifact.versionCode")"
           for i in $(seq 1 30); do
             if curl -fsS --max-time 15 https://updates.yamachat.eu/windows/latest.yml | grep -q 'version: 1.0.111'; then
               break
@@ -266,14 +260,11 @@ jobs:
             sleep 10
           done
           curl -fsSI --max-time 20 https://updates.yamachat.eu/windows/Yamachat-Setup-1.0.111.exe >/dev/null
-          curl -fsSI --max-time 20 "https://updates.yamachat.eu/android/Yamachat-Android-$ANDROID_CODE.apk" >/dev/null
-          curl -fsSI --max-time 20 https://updates.yamachat.eu/android/Yamachat-Android.apk >/dev/null
-      - name: Integrate verified source, Android APK and manifest into main
+      - name: Integrate verified Windows source and manifest into main
         env:
           RELEASE_SHA: ${{ github.sha }}
         run: |
           set -euo pipefail
-          cp release-assets/android-artifact.json /tmp/android-artifact.json
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git fetch origin main
@@ -283,13 +274,10 @@ jobs:
             echo "Release source no longer merges cleanly into main; refusing publication."
             exit 1
           fi
-          rm -f download/Yamachat-Android.apk
           python - <<'PY'
           import json
           from datetime import datetime, timezone
           from pathlib import Path
-          report=json.loads(Path('/tmp/android-artifact.json').read_text())
-          artifact=report['artifact']
           p=Path('update-manifest.json')
           m=json.loads(p.read_text())
           w=m.setdefault('windows',{})
@@ -299,17 +287,6 @@ jobs:
           w['feedUrl']='https://updates.yamachat.eu/windows/'
           w['installerUrl']='https://updates.yamachat.eu/windows/Yamachat-Setup-1.0.111.exe'
           w.pop('releaseUrl',None)
-          a=m.setdefault('android',{})
-          a['latestVersion']=artifact['versionName']
-          a['latestVersionCode']=int(artifact['versionCode'])
-          a['required']=True
-          a['apkUrl']=f"https://updates.yamachat.eu/android/Yamachat-Android-{artifact['versionCode']}.apk"
-          a['sha256']=artifact['sha256']
-          a['notes']=[
-              'Deep stability audit: voice, stream, WebRTC, reconnect a cleanup lifecycle byly zpevněné.',
-              'Android zachovává současné mobilní rozložení, Microsoft Natural Voices a interoperabilitu s webem a Windows.',
-              'Windows i Android veřejná distribuce běží přes Cloudflare R2 a nevyžaduje GitHub Releases.'
-          ]
           m['publishedAt']=datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace('+00:00','Z')
           p.write_text(json.dumps(m,ensure_ascii=False,indent=2)+'\n')
           PY
@@ -318,7 +295,7 @@ jobs:
           node scripts/check-legal-baseline.mjs
           node tests/no-public-github-distribution.cjs
           git add -A
-          git commit -m "Release Yamachat 1.0.111 across Cloudflare platforms [skip ci]"
+          git commit -m "Release Yamachat Windows 1.0.111 [skip ci]"
           git push origin HEAD:main
 
       - name: Verify main no longer exposes GitHub distribution
@@ -327,9 +304,4 @@ jobs:
           git fetch origin main
           test "$(git show origin/main:desktop/package.json | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>process.stdout.write(JSON.parse(s).version))")" = "1.0.111"
           git show origin/main:update-manifest.json | grep -q 'https://updates.yamachat.eu/windows/'
-          git show origin/main:update-manifest.json | grep -q 'https://updates.yamachat.eu/android/'
           ! git show origin/main:update-manifest.json | grep -q 'github.com/yamboleeroy-ai/yamachat/releases'
-          if git cat-file -e origin/main:download/Yamachat-Android.apk 2>/dev/null; then
-            echo 'Android APK must not remain committed in main.'
-            exit 1
-          fi
