@@ -173,7 +173,7 @@ jobs:
           foreach ($file in @('main.js','preload.js','updater.js','desktop.html','desktop-client.html')) {
             if ((Get-FileHash "$appRoot/$file").Hash -ne (Get-FileHash "desktop/$file").Hash) { throw "Packaged source mismatch: $file" }
           }
-          if ((Get-Content desktop/dist/latest.yml -Raw) -notmatch ("version:\s*" + [regex]::Escape($version) + "(?:\\s|$)")) { throw "Wrong updater version: expected $version" }
+          if ((Get-Content desktop/dist/latest.yml -Raw) -notmatch ("version:\s*" + [regex]::Escape($version) + "(?:\s|$)")) { throw "Wrong updater version: expected $version" }
           foreach ($file in @("Yamachat-Setup-$version.exe","Yamachat-Setup-$version.exe.blockmap",'latest.yml')) {
             if (-not (Test-Path "desktop/dist/$file")) { throw "Missing updater asset: $file" }
           }
