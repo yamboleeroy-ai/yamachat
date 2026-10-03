@@ -278,14 +278,14 @@ jobs:
           import json
           from datetime import datetime, timezone
           from pathlib import Path
+          version=json.loads(Path('desktop/package.json').read_text())['version']
           p=Path('update-manifest.json')
           m=json.loads(p.read_text())
           w=m.setdefault('windows',{})
-          if w.get('latestVersion')!='1.0.111':
-              raise SystemExit('Windows manifest is not prepared for 1.0.111')
+          w['latestVersion']=version
           w['required']=True
           w['feedUrl']='https://updates.yamachat.eu/windows/'
-          w['installerUrl']='https://updates.yamachat.eu/windows/Yamachat-Setup-1.0.111.exe'
+          w['installerUrl']=f'https://updates.yamachat.eu/windows/Yamachat-Setup-{version}.exe'
           w.pop('releaseUrl',None)
           m['publishedAt']=datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace('+00:00','Z')
           p.write_text(json.dumps(m,ensure_ascii=False,indent=2)+'\n')
