@@ -2,11 +2,11 @@
   "schemaVersion": 1,
   "publishedAt": "2026-10-05T03:38:18Z",
   "windows": {
-    "latestVersion": "1.0.112",
+    "latestVersion": "1.0.113",
     "required": true,
-    "notes": "Yamachat 1.0.112: přihlašovací obrazovka obsahuje ověřené odkazy na YamaHelp pro Windows.",
+    "notes": "Yamachat 1.0.113: opravené ikony aplikace, tray a branding ve Windows buildu.",
     "feedUrl": "https://updates.yamachat.eu/windows/",
-    "installerUrl": "https://updates.yamachat.eu/windows/Yamachat-Setup-1.0.112.exe"
+    "installerUrl": "https://updates.yamachat.eu/windows/Yamachat-Setup-1.0.113.exe"
   },
   "android": {
     "latestVersion": "1.1.0.789",
