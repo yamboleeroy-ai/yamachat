@@ -17,7 +17,8 @@ if(!/^https:\/\/updates\.yamachat\.eu\/android\/Yamachat-Android(?:-\d+)?\.apk(?
 const yamaHelpDownloadBase=String(process.env.YAMAHELP_DOWNLOAD_BASE_URL||'https://updates.yamachat.eu/yamahelp').trim().replace(/\/+$/,'');
 if(yamaHelpDownloadBase&&!(/^(?:\/[A-Za-z0-9._/-]+|https:\/\/updates\.yamachat\.eu\/[A-Za-z0-9._/-]+)$/i.test(yamaHelpDownloadBase)))throw Error('Platform UI: invalid YamaHelp download base URL');
 const yamaHelpDownloads=yamaHelpDownloadBase?Object.freeze({
-  portable:`${yamaHelpDownloadBase}/YamaHelp-Portable-v73.zip`
+  portable:`${yamaHelpDownloadBase}/YamaHelp-Portable-v73.zip`,
+  installer:`${yamaHelpDownloadBase}/YamaHelp-Setup-v73.exe`
 }):null;
 
 const platforms=Object.freeze({
@@ -83,7 +84,6 @@ function runtime(){
 .yc-yamahelp-login-title{margin:0 0 3px;text-align:center;color:#aa8dc5;font-size:9px;font-weight:900;letter-spacing:.10em;text-transform:uppercase}
 .yc-yamahelp-login-copy{margin:0 0 8px;color:#8ea7b3;font-size:9px;line-height:1.35;text-align:center}
 .yc-yamahelp-login-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
-.yc-yamahelp-login-grid.yc-yamahelp-single{grid-template-columns:1fr}
 .yc-yamahelp-login-btn{min-width:0;min-height:49px;padding:7px 8px;border:1px solid rgba(112,228,232,.16);border-radius:9px;background:#0b1d29;color:#d9eef1;text-decoration:none;display:flex;flex-direction:column;justify-content:center;gap:2px;font:inherit;touch-action:manipulation}
 .yc-yamahelp-login-btn:hover,.yc-yamahelp-login-btn:focus-visible{border-color:rgba(112,228,232,.42);background:rgba(112,228,232,.09);outline:2px solid rgba(112,228,232,.42);outline-offset:1px}
 .yc-yamahelp-login-btn strong{font-size:10px;font-weight:900;line-height:1.1}.yc-yamahelp-login-btn small{color:#8faab5;font-size:8px;line-height:1.2}.yc-yamahelp-login-note{margin:7px 0 0;color:#637f8b;font-size:8px;line-height:1.3;text-align:center}
@@ -138,7 +138,7 @@ export function withPlatformInstallUi(html){
  const row='<div class="yc-platform-login" aria-label="Yamachat platformy"><div class="yc-platform-login-title">Dostupné platformy</div><div class="yc-platform-login-grid">'+
    Object.values(platforms).map(p=>'<button type="button" class="yc-platform-login-btn" data-yc-platform="'+p.id+'" aria-label="'+p.label+'"><span class="yc-platform-login-icon">'+p.icon+'</span><span class="yc-platform-login-label">'+p.label+'</span></button>').join('')+
    '</div></div>';
- const yamaHelp=yamaHelpDownloads?'<section class="yc-yamahelp-login" aria-label="YamaHelp pro Windows"><div class="yc-yamahelp-login-title">YamaHelp pro Windows</div><p class="yc-yamahelp-login-copy">Optimalizace, diagnostika a údržba Windows.</p><div class="yc-yamahelp-login-grid yc-yamahelp-single"><a class="yc-yamahelp-login-btn" href="'+yamaHelpDownloads.portable+'" download><strong>YamaHelp Portable v73</strong><small>Spustitelná verze bez instalace.</small></a></div><p class="yc-yamahelp-login-note">Soubor je určený pro Windows PC.</p></section>':'';
+ const yamaHelp=yamaHelpDownloads?'<section class="yc-yamahelp-login" aria-label="YamaHelp pro Windows"><div class="yc-yamahelp-login-title">YamaHelp pro Windows</div><p class="yc-yamahelp-login-copy">Optimalizace, diagnostika a údržba Windows.</p><div class="yc-yamahelp-login-grid"><a class="yc-yamahelp-login-btn" href="'+yamaHelpDownloads.portable+'" download><strong>YamaHelp Portable v73</strong><small>Spustitelná verze bez instalace.</small></a><a class="yc-yamahelp-login-btn" href="'+yamaHelpDownloads.installer+'" download><strong>YamaHelp Installer v73</strong><small>Instalační verze pro Windows.</small></a></div><p class="yc-yamahelp-login-note">Soubory jsou určené pro Windows PC.</p></section>':'';
  html=html.replace(legal,row+yamaHelp+legal);
  return html.replace('</body>',runtime()+'\n</body>');
 }

@@ -44,9 +44,10 @@ function inside(b,w,h){return b&&b.width>0&&b.height>0&&b.x>=-1&&b.y>=-1&&b.x+b.
    assert(inside(yb,w,h),`YamaHelp row must be reachable inside scrollable auth viewport at ${w}x${h}`);
    assert.equal(await page.locator('[data-yc-platform]').count(),5);
    assert.equal(await page.locator('#ycAuthDownloads').count(),0,'Legacy login download block must not duplicate compact platform launcher');
-   assert.equal(await yamaHelp.locator('a').count(),1,'YamaHelp v73 must provide only its current Portable download');
+   assert.equal(await yamaHelp.locator('a').count(),2,'YamaHelp v73 must provide Portable and Installer downloads');
    assert.equal(await yamaHelp.locator('a').nth(0).getAttribute('href'),'https://updates.yamachat.eu/yamahelp/YamaHelp-Portable-v73.zip');
-   assert.match(await yamaHelp.textContent(),/Soubor(?:y)? je určen[ýé] pro Windows PC/i);
+   assert.equal(await yamaHelp.locator('a').nth(1).getAttribute('href'),'https://updates.yamachat.eu/yamahelp/YamaHelp-Setup-v73.exe');
+   assert.match(await yamaHelp.textContent(),/Soubor(?:y)? jsou určen[ée] pro Windows PC/i);
 
    const expected={
     windows:String(manifest.windows.installerUrl),
