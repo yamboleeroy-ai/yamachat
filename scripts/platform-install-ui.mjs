@@ -12,6 +12,15 @@ if(!/^\d+\.\d+\.\d+$/.test(windowsVersion))throw Error('Platform UI: invalid Win
 if(!/^https:\/\/updates\.yamachat\.eu\/windows\//i.test(windowsUrl))throw Error('Platform UI: invalid Windows installer URL in update-manifest.json');
 if(!/^https:\/\/updates\.yamachat\.eu\/android\/Yamachat-Android(?:-\d+)?\.apk(?:\?v=\d+)?$/i.test(androidUrl))throw Error('Platform UI: invalid Android Cloudflare APK URL in update-manifest.json');
 
+// YamaHelp remains an independent product. Its releases are served from the
+// existing Yamachat Cloudflare/R2 distribution, never bundled into Yamachat.
+const yamaHelpDownloadBase=String(process.env.YAMAHELP_DOWNLOAD_BASE_URL||'https://updates.yamachat.eu/yamahelp').trim().replace(/\/+$/,'');
+if(yamaHelpDownloadBase&&!(/^(?:\/[A-Za-z0-9._/-]+|https:\/\/updates\.yamachat\.eu\/[A-Za-z0-9._/-]+)$/i.test(yamaHelpDownloadBase)))throw Error('Platform UI: invalid YamaHelp download base URL');
+const yamaHelpDownloads=yamaHelpDownloadBase?Object.freeze({
+  portable:`${yamaHelpDownloadBase}/YamaHelp-Portable-v66.zip`,
+  installer:`${yamaHelpDownloadBase}/YamaHelp-Setup-v66.exe`
+}):null;
+
 const platforms=Object.freeze({
   windows:{
     id:'windows',icon:'⊞',label:'Windows',eyebrow:'Windows aplikace',
@@ -71,6 +80,13 @@ function runtime(){
 .yc-platform-login-btn:hover,.yc-platform-login-btn:focus-visible{border-color:rgba(112,228,232,.35);background:rgba(112,228,232,.09);color:#efffff;outline:2px solid rgba(112,228,232,.48);outline-offset:1px}
 .yc-platform-login-icon{display:grid;place-items:center;width:20px;height:20px;flex:0 0 20px;border:1px solid rgba(112,228,232,.18);border-radius:6px;color:#a7eff2;background:rgba(112,228,232,.06);font-size:13px;font-weight:900}
 .yc-platform-login-label{min-width:0;font-size:9px;font-weight:850;line-height:1.15;white-space:normal}
+.yc-yamahelp-login{margin:9px 0 2px;padding:10px;border:1px solid rgba(176,104,234,.17);border-radius:12px;background:linear-gradient(145deg,rgba(23,21,46,.6),rgba(7,20,29,.5))}
+.yc-yamahelp-login-title{margin:0 0 3px;text-align:center;color:#aa8dc5;font-size:9px;font-weight:900;letter-spacing:.10em;text-transform:uppercase}
+.yc-yamahelp-login-copy{margin:0 0 8px;color:#8ea7b3;font-size:9px;line-height:1.35;text-align:center}
+.yc-yamahelp-login-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
+.yc-yamahelp-login-btn{min-width:0;min-height:49px;padding:7px 8px;border:1px solid rgba(112,228,232,.16);border-radius:9px;background:#0b1d29;color:#d9eef1;text-decoration:none;display:flex;flex-direction:column;justify-content:center;gap:2px;font:inherit;touch-action:manipulation}
+.yc-yamahelp-login-btn:hover,.yc-yamahelp-login-btn:focus-visible{border-color:rgba(112,228,232,.42);background:rgba(112,228,232,.09);outline:2px solid rgba(112,228,232,.42);outline-offset:1px}
+.yc-yamahelp-login-btn strong{font-size:10px;font-weight:900;line-height:1.1}.yc-yamahelp-login-btn small{color:#8faab5;font-size:8px;line-height:1.2}.yc-yamahelp-login-note{margin:7px 0 0;color:#637f8b;font-size:8px;line-height:1.3;text-align:center}
 .yc-platform-back{position:fixed;inset:0;width:100vw;max-width:100vw;box-sizing:border-box;overflow:hidden;z-index:11150;display:grid;place-items:center;padding:max(14px,env(safe-area-inset-top)) max(14px,env(safe-area-inset-right)) max(14px,env(safe-area-inset-bottom)) max(14px,env(safe-area-inset-left));background:rgba(2,7,12,.82);backdrop-filter:blur(8px)}
 .yc-platform-dialog{width:min(520px,100%);max-width:100%;max-height:calc(100dvh - 28px);overflow:hidden;display:flex;flex-direction:column;border:1px solid rgba(112,228,232,.25);border-radius:16px;background:linear-gradient(145deg,#0c202c,#07121b 74%);box-shadow:0 26px 80px rgba(0,0,0,.62),inset 0 1px 0 rgba(255,255,255,.035);color:#e8f5f7}
 .yc-platform-head{display:flex;align-items:center;gap:10px;padding:14px 15px;border-bottom:1px solid rgba(112,228,232,.13)}
@@ -84,7 +100,7 @@ function runtime(){
 .yc-platform-action{display:flex;align-items:center;justify-content:center;min-height:44px;margin-top:14px;border:1px solid rgba(112,228,232,.34);border-radius:10px;background:linear-gradient(180deg,rgba(25,64,79,.98),rgba(10,35,48,.98));color:#e7fcff;text-decoration:none;font-size:11px;font-weight:900;touch-action:manipulation}
 .yc-platform-action:hover,.yc-platform-action:focus-visible{border-color:#83edf2;box-shadow:0 0 18px rgba(112,228,232,.11);outline:2px solid rgba(112,228,232,.32);outline-offset:2px}
 .yc-platform-distribution{margin-top:9px;color:#637f8b;font-size:9px;text-align:center;line-height:1.45}
-@media(max-width:460px){.yc-platform-login-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.yc-platform-login-btn{min-height:42px}}@media(max-width:340px){.yc-platform-login-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.yc-platform-dialog{border-radius:13px}.yc-platform-body{padding:13px}}
+@media(max-width:460px){.yc-platform-login-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.yc-platform-login-btn{min-height:42px}}@media(max-width:340px){.yc-platform-login-grid,.yc-yamahelp-login-grid{grid-template-columns:1fr}.yc-platform-dialog{border-radius:13px}.yc-platform-body{padding:13px}}
 @media(max-height:560px){.yc-platform-back{place-items:stretch center;padding:7px max(8px,env(safe-area-inset-right)) 7px max(8px,env(safe-area-inset-left))}.yc-platform-dialog{max-height:calc(100dvh - 14px)}.yc-platform-head{padding:10px 12px}.yc-platform-body{padding:11px}.yc-platform-steps{margin:10px 0;gap:6px}.yc-platform-step{padding:8px}}
 </style>
 <script id="ycPlatformInstallRuntime">
@@ -122,6 +138,7 @@ export function withPlatformInstallUi(html){
  const row='<div class="yc-platform-login" aria-label="Yamachat platformy"><div class="yc-platform-login-title">Dostupné platformy</div><div class="yc-platform-login-grid">'+
    Object.values(platforms).map(p=>'<button type="button" class="yc-platform-login-btn" data-yc-platform="'+p.id+'" aria-label="'+p.label+'"><span class="yc-platform-login-icon">'+p.icon+'</span><span class="yc-platform-login-label">'+p.label+'</span></button>').join('')+
    '</div></div>';
- html=html.replace(legal,row+legal);
+ const yamaHelp=yamaHelpDownloads?'<section class="yc-yamahelp-login" aria-label="YamaHelp pro Windows"><div class="yc-yamahelp-login-title">YamaHelp pro Windows</div><p class="yc-yamahelp-login-copy">Optimalizace, diagnostika a údržba Windows.</p><div class="yc-yamahelp-login-grid"><a class="yc-yamahelp-login-btn" href="'+yamaHelpDownloads.portable+'" download><strong>YamaHelp Portable</strong><small>Spustitelná verze bez instalace.</small></a><a class="yc-yamahelp-login-btn" href="'+yamaHelpDownloads.installer+'" download><strong>YamaHelp Installer</strong><small>Instalační verze pro Windows.</small></a></div><p class="yc-yamahelp-login-note">Soubory jsou určené pro Windows PC.</p></section>':'';
+ html=html.replace(legal,row+yamaHelp+legal);
  return html.replace('</body>',runtime()+'\n</body>');
 }

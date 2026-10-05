@@ -29,14 +29,25 @@ function inside(b,w,h){return b&&b.width>0&&b.height>0&&b.x>=-1&&b.y>=-1&&b.x+b.
  try{
   for(const [w,h,mobile] of [[1440,900,false],[390,844,true],[844,390,true],[320,568,true]]){
    const {page,errors}=await boot(browser,w,h,mobile);
-   const forgot=page.locator('#ycForgotPassword'),row=page.locator('.yc-platform-login'),legal=page.locator('.yc-auth-legal-links');
+   const forgot=page.locator('#ycForgotPassword'),row=page.locator('.yc-platform-login'),yamaHelp=page.locator('.yc-yamahelp-login'),legal=page.locator('.yc-auth-legal-links');
    await row.waitFor({state:'visible'});
    await row.scrollIntoViewIfNeeded();
    const fb=await forgot.boundingBox(),rb=await row.boundingBox(),lb=await legal.boundingBox();
-   assert(fb&&rb&&lb&&fb.y<rb.y&&rb.y<lb.y,'Platform row must be between forgot password and legal links');
+   const order=await page.evaluate(()=>['ycForgotPassword','yc-platform-login','yc-yamahelp-login','yc-auth-legal-links'].map(id=>{
+     const el=id.startsWith('yc')&&id!=='ycForgotPassword'?document.querySelector('.'+id):document.getElementById(id);
+     return el?.getBoundingClientRect().top??-1;
+   }));
+   assert(fb&&rb&&lb&&order[0]<order[1]&&order[1]<order[2]&&order[2]<order[3],'Platform and YamaHelp rows must be between forgot password and legal links');
    assert(inside(rb,w,h),`Platform row must be reachable inside scrollable auth viewport at ${w}x${h}`);
+   await yamaHelp.scrollIntoViewIfNeeded();
+   const yb=await yamaHelp.boundingBox();
+   assert(inside(yb,w,h),`YamaHelp row must be reachable inside scrollable auth viewport at ${w}x${h}`);
    assert.equal(await page.locator('[data-yc-platform]').count(),5);
    assert.equal(await page.locator('#ycAuthDownloads').count(),0,'Legacy login download block must not duplicate compact platform launcher');
+   assert.equal(await yamaHelp.locator('a').count(),2,'YamaHelp must provide exactly Portable and Installer downloads');
+   assert.equal(await yamaHelp.locator('a').nth(0).getAttribute('href'),'https://updates.yamachat.eu/yamahelp/YamaHelp-Portable-v66.zip');
+   assert.equal(await yamaHelp.locator('a').nth(1).getAttribute('href'),'https://updates.yamachat.eu/yamahelp/YamaHelp-Setup-v66.exe');
+   assert.match(await yamaHelp.textContent(),/Soubor(?:y)? jsou určen[ée] pro Windows PC/i);
 
    const expected={
     windows:String(manifest.windows.installerUrl),
