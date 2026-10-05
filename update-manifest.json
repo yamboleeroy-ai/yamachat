@@ -1,12 +1,12 @@
 {
   "schemaVersion": 1,
-  "publishedAt": "2026-10-03T10:49:49Z",
+  "publishedAt": "2026-10-05T03:38:18Z",
   "windows": {
-    "latestVersion": "1.0.111",
+    "latestVersion": "1.0.112",
     "required": true,
-    "notes": "Yamachat 1.0.111: stabilita voice/stream/realtime, reconnect a multi-platform interoperabilita ověřena před vydáním.",
+    "notes": "Yamachat 1.0.112: přihlašovací obrazovka obsahuje ověřené odkazy na YamaHelp pro Windows.",
     "feedUrl": "https://updates.yamachat.eu/windows/",
-    "installerUrl": "https://updates.yamachat.eu/windows/Yamachat-Setup-1.0.111.exe"
+    "installerUrl": "https://updates.yamachat.eu/windows/Yamachat-Setup-1.0.112.exe"
   },
   "android": {
     "latestVersion": "1.1.0.789",
