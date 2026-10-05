@@ -17,8 +17,8 @@ if(!/^https:\/\/updates\.yamachat\.eu\/android\/Yamachat-Android(?:-\d+)?\.apk(?
 const yamaHelpDownloadBase=String(process.env.YAMAHELP_DOWNLOAD_BASE_URL||'https://updates.yamachat.eu/yamahelp').trim().replace(/\/+$/,'');
 if(yamaHelpDownloadBase&&!(/^(?:\/[A-Za-z0-9._/-]+|https:\/\/updates\.yamachat\.eu\/[A-Za-z0-9._/-]+)$/i.test(yamaHelpDownloadBase)))throw Error('Platform UI: invalid YamaHelp download base URL');
 const yamaHelpDownloads=yamaHelpDownloadBase?Object.freeze({
-  portable:`${yamaHelpDownloadBase}/YamaHelp-Portable-v73.zip`,
-  installer:`${yamaHelpDownloadBase}/YamaHelp-Setup-v73.exe`
+  portable:`${yamaHelpDownloadBase}/YamaHelp-Portable-latest.zip`,
+  installer:`${yamaHelpDownloadBase}/YamaHelp-Setup-latest.exe`
 }):null;
 
 const platforms=Object.freeze({
@@ -138,7 +138,7 @@ export function withPlatformInstallUi(html){
  const row='<div class="yc-platform-login" aria-label="Yamachat platformy"><div class="yc-platform-login-title">Dostupné platformy</div><div class="yc-platform-login-grid">'+
    Object.values(platforms).map(p=>'<button type="button" class="yc-platform-login-btn" data-yc-platform="'+p.id+'" aria-label="'+p.label+'"><span class="yc-platform-login-icon">'+p.icon+'</span><span class="yc-platform-login-label">'+p.label+'</span></button>').join('')+
    '</div></div>';
- const yamaHelp=yamaHelpDownloads?'<section class="yc-yamahelp-login" aria-label="YamaHelp pro Windows"><div class="yc-yamahelp-login-title">YamaHelp pro Windows</div><p class="yc-yamahelp-login-copy">Optimalizace, diagnostika a údržba Windows.</p><div class="yc-yamahelp-login-grid"><a class="yc-yamahelp-login-btn" href="'+yamaHelpDownloads.portable+'" download><strong>YamaHelp Portable v73</strong><small>Spustitelná verze bez instalace.</small></a><a class="yc-yamahelp-login-btn" href="'+yamaHelpDownloads.installer+'" download><strong>YamaHelp Installer v73</strong><small>Instalační verze pro Windows.</small></a></div><p class="yc-yamahelp-login-note">Soubory jsou určené pro Windows PC.</p></section>':'';
+ const yamaHelp=yamaHelpDownloads?'<section class="yc-yamahelp-login" aria-label="YamaHelp pro Windows"><div class="yc-yamahelp-login-title">YamaHelp pro Windows</div><p class="yc-yamahelp-login-copy">Optimalizace, diagnostika a údržba Windows.</p><div class="yc-yamahelp-login-grid"><a class="yc-yamahelp-login-btn" href="'+yamaHelpDownloads.portable+'" download><strong>YamaHelp Portable</strong><small>Spustitelná verze bez instalace.</small></a><a class="yc-yamahelp-login-btn" href="'+yamaHelpDownloads.installer+'" download><strong>YamaHelp Installer</strong><small>Instalační verze pro Windows.</small></a></div><p class="yc-yamahelp-login-note">Soubory jsou určené pro Windows PC.</p></section>':'';
  html=html.replace(legal,row+yamaHelp+legal);
  return html.replace('</body>',runtime()+'\n</body>');
 }
