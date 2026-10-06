@@ -1633,7 +1633,7 @@ public partial class MainWindow : Window
         _settings.Save();
         UpdateDownloadToolbar();
         if (DownloadPopup.IsOpen) RenderDownloadQuickPopup();
-        if (SidePanel.Visibility == Visibility.Visible && PanelTitle.Text == "Stahování")
+        if (SidePanel.Visibility == Visibility.Visible && PanelTitle.Text.Contains("Stahování", StringComparison.Ordinal))
             ShowDownloadsPanel();
     }
 
@@ -1642,7 +1642,7 @@ public partial class MainWindow : Window
         _settings.Save();
         RefreshFavoriteViews();
         if (HistoryQuickPopup.IsOpen) RenderHistoryQuickPopup();
-        if (SidePanel.Visibility == Visibility.Visible && PanelTitle.Text == "Historie")
+        if (SidePanel.Visibility == Visibility.Visible && PanelTitle.Text.Contains("Historie", StringComparison.Ordinal))
             ShowHistoryPanel();
     }
 
@@ -1677,9 +1677,34 @@ public partial class MainWindow : Window
         PanelColumn.Width = opening ? new GridLength(390) : new GridLength(0);
         if (opening) ShowBookmarksPanel();
     }
-    private void BookmarksPanel_Click(object sender, RoutedEventArgs e) => ShowBookmarksPanel();
-    private void HistoryPanel_Click(object sender, RoutedEventArgs e) => ShowHistoryPanel();
-    private void DownloadsPanel_Click(object sender, RoutedEventArgs e) => ShowDownloadsPanel();
+    private void BookmarksPanel_Click(object sender, RoutedEventArgs e)
+    {
+        ShowBookmarksPanel();
+        ScrollSidePanelToContent();
+    }
+
+    private void HistoryPanel_Click(object sender, RoutedEventArgs e)
+    {
+        ShowHistoryPanel();
+        ScrollSidePanelToContent();
+    }
+
+    private void DownloadsPanel_Click(object sender, RoutedEventArgs e)
+    {
+        ShowDownloadsPanel();
+        ScrollSidePanelToContent();
+    }
+
+    private void ScrollSidePanelToContent()
+    {
+        _ = Dispatcher.BeginInvoke(
+            System.Windows.Threading.DispatcherPriority.Loaded,
+            new Action(() =>
+            {
+                PanelTitle.UpdateLayout();
+                PanelTitle.BringIntoView();
+            }));
+    }
     private void Settings_Click(object sender, RoutedEventArgs e)
     {
         var dialog = new SettingsWindow(_settings, _active?.View.CoreWebView2?.Profile) { Owner = this };
@@ -1905,7 +1930,7 @@ public partial class MainWindow : Window
         {
             Content = "Zobrazit celou historii stahování",
             HorizontalContentAlignment = HorizontalAlignment.Center,
-            Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#182A43")),
+            Style = (Style)FindResource("SideNavButton"),
             Margin = new Thickness(0, 10, 0, 0)
         };
         showAll.Click += ShowAllDownloads_Click;
