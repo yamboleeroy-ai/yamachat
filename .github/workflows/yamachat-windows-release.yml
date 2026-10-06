@@ -1,0 +1,177 @@
+name: Publish Yamachat Windows release
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: yamachat-windows-production-release
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      wns_version: ${{ steps.version.outputs.wns_version }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: version
+        run: |
+          VERSION="$(node -p "require('./desktop/package.json').version")"
+          [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "wns_version=$VERSION.0" >> "$GITHUB_OUTPUT"
+
+  cloudflare-preflight:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify Cloudflare R2 access
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          set -euo pipefail
+          test -n "${CLOUDFLARE_API_TOKEN:-}"
+          test -n "${CLOUDFLARE_ACCOUNT_ID:-}"
+          npx --yes wrangler@latest r2 bucket list >/dev/null
+
+  windows:
+    needs: [prepare, cloudflare-preflight]
+    runs-on: windows-latest
+    timeout-minutes: 75
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Verify source and shared-client checks
+        shell: pwsh
+        run: |
+          git config core.autocrlf false
+          node scripts/build-web.mjs
+          node scripts/check.mjs
+          node scripts/check-legal-baseline.mjs
+          node tests/windows-interaction-notifications.cjs
+          node tests/no-public-github-distribution.cjs
+      - name: Build required Windows native helpers
+        shell: pwsh
+        env:
+          YAMACHAT_WNS_PACKAGE_VERSION: ${{ needs.prepare.outputs.wns_version }}
+        run: |
+          ./scripts/build-windows-process-audio.ps1
+          npm install --no-save --package-lock=false @microsoft/winappcli
+          ./scripts/build-windows-wns.ps1
+      - name: Prepare desktop runtime
+        shell: pwsh
+        run: |
+          Copy-Item -Recurse -Force build desktop/build
+          Copy-Item -Recurse -Force audio desktop/audio
+          Copy-Item boot-guard.js desktop/boot-guard.js
+          if (Test-Path desktop/preview.json) { throw 'Preview configuration must not enter production' }
+      - name: Build installer
+        working-directory: desktop
+        run: |
+          npm ci
+          npm run release:win
+      - name: Verify updater bundle
+        shell: pwsh
+        run: |
+          $version='${{ needs.prepare.outputs.version }}'
+          $appRoot='desktop/dist/win-unpacked/resources/app'
+          foreach ($file in @('main.js','preload.js','updater.js','desktop.html','desktop-client.html')) {
+            if ((Get-FileHash "$appRoot/$file").Hash -ne (Get-FileHash "desktop/$file").Hash) { throw "Packaged source mismatch: $file" }
+          }
+          if ((Get-Content desktop/dist/latest.yml -Raw) -notmatch ("version:\s*" + [regex]::Escape($version) + "(?:\s|$)")) { throw 'Wrong updater version' }
+          foreach ($file in @("Yamachat-Setup-$version.exe","Yamachat-Setup-$version.exe.blockmap",'latest.yml')) {
+            if (-not (Test-Path "desktop/dist/$file")) { throw "Missing release asset: $file" }
+          }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Yamachat-Windows-${{ needs.prepare.outputs.version }}
+          path: |
+            desktop/dist/Yamachat-Setup-${{ needs.prepare.outputs.version }}.exe
+            desktop/dist/Yamachat-Setup-${{ needs.prepare.outputs.version }}.exe.blockmap
+            desktop/dist/latest.yml
+          if-no-files-found: error
+          retention-days: 30
+          compression-level: 0
+
+  publish:
+    needs: [prepare, cloudflare-preflight, windows]
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/download-artifact@v4
+        with:
+          name: Yamachat-Windows-${{ needs.prepare.outputs.version }}
+          path: release-assets
+      - name: Verify built updater assets
+        run: node scripts/verify-windows-release-assets.cjs release-assets
+      - name: Publish assets to Cloudflare R2
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          VERSION: ${{ needs.prepare.outputs.version }}
+        run: |
+          set -euo pipefail
+          W='npx --yes wrangler@latest'
+          $W r2 object put "yamachat-releases/windows/Yamachat-Setup-$VERSION.exe" --file "release-assets/Yamachat-Setup-$VERSION.exe" --content-type application/vnd.microsoft.portable-executable --content-disposition "attachment; filename=Yamachat-Setup-$VERSION.exe" --cache-control 'public, max-age=31536000, immutable' --remote
+          $W r2 object put "yamachat-releases/windows/Yamachat-Setup-$VERSION.exe.blockmap" --file "release-assets/Yamachat-Setup-$VERSION.exe.blockmap" --content-type application/octet-stream --cache-control 'public, max-age=31536000, immutable' --remote
+          $W r2 object put yamachat-releases/windows/latest.yml --file release-assets/latest.yml --content-type text/yaml --cache-control 'no-cache, no-store' --remote
+      - name: Verify public update feed
+        env:
+          VERSION: ${{ needs.prepare.outputs.version }}
+        run: |
+          set -euo pipefail
+          for i in $(seq 1 30); do
+            curl -fsS --max-time 15 https://updates.yamachat.eu/windows/latest.yml | grep -q "version: $VERSION" && break
+            test "$i" != 30 || { echo 'Update feed did not become ready'; exit 1; }
+            sleep 10
+          done
+          curl -fsSI --max-time 20 "https://updates.yamachat.eu/windows/Yamachat-Setup-$VERSION.exe" >/dev/null
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.prepare.outputs.version }}
+        run: |
+          gh release create "v$VERSION" release-assets/* --target "$GITHUB_SHA" --title "Yamachat $VERSION" --generate-notes
+      - name: Publish release metadata to main
+        env:
+          VERSION: ${{ needs.prepare.outputs.version }}
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git fetch origin main
+          git checkout -B publish-main origin/main
+          test "$(node -p "require('./desktop/package.json').version")" = "$VERSION"
+          VERSION="$VERSION" node - <<'NODE'
+          const fs=require('fs');
+          const manifest=JSON.parse(fs.readFileSync('update-manifest.json','utf8'));
+          manifest.windows={...(manifest.windows||{}),latestVersion:process.env.VERSION,required:true,feedUrl:'https://updates.yamachat.eu/windows/',installerUrl:`https://updates.yamachat.eu/windows/Yamachat-Setup-${process.env.VERSION}.exe`};
+          delete manifest.windows.releaseUrl;
+          manifest.publishedAt=new Date().toISOString();
+          fs.writeFileSync('update-manifest.json',JSON.stringify(manifest,null,2)+'\n');
+          NODE
+          node scripts/build-web.mjs
+          node scripts/check.mjs
+          git add update-manifest.json index.html
+          git diff --cached --quiet || git commit -m "Release Yamachat Windows $VERSION [skip ci]"
+          git push origin HEAD:main
