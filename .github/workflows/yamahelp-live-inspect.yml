@@ -1,0 +1,52 @@
+name: Inspect YamaHelp live release
+
+on:
+  push:
+    branches:
+      - preview/yamahelp-full-header-logo
+    paths:
+      - '.github/workflows/yamahelp-live-inspect.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  inspect:
+    runs-on: windows-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Reconstruct source
+        shell: pwsh
+        run: |
+          $partsRoot = Join-Path $env:GITHUB_WORKSPACE 'preview\yamahelp-parts'
+          $srcRoot = Join-Path $env:GITHUB_WORKSPACE 'preview\yamahelp-inspect-src'
+          $srcParts = Get-ChildItem $partsRoot -Filter 'src.*.part' -File | Sort-Object Name
+          $srcB64 = ($srcParts | ForEach-Object { Get-Content $_.FullName -Raw }) -join ''
+          $archive = Join-Path $env:GITHUB_WORKSPACE 'preview\yamahelp-source.tar.gz'
+          [IO.File]::WriteAllBytes($archive, [Convert]::FromBase64String($srcB64))
+          New-Item -ItemType Directory -Path $srcRoot -Force | Out-Null
+          tar -xzf $archive -C $srcRoot
+          Write-Host '--- updater references ---'
+          Get-ChildItem $srcRoot -Recurse -File -Include *.cs,*.xaml,*.ps1,*.iss,*.json | Select-String -Pattern 'latest.json|YamaHelp-Setup|YamaHelp-Portable|updates.yamachat.eu|AppId|AppVersion|DefaultDirName' | Select-Object -First 200 | ForEach-Object { $_.Line }
+
+      - name: Inspect public release
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          Write-Host '--- live latest.json ---'
+          $json = Invoke-RestMethod -Uri 'https://updates.yamachat.eu/yamahelp/latest.json' -TimeoutSec 30
+          $json | ConvertTo-Json -Depth 8
+          Write-Host '--- latest headers ---'
+          foreach($u in @(
+            'https://updates.yamachat.eu/yamahelp/YamaHelp-Portable-latest.zip',
+            'https://updates.yamachat.eu/yamahelp/YamaHelp-Setup-latest.exe'
+          )){
+            Write-Host $u
+            (Invoke-WebRequest -Uri $u -Method Head -TimeoutSec 30).Headers | Format-List
+          }
+          Invoke-WebRequest -Uri 'https://updates.yamachat.eu/yamahelp/YamaHelp-Setup-latest.exe' -OutFile live-setup.exe -TimeoutSec 120
+          $vi=(Get-Item live-setup.exe).VersionInfo
+          Write-Host ('Setup FileVersion=' + $vi.FileVersion)
+          Write-Host ('Setup ProductVersion=' + $vi.ProductVersion)
