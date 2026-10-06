@@ -27,6 +27,12 @@ public partial class MainWindow : Window
     private bool _downloadUiRefreshQueued;
     private readonly Dictionary<CoreWebView2DownloadOperation, DownloadEntry> _activeDownloads = [];
     private readonly List<string> _favoriteOverflow = [];
+    private bool _customMaximized;
+    private bool _videoFullScreen;
+    private bool _wasMaximizedBeforeVideo;
+    private bool _sidePanelWasVisibleBeforeVideo;
+    private Rect _restoreWindowBounds;
+    private Rect _videoRestoreBounds;
     private readonly string _webDataFolder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "YamaSearch", "WebView");
     private readonly HashSet<string> _adHosts = new(StringComparer.OrdinalIgnoreCase)
     { "doubleclick.net", "googlesyndication.com", "google-analytics.com", "adservice.google.com", "connect.facebook.net", "scorecardresearch.com" };
@@ -1604,12 +1610,22 @@ public partial class MainWindow : Window
 
     private void TitleBar_MouseDown(object sender, MouseButtonEventArgs e)
     {
-        if (e.ChangedButton == MouseButton.Left && !IsInteractiveHeaderElement(e.OriginalSource as DependencyObject))
+        if (e.ChangedButton != MouseButton.Left || IsInteractiveHeaderElement(e.OriginalSource as DependencyObject))
+            return;
+
+        if (e.ClickCount == 2)
         {
-            if (e.ClickCount == 2) WindowState = WindowState == WindowState.Maximized ? WindowState.Normal : WindowState.Maximized;
-            else DragMove();
+            ToggleWindowMaximize();
+            e.Handled = true;
+            return;
         }
+
+        if (_customMaximized)
+            RestoreCustomMaximize();
+
+        DragMove();
     }
+
     private static bool IsInteractiveHeaderElement(DependencyObject? source)
     {
         while (source != null)
@@ -1619,28 +1635,133 @@ public partial class MainWindow : Window
         }
         return false;
     }
+
+    private void ToggleWindowMaximize()
+    {
+        if (_videoFullScreen) return;
+        if (_customMaximized) RestoreCustomMaximize();
+        else MaximizeToWorkingArea();
+    }
+
+    private void MaximizeToWorkingArea()
+    {
+        if (!_customMaximized)
+        {
+            _restoreWindowBounds = new Rect(Left, Top, ActualWidth > 0 ? ActualWidth : Width, ActualHeight > 0 ? ActualHeight : Height);
+        }
+
+        WindowState = WindowState.Normal;
+        _customMaximized = true;
+        Topmost = false;
+        ApplyMonitorBounds(useWorkingArea: true);
+    }
+
+    private void RestoreCustomMaximize()
+    {
+        _customMaximized = false;
+        WindowState = WindowState.Normal;
+        Topmost = false;
+
+        if (_restoreWindowBounds.Width > 0 && _restoreWindowBounds.Height > 0)
+        {
+            Left = _restoreWindowBounds.Left;
+            Top = _restoreWindowBounds.Top;
+            Width = _restoreWindowBounds.Width;
+            Height = _restoreWindowBounds.Height;
+        }
+    }
+
     private void SetVideoFullScreen(bool enabled)
     {
+        if (_videoFullScreen == enabled) return;
+
         var rows = ((Grid)Content).RowDefinitions;
         if (enabled)
         {
+            _videoFullScreen = true;
+            _wasMaximizedBeforeVideo = _customMaximized;
+            _sidePanelWasVisibleBeforeVideo = SidePanel.Visibility == Visibility.Visible;
+
+            if (!_customMaximized)
+                _videoRestoreBounds = new Rect(Left, Top, ActualWidth > 0 ? ActualWidth : Width, ActualHeight > 0 ? ActualHeight : Height);
+
+            FavoritesQuickPopup.IsOpen = false;
+            HistoryQuickPopup.IsOpen = false;
+            DownloadPopup.IsOpen = false;
+            FavoritesOverflowPopup.IsOpen = false;
+            SidePanel.Visibility = Visibility.Collapsed;
+            PanelColumn.Width = new GridLength(0);
+
             rows[0].Height = new GridLength(0);
             rows[1].Height = new GridLength(0);
             rows[2].Height = new GridLength(0);
             rows[4].Height = new GridLength(0);
-            WindowState = WindowState.Maximized;
+
+            WindowState = WindowState.Normal;
+            Topmost = true;
+            ApplyMonitorBounds(useWorkingArea: false);
         }
         else
         {
+            _videoFullScreen = false;
+            Topmost = false;
             rows[0].Height = new GridLength(60);
             rows[1].Height = new GridLength(64);
             rows[2].Height = GridLength.Auto;
             rows[4].Height = new GridLength(30);
             FavoritesBar.Visibility = _settings.Data.FavoritesBarVisible ? Visibility.Visible : Visibility.Collapsed;
+
+            if (_sidePanelWasVisibleBeforeVideo)
+            {
+                SidePanel.Visibility = Visibility.Visible;
+                PanelColumn.Width = new GridLength(300);
+            }
+
+            if (_wasMaximizedBeforeVideo)
+            {
+                _customMaximized = false;
+                MaximizeToWorkingArea();
+            }
+            else if (_videoRestoreBounds.Width > 0 && _videoRestoreBounds.Height > 0)
+            {
+                WindowState = WindowState.Normal;
+                Left = _videoRestoreBounds.Left;
+                Top = _videoRestoreBounds.Top;
+                Width = _videoRestoreBounds.Width;
+                Height = _videoRestoreBounds.Height;
+            }
         }
     }
+
+    private void ApplyMonitorBounds(bool useWorkingArea)
+    {
+        var handle = new System.Windows.Interop.WindowInteropHelper(this).Handle;
+        if (handle == IntPtr.Zero) return;
+
+        const uint MonitorDefaultToNearest = 0x00000002;
+        var monitor = MonitorFromWindow(handle, MonitorDefaultToNearest);
+        if (monitor == IntPtr.Zero) return;
+
+        var info = new MonitorInfo { CbSize = Marshal.SizeOf<MonitorInfo>() };
+        if (!GetMonitorInfo(monitor, ref info)) return;
+
+        var rect = useWorkingArea ? info.WorkArea : info.MonitorArea;
+        const uint SwpNoZOrder = 0x0004;
+        const uint SwpNoActivate = 0x0010;
+        const uint SwpFrameChanged = 0x0020;
+
+        SetWindowPos(
+            handle,
+            IntPtr.Zero,
+            rect.Left,
+            rect.Top,
+            rect.Right - rect.Left,
+            rect.Bottom - rect.Top,
+            SwpNoZOrder | SwpNoActivate | SwpFrameChanged);
+    }
+
     private void Minimize_Click(object sender, RoutedEventArgs e) => WindowState = WindowState.Minimized;
-    private void Maximize_Click(object sender, RoutedEventArgs e) => WindowState = WindowState == WindowState.Maximized ? WindowState.Normal : WindowState.Maximized;
+    private void Maximize_Click(object sender, RoutedEventArgs e) => ToggleWindowMaximize();
     private void Close_Click(object sender, RoutedEventArgs e) => Close();
     private void MainWindow_KeyDown(object sender, KeyEventArgs e) { if (Keyboard.Modifiers == ModifierKeys.Control && e.Key == Key.T) { _ = CreateTabAsync(); e.Handled = true; } if (Keyboard.Modifiers == ModifierKeys.Control && e.Key == Key.L) { AddressBox.Focus(); AddressBox.SelectAll(); e.Handled = true; } }
     private void ApplyTheme(string theme)
@@ -1732,6 +1853,17 @@ public partial class MainWindow : Window
     [DllImport("user32.dll", CharSet = CharSet.Auto)]
     [return: MarshalAs(UnmanagedType.Bool)]
     private static extern bool GetMonitorInfo(IntPtr monitor, ref MonitorInfo info);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool SetWindowPos(
+        IntPtr hWnd,
+        IntPtr hWndInsertAfter,
+        int x,
+        int y,
+        int cx,
+        int cy,
+        uint uFlags);
 
     private void SetDarkWindowBorder()
     {
