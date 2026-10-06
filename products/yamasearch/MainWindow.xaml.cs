@@ -761,6 +761,80 @@ public partial class MainWindow : Window
 
         foreach (var url in _settings.Data.Bookmarks.ToList()) PanelList.Items.Add(CreateBookmarkPanelItem(url));
     }
+    private void ShowDownloadsPanel()
+    {
+        PanelTitle.Text = "Stahování";
+        PanelList.Items.Clear();
+
+        if (_settings.Data.Downloads.Count == 0)
+        {
+            PanelList.Items.Add(new TextBlock
+            {
+                Text = "Zatím nebyly staženy žádné soubory.",
+                Foreground = (Brush)FindResource("MutedBrush"),
+                TextWrapping = TextWrapping.Wrap
+            });
+        }
+        else
+        {
+            foreach (var entry in _settings.Data.Downloads.Take(20).ToList())
+                PanelList.Items.Add(CreateDownloadPanelItem(entry));
+        }
+
+        var showAll = new Button
+        {
+            Content = "Zobrazit celou historii stahování",
+            HorizontalContentAlignment = HorizontalAlignment.Center,
+            Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#182A43")),
+            Margin = new Thickness(0, 10, 0, 0)
+        };
+        showAll.Click += ShowAllDownloads_Click;
+        PanelList.Items.Add(showAll);
+    }
+
+    private FrameworkElement CreateDownloadPanelItem(DownloadEntry entry)
+    {
+        var row = new Grid { Margin = new Thickness(0, 2, 0, 2) };
+        row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(28) });
+        row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+
+        row.Children.Add(new TextBlock
+        {
+            Text = entry.State == "Dokončeno" ? "✓" : entry.State == "Přerušeno" ? "!" : "⇩",
+            Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString(entry.State == "Dokončeno" ? "#4ADE80" : entry.State == "Přerušeno" ? "#FCA5A5" : "#54D7F8")),
+            VerticalAlignment = VerticalAlignment.Center,
+            HorizontalAlignment = HorizontalAlignment.Center,
+            FontSize = 16
+        });
+
+        var info = new StackPanel();
+        info.Children.Add(new TextBlock { Text = entry.FileName, Foreground = Brushes.White, TextTrimming = TextTrimming.CharacterEllipsis });
+        var progress = entry.TotalBytes > 0 ? Math.Clamp((double)entry.BytesReceived / entry.TotalBytes, 0, 1) : 0;
+        info.Children.Add(new TextBlock
+        {
+            Text = entry.State == "Probíhá"
+                ? (entry.TotalBytes > 0 ? $"{progress:P0} · {FormatBytes(entry.BytesReceived)} / {FormatBytes(entry.TotalBytes)}" : $"{FormatBytes(entry.BytesReceived)} staženo")
+                : $"{entry.State} · {entry.StartedAt:dd.MM. HH:mm}",
+            Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#91A8C2")),
+            FontSize = 10,
+            Margin = new Thickness(0, 2, 0, 0),
+            TextTrimming = TextTrimming.CharacterEllipsis
+        });
+        Grid.SetColumn(info, 1);
+        row.Children.Add(info);
+
+        var button = new Button
+        {
+            Content = row,
+            ToolTip = entry.FilePath,
+            HorizontalContentAlignment = HorizontalAlignment.Stretch,
+            Padding = new Thickness(8),
+            Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#132238"))
+        };
+        button.Click += (_, _) => { if (entry.State == "Dokončeno") OpenDownloadedFile(entry); };
+        return button;
+    }
+
     private void ShowHistoryPanel()
     {
         PanelTitle.Text = "Historie";
@@ -806,6 +880,16 @@ public partial class MainWindow : Window
 
         foreach (var item in _settings.Data.History.Take(50).ToList())
             PanelList.Items.Add(CreateHistoryPanelItem(item));
+
+        var showAll = new Button
+        {
+            Content = "Zobrazit celou historii",
+            HorizontalContentAlignment = HorizontalAlignment.Center,
+            Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#182A43")),
+            Margin = new Thickness(0, 10, 0, 0)
+        };
+        showAll.Click += ShowAllHistory_Click;
+        PanelList.Items.Add(showAll);
     }
 
     private FrameworkElement CreateHistoryPanelItem(HistoryEntry entry)
@@ -977,6 +1061,7 @@ public partial class MainWindow : Window
         _settings.Data.History.Insert(0, new HistoryEntry { Url = url, Title = title, FaviconUrl = faviconUrl, VisitedAt = DateTimeOffset.Now });
         if (_settings.Data.History.Count > 500) _settings.Data.History.RemoveRange(500, _settings.Data.History.Count - 500);
         _settings.Save();
+        if (HistoryQuickPopup.IsOpen) RenderHistoryQuickPopup();
     }
     private void BlockButton_Click(object sender, RoutedEventArgs e)
     {
