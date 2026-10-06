@@ -1,0 +1,110 @@
+name: Publish YamaSearch for Windows
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Verze ve formátu X.Y.Z'
+        required: true
+        type: string
+      notes:
+        description: 'Poznámky k vydání'
+        required: false
+        default: 'Vydání YamaSearch.'
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: yamasearch-release
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Install Inno Setup
+        shell: pwsh
+        run: choco install innosetup --no-progress -y
+      - name: Build and verify YamaSearch artifacts
+        shell: pwsh
+        env:
+          VERSION: ${{ inputs.version }}
+          NOTES: ${{ inputs.notes }}
+        run: |
+          if ($env:VERSION -notmatch '^\d+\.\d+\.\d+$') { throw 'Version must use X.Y.Z.' }
+          ./products/yamasearch/scripts/verify-release-contract.ps1 -Version $env:VERSION
+          ./products/yamasearch/scripts/build-release.ps1 -Version $env:VERSION -Notes $env:NOTES
+          $dir='products/yamasearch/artifacts'
+          foreach ($file in @("YamaSearch-Portable-$env:VERSION.zip", "YamaSearch-Setup-$env:VERSION.exe", 'latest.json', 'SHA256SUMS.txt')) {
+            if (-not (Test-Path (Join-Path $dir $file))) { throw "Missing release artifact: $file" }
+          }
+          Get-Content (Join-Path $dir 'SHA256SUMS.txt') | ForEach-Object {
+            $parts=$_ -split '\s+',2
+            if ($parts.Count -ne 2 -or -not (Test-Path (Join-Path $dir $parts[1]))) { throw "Invalid checksum entry: $_" }
+            if ((Get-FileHash (Join-Path $dir $parts[1]) -Algorithm SHA256).Hash.ToLowerInvariant() -ne $parts[0]) { throw "Checksum mismatch: $($parts[1])" }
+          }
+          $manifest=Get-Content (Join-Path $dir 'latest.json') -Raw | ConvertFrom-Json
+          if ($manifest.product -ne 'YamaSearch' -or $manifest.version -ne $env:VERSION) { throw 'Invalid YamaSearch manifest.' }
+          if ($manifest.portableUrl -notmatch '^https://updates\.yamachat\.eu/yamasearch/' -or $manifest.installerUrl -notmatch '^https://updates\.yamachat\.eu/yamasearch/') { throw 'Manifest URL escaped the YamaSearch namespace.' }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: yamasearch-windows-${{ inputs.version }}
+          path: products/yamasearch/artifacts/
+          if-no-files-found: error
+          retention-days: 30
+          compression-level: 0
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/download-artifact@v4
+        with:
+          name: yamasearch-windows-${{ inputs.version }}
+          path: release-assets
+      - name: Verify Cloudflare R2 access
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          set -euo pipefail
+          test -n "${CLOUDFLARE_API_TOKEN:-}"
+          test -n "${CLOUDFLARE_ACCOUNT_ID:-}"
+          npx --yes wrangler@latest r2 bucket list | grep -q 'yamachat-releases'
+      - name: Publish isolated YamaSearch artifacts
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          W='npx --yes wrangler@latest'
+          BUCKET='yamachat-releases/yamasearch'
+          $W r2 object put "$BUCKET/YamaSearch-Portable-$VERSION.zip" --file "release-assets/YamaSearch-Portable-$VERSION.zip" --content-type application/zip --content-disposition "attachment; filename=YamaSearch-Portable-$VERSION.zip" --cache-control 'public, max-age=31536000, immutable' --remote
+          $W r2 object put "$BUCKET/YamaSearch-Setup-$VERSION.exe" --file "release-assets/YamaSearch-Setup-$VERSION.exe" --content-type application/vnd.microsoft.portable-executable --content-disposition "attachment; filename=YamaSearch-Setup-$VERSION.exe" --cache-control 'public, max-age=31536000, immutable' --remote
+          $W r2 object put "$BUCKET/YamaSearch-Portable-latest.zip" --file "release-assets/YamaSearch-Portable-$VERSION.zip" --content-type application/zip --content-disposition 'attachment; filename=YamaSearch-Portable-latest.zip' --cache-control 'no-cache' --remote
+          $W r2 object put "$BUCKET/YamaSearch-Setup-latest.exe" --file "release-assets/YamaSearch-Setup-$VERSION.exe" --content-type application/vnd.microsoft.portable-executable --content-disposition 'attachment; filename=YamaSearch-Setup-latest.exe' --cache-control 'no-cache' --remote
+          $W r2 object put "$BUCKET/SHA256SUMS.txt" --file release-assets/SHA256SUMS.txt --content-type text/plain --cache-control 'no-cache' --remote
+          $W r2 object put "$BUCKET/latest.json" --file release-assets/latest.json --content-type application/json --cache-control 'no-cache, no-store' --remote
+      - name: Verify public YamaSearch feed
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          for i in $(seq 1 30); do
+            if curl -fsS --max-time 15 https://updates.yamachat.eu/yamasearch/latest.json | jq -e --arg v "$VERSION" '.product == "YamaSearch" and .version == $v' >/dev/null; then break; fi
+            test "$i" != 30 || { echo 'YamaSearch update feed did not become ready'; exit 1; }
+            sleep 10
+          done
+          curl -fsSI --max-time 20 https://updates.yamachat.eu/yamasearch/YamaSearch-Setup-latest.exe >/dev/null

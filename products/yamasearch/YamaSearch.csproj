@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <Version>0.1.0</Version>
+    <AssemblyVersion>0.1.0.0</AssemblyVersion>
+    <FileVersion>0.1.0.0</FileVersion>
+    <ApplicationIcon>Assets\YamaSearch.ico</ApplicationIcon>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.4258.31" />
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="Assets\YamaSearch-logo.png" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="Assets\YamaSearch-brand.png" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="Assets\YamaSearch-symbol-256.png" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="Assets\YamaSearch-wordmark.png" CopyToOutputDirectory="PreserveNewest" />
+    <Resource Include="Assets\YamaSearch-logo.png" />
+    <Resource Include="Assets\YamaSearch-brand.png" />
+    <Resource Include="Assets\YamaSearch-symbol-64.png" />
+    <Resource Include="Assets\YamaSearch-wordmark.png" />
+    <Resource Include="Assets\YamaSearch.ico" />
+  </ItemGroup>
+</Project>

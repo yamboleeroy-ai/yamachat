@@ -10768,6 +10768,24 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'&&document.querySelec
 window.YamachatPlatformInstall=Object.freeze({open,close,platforms:PLATFORMS});
 })();
 </script>
+<script id="ycYamaSearchLoginDownloads">
+(()=>{
+  const help=document.querySelector('.yc-yamahelp-login[aria-label="YamaHelp pro Windows"]');
+  if(!help||document.querySelector('[aria-label="YamaSearch pro Windows"]'))return;
+  const search=help.cloneNode(true);
+  search.setAttribute('aria-label','YamaSearch pro Windows');
+  search.querySelector('.yc-yamahelp-login-title').textContent='YamaSearch pro Windows';
+  search.querySelector('.yc-yamahelp-login-copy').textContent='Soukromější prohlížení s YamaBlock a YamaShield.';
+  const links=search.querySelectorAll('.yc-yamahelp-login-btn');
+  links[0].href='https://updates.yamachat.eu/yamasearch/YamaSearch-Portable-latest.zip';
+  links[0].querySelector('strong').textContent='YamaSearch Portable';
+  links[0].querySelector('small').textContent='Spustitelná verze bez instalace.';
+  links[1].href='https://updates.yamachat.eu/yamasearch/YamaSearch-Setup-latest.exe';
+  links[1].querySelector('strong').textContent='YamaSearch Installer';
+  links[1].querySelector('small').textContent='Instalační verze pro Windows.';
+  help.insertAdjacentElement('afterend',search);
+})();
+</script>
 </body>
 
 
