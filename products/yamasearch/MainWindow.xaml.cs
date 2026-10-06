@@ -372,10 +372,90 @@ public partial class MainWindow : Window
     }
     private void ShowHistoryPanel()
     {
-        PanelTitle.Text = "Historie"; PanelList.Items.Clear();
-        if (_settings.Data.History.Count == 0) PanelList.Items.Add(new TextBlock { Text = "Historie je zatím prázdná.", Foreground = (Brush)FindResource("MutedBrush") });
-        foreach (var item in _settings.Data.History.Take(50)) PanelList.Items.Add(CreatePanelLink(item.Url, string.IsNullOrWhiteSpace(item.Title) ? item.Url : item.Title));
+        PanelTitle.Text = "Historie";
+        PanelList.Items.Clear();
+
+        if (_settings.Data.History.Count == 0)
+        {
+            PanelList.Items.Add(new TextBlock
+            {
+                Text = "Historie je zatím prázdná.",
+                Foreground = (Brush)FindResource("MutedBrush"),
+                TextWrapping = TextWrapping.Wrap
+            });
+            return;
+        }
+
+        var clearAll = new Button
+        {
+            Content = "🗑  Vymazat celou historii",
+            ToolTip = "Odstraní všechny uložené položky historie",
+            HorizontalContentAlignment = HorizontalAlignment.Left,
+            Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#FFD3DB")),
+            Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#3A202A")),
+            BorderBrush = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#68404D")),
+            BorderThickness = new Thickness(1),
+            Margin = new Thickness(0, 0, 0, 10)
+        };
+        clearAll.Click += (_, _) =>
+        {
+            if (MessageBox.Show(
+                "Opravdu chceš vymazat celou historii YamaSearch?",
+                "Vymazat historii",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Warning) != MessageBoxResult.Yes) return;
+
+            _settings.Data.History.Clear();
+            _settings.Save();
+            StatusText.Text = "Historie byla vymazána";
+            RefreshFavoriteViews();
+            ShowHistoryPanel();
+        };
+        PanelList.Items.Add(clearAll);
+
+        foreach (var item in _settings.Data.History.Take(50).ToList())
+            PanelList.Items.Add(CreateHistoryPanelItem(item));
     }
+
+    private FrameworkElement CreateHistoryPanelItem(HistoryEntry entry)
+    {
+        var row = new Grid { Margin = new Thickness(0, 2, 0, 2) };
+        row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+        var label = string.IsNullOrWhiteSpace(entry.Title) ? entry.Url : entry.Title;
+        var open = new Button
+        {
+            Content = label,
+            ToolTip = entry.Url,
+            HorizontalContentAlignment = HorizontalAlignment.Left,
+            Padding = new Thickness(10, 8, 8, 8)
+        };
+        open.Click += (_, _) => { if (_active != null) _ = NavigateAsync(_active, entry.Url); };
+        row.Children.Add(open);
+
+        var remove = new Button
+        {
+            Content = "×",
+            ToolTip = "Smazat tuto položku z historie",
+            Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#FFB7C5")),
+            Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#35202B")),
+            Padding = new Thickness(9, 7, 9, 7),
+            Margin = new Thickness(5, 0, 0, 0)
+        };
+        Grid.SetColumn(remove, 1);
+        remove.Click += (_, _) =>
+        {
+            _settings.Data.History.Remove(entry);
+            _settings.Save();
+            StatusText.Text = "Položka byla odstraněna z historie";
+            RefreshFavoriteViews();
+            ShowHistoryPanel();
+        };
+        row.Children.Add(remove);
+        return row;
+    }
+
     private FrameworkElement CreateBookmarkPanelItem(string url)
     {
         var row = new Grid { Margin = new Thickness(0, 2, 0, 2) };
