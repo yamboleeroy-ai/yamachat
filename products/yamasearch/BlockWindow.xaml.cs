@@ -33,6 +33,31 @@ public partial class BlockWindow : Window
         YouTubeEnhanced.IsChecked = settings.Data.EnableYouTubeAdBlock;
         CosmeticBlocking.IsChecked = settings.Data.EnableCosmeticBlocking;
         TrackerBlocking.IsChecked = settings.Data.EnableTrackerBlocking;
+        RefreshLog();
+    }
+
+    private void RefreshLog()
+    {
+        var entries = YamaBlockDiagnostics.Snapshot();
+        LogList.Items.Clear();
+
+        var blocked = entries.Count(x => x.Status == "BLOKOVÁNO" || x.Status == "ODSTRANĚNO");
+        var passed = entries.Count(x => x.Status == "PROŠLO");
+        LogSummary.Text = $"{entries.Count} záznamů · {blocked} blokováno/odstraněno · {passed} prošlo";
+
+        foreach (var entry in entries.Take(200))
+        {
+            LogList.Items.Add(
+                $"[{entry.Time:HH:mm:ss}] {entry.Status} · {entry.Category}\n{entry.Detail}");
+        }
+    }
+
+    private void RefreshLog_Click(object sender, RoutedEventArgs e) => RefreshLog();
+
+    private void ClearLog_Click(object sender, RoutedEventArgs e)
+    {
+        YamaBlockDiagnostics.Clear();
+        RefreshLog();
     }
 
     private bool IsWhitelisted(string host)
