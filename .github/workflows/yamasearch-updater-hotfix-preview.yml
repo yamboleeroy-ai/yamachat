@@ -1,0 +1,39 @@
+name: Build YamaSearch Updater Hotfix Preview
+
+on:
+  push:
+    branches:
+      - hotfix/yamasearch-updater-0.2.1
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Restore YamaSearch
+        shell: pwsh
+        run: dotnet restore products/yamasearch/YamaSearch.csproj
+      - name: Publish YamaSearch hotfix preview
+        shell: pwsh
+        run: |
+          $out = 'products/yamasearch/artifacts/updater-hotfix-preview'
+          Remove-Item -LiteralPath $out -Recurse -Force -ErrorAction SilentlyContinue
+          New-Item -ItemType Directory -Path $out -Force | Out-Null
+          dotnet publish products/yamasearch/YamaSearch.csproj -c Release -r win-x64 --self-contained false -p:Version=0.2.1 -p:AssemblyVersion=0.2.1.0 -p:FileVersion=0.2.1.0 -o $out
+          if ($LASTEXITCODE -ne 0) { throw 'YamaSearch updater hotfix publish failed.' }
+          if (-not (Test-Path "$out/YamaSearch.exe")) { throw 'YamaSearch.exe missing.' }
+          Compress-Archive -Path "$out/*" -DestinationPath 'YamaSearch-Updater-Hotfix-Preview.zip' -Force
+      - uses: actions/upload-artifact@v4
+        with:
+          name: YamaSearch-Updater-Hotfix-Preview
+          path: YamaSearch-Updater-Hotfix-Preview.zip
+          if-no-files-found: error
+          retention-days: 7
+          compression-level: 0
