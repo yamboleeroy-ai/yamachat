@@ -1,7 +1,7 @@
 {
   "product": "YamaSearch",
-  "version": "0.2.2",
-  "notes": "Oprava přechodu ze staré/Portable verze: instalátor teď ukončí starý YamaSearch, přepíše instalovanou aplikaci a obnoví zástupce na aktuální verzi. Obsahuje nové UI, historii a stahování.",
+  "version": "0.3.0",
+  "notes": "Nový YamaBlock s nastavením, přehledem blokovaných/propuštěných požadavků a YouTube filtrováním bez blokování hlavního video streamu. Opraven fullscreen videa přes celý monitor, maximalizace bez okrajů, lišta oblíbených, overflow oblíbených, klávesové ovládání návrhů a stabilita oblíbených.",
   "portableUrl": "https://updates.yamachat.eu/yamasearch/YamaSearch-Portable-latest.zip",
   "installerUrl": "https://updates.yamachat.eu/yamasearch/YamaSearch-Setup-latest.exe"
 }
