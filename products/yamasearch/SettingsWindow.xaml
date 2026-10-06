@@ -1,110 +1,93 @@
 <Window x:Class="YamaSearch.SettingsWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Nastavení"
-        Width="620" Height="760" MinWidth="580" MinHeight="680"
+        Title="Nastavení YamaSearch"
+        Width="700" Height="790" MinWidth="640" MinHeight="700"
         WindowStartupLocation="CenterOwner" WindowStyle="None" ResizeMode="CanResize"
-        Background="#0B101A" Foreground="#EAF3FF">
-  <Window.Resources>
-    <Style TargetType="ComboBox">
-      <Setter Property="Foreground" Value="#EAF3FF"/>
-      <Setter Property="Background" Value="#101D30"/>
-      <Setter Property="BorderBrush" Value="#31537D"/>
-      <Setter Property="BorderThickness" Value="1"/>
-      <Setter Property="Padding" Value="10,7"/>
-      <Setter Property="ItemContainerStyle">
-        <Setter.Value>
-          <Style TargetType="ComboBoxItem">
-            <Setter Property="Foreground" Value="#EAF3FF"/>
-            <Setter Property="Background" Value="#101D30"/>
-            <Setter Property="Padding" Value="10,8"/>
-            <Setter Property="Template">
-              <Setter.Value>
-                <ControlTemplate TargetType="ComboBoxItem">
-                  <Border x:Name="itemBorder" Background="{TemplateBinding Background}" Padding="{TemplateBinding Padding}">
-                    <ContentPresenter/>
-                  </Border>
-                  <ControlTemplate.Triggers>
-                    <Trigger Property="IsHighlighted" Value="True"><Setter TargetName="itemBorder" Property="Background" Value="#21496B"/></Trigger>
-                    <Trigger Property="IsSelected" Value="True"><Setter TargetName="itemBorder" Property="Background" Value="#0C566F"/></Trigger>
-                  </ControlTemplate.Triggers>
-                </ControlTemplate>
-              </Setter.Value>
-            </Setter>
-          </Style>
-        </Setter.Value>
-      </Setter>
-    </Style>
-  </Window.Resources>
+        Background="#08111D" Foreground="#EAF3FF"
+        Icon="pack://application:,,,/Assets/YamaSearch.ico">
+  <Border BorderBrush="#174B70" BorderThickness="1" CornerRadius="14" Background="#08111D">
+    <Grid Margin="22">
+      <Grid.RowDefinitions>
+        <RowDefinition Height="Auto"/>
+        <RowDefinition Height="*"/>
+        <RowDefinition Height="Auto"/>
+      </Grid.RowDefinitions>
 
-  <Grid Margin="28">
-    <Grid.RowDefinitions>
-      <RowDefinition Height="Auto"/>
-      <RowDefinition Height="*"/>
-      <RowDefinition Height="Auto"/>
-    </Grid.RowDefinitions>
-
-    <DockPanel>
-      <TextBlock Text="⚙  Nastavení YamaSearch" FontSize="22" Foreground="#23C9F5"/>
-      <Button Content="×" DockPanel.Dock="Right" Click="Close_Click"/>
-    </DockPanel>
-
-    <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Margin="0,22,0,14">
-      <StackPanel>
-        <Border Background="#16243A" CornerRadius="14" Padding="18" Margin="0,0,0,14">
+      <Grid Margin="0,0,0,16">
+        <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+          <Image Source="pack://application:,,,/Assets/YamaSearch-symbol-64.png" Width="42" Height="42" Margin="0,0,12,0"/>
           <StackPanel>
-            <TextBlock Text="Vyhledávání a domovská stránka" FontSize="18" FontWeight="SemiBold"/>
-            <TextBlock Text="Výchozí vyhledávač" Foreground="#B9C9DA" Margin="0,14,0,4"/>
-            <ComboBox x:Name="SearchEngine">
-              <ComboBoxItem Content="Google"/><ComboBoxItem Content="Seznam"/><ComboBoxItem Content="Bing"/>
-              <ComboBoxItem Content="DuckDuckGo"/><ComboBoxItem Content="Brave Search"/><ComboBoxItem Content="Ecosia"/>
-              <ComboBoxItem Content="Yahoo"/><ComboBoxItem Content="Startpage"/>
-            </ComboBox>
-            <TextBlock Text="Domovská stránka" Foreground="#B9C9DA" Margin="0,14,0,4"/>
-            <ComboBox x:Name="HomePage">
-              <ComboBoxItem Content="YamaSearch — nová karta"/><ComboBoxItem Content="Google"/>
-              <ComboBoxItem Content="Seznam"/><ComboBoxItem Content="Vlastní URL"/>
-            </ComboBox>
-            <TextBox x:Name="CustomHome" Text="https://" Margin="0,6,0,0"/>
+            <TextBlock Text="Nastavení YamaSearch" FontSize="22" FontWeight="SemiBold" Foreground="#42D8FF"/>
+            <TextBlock Text="Vzhled, výkon, vyhledávání a přihlašování" Style="{StaticResource YamaSubtleText}" Margin="0,3,0,0"/>
           </StackPanel>
-        </Border>
+        </StackPanel>
+        <Button Grid.Column="1" Content="×" Style="{StaticResource YamaCloseButton}" Click="Close_Click"/>
+      </Grid>
 
-        <Border Background="#16243A" CornerRadius="14" Padding="18" Margin="0,0,0,14">
-          <StackPanel>
-            <TextBlock Text="Výkon" FontSize="18" FontWeight="SemiBold"/>
-            <CheckBox x:Name="HardwareAcceleration" Foreground="#EAF3FF"
-                      Content="Používat hardwarovou akceleraci, když je dostupná"
-                      Margin="0,14,0,6"/>
-            <TextBlock Text="Doporučeno zapnout. WebView2 pak používá GPU pro vykreslování webu a videa. Změna se projeví po restartu YamaSearch."
-                       Foreground="#B9C9DA" TextWrapping="Wrap"/>
-          </StackPanel>
-        </Border>
+      <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+        <ScrollViewer.Resources><Style TargetType="ScrollBar" BasedOn="{StaticResource YamaScrollBar}"/></ScrollViewer.Resources>
+        <StackPanel Margin="0,0,8,0">
 
-        <Border Background="#16243A" CornerRadius="14" Padding="18" Margin="0,0,0,14">
-          <StackPanel>
-            <TextBlock Text="Hesla a přihlašování" FontSize="18" FontWeight="SemiBold"/>
-            <CheckBox x:Name="OfferPasswordSave" Foreground="#EAF3FF"
-                      Content="Nabízet bezpečné ukládání hesel" Margin="0,14,0,7"/>
-            <TextBlock Text="Hesla se nikdy nezobrazují ani nekopírují. Spravuje je bezpečný profil WebView2/Windows."
-                       Foreground="#B9C9DA" TextWrapping="Wrap"/>
-            <Button Content="Smazat všechna uložená hesla" Background="#482433" Foreground="#FFE7EB"
-                    HorizontalAlignment="Left" Margin="0,14,0,0" Click="DeletePasswords_Click"/>
-          </StackPanel>
-        </Border>
+          <Border Style="{StaticResource YamaDialogCard}">
+            <StackPanel>
+              <TextBlock Text="Vyhledávání a domovská stránka" Style="{StaticResource YamaSectionTitle}"/>
+              <TextBlock Text="Výchozí vyhledávač" Style="{StaticResource YamaSubtleText}" Margin="0,14,0,5"/>
+              <ComboBox x:Name="SearchEngine" Style="{StaticResource YamaComboBox}" Height="42">
+                <ComboBoxItem Content="Google"/><ComboBoxItem Content="Seznam"/><ComboBoxItem Content="Bing"/>
+                <ComboBoxItem Content="DuckDuckGo"/><ComboBoxItem Content="Brave Search"/><ComboBoxItem Content="Ecosia"/>
+                <ComboBoxItem Content="Yahoo"/><ComboBoxItem Content="Startpage"/>
+              </ComboBox>
 
-        <Border Background="#16243A" CornerRadius="14" Padding="18">
-          <StackPanel>
-            <TextBlock Text="Další nástroje" FontSize="18" FontWeight="SemiBold"/>
-            <TextBlock Text="Nová karta, nové okno, tisk, hledání na stránce a vytvoření aplikace z aktuálního webu jsou dostupné v hlavním menu YamaSearch."
-                       Foreground="#B9C9DA" TextWrapping="Wrap" Margin="0,10,0,0"/>
-          </StackPanel>
-        </Border>
-      </StackPanel>
-    </ScrollViewer>
+              <TextBlock Text="Domovská stránka" Style="{StaticResource YamaSubtleText}" Margin="0,14,0,5"/>
+              <ComboBox x:Name="HomePage" Style="{StaticResource YamaComboBox}" Height="42">
+                <ComboBoxItem Content="YamaSearch — nová karta"/><ComboBoxItem Content="Google"/>
+                <ComboBoxItem Content="Seznam"/><ComboBoxItem Content="Vlastní URL"/>
+              </ComboBox>
+              <TextBox x:Name="CustomHome" Text="https://" Style="{StaticResource YamaTextBox}" Margin="0,8,0,0"/>
+            </StackPanel>
+          </Border>
 
-    <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right">
-      <Button Content="Zrušit" Click="Close_Click" Margin="0,0,8,0"/>
-      <Button Content="Uložit" Background="#087EAA" Click="Save_Click"/>
-    </StackPanel>
-  </Grid>
+          <Border Style="{StaticResource YamaDialogCard}">
+            <StackPanel>
+              <TextBlock Text="Výkon" Style="{StaticResource YamaSectionTitle}"/>
+              <CheckBox x:Name="HardwareAcceleration" Style="{StaticResource YamaCheckBox}"
+                        Content="Používat hardwarovou akceleraci, když je dostupná"
+                        Margin="0,14,0,8"/>
+              <TextBlock Text="Doporučeno zapnout. WebView2 pak používá GPU pro vykreslování webu a videa. Změna se projeví po restartu YamaSearch."
+                         Style="{StaticResource YamaSubtleText}"/>
+            </StackPanel>
+          </Border>
+
+          <Border Style="{StaticResource YamaDialogCard}">
+            <StackPanel>
+              <TextBlock Text="Hesla a přihlašování" Style="{StaticResource YamaSectionTitle}"/>
+              <CheckBox x:Name="OfferPasswordSave" Style="{StaticResource YamaCheckBox}"
+                        Content="Nabízet bezpečné ukládání hesel" Margin="0,14,0,8"/>
+              <TextBlock Text="Hesla se nikdy nezobrazují ani nekopírují. Spravuje je bezpečný profil WebView2/Windows."
+                         Style="{StaticResource YamaSubtleText}"/>
+              <Button Content="Smazat všechna uložená hesla" Style="{StaticResource YamaDangerButton}"
+                      HorizontalAlignment="Left" Margin="0,14,0,0" Click="DeletePasswords_Click"/>
+            </StackPanel>
+          </Border>
+
+          <Border Style="{StaticResource YamaDialogCard}">
+            <StackPanel>
+              <TextBlock Text="Další nástroje" Style="{StaticResource YamaSectionTitle}"/>
+              <TextBlock Text="Nová karta, nové okno, tisk, hledání na stránce a vytvoření aplikace z aktuálního webu najdeš v hlavním menu YamaSearch."
+                         Style="{StaticResource YamaSubtleText}" Margin="0,10,0,0"/>
+            </StackPanel>
+          </Border>
+        </StackPanel>
+      </ScrollViewer>
+
+      <Grid Grid.Row="2" Margin="0,14,0,0">
+        <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+        <TextBlock Text="Některé změny mohou vyžadovat restart." Style="{StaticResource YamaSubtleText}" VerticalAlignment="Center"/>
+        <Button Grid.Column="1" Content="Zrušit" Style="{StaticResource YamaSecondaryButton}" Click="Close_Click" Margin="0,0,8,0"/>
+        <Button Grid.Column="2" Content="Uložit" Style="{StaticResource YamaPrimaryButton}" Click="Save_Click"/>
+      </Grid>
+    </Grid>
+  </Border>
 </Window>
