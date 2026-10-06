@@ -50,11 +50,6 @@ public partial class MainWindow : Window
         "/analytics", "/tracker", "/tracking", "/telemetry", "/pixel", "/beacon",
         "collect?v=", "event.gif", "imp.gif"
     ];
-    private static readonly string[] YouTubeAdTokens =
-    [
-        "/pagead/", "/api/stats/ads", "/ptracking", "/get_midroll_info",
-        "adformat=", "ad_type=", "adunit=", "googleads"
-    ];
 
     public MainWindow()
     {
@@ -379,13 +374,16 @@ public partial class MainWindow : Window
         var strictUrlMatch = _settings.Data.BlockMode == BlockMode.Strict
             && StrictUrlTokens.Any(token => uri.PathAndQuery.Contains(token, StringComparison.OrdinalIgnoreCase));
 
-        var youtubeAdRequest = _settings.Data.EnableYouTubeAdBlock
+        // Do not block YouTube's own first-party playback/stat endpoints. Those can be
+        // required by the player and blocking them causes retries, flicker and delayed playback.
+        // YouTube ad handling is kept to known third-party ad hosts plus cosmetic/skip rules.
+        var youtubeThirdPartyAd = _settings.Data.EnableYouTubeAdBlock
             && IsYouTubeHost(pageHost)
-            && (YouTubeAdTokens.Any(token => uri.PathAndQuery.Contains(token, StringComparison.OrdinalIgnoreCase))
-                || uri.Host.Equals("googleads.g.doubleclick.net", StringComparison.OrdinalIgnoreCase)
-                || uri.Host.Equals("static.doubleclick.net", StringComparison.OrdinalIgnoreCase));
+            && (uri.Host.Equals("googleads.g.doubleclick.net", StringComparison.OrdinalIgnoreCase)
+                || uri.Host.Equals("static.doubleclick.net", StringComparison.OrdinalIgnoreCase)
+                || uri.Host.EndsWith(".googlesyndication.com", StringComparison.OrdinalIgnoreCase));
 
-        if (!hostIsAd && !hostIsTracker && !strictUrlMatch && !youtubeAdRequest)
+        if (!hostIsAd && !hostIsTracker && !strictUrlMatch && !youtubeThirdPartyAd)
             return;
 
         e.Response = tab.View.CoreWebView2.Environment.CreateWebResourceResponse(
@@ -462,14 +460,58 @@ public partial class MainWindow : Window
 
           let config = { enabled: false, youtube: false, cosmetic: false, strict: false };
           let scheduled = false;
+          let timer = 0;
 
-          const hide = (node) => {
-            if (!(node instanceof HTMLElement)) return;
-            node.style.setProperty('display', 'none', 'important');
-            node.style.setProperty('visibility', 'hidden', 'important');
+          const styleId = 'yamablock-cosmetic-style';
+
+          const ensureStyle = () => {
+            let style = document.getElementById(styleId);
+            if (!config.enabled || (!config.cosmetic && !config.youtube)) {
+              if (style) style.remove();
+              return;
+            }
+
+            if (!style) {
+              style = document.createElement('style');
+              style.id = styleId;
+              (document.head || document.documentElement).appendChild(style);
+            }
+
+            const rules = [];
+            if (config.cosmetic) {
+              rules.push(
+                'ins.adsbygoogle',
+                '[id^="google_ads_"]',
+                'iframe[src*="doubleclick.net"]',
+                'iframe[src*="googlesyndication.com"]',
+                '[data-ad-client]'
+              );
+            }
+
+            if (config.youtube && location.hostname.endsWith('youtube.com')) {
+              // Keep the actual video/ad playback containers intact. Removing .video-ads,
+              // .ytp-ad-module or manipulating the <video> element makes YouTube retry
+              // playback and causes the visible flicker/delay we want to avoid.
+              rules.push(
+                '#player-ads',
+                '.ytp-ad-overlay-container',
+                '.ytp-ad-text-overlay',
+                'ytd-display-ad-renderer',
+                'ytd-ad-slot-renderer',
+                'ytd-promoted-sparkles-web-renderer',
+                'ytd-promoted-video-renderer',
+                'ytd-companion-slot-renderer',
+                'ytd-in-feed-ad-layout-renderer'
+              );
+            }
+
+            style.textContent = rules.length
+              ? rules.join(',') + '{display:none!important;visibility:hidden!important;}'
+              : '';
           };
 
           const clickSkip = () => {
+            if (!config.enabled || !config.youtube || !location.hostname.endsWith('youtube.com')) return false;
             const selectors = [
               '.ytp-skip-ad-button',
               '.ytp-ad-skip-button',
@@ -478,76 +520,25 @@ public partial class MainWindow : Window
             ];
             for (const selector of selectors) {
               const button = document.querySelector(selector);
-              if (button instanceof HTMLElement) {
-                button.click();
+              if (button instanceof HTMLElement && button.offsetParent !== null) {
+                try { button.click(); } catch {}
                 return true;
               }
             }
             return false;
           };
 
-          const cleanGeneral = () => {
-            if (!config.cosmetic) return;
-            const selectors = [
-              'ins.adsbygoogle',
-              '[id^="google_ads_"]',
-              'iframe[src*="doubleclick.net"]',
-              'iframe[src*="googlesyndication.com"]',
-              '[data-ad-client]'
-            ];
-            for (const selector of selectors) {
-              document.querySelectorAll(selector).forEach(hide);
-            }
-          };
-
-          const cleanYouTube = () => {
-            if (!config.youtube || !location.hostname.endsWith('youtube.com')) return;
-
-            const selectors = [
-              '#player-ads',
-              '.video-ads',
-              '.ytp-ad-module',
-              '.ytp-ad-overlay-container',
-              '.ytp-ad-text-overlay',
-              'ytd-display-ad-renderer',
-              'ytd-ad-slot-renderer',
-              'ytd-promoted-sparkles-web-renderer',
-              'ytd-promoted-video-renderer',
-              'ytd-companion-slot-renderer',
-              'ytd-in-feed-ad-layout-renderer'
-            ];
-
-            for (const selector of selectors) {
-              document.querySelectorAll(selector).forEach(hide);
-            }
-
-            clickSkip();
-
-            if (config.strict) {
-              const player = document.querySelector('.html5-video-player.ad-showing');
-              const video = player?.querySelector('video');
-              if (video instanceof HTMLVideoElement
-                  && Number.isFinite(video.duration)
-                  && video.duration > 0.25
-                  && video.currentTime < video.duration - 0.1) {
-                try {
-                  video.currentTime = Math.max(video.currentTime, video.duration - 0.05);
-                } catch {}
-              }
-            }
-          };
-
-          const clean = () => {
+          const run = () => {
             scheduled = false;
-            if (!config.enabled) return;
-            cleanGeneral();
-            cleanYouTube();
+            ensureStyle();
+            clickSkip();
           };
 
           const schedule = () => {
             if (scheduled) return;
             scheduled = true;
-            requestAnimationFrame(clean);
+            clearTimeout(timer);
+            timer = setTimeout(run, 120);
           };
 
           const observer = new MutationObserver(schedule);
@@ -555,9 +546,7 @@ public partial class MainWindow : Window
             if (document.documentElement) {
               observer.observe(document.documentElement, {
                 childList: true,
-                subtree: true,
-                attributes: true,
-                attributeFilter: ['class', 'style']
+                subtree: true
               });
             }
             schedule();
@@ -575,9 +564,10 @@ public partial class MainWindow : Window
             schedule();
           };
 
+          // Low-frequency fallback for skip buttons that appear without a useful DOM mutation.
           setInterval(() => {
-            if (config.enabled) schedule();
-          }, 1500);
+            if (config.enabled && config.youtube) clickSkip();
+          }, 2500);
         })();
         """;
     private async Task NavigateAsync(BrowserTab tab, string raw)
