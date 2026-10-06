@@ -178,6 +178,11 @@ html=withPlatformInstallUi(html);
 html=withDeadCodeCleanup(html);
 html=withVoiceHotPathCleanup(html);
  html=withEgressHardening(html);
+// YamaHelp is inserted by the desktop source at DOMContentLoaded. Add the
+// YamaSearch download card in the generated client after that callback so both
+// products share the exact same login-card styling and layout.
+const yamaSearchLoginDownloads=`<script id="ycYamaSearchLoginDownloads">(()=>{const add=()=>{const legal=document.querySelector('.yc-auth-legal-links');if(!legal||document.querySelector('.yc-yamasearch-login'))return;legal.insertAdjacentHTML('beforebegin','<section class="yc-yamahelp-login yc-yamasearch-login" aria-label="YamaSearch pro Windows"><div class="yc-yamahelp-login-title">YamaSearch pro Windows</div><p class="yc-yamahelp-login-copy">Soukromější prohlížení s YamaBlock a YamaShield.</p><div class="yc-yamahelp-login-grid"><a class="yc-yamahelp-login-btn" href="https://updates.yamachat.eu/yamasearch/YamaSearch-Portable-latest.zip" download><strong>YamaSearch Portable</strong><small>Spustitelná verze bez instalace.</small></a><a class="yc-yamahelp-login-btn" href="https://updates.yamachat.eu/yamasearch/YamaSearch-Setup-latest.exe" download><strong>YamaSearch Installer</strong><small>Instalační verze pro Windows.</small></a></div><p class="yc-yamahelp-login-note">Soubory jsou určené pro Windows PC.</p></section>')};document.readyState==='loading'?document.addEventListener('DOMContentLoaded',add,{once:true}):add()})();</script>`;
+if(!html.includes('ycYamaSearchLoginDownloads')) html=html.replace('</body>',yamaSearchLoginDownloads+'\n</body>');
 fs.writeFileSync(path.join(root,'index.html'),html);
 console.log('Web generated from verified desktop 1.0.78 reference; desktop files were not modified.');
 
