@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - preview/yamahelp-full-header-logo
+    paths:
+      - 'preview/yamahelp-trigger.txt'
+      - '.github/workflows/yamahelp-branding-preview.yml'
   workflow_dispatch:
 
 permissions:
@@ -20,39 +23,75 @@ jobs:
         with:
           dotnet-version: 10.0.x
 
-      - name: Materialize YamaHelp source
+      - name: Reconstruct YamaHelp source
         shell: pwsh
-        env:
-          GH_TOKEN: ${{ github.token }}
         run: |
-          New-Item -ItemType Directory -Path preview -Force | Out-Null
-          gh api repos/yamboleeroy-ai/yamachat/git/blobs/556d1676e60f29cd15969008b5f2267f0c2ecda2 --jq .content | Set-Content -Path preview/yamahelp-build-source.b64 -Encoding ascii
+          $root = Join-Path $env:GITHUB_WORKSPACE 'preview\yamahelp-src\desktop'
+          $parts = Join-Path $env:GITHUB_WORKSPACE 'preview\yamahelp-parts'
+          New-Item -ItemType Directory -Path $root -Force | Out-Null
+          $utf8 = New-Object System.Text.UTF8Encoding($false)
+
+          foreach ($name in @('MainWindow.xaml.cs','RuntimeUpdateCards.cs','RepairPage.cs')) {
+            $pieces = Get-ChildItem -Path $parts -Filter ($name + '.*.part') -File | Sort-Object Name
+            if (-not $pieces) { throw "Missing source parts for $name" }
+            $text = ($pieces | ForEach-Object { [IO.File]::ReadAllText($_.FullName) }) -join ''
+            [IO.File]::WriteAllText((Join-Path $root $name), $text, $utf8)
+          }
+
+          foreach ($asset in @('yamahelp-logo.png','yamahelp-icon.png')) {
+            $pieces = Get-ChildItem -Path $parts -Filter ($asset + '.*.b64part') -File | Sort-Object Name
+            if (-not $pieces) { throw "Missing asset parts for $asset" }
+            $b64 = ($pieces | ForEach-Object { [IO.File]::ReadAllText($_.FullName) }) -join ''
+            [IO.File]::WriteAllBytes((Join-Path $root $asset), [Convert]::FromBase64String($b64))
+          }
+
+          Add-Type -AssemblyName System.Drawing
+          $src = [System.Drawing.Image]::FromFile((Join-Path $root 'yamahelp-icon.png'))
+          $bmp = New-Object System.Drawing.Bitmap 256,256
+          $gfx = [System.Drawing.Graphics]::FromImage($bmp)
+          $gfx.Clear([System.Drawing.Color]::Transparent)
+          $gfx.DrawImage($src, 0, 0, 256, 256)
+          $png256 = Join-Path $root 'yamahelp-icon-256.png'
+          $bmp.Save($png256, [System.Drawing.Imaging.ImageFormat]::Png)
+          $gfx.Dispose(); $bmp.Dispose(); $src.Dispose()
+
           @'
-          import base64
+          import struct
           from pathlib import Path
-          src = Path("preview/yamahelp-build-source.b64").read_text(encoding="ascii")
-          data = base64.b64decode("".join(src.split()))
-          Path("preview/yamahelp-build-source.zip").write_bytes(data)
-          print("source zip bytes:", len(data))
+          root = Path(r"preview/yamahelp-src/desktop")
+          png = (root / "yamahelp-icon-256.png").read_bytes()
+          hdr = struct.pack("<HHH", 0, 1, 1)
+          ent = struct.pack("<BBBBHHII", 0, 0, 0, 0, 1, 32, len(png), 22)
+          (root / "yamahelp-icon.ico").write_bytes(hdr + ent + png)
           '@ | python -
-          New-Item -ItemType Directory -Path preview/yamahelp-src -Force | Out-Null
-          Expand-Archive preview/yamahelp-build-source.zip preview/yamahelp-src -Force
 
       - name: Publish Windows preview
         shell: pwsh
         run: |
           dotnet publish preview/yamahelp-src/desktop/YamaHelp.Desktop.csproj -c Release -r win-x64 --self-contained false -o preview/yamahelp-out
 
+      - name: Restore optional runtime extras
+        shell: pwsh
+        continue-on-error: true
+        run: |
+          $zip = Join-Path $env:RUNNER_TEMP 'current-yamahelp.zip'
+          $dir = Join-Path $env:RUNNER_TEMP 'current-yamahelp'
+          Invoke-WebRequest 'https://updates.yamachat.eu/yamahelp/YamaHelp-Portable-latest.zip' -OutFile $zip
+          Expand-Archive $zip $dir -Force
+          foreach ($name in @('CoreTemp.exe','CoreTemp.ini','CoreTemp-License.txt','yamachat-logo.png')) {
+            $f = Get-ChildItem $dir -Recurse -File -Filter $name | Select-Object -First 1
+            if ($f) { Copy-Item $f.FullName (Join-Path 'preview/yamahelp-out' $name) -Force }
+          }
+
       - name: Verify preview
         shell: pwsh
         run: |
-          $required = @(
+          foreach ($file in @(
             'preview/yamahelp-out/YamaHelp.Desktop.exe',
             'preview/yamahelp-out/YamaHelp.Desktop.dll',
             'preview/yamahelp-out/yamahelp-logo.png',
             'preview/yamahelp-out/yamahelp-icon.png'
-          )
-          foreach ($file in $required) {
+          )) {
             if (-not (Test-Path $file)) { throw "Missing build output: $file" }
           }
 
