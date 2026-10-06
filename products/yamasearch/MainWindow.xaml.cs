@@ -1764,13 +1764,25 @@ public partial class MainWindow : Window
         _settings.Save();
         if (HistoryQuickPopup.IsOpen) RenderHistoryQuickPopup();
     }
-    private void BlockButton_Click(object sender, RoutedEventArgs e)
+    private async void BlockButton_Click(object sender, RoutedEventArgs e)
     {
-        var next = _settings.Data.BlockMode switch { BlockMode.Standard => BlockMode.Strict, BlockMode.Strict => BlockMode.Off, _ => BlockMode.Standard };
-        _settings.Data.BlockMode = next;
+        var page = _active?.View.CoreWebView2?.Source;
+        var dialog = new BlockWindow(_settings, page) { Owner = this };
+        if (dialog.ShowDialog() != true) return;
+
         _settings.Save();
         UpdateBlockButton();
-        StatusText.Text = $"YamaBlock: {next.ToLabel()} (uloženo pro příští spuštění)";
+        await ApplyYamaBlockToAllTabsAsync();
+
+        if (_active != null)
+        {
+            var host = GetPageHost(_active);
+            BlockedText.Text = !string.IsNullOrWhiteSpace(host) && IsWhitelisted(host)
+                ? "YamaBlock · výjimka pro tento web"
+                : $"YamaBlock · {_active.BlockedCount} blokováno";
+        }
+
+        StatusText.Text = $"YamaBlock: {_settings.Data.BlockMode.ToLabel()}";
     }
 
     private void UpdateShieldButton()
@@ -1796,7 +1808,7 @@ public partial class MainWindow : Window
     private void UpdateBlockButton()
     {
         var mode = _settings.Data.BlockMode;
-        BlockButton.ToolTip = $"YamaBlock · {mode.ToLabel()} — kliknutím přepneš režim";
+        BlockButton.ToolTip = $"YamaBlock · {mode.ToLabel()} — kliknutím otevřeš nastavení";
         BlockButton.Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString(mode switch
         {
             BlockMode.Strict => "#3B2811",
@@ -2241,7 +2253,7 @@ public static class UrlTools
         var query = Uri.EscapeDataString(input); return engine switch { "Google" => "https://www.google.com/search?q=" + query, "Bing" => "https://www.bing.com/search?q=" + query, "Seznam" => "https://search.seznam.cz/?q=" + query, "Brave Search" => "https://search.brave.com/search?q=" + query, "Ecosia" => "https://www.ecosia.org/search?q=" + query, "Yahoo" => "https://search.yahoo.com/search?p=" + query, "Startpage" => "https://www.startpage.com/sp/search?query=" + query, _ => "https://duckduckgo.com/?q=" + query };
     }
 }
-public sealed class AppData { public string Theme { get; set; } = "dark"; public string HomePage { get; set; } = "yamasearch://newtab"; public string SearchEngine { get; set; } = "DuckDuckGo"; public string CustomSearchEndpoint { get; set; } = ""; public bool OnboardingCompleted { get; set; } = false; public bool FavoritesBarVisible { get; set; } = false; public BlockMode BlockMode { get; set; } = BlockMode.Standard; public SecurityLevel SecurityLevel { get; set; } = SecurityLevel.Recommended; public bool EnableSmartScreen { get; set; } = true; public bool OfferPasswordSave { get; set; } = true; public List<string> Whitelist { get; set; } = []; public List<string> Bookmarks { get; set; } = []; public List<HistoryEntry> History { get; set; } = []; public List<DownloadEntry> Downloads { get; set; } = []; }
+public sealed class AppData { public string Theme { get; set; } = "dark"; public string HomePage { get; set; } = "yamasearch://newtab"; public string SearchEngine { get; set; } = "DuckDuckGo"; public string CustomSearchEndpoint { get; set; } = ""; public bool OnboardingCompleted { get; set; } = false; public bool FavoritesBarVisible { get; set; } = false; public BlockMode BlockMode { get; set; } = BlockMode.Standard; public bool EnableYouTubeAdBlock { get; set; } = true; public bool EnableCosmeticBlocking { get; set; } = true; public bool EnableTrackerBlocking { get; set; } = true; public SecurityLevel SecurityLevel { get; set; } = SecurityLevel.Recommended; public bool EnableSmartScreen { get; set; } = true; public bool OfferPasswordSave { get; set; } = true; public List<string> Whitelist { get; set; } = []; public List<string> Bookmarks { get; set; } = []; public List<HistoryEntry> History { get; set; } = []; public List<DownloadEntry> Downloads { get; set; } = []; }
 public sealed class HistoryEntry { public string Url { get; set; } = ""; public string Title { get; set; } = ""; public string FaviconUrl { get; set; } = ""; public DateTimeOffset VisitedAt { get; set; } }
 public sealed class DownloadEntry
 {
