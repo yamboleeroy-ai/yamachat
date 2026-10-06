@@ -23,6 +23,8 @@ public partial class MainWindow : Window
     private BrowserTab? _active;
     private System.Windows.Controls.Primitives.Popup? _tabActionsPopup;
     private bool _suppressSuggestions;
+    private bool _downloadUiRefreshQueued;
+    private readonly Dictionary<CoreWebView2DownloadOperation, DownloadEntry> _activeDownloads = [];
     private readonly string _webDataFolder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "YamaSearch", "WebView");
     private readonly HashSet<string> _adHosts = new(StringComparer.OrdinalIgnoreCase)
     { "doubleclick.net", "googlesyndication.com", "google-analytics.com", "adservice.google.com", "connect.facebook.net", "scorecardresearch.com" };
@@ -39,6 +41,7 @@ public partial class MainWindow : Window
         ApplyTheme("dark");
         UpdateShieldButton();
         UpdateBlockButton();
+        UpdateDownloadToolbar();
         KeyDown += MainWindow_KeyDown;
     }
 
@@ -125,7 +128,7 @@ public partial class MainWindow : Window
         core.SourceChanged += (_, _) => { UpdateTabTitle(tab); if (_active == tab) SetAddressText(tab.IsYamaNewTab ? "YamaSearch — nová karta" : core.Source); };
         core.PermissionRequested += (_, e) => HandlePermissionRequest(e);
         core.NewWindowRequested += async (_, e) => { e.Handled = true; await CreateTabAsync(e.Uri); };
-        core.DownloadStarting += (_, e) => { StatusText.Text = $"Stahování: {e.DownloadOperation.ResultFilePath}"; };
+        core.DownloadStarting += (_, e) => HandleDownloadStarting(e);
     }
     private async Task<CoreWebView2Environment> CreateWebViewEnvironmentAsync()
     {
