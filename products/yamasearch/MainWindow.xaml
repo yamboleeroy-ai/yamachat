@@ -148,7 +148,25 @@
     <Border Grid.Column="1" Grid.RowSpan="5" x:Name="SidePanel" Background="#101A29" BorderBrush="#294465" BorderThickness="1,0,0,0" Visibility="Collapsed">
       <Grid Margin="18"><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
         <DockPanel><Image Source="pack://application:,,,/Assets/YamaSearch-brand.png" Width="220" Height="64" Stretch="Uniform" HorizontalAlignment="Left"/><Button Content="×" DockPanel.Dock="Right" Click="Menu_Click"/></DockPanel>
-        <StackPanel Grid.Row="1" Margin="0,24,0,14"><TextBlock Text="KNIHOVNA" Foreground="#7794B5" FontSize="11" FontWeight="SemiBold" Margin="9,0,0,6"/><Button Content="◈  YamaShield" Background="#182A43" HorizontalContentAlignment="Left" Click="ShieldButton_Click" Margin="0,2"/><Button Content="☆  Oblíbené" Background="#182A43" HorizontalContentAlignment="Left" Click="BookmarksPanel_Click" Margin="0,2"/><Button Content="◷  Historie" Background="#182A43" HorizontalContentAlignment="Left" Click="HistoryPanel_Click" Margin="0,2"/><Separator Margin="4,10" Background="#294465"/><TextBlock Text="DALŠÍ" Foreground="#7794B5" FontSize="11" FontWeight="SemiBold" Margin="9,0,0,6"/><Button Content="⇩  Stahování" HorizontalContentAlignment="Left" Click="DownloadsPanel_Click"/><Button Content="⚙  Nastavení" HorizontalContentAlignment="Left" Click="Settings_Click"/></StackPanel>
+        <ScrollViewer Grid.Row="1" Margin="0,18,0,14" VerticalScrollBarVisibility="Auto" MaxHeight="430">
+          <StackPanel>
+            <TextBlock Text="PROHLÍŽEČ" Foreground="#7794B5" FontSize="11" FontWeight="SemiBold" Margin="9,0,0,6"/>
+            <Button Content="＋  Nová karta            Ctrl+T" HorizontalContentAlignment="Left" Click="NewTab_Click" Margin="0,2"/>
+            <Button Content="▣  Nové okno             Ctrl+N" HorizontalContentAlignment="Left" Click="NewWindow_Click" Margin="0,2"/>
+            <Button Content="⌕  Najít na stránce       Ctrl+F" HorizontalContentAlignment="Left" Click="FindOnPage_Click" Margin="0,2"/>
+            <Button Content="▤  Tisk                    Ctrl+P" HorizontalContentAlignment="Left" Click="PrintPage_Click" Margin="0,2"/>
+            <Separator Margin="4,10" Background="#294465"/>
+            <TextBlock Text="DALŠÍ NÁSTROJE" Foreground="#7794B5" FontSize="11" FontWeight="SemiBold" Margin="9,0,0,6"/>
+            <Button Content="▣  Vytvořit aplikaci této stránky" HorizontalContentAlignment="Left" Click="CreateSiteApp_Click" Margin="0,2"/>
+            <Button Content="⇩  Stahování" HorizontalContentAlignment="Left" Click="DownloadsPanel_Click" Margin="0,2"/>
+            <Button Content="⚙  Nastavení" HorizontalContentAlignment="Left" Click="Settings_Click" Margin="0,2"/>
+            <Separator Margin="4,10" Background="#294465"/>
+            <TextBlock Text="KNIHOVNA" Foreground="#7794B5" FontSize="11" FontWeight="SemiBold" Margin="9,0,0,6"/>
+            <Button Content="◈  YamaShield" Background="#182A43" HorizontalContentAlignment="Left" Click="ShieldButton_Click" Margin="0,2"/>
+            <Button Content="☆  Oblíbené" Background="#182A43" HorizontalContentAlignment="Left" Click="BookmarksPanel_Click" Margin="0,2"/>
+            <Button Content="◷  Historie" Background="#182A43" HorizontalContentAlignment="Left" Click="HistoryPanel_Click" Margin="0,2"/>
+          </StackPanel>
+        </ScrollViewer>
         <ScrollViewer Grid.Row="2"><ScrollViewer.Resources><Style TargetType="ScrollBar"><Setter Property="Width" Value="10"/><Setter Property="Background" Value="#101A29"/><Setter Property="Template"><Setter.Value><ControlTemplate TargetType="ScrollBar"><Border Background="{TemplateBinding Background}" CornerRadius="5" Margin="2"><Track x:Name="PART_Track"><Track.Thumb><Thumb Background="#365272" BorderBrush="#4F7197" BorderThickness="1"/></Track.Thumb></Track></Border></ControlTemplate></Setter.Value></Setter></Style></ScrollViewer.Resources><StackPanel><TextBlock x:Name="PanelTitle" Foreground="#EAF3FF" FontWeight="SemiBold" FontSize="16"/><ItemsControl x:Name="PanelList" Margin="0,10,0,0"/></StackPanel></ScrollViewer>
         <TextBlock Grid.Row="3" Text="Další funkce se budou přidávat sem." Foreground="#8FA4BE" TextWrapping="Wrap"/>
       </Grid>
