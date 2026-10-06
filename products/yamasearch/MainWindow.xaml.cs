@@ -259,20 +259,31 @@ public partial class MainWindow : Window
 
     private void AddressBox_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
-        if (!AddressBox.IsKeyboardFocusWithin) return;
-        PrepareAddressBoxForInput();
+        var cleared = PrepareAddressBoxForInput();
+
+        if (!AddressBox.IsKeyboardFocusWithin)
+        {
+            AddressBox.Focus();
+            e.Handled = true;
+        }
+
+        if (cleared)
+            AddressBox.CaretIndex = 0;
+
         _ = Dispatcher.BeginInvoke(ShowAddressSuggestions);
     }
 
-    private void PrepareAddressBoxForInput()
+    private bool PrepareAddressBoxForInput()
     {
         var current = AddressBox.Text.Trim();
         if (!current.Equals("about:blank", StringComparison.OrdinalIgnoreCase)
-            && !current.Equals("YamaSearch — nová karta", StringComparison.OrdinalIgnoreCase)) return;
+            && !current.Equals("YamaSearch — nová karta", StringComparison.OrdinalIgnoreCase)) return false;
 
         _suppressSuggestions = true;
         AddressBox.Clear();
+        AddressBox.CaretIndex = 0;
         _suppressSuggestions = false;
+        return true;
     }
 
     private void AddressBox_TextChanged(object sender, TextChangedEventArgs e)
