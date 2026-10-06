@@ -1652,7 +1652,7 @@ public partial class MainWindow : Window
     {
         bool opening = SidePanel.Visibility != Visibility.Visible;
         SidePanel.Visibility = opening ? Visibility.Visible : Visibility.Collapsed;
-        PanelColumn.Width = opening ? new GridLength(300) : new GridLength(0);
+        PanelColumn.Width = opening ? new GridLength(390) : new GridLength(0);
         if (opening) ShowBookmarksPanel();
     }
     private void BookmarksPanel_Click(object sender, RoutedEventArgs e) => ShowBookmarksPanel();
@@ -1826,7 +1826,7 @@ public partial class MainWindow : Window
     }
     private void ShowBookmarksPanel()
     {
-        PanelTitle.Text = "Oblíbené"; PanelList.Items.Clear();
+        PanelTitle.Text = "☆  Oblíbené"; PanelList.Items.Clear();
 
         if (_active?.View.CoreWebView2 != null && !_active.IsYamaNewTab && TryNormalizeFavoriteUrl(_active.View.CoreWebView2.Source, out var currentUrl))
         {
@@ -1835,7 +1835,8 @@ public partial class MainWindow : Window
             {
                 Content = currentIsFavorite ? "★  Odebrat aktuální stránku" : "☆  Přidat aktuální stránku",
                 HorizontalContentAlignment = HorizontalAlignment.Left,
-                Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString(currentIsFavorite ? "#35202B" : "#17334A")),
+                Style = (Style)FindResource(currentIsFavorite ? "SideDangerButton" : "SideNavButton"),
+                Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString(currentIsFavorite ? "#41212D" : "#17334A")),
                 Margin = new Thickness(0, 0, 0, 10)
             };
             currentButton.Click += (_, _) =>
@@ -1860,7 +1861,7 @@ public partial class MainWindow : Window
     }
     private void ShowDownloadsPanel()
     {
-        PanelTitle.Text = "Stahování";
+        PanelTitle.Text = "⇩  Stahování";
         PanelList.Items.Clear();
 
         if (_settings.Data.Downloads.Count == 0)
@@ -1934,7 +1935,7 @@ public partial class MainWindow : Window
 
     private void ShowHistoryPanel()
     {
-        PanelTitle.Text = "Historie";
+        PanelTitle.Text = "◷  Historie";
         PanelList.Items.Clear();
 
         if (_settings.Data.History.Count == 0)
@@ -1953,10 +1954,7 @@ public partial class MainWindow : Window
             Content = "🗑  Vymazat celou historii",
             ToolTip = "Odstraní všechny uložené položky historie",
             HorizontalContentAlignment = HorizontalAlignment.Left,
-            Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#FFD3DB")),
-            Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#3A202A")),
-            BorderBrush = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#68404D")),
-            BorderThickness = new Thickness(1),
+            Style = (Style)FindResource("SideDangerButton"),
             Margin = new Thickness(0, 0, 0, 10)
         };
         clearAll.Click += (_, _) =>
@@ -1995,13 +1993,58 @@ public partial class MainWindow : Window
         row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
 
+        var content = new Grid();
+        content.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(34) });
+        content.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+
+        var iconHost = new Grid { Width = 22, Height = 22, VerticalAlignment = VerticalAlignment.Center };
+        iconHost.Children.Add(new TextBlock
+        {
+            Text = "◉",
+            Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#76DFFF")),
+            FontSize = 15,
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Center
+        });
+
+        if (Uri.TryCreate(entry.FaviconUrl, UriKind.Absolute, out var favicon))
+        {
+            try
+            {
+                var image = new Image { Source = new BitmapImage(favicon), Width = 18, Height = 18, Stretch = Stretch.Uniform };
+                image.ImageFailed += (_, _) => image.Visibility = Visibility.Collapsed;
+                iconHost.Children.Add(image);
+            }
+            catch { }
+        }
+
+        content.Children.Add(iconHost);
+
+        var text = new StackPanel();
         var label = string.IsNullOrWhiteSpace(entry.Title) ? entry.Url : entry.Title;
+        text.Children.Add(new TextBlock
+        {
+            Text = label,
+            Foreground = Brushes.White,
+            FontWeight = FontWeights.SemiBold,
+            TextTrimming = TextTrimming.CharacterEllipsis
+        });
+        text.Children.Add(new TextBlock
+        {
+            Text = entry.Url,
+            Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#8FB0CF")),
+            FontSize = 10,
+            Margin = new Thickness(0, 2, 0, 0),
+            TextTrimming = TextTrimming.CharacterEllipsis
+        });
+        Grid.SetColumn(text, 1);
+        content.Children.Add(text);
+
         var open = new Button
         {
-            Content = label,
+            Content = content,
             ToolTip = entry.Url,
-            HorizontalContentAlignment = HorizontalAlignment.Left,
-            Padding = new Thickness(10, 8, 8, 8)
+            Style = (Style)FindResource("SideContentButton")
         };
         open.Click += (_, _) => { if (_active != null) _ = NavigateAsync(_active, entry.Url); };
         row.Children.Add(open);
@@ -2010,10 +2053,8 @@ public partial class MainWindow : Window
         {
             Content = "×",
             ToolTip = "Smazat tuto položku z historie",
-            Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#FFB7C5")),
-            Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#35202B")),
-            Padding = new Thickness(9, 7, 9, 7),
-            Margin = new Thickness(5, 0, 0, 0)
+            Style = (Style)FindResource("SideDeleteButton"),
+            Margin = new Thickness(6, 3, 0, 3)
         };
         Grid.SetColumn(remove, 1);
         remove.Click += (_, _) =>
@@ -2039,7 +2080,62 @@ public partial class MainWindow : Window
             ? (Uri.TryCreate(url, UriKind.Absolute, out var page) ? page.Host : url)
             : history.Title;
 
-        var open = new Button { Content = label, ToolTip = url, HorizontalContentAlignment = HorizontalAlignment.Left, Padding = new Thickness(10, 8, 8, 8) };
+        var content = new Grid();
+        content.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(34) });
+        content.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+
+        var iconHost = new Grid { Width = 22, Height = 22, VerticalAlignment = VerticalAlignment.Center };
+        iconHost.Children.Add(new TextBlock
+        {
+            Text = "☆",
+            Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#76DFFF")),
+            FontSize = 17,
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Center
+        });
+
+        var faviconUrl = history?.FaviconUrl;
+        if (string.IsNullOrWhiteSpace(faviconUrl) && Uri.TryCreate(url, UriKind.Absolute, out var favoriteUri))
+            faviconUrl = $"{favoriteUri.Scheme}://{favoriteUri.Host}/favicon.ico";
+
+        if (Uri.TryCreate(faviconUrl, UriKind.Absolute, out var favicon))
+        {
+            try
+            {
+                var image = new Image { Source = new BitmapImage(favicon), Width = 18, Height = 18, Stretch = Stretch.Uniform };
+                image.ImageFailed += (_, _) => image.Visibility = Visibility.Collapsed;
+                iconHost.Children.Add(image);
+            }
+            catch { }
+        }
+
+        content.Children.Add(iconHost);
+
+        var text = new StackPanel();
+        text.Children.Add(new TextBlock
+        {
+            Text = label,
+            Foreground = Brushes.White,
+            FontWeight = FontWeights.SemiBold,
+            TextTrimming = TextTrimming.CharacterEllipsis
+        });
+        text.Children.Add(new TextBlock
+        {
+            Text = url,
+            Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#8FB0CF")),
+            FontSize = 10,
+            Margin = new Thickness(0, 2, 0, 0),
+            TextTrimming = TextTrimming.CharacterEllipsis
+        });
+        Grid.SetColumn(text, 1);
+        content.Children.Add(text);
+
+        var open = new Button
+        {
+            Content = content,
+            ToolTip = url,
+            Style = (Style)FindResource("SideContentButton")
+        };
         open.Click += (_, _) => { if (_active != null) _ = NavigateAsync(_active, url); };
         row.Children.Add(open);
 
@@ -2047,10 +2143,8 @@ public partial class MainWindow : Window
         {
             Content = "×",
             ToolTip = "Odebrat z oblíbených",
-            Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#FFB7C5")),
-            Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#35202B")),
-            Padding = new Thickness(9, 7, 9, 7),
-            Margin = new Thickness(5, 0, 0, 0)
+            Style = (Style)FindResource("SideDeleteButton"),
+            Margin = new Thickness(6, 3, 0, 3)
         };
         Grid.SetColumn(remove, 1);
         remove.Click += (_, _) =>
@@ -2061,6 +2155,7 @@ public partial class MainWindow : Window
         row.Children.Add(remove);
         return row;
     }
+
     private Button CreatePanelLink(string url, string label)
     {
         var item = new Button { Content = label, ToolTip = url, HorizontalContentAlignment = HorizontalAlignment.Left, Margin = new Thickness(0, 2, 0, 2) };
