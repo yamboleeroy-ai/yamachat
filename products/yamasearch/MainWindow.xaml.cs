@@ -23,16 +23,38 @@ public partial class MainWindow : Window
     private BrowserTab? _active;
     private System.Windows.Controls.Primitives.Popup? _tabActionsPopup;
     private bool _suppressSuggestions;
+    private int _addressSuggestionIndex = -1;
     private bool _downloadUiRefreshQueued;
     private readonly Dictionary<CoreWebView2DownloadOperation, DownloadEntry> _activeDownloads = [];
+    private readonly List<string> _favoriteOverflow = [];
+    private bool _customMaximized;
+    private bool _videoFullScreen;
+    private bool _wasMaximizedBeforeVideo;
+    private bool _sidePanelWasVisibleBeforeVideo;
+    private Rect _restoreWindowBounds;
+    private Rect _videoRestoreBounds;
     private readonly string _webDataFolder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "YamaSearch", "WebView");
     private readonly HashSet<string> _adHosts = new(StringComparer.OrdinalIgnoreCase)
-    { "doubleclick.net", "googlesyndication.com", "google-analytics.com", "adservice.google.com", "connect.facebook.net", "scorecardresearch.com" };
+    {
+        "doubleclick.net", "googlesyndication.com", "googleadservices.com", "adservice.google.com",
+        "adservice.google.cz", "googletagservices.com", "amazon-adsystem.com", "adnxs.com",
+        "criteo.com", "criteo.net", "taboola.com", "outbrain.com"
+    };
+    private readonly HashSet<string> _trackerHosts = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "google-analytics.com", "analytics.google.com", "googletagmanager.com", "connect.facebook.net",
+        "scorecardresearch.com", "hotjar.com", "hotjar.io", "clarity.ms"
+    };
+    private static readonly string[] StrictUrlTokens =
+    [
+        "/analytics", "/tracker", "/tracking", "/telemetry", "/pixel", "/beacon",
+        "collect?v=", "event.gif", "imp.gif"
+    ];
 
     public MainWindow()
     {
         InitializeComponent();
-        SourceInitialized += (_, _) => SetDarkWindowBorder();
+        SourceInitialized += (_, _) => InitializeWindowInterop();
         if (!_settings.Data.Theme.Equals("dark", StringComparison.OrdinalIgnoreCase))
         {
             _settings.Data.Theme = "dark";
@@ -43,6 +65,9 @@ public partial class MainWindow : Window
         UpdateShieldButton();
         UpdateBlockButton();
         UpdateDownloadToolbar();
+        ShowFavoritesBarCheckBox.IsChecked = _settings.Data.FavoritesBarVisible;
+        FavoritesBar.Visibility = _settings.Data.FavoritesBarVisible ? Visibility.Visible : Visibility.Collapsed;
+        Loaded += (_, _) => RenderFavoritesBar();
         KeyDown += MainWindow_KeyDown;
     }
 
@@ -255,7 +280,7 @@ public partial class MainWindow : Window
             if (await Task.WhenAny(initializeTask, Task.Delay(TimeSpan.FromSeconds(12))) != initializeTask)
                 throw new TimeoutException("WebView2 Runtime se nespustil během 12 sekund.");
             await initializeTask;
-            ConfigureWebView(tab);
+            await ConfigureWebViewAsync(tab);
             SelectTab(tab);
             _ = Dispatcher.BeginInvoke(() => TabsScroller.ScrollToRightEnd());
             await NavigateAsync(tab, address ?? _settings.Data.HomePage);
@@ -264,12 +289,16 @@ public partial class MainWindow : Window
         {
             _tabs.Remove(tab);
             tab.View.Dispose();
-            StatusText.Text = "WebView2 se nepodařilo spustit: " + exception.Message;
-            MessageBox.Show("YamaSearch potřebuje Microsoft Edge WebView2 Runtime.\n\n" + exception.Message, "YamaSearch", MessageBoxButton.OK, MessageBoxImage.Error);
+            StatusText.Text = "Novou kartu se nepodařilo otevřít: " + exception.Message;
+            MessageBox.Show(
+                "YamaSearch nemohl otevřít novou kartu.\n\n" + exception.Message,
+                "YamaSearch",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
         }
     }
 
-    private void ConfigureWebView(BrowserTab tab)
+    private async Task ConfigureWebViewAsync(BrowserTab tab)
     {
         var core = tab.View.CoreWebView2;
         core.Settings.AreDevToolsEnabled = false;
@@ -279,9 +308,13 @@ public partial class MainWindow : Window
         core.Settings.IsGeneralAutofillEnabled = false;
         core.AddWebResourceRequestedFilter("*", CoreWebView2WebResourceContext.All);
         core.WebResourceRequested += (_, e) => BlockRequest(tab, e);
+        await RefreshYamaBlockBootstrapAsync(tab);
         core.WebMessageReceived += (_, e) => HandleNewTabMessage(tab, e);
         core.NavigationStarting += (_, e) =>
         {
+            tab.BlockedCount = 0;
+            if (_active == tab) BlockedText.Text = "YamaBlock · 0 blokováno";
+
             if (Uri.TryCreate(e.Uri, UriKind.Absolute, out var destination) && destination.Scheme is "http" or "https")
             {
                 tab.IsYamaNewTab = false;
@@ -289,7 +322,16 @@ public partial class MainWindow : Window
             }
             if (_active == tab) StatusText.Text = "Načítání…";
         };
-        core.NavigationCompleted += (_, e) => { if (_active == tab) StatusText.Text = e.IsSuccess ? "Hotovo" : "Stránku se nepodařilo načíst"; UpdateTabTitle(tab); if (e.IsSuccess && Uri.TryCreate(core.Source, UriKind.Absolute, out var page) && page.Scheme is "http" or "https") AddHistory(core.Source, core.DocumentTitle, core.FaviconUri); };
+        core.NavigationCompleted += async (_, e) =>
+        {
+            if (_active == tab) StatusText.Text = e.IsSuccess ? "Hotovo" : "Stránku se nepodařilo načíst";
+            UpdateTabTitle(tab);
+            if (e.IsSuccess && Uri.TryCreate(core.Source, UriKind.Absolute, out var page) && page.Scheme is "http" or "https")
+            {
+                AddHistory(core.Source, core.DocumentTitle, core.FaviconUri);
+                await ApplyYamaBlockPageRulesAsync(tab);
+            }
+        };
         core.DocumentTitleChanged += (_, _) => UpdateTabTitle(tab);
         core.FaviconChanged += (_, _) => UpdateFavicon(tab);
         core.ContainsFullScreenElementChanged += (_, _) => Dispatcher.Invoke(() => SetVideoFullScreen(core.ContainsFullScreenElement));
@@ -317,19 +359,453 @@ public partial class MainWindow : Window
 
     private void BlockRequest(BrowserTab tab, CoreWebView2WebResourceRequestedEventArgs e)
     {
-        if (_settings.Data.BlockMode == BlockMode.Off || string.IsNullOrEmpty(e.Request.Uri)) return;
-        if (!Uri.TryCreate(e.Request.Uri, UriKind.Absolute, out var uri) || IsWhitelisted(uri.Host)) return;
-        bool knownHost = _adHosts.Any(host => uri.Host.Equals(host, StringComparison.OrdinalIgnoreCase) || uri.Host.EndsWith('.' + host, StringComparison.OrdinalIgnoreCase));
-        bool strictTracker = _settings.Data.BlockMode == BlockMode.Strict && (uri.AbsolutePath.Contains("analytics", StringComparison.OrdinalIgnoreCase) || uri.AbsolutePath.Contains("tracker", StringComparison.OrdinalIgnoreCase));
-        if (knownHost || strictTracker)
+        if (string.IsNullOrWhiteSpace(e.Request.Uri)
+            || !Uri.TryCreate(e.Request.Uri, UriKind.Absolute, out var uri))
+            return;
+
+        var pageHost = GetPageHost(tab);
+        var youtubePage = IsYouTubeHost(pageHost);
+        var relevantYoutubeRequest = youtubePage && IsYouTubeDiagnosticRequest(uri);
+
+        if (_settings.Data.BlockMode == BlockMode.Off)
         {
-            e.Response = tab.View.CoreWebView2.Environment.CreateWebResourceResponse(null, 204, "Blocked by YamaBlock", "");
-            tab.BlockedCount++;
-            if (_active == tab) BlockedText.Text = $"YamaBlock · {tab.BlockedCount} blokováno";
+            if (relevantYoutubeRequest)
+                YamaBlockDiagnostics.Add("PROŠLO", "Síť / YamaBlock vypnutý", ShortRequest(uri));
+            return;
+        }
+
+        if (!string.IsNullOrWhiteSpace(pageHost) && IsWhitelisted(pageHost))
+        {
+            if (relevantYoutubeRequest)
+                YamaBlockDiagnostics.Add("PROŠLO", "Síť / výjimka webu", ShortRequest(uri));
+            return;
+        }
+
+        var hostIsAd = HostMatchesAny(uri.Host, _adHosts);
+        var hostIsTracker = _settings.Data.EnableTrackerBlocking && HostMatchesAny(uri.Host, _trackerHosts);
+
+        // First-party YouTube playback/stat traffic is intentionally not cut off. Modern
+        // blockers get better results by pruning ad metadata from player JSON responses
+        // than by forcing the player into retries/timeouts.
+        var youtubePlaybackInfrastructure = youtubePage && IsYouTubePlaybackInfrastructure(uri.Host);
+        var strictUrlMatch = _settings.Data.BlockMode == BlockMode.Strict
+            && !youtubePlaybackInfrastructure
+            && StrictUrlTokens.Any(token => uri.PathAndQuery.Contains(token, StringComparison.OrdinalIgnoreCase));
+
+        var youtubeThirdPartyAd = _settings.Data.EnableYouTubeAdBlock
+            && youtubePage
+            && (uri.Host.Equals("googleads.g.doubleclick.net", StringComparison.OrdinalIgnoreCase)
+                || uri.Host.Equals("static.doubleclick.net", StringComparison.OrdinalIgnoreCase)
+                || uri.Host.EndsWith(".googlesyndication.com", StringComparison.OrdinalIgnoreCase));
+
+        if (!hostIsAd && !hostIsTracker && !strictUrlMatch && !youtubeThirdPartyAd)
+        {
+            if (relevantYoutubeRequest)
+                YamaBlockDiagnostics.Add("PROŠLO", "Síť / player", ShortRequest(uri));
+            return;
+        }
+
+        var reason = youtubeThirdPartyAd || hostIsAd
+            ? "reklamní doména"
+            : hostIsTracker
+                ? "tracker"
+                : "přísné URL pravidlo";
+
+        e.Response = tab.View.CoreWebView2.Environment.CreateWebResourceResponse(
+            null,
+            204,
+            "Blocked by YamaBlock",
+            "Cache-Control: no-store");
+
+        YamaBlockDiagnostics.Add("BLOKOVÁNO", $"Síť / {reason}", ShortRequest(uri));
+        tab.BlockedCount++;
+        if (_active == tab)
+            BlockedText.Text = $"YamaBlock · {tab.BlockedCount} blokováno";
+    }
+
+    private static bool IsYouTubePlaybackInfrastructure(string host)
+        => IsYouTubeHost(host)
+           || host.EndsWith(".googlevideo.com", StringComparison.OrdinalIgnoreCase)
+           || host.Equals("googlevideo.com", StringComparison.OrdinalIgnoreCase)
+           || host.EndsWith(".ytimg.com", StringComparison.OrdinalIgnoreCase)
+           || host.Equals("ytimg.com", StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsYouTubeDiagnosticRequest(Uri uri)
+        => uri.AbsolutePath.Contains("/youtubei/v1/player", StringComparison.OrdinalIgnoreCase)
+           || uri.AbsolutePath.EndsWith("/player", StringComparison.OrdinalIgnoreCase)
+           || uri.AbsolutePath.Contains("/pagead/", StringComparison.OrdinalIgnoreCase)
+           || uri.AbsolutePath.Contains("/get_midroll_info", StringComparison.OrdinalIgnoreCase)
+           || uri.Host.Contains("doubleclick", StringComparison.OrdinalIgnoreCase)
+           || uri.Host.Contains("googlesyndication", StringComparison.OrdinalIgnoreCase);
+
+    private static string ShortRequest(Uri uri)
+    {
+        var path = uri.AbsolutePath;
+        if (path.Length > 110) path = path[..107] + "…";
+        return uri.Host + path;
+    }
+
+    private static bool HostMatchesAny(string host, IEnumerable<string> rules)
+        => rules.Any(rule =>
+            host.Equals(rule, StringComparison.OrdinalIgnoreCase)
+            || host.EndsWith("." + rule, StringComparison.OrdinalIgnoreCase));
+
+    private string GetPageHost(BrowserTab tab)
+    {
+        var source = tab.View.CoreWebView2?.Source;
+        return Uri.TryCreate(source, UriKind.Absolute, out var page) ? page.Host : "";
+    }
+
+    private bool IsWhitelisted(string host)
+        => _settings.Data.Whitelist.Any(x =>
+            host.Equals(x, StringComparison.OrdinalIgnoreCase)
+            || host.EndsWith("." + x, StringComparison.OrdinalIgnoreCase));
+
+    private static bool IsYouTubeHost(string? host)
+        => !string.IsNullOrWhiteSpace(host)
+           && (host.Equals("youtube.com", StringComparison.OrdinalIgnoreCase)
+               || host.EndsWith(".youtube.com", StringComparison.OrdinalIgnoreCase));
+
+    private async Task ApplyYamaBlockPageRulesAsync(BrowserTab tab)
+    {
+        if (tab.View.CoreWebView2 == null) return;
+
+        var pageHost = GetPageHost(tab);
+        var enabled = _settings.Data.BlockMode != BlockMode.Off
+            && !string.IsNullOrWhiteSpace(pageHost)
+            && !IsWhitelisted(pageHost);
+
+        var config = new
+        {
+            enabled,
+            youtube = enabled && _settings.Data.EnableYouTubeAdBlock && IsYouTubeHost(pageHost),
+            cosmetic = enabled && _settings.Data.EnableCosmeticBlocking,
+            strict = enabled && _settings.Data.BlockMode == BlockMode.Strict,
+            whitelist = _settings.Data.Whitelist.ToArray()
+        };
+
+        try
+        {
+            var json = JsonSerializer.Serialize(config);
+            await tab.View.CoreWebView2.ExecuteScriptAsync(
+                $"window.__yamaBlockApply && window.__yamaBlockApply({json});");
+        }
+        catch (Exception error)
+        {
+            Debug.WriteLine("YamaBlock page rules failed: " + error.Message);
         }
     }
 
-    private bool IsWhitelisted(string host) => _settings.Data.Whitelist.Any(x => host.Equals(x, StringComparison.OrdinalIgnoreCase) || host.EndsWith('.' + x, StringComparison.OrdinalIgnoreCase));
+    private async Task ApplyYamaBlockToAllTabsAsync()
+    {
+        foreach (var tab in _tabs.Where(x => x.View.CoreWebView2 != null).ToList())
+        {
+            await RefreshYamaBlockBootstrapAsync(tab);
+            await ApplyYamaBlockPageRulesAsync(tab);
+        }
+    }
+
+    private async Task RefreshYamaBlockBootstrapAsync(BrowserTab tab)
+    {
+        var core = tab.View.CoreWebView2;
+        if (core == null) return;
+
+        if (!string.IsNullOrWhiteSpace(tab.YamaBlockScriptId))
+        {
+            try { core.RemoveScriptToExecuteOnDocumentCreated(tab.YamaBlockScriptId); }
+            catch { }
+        }
+
+        tab.YamaBlockScriptId = await core.AddScriptToExecuteOnDocumentCreatedAsync(CreateYamaBlockPageScript());
+    }
+
+    private string CreateYamaBlockPageScript()
+    {
+        var initial = JsonSerializer.Serialize(new
+        {
+            enabled = _settings.Data.BlockMode != BlockMode.Off,
+            youtube = _settings.Data.EnableYouTubeAdBlock,
+            cosmetic = _settings.Data.EnableCosmeticBlocking,
+            strict = _settings.Data.BlockMode == BlockMode.Strict,
+            whitelist = _settings.Data.Whitelist.ToArray()
+        });
+
+        return YamaBlockPageScript.Replace("__YAMA_INITIAL_CONFIG__", initial, StringComparison.Ordinal);
+    }
+
+    private const string YamaBlockPageScript = """
+        (() => {
+          if (window.__yamaBlockInstalled) return;
+          window.__yamaBlockInstalled = true;
+
+          let config = Object.assign(
+            { enabled: false, youtube: false, cosmetic: false, strict: false, whitelist: [] },
+            __YAMA_INITIAL_CONFIG__
+          );
+          let scheduled = false;
+          let timer = 0;
+          const styleId = 'yamablock-cosmetic-style';
+
+          const isWhitelisted = () => {
+            const host = location.hostname.toLowerCase();
+            return Array.isArray(config.whitelist) && config.whitelist.some(raw => {
+              const rule = String(raw || '').toLowerCase();
+              return rule && (host === rule || host.endsWith('.' + rule));
+            });
+          };
+
+          const active = () => !!config.enabled && !isWhitelisted();
+          const youtubeActive = () =>
+            active() && !!config.youtube && location.hostname.endsWith('youtube.com');
+
+          const postLog = (status, category, detail) => {
+            try {
+              window.chrome?.webview?.postMessage(JSON.stringify({
+                action: 'yamaBlockLog',
+                status,
+                category,
+                detail: String(detail || '').slice(0, 260)
+              }));
+            } catch {}
+          };
+
+          const compactUrl = (raw) => {
+            try {
+              const u = new URL(raw, location.href);
+              return u.host + u.pathname;
+            } catch {
+              return String(raw || '').slice(0, 180);
+            }
+          };
+
+          const pruneAdFields = (value) => {
+            if (!value || typeof value !== 'object') return 0;
+            let removed = 0;
+
+            const pruneObject = (obj) => {
+              if (!obj || typeof obj !== 'object') return;
+              for (const key of ['adPlacements', 'adSlots', 'playerAds']) {
+                if (Object.prototype.hasOwnProperty.call(obj, key)) {
+                  try {
+                    delete obj[key];
+                    removed++;
+                  } catch {}
+                }
+              }
+            };
+
+            pruneObject(value);
+            pruneObject(value.playerResponse);
+
+            if (Array.isArray(value)) {
+              for (const item of value) {
+                if (item && typeof item === 'object') {
+                  pruneObject(item);
+                  pruneObject(item.playerResponse);
+                }
+              }
+            }
+
+            return removed;
+          };
+
+          const isPlayerApi = (raw) => {
+            try {
+              const u = new URL(raw, location.href);
+              if (!u.hostname.endsWith('youtube.com')) return false;
+              return u.pathname.includes('/youtubei/v1/player')
+                || /\/player$/.test(u.pathname)
+                || u.pathname.includes('/get_watch');
+            } catch {
+              return false;
+            }
+          };
+
+          // AdGuard-style idea: let the YouTube player request finish normally, then remove
+          // only ad metadata from its JSON. This avoids the retries/blank player caused by
+          // blocking YouTube's own playback endpoints.
+          const nativeFetch = window.fetch?.bind(window);
+          if (nativeFetch) {
+            window.fetch = async (...args) => {
+              const response = await nativeFetch(...args);
+              const rawUrl = typeof args[0] === 'string'
+                ? args[0]
+                : (args[0]?.url || response.url || '');
+
+              if (!youtubeActive() || !isPlayerApi(rawUrl))
+                return response;
+
+              try {
+                const text = await response.clone().text();
+                if (!text || (text[0] !== '{' && text[0] !== '[')) {
+                  postLog('PROŠLO', 'YouTube player JSON', compactUrl(rawUrl));
+                  return response;
+                }
+
+                const data = JSON.parse(text);
+                const removed = pruneAdFields(data);
+                if (removed <= 0) {
+                  postLog('PROŠLO', 'YouTube player JSON', compactUrl(rawUrl));
+                  return response;
+                }
+
+                const headers = new Headers(response.headers);
+                headers.delete('content-length');
+                headers.delete('content-encoding');
+
+                postLog('ODSTRANĚNO', 'YouTube player JSON',
+                  removed + ' reklamních polí · ' + compactUrl(rawUrl));
+
+                return new Response(JSON.stringify(data), {
+                  status: response.status,
+                  statusText: response.statusText,
+                  headers
+                });
+              } catch {
+                postLog('PROŠLO', 'YouTube player JSON / bez zásahu', compactUrl(rawUrl));
+                return response;
+              }
+            };
+          }
+
+          // Initial player data may be embedded directly into the page before the normal
+          // player API fetch. Trap that object early and prune the same ad metadata.
+          try {
+            let initialPlayerResponse;
+            Object.defineProperty(window, 'ytInitialPlayerResponse', {
+              configurable: true,
+              get() { return initialPlayerResponse; },
+              set(value) {
+                if (youtubeActive()) {
+                  const removed = pruneAdFields(value);
+                  if (removed > 0)
+                    postLog('ODSTRANĚNO', 'YouTube initial player',
+                      removed + ' reklamních polí');
+                }
+                initialPlayerResponse = value;
+              }
+            });
+          } catch {}
+
+          const pruneLegacyPlayerConfig = () => {
+            if (!youtubeActive()) return;
+            try {
+              const args = window.ytplayer?.config?.args;
+              const raw = args?.player_response;
+              if (typeof raw !== 'string' || !raw.startsWith('{')) return;
+              const data = JSON.parse(raw);
+              const removed = pruneAdFields(data);
+              if (removed > 0) {
+                args.player_response = JSON.stringify(data);
+                postLog('ODSTRANĚNO', 'YouTube legacy player',
+                  removed + ' reklamních polí');
+              }
+            } catch {}
+          };
+
+          const ensureStyle = () => {
+            let style = document.getElementById(styleId);
+            if (!active() || (!config.cosmetic && !config.youtube)) {
+              if (style) style.remove();
+              return;
+            }
+
+            if (!style) {
+              style = document.createElement('style');
+              style.id = styleId;
+              (document.head || document.documentElement).appendChild(style);
+            }
+
+            const rules = [];
+            if (config.cosmetic) {
+              rules.push(
+                'ins.adsbygoogle',
+                '[id^="google_ads_"]',
+                'iframe[src*="doubleclick.net"]',
+                'iframe[src*="googlesyndication.com"]',
+                '[data-ad-client]'
+              );
+            }
+
+            if (youtubeActive()) {
+              rules.push(
+                '#player-ads',
+                '.ytp-ad-overlay-container',
+                '.ytp-ad-text-overlay',
+                'ytd-display-ad-renderer',
+                'ytd-ad-slot-renderer',
+                'ytd-promoted-sparkles-web-renderer',
+                'ytd-promoted-video-renderer',
+                'ytd-companion-slot-renderer',
+                'ytd-in-feed-ad-layout-renderer'
+              );
+            }
+
+            style.textContent = rules.length
+              ? rules.join(',') + '{display:none!important;visibility:hidden!important;}'
+              : '';
+          };
+
+          const clickSkip = () => {
+            if (!youtubeActive()) return false;
+            const selectors = [
+              '.ytp-skip-ad-button',
+              '.ytp-ad-skip-button',
+              '.ytp-ad-skip-button-modern',
+              'button[class*="skip-ad"]'
+            ];
+
+            for (const selector of selectors) {
+              const button = document.querySelector(selector);
+              if (button instanceof HTMLElement && button.offsetParent !== null) {
+                try {
+                  button.click();
+                  postLog('ODSTRANĚNO', 'YouTube přehrávač', 'Použito tlačítko Přeskočit reklamu');
+                } catch {}
+                return true;
+              }
+            }
+            return false;
+          };
+
+          const run = () => {
+            scheduled = false;
+            ensureStyle();
+            pruneLegacyPlayerConfig();
+            clickSkip();
+          };
+
+          const schedule = () => {
+            if (scheduled) return;
+            scheduled = true;
+            clearTimeout(timer);
+            timer = setTimeout(run, 140);
+          };
+
+          const observer = new MutationObserver(schedule);
+          const start = () => {
+            if (document.documentElement) {
+              observer.observe(document.documentElement, { childList: true, subtree: true });
+            }
+            schedule();
+          };
+
+          if (document.readyState === 'loading')
+            document.addEventListener('DOMContentLoaded', start, { once: true });
+          else
+            start();
+
+          window.addEventListener('yt-navigate-finish', schedule);
+          window.__yamaBlockApply = (next) => {
+            config = Object.assign({}, config, next || {});
+            schedule();
+          };
+
+          setInterval(() => {
+            if (youtubeActive()) clickSkip();
+          }, 2500);
+        })();
+        """;
     private async Task NavigateAsync(BrowserTab tab, string raw)
     {
         if (raw == "yamasearch://newtab")
@@ -423,11 +899,74 @@ public partial class MainWindow : Window
     private void Back_Click(object sender, RoutedEventArgs e) { if (_active?.View.CoreWebView2.CanGoBack == true) _active.View.CoreWebView2.GoBack(); }
     private void Forward_Click(object sender, RoutedEventArgs e) { if (_active?.View.CoreWebView2.CanGoForward == true) _active.View.CoreWebView2.GoForward(); }
     private void Reload_Click(object sender, RoutedEventArgs e) => _active?.View.CoreWebView2.Reload();
+    private void AddressBox_PreviewKeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key is Key.Down or Key.Up)
+        {
+            if (!AddressSuggestions.IsOpen)
+                ShowAddressSuggestions();
+
+            MoveAddressSuggestionSelection(e.Key == Key.Down ? 1 : -1);
+            e.Handled = true;
+            return;
+        }
+
+        if (e.Key == Key.Escape && AddressSuggestions.IsOpen)
+        {
+            AddressSuggestions.IsOpen = false;
+            _addressSuggestionIndex = -1;
+            e.Handled = true;
+        }
+    }
+
     private void AddressBox_KeyDown(object sender, KeyEventArgs e)
     {
         if (e.Key != Key.Enter || _active == null) return;
+
+        var buttons = AddressSuggestionList.Children.OfType<Button>().ToList();
+        if (AddressSuggestions.IsOpen
+            && _addressSuggestionIndex >= 0
+            && _addressSuggestionIndex < buttons.Count)
+        {
+            var selected = buttons[_addressSuggestionIndex];
+            selected.RaiseEvent(new RoutedEventArgs(Button.ClickEvent, selected));
+            e.Handled = true;
+            return;
+        }
+
         AddressSuggestions.IsOpen = false;
+        _addressSuggestionIndex = -1;
         _ = NavigateAsync(_active, AddressBox.Text);
+        e.Handled = true;
+    }
+
+    private void MoveAddressSuggestionSelection(int delta)
+    {
+        var buttons = AddressSuggestionList.Children.OfType<Button>().ToList();
+        if (buttons.Count == 0) return;
+
+        if (_addressSuggestionIndex < 0)
+            _addressSuggestionIndex = delta > 0 ? 0 : buttons.Count - 1;
+        else
+            _addressSuggestionIndex = (_addressSuggestionIndex + delta + buttons.Count) % buttons.Count;
+
+        ApplyAddressSuggestionSelection();
+    }
+
+    private void ApplyAddressSuggestionSelection()
+    {
+        var buttons = AddressSuggestionList.Children.OfType<Button>().ToList();
+        for (var i = 0; i < buttons.Count; i++)
+        {
+            var button = buttons[i];
+            var isSelected = i == _addressSuggestionIndex;
+            var isPrimarySearch = button.Tag is bool highlight && highlight;
+
+            button.Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString(
+                isSelected ? "#21496B" : isPrimarySearch ? "#1C3553" : "#132238"));
+            button.BorderBrush = new SolidColorBrush((Color)ColorConverter.ConvertFromString(
+                isSelected ? "#38D9FF" : isPrimarySearch ? "#315B82" : "#1D3857"));
+        }
     }
 
     private void AddressBox_GotKeyboardFocus(object sender, KeyboardFocusChangedEventArgs e)
@@ -483,9 +1022,21 @@ public partial class MainWindow : Window
         ShowAddressSuggestions();
     }
 
+    private System.Windows.Controls.Primitives.CustomPopupPlacement[] AddressSuggestions_CustomPopupPlacement(Size popupSize, Size targetSize, Point offset)
+    {
+        return
+        [
+            new System.Windows.Controls.Primitives.CustomPopupPlacement(
+                new Point(0, targetSize.Height),
+                System.Windows.Controls.Primitives.PopupPrimaryAxis.Horizontal)
+        ];
+    }
+
     private void ShowAddressSuggestions()
     {
+        AddressSuggestionsBorder.Width = Math.Max(360, AddressBox.ActualWidth);
         AddressSuggestionList.Children.Clear();
+        _addressSuggestionIndex = -1;
         if (_suppressSuggestions || !AddressBox.IsKeyboardFocusWithin)
         {
             AddressSuggestions.IsOpen = false;
@@ -538,7 +1089,7 @@ public partial class MainWindow : Window
 
         AddressSuggestions.IsOpen = true;
     }
-    private static Button CreateSuggestionButton(string title, string subtitle, string glyph, bool highlight, string? faviconUrl = null)
+    private Button CreateSuggestionButton(string title, string subtitle, string glyph, bool highlight, string? faviconUrl = null)
     {
         var layout = new Grid();
         layout.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(28) });
@@ -554,9 +1105,22 @@ public partial class MainWindow : Window
         text.Children.Add(new TextBlock { Text = subtitle, Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#91A8C2")), FontSize = 11, TextTrimming = TextTrimming.CharacterEllipsis, Margin = new Thickness(0, 2, 0, 0) });
         Grid.SetColumn(text, 1); layout.Children.Add(text);
         var baseBackground = highlight ? "#1C3553" : "#132238";
-        var button = new Button { Content = layout, HorizontalContentAlignment = HorizontalAlignment.Stretch, Padding = new Thickness(11, 8, 11, 8), Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString(baseBackground)), BorderBrush = new SolidColorBrush((Color)ColorConverter.ConvertFromString(highlight ? "#315B82" : "#1D3857")), BorderThickness = new Thickness(1), Margin = new Thickness(0, 3, 0, 3) };
-        button.MouseEnter += (_, _) => { button.Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#21496B")); button.BorderBrush = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#38D9FF")); };
-        button.MouseLeave += (_, _) => { button.Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString(baseBackground)); button.BorderBrush = new SolidColorBrush((Color)ColorConverter.ConvertFromString(highlight ? "#315B82" : "#1D3857")); };
+        var button = new Button
+        {
+            Content = layout,
+            Tag = highlight,
+            HorizontalContentAlignment = HorizontalAlignment.Stretch,
+            Padding = new Thickness(11, 8, 11, 8),
+            Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString(baseBackground)),
+            BorderBrush = new SolidColorBrush((Color)ColorConverter.ConvertFromString(highlight ? "#315B82" : "#1D3857")),
+            BorderThickness = new Thickness(1),
+            Margin = new Thickness(0, 3, 0, 3)
+        };
+        button.MouseEnter += (_, _) =>
+        {
+            _addressSuggestionIndex = AddressSuggestionList.Children.IndexOf(button);
+            ApplyAddressSuggestionSelection();
+        };
         return button;
     }
     private void SetAddressText(string value)
@@ -565,18 +1129,51 @@ public partial class MainWindow : Window
         AddressBox.Text = value;
         _suppressSuggestions = false;
         AddressSuggestions.IsOpen = false;
+        _addressSuggestionIndex = -1;
     }
     private void Go_Click(object sender, RoutedEventArgs e)
     {
         if (_active?.View.CoreWebView2 != null) _ = NavigateAsync(_active, AddressBox.Text);
         else StatusText.Text = "Webový engine se ještě spouští…";
     }
-    private void Bookmark_Click(object sender, RoutedEventArgs e)
+    private void FavoritesButton_Click(object sender, RoutedEventArgs e)
     {
-        if (_active?.View.CoreWebView2 == null) return;
-        if (_active.IsYamaNewTab)
+        HistoryQuickPopup.IsOpen = false;
+        DownloadPopup.IsOpen = false;
+        FavoritesOverflowPopup.IsOpen = false;
+        UpdateFavoritesPopupState();
+        FavoritesQuickPopup.IsOpen = !FavoritesQuickPopup.IsOpen;
+    }
+
+    private void UpdateFavoritesPopupState()
+    {
+        ShowFavoritesBarCheckBox.IsChecked = _settings.Data.FavoritesBarVisible;
+
+        if (_active?.View.CoreWebView2 == null || _active.IsYamaNewTab)
         {
-            StatusText.Text = "Oblíbené můžeš přidávat a odebírat přímo na nové kartě.";
+            FavoriteCurrentPageButton.Content = "☆ Přidat aktuální stránku";
+            FavoriteCurrentPageButton.IsEnabled = false;
+            return;
+        }
+
+        FavoriteCurrentPageButton.IsEnabled = true;
+        var url = _active.View.CoreWebView2.Source;
+        FavoriteCurrentPageButton.Content = FindFavoriteIndex(url) >= 0
+            ? "★ Odebrat aktuální stránku"
+            : "☆ Přidat aktuální stránku";
+    }
+
+    private void FavoriteCurrentPage_Click(object sender, RoutedEventArgs e)
+    {
+        ToggleCurrentFavorite();
+        UpdateFavoritesPopupState();
+    }
+
+    private void ToggleCurrentFavorite()
+    {
+        if (_active?.View.CoreWebView2 == null || _active.IsYamaNewTab)
+        {
+            StatusText.Text = "Na nové kartě použij tlačítko Přidat stránku.";
             return;
         }
 
@@ -587,18 +1184,177 @@ public partial class MainWindow : Window
         if (index >= 0)
         {
             _settings.Data.Bookmarks.RemoveAt(index);
-            _settings.Save();
             StatusText.Text = "Odebráno z oblíbených";
         }
         else
         {
             _settings.Data.Bookmarks.Insert(0, normalized);
-            _settings.Save();
             StatusText.Text = "Přidáno do oblíbených";
         }
 
+        _settings.Save();
         RefreshFavoriteViews();
     }
+
+    private void ShowFavoritesBarCheckBox_Click(object sender, RoutedEventArgs e)
+    {
+        _settings.Data.FavoritesBarVisible = ShowFavoritesBarCheckBox.IsChecked == true;
+        _settings.Save();
+        FavoritesBar.Visibility = _settings.Data.FavoritesBarVisible ? Visibility.Visible : Visibility.Collapsed;
+        RenderFavoritesBar();
+        StatusText.Text = _settings.Data.FavoritesBarVisible
+            ? "Lišta oblíbených je zapnutá"
+            : "Lišta oblíbených je skrytá";
+    }
+
+    private void ManageFavorites_Click(object sender, RoutedEventArgs e)
+    {
+        FavoritesQuickPopup.IsOpen = false;
+        SidePanel.Visibility = Visibility.Visible;
+        PanelColumn.Width = new GridLength(300);
+        ShowBookmarksPanel();
+    }
+
+    private void FavoritesBar_SizeChanged(object sender, SizeChangedEventArgs e)
+        => RenderFavoritesBar();
+
+    private void RenderFavoritesBar()
+    {
+        FavoritesBarItems.Children.Clear();
+        FavoritesOverflowList.Children.Clear();
+        _favoriteOverflow.Clear();
+
+        if (!_settings.Data.FavoritesBarVisible || FavoritesBar.Visibility != Visibility.Visible)
+        {
+            FavoritesOverflowButton.Visibility = Visibility.Collapsed;
+            FavoritesOverflowPopup.IsOpen = false;
+            return;
+        }
+
+        var bookmarks = _settings.Data.Bookmarks.ToList();
+        if (bookmarks.Count == 0)
+        {
+            FavoritesOverflowButton.Visibility = Visibility.Collapsed;
+            FavoritesBarItems.Children.Add(new TextBlock
+            {
+                Text = "Oblíbené jsou prázdné",
+                Foreground = (Brush)FindResource("MutedBrush"),
+                VerticalAlignment = VerticalAlignment.Center,
+                Margin = new Thickness(8, 0, 0, 0)
+            });
+            return;
+        }
+
+        var available = Math.Max(120, FavoritesBar.ActualWidth - 74);
+        double used = 0;
+
+        for (var i = 0; i < bookmarks.Count; i++)
+        {
+            var url = bookmarks[i];
+            var button = CreateFavoriteBarButton(url, compact: true);
+            button.Measure(new Size(double.PositiveInfinity, 34));
+            var width = Math.Clamp(button.DesiredSize.Width, 88, 190);
+
+            if (used + width <= available || FavoritesBarItems.Children.Count == 0)
+            {
+                button.Width = width;
+                FavoritesBarItems.Children.Add(button);
+                used += width + 5;
+            }
+            else
+            {
+                _favoriteOverflow.Add(url);
+            }
+        }
+
+        FavoritesOverflowButton.Visibility = _favoriteOverflow.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
+        if (_favoriteOverflow.Count == 0) FavoritesOverflowPopup.IsOpen = false;
+    }
+
+    private Button CreateFavoriteBarButton(string url, bool compact)
+    {
+        var history = _settings.Data.History.FirstOrDefault(x => SameFavorite(x.Url, url));
+        var label = string.IsNullOrWhiteSpace(history?.Title)
+            ? (Uri.TryCreate(url, UriKind.Absolute, out var page) ? page.Host.Replace("www.", "", StringComparison.OrdinalIgnoreCase) : url)
+            : history.Title.Trim();
+
+        if (label.Length > 22) label = label[..21] + "…";
+
+        var grid = new Grid();
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(24) });
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+
+        var iconHost = new Grid { Width = 18, Height = 18, VerticalAlignment = VerticalAlignment.Center };
+        iconHost.Children.Add(new TextBlock
+        {
+            Text = "✦",
+            Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#54D7F8")),
+            FontSize = 14,
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Center
+        });
+
+        var faviconUrl = history?.FaviconUrl;
+        if (string.IsNullOrWhiteSpace(faviconUrl) && Uri.TryCreate(url, UriKind.Absolute, out var favoriteUri))
+            faviconUrl = $"{favoriteUri.Scheme}://{favoriteUri.Host}/favicon.ico";
+
+        if (Uri.TryCreate(faviconUrl, UriKind.Absolute, out var favicon))
+        {
+            try
+            {
+                var image = new Image
+                {
+                    Source = new BitmapImage(favicon),
+                    Width = 16,
+                    Height = 16,
+                    Stretch = Stretch.Uniform
+                };
+                image.ImageFailed += (_, _) => image.Visibility = Visibility.Collapsed;
+                iconHost.Children.Add(image);
+            }
+            catch { }
+        }
+
+        grid.Children.Add(iconHost);
+        var text = new TextBlock
+        {
+            Text = label,
+            Foreground = Brushes.White,
+            VerticalAlignment = VerticalAlignment.Center,
+            TextTrimming = TextTrimming.CharacterEllipsis
+        };
+        Grid.SetColumn(text, 1);
+        grid.Children.Add(text);
+
+        var button = new Button
+        {
+            Content = grid,
+            ToolTip = url,
+            HorizontalContentAlignment = HorizontalAlignment.Left,
+            Padding = compact ? new Thickness(8, 4, 9, 4) : new Thickness(9, 7, 9, 7),
+            Margin = compact ? new Thickness(0, 0, 5, 0) : new Thickness(0, 2, 0, 2),
+            Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#142238")),
+            BorderBrush = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#294465")),
+            BorderThickness = new Thickness(1)
+        };
+
+        button.Click += (_, _) =>
+        {
+            FavoritesOverflowPopup.IsOpen = false;
+            if (_active != null) _ = NavigateAsync(_active, url);
+        };
+        return button;
+    }
+
+    private void FavoritesOverflowButton_Click(object sender, RoutedEventArgs e)
+    {
+        FavoritesOverflowList.Children.Clear();
+        foreach (var url in _favoriteOverflow)
+            FavoritesOverflowList.Children.Add(CreateFavoriteBarButton(url, compact: false));
+
+        FavoritesOverflowPopup.IsOpen = !FavoritesOverflowPopup.IsOpen;
+    }
+
     private void HandleDownloadStarting(CoreWebView2DownloadStartingEventArgs e)
     {
         var operation = e.DownloadOperation;
@@ -1140,15 +1896,33 @@ public partial class MainWindow : Window
 
     private void HandleNewTabMessage(BrowserTab tab, CoreWebView2WebMessageReceivedEventArgs e)
     {
-        if (!tab.IsYamaNewTab) return;
-
         try
         {
             var json = e.TryGetWebMessageAsString();
             using var document = JsonDocument.Parse(json);
             var root = document.RootElement;
-            if (!root.TryGetProperty("action", out var actionElement) || !root.TryGetProperty("url", out var urlElement)) return;
+            if (!root.TryGetProperty("action", out var actionElement)) return;
+
             var action = actionElement.GetString();
+            if (string.Equals(action, "yamaBlockLog", StringComparison.Ordinal))
+            {
+                var status = root.TryGetProperty("status", out var statusElement)
+                    ? statusElement.GetString() ?? "INFO"
+                    : "INFO";
+                var category = root.TryGetProperty("category", out var categoryElement)
+                    ? categoryElement.GetString() ?? "YouTube"
+                    : "YouTube";
+                var detail = root.TryGetProperty("detail", out var detailElement)
+                    ? detailElement.GetString() ?? ""
+                    : "";
+
+                YamaBlockDiagnostics.Add(status, category, detail);
+                return;
+            }
+
+            if (!tab.IsYamaNewTab || !root.TryGetProperty("url", out var urlElement))
+                return;
+
             var url = urlElement.GetString() ?? "";
 
             if (string.Equals(action, "addFavorite", StringComparison.Ordinal))
@@ -1172,13 +1946,11 @@ public partial class MainWindow : Window
             }
 
             if (string.Equals(action, "removeFavorite", StringComparison.Ordinal))
-            {
                 RemoveFavorite(url);
-            }
         }
-        catch
+        catch (Exception error)
         {
-            StatusText.Text = "Oblíbené se nepodařilo změnit.";
+            Debug.WriteLine("WebView message failed: " + error.Message);
         }
     }
 
@@ -1199,6 +1971,9 @@ public partial class MainWindow : Window
 
         if (SidePanel.Visibility == Visibility.Visible && PanelTitle.Text == "Oblíbené")
             ShowBookmarksPanel();
+
+        RenderFavoritesBar();
+        if (FavoritesQuickPopup.IsOpen) UpdateFavoritesPopupState();
     }
 
     private int FindFavoriteIndex(string url)
@@ -1231,13 +2006,25 @@ public partial class MainWindow : Window
         _settings.Save();
         if (HistoryQuickPopup.IsOpen) RenderHistoryQuickPopup();
     }
-    private void BlockButton_Click(object sender, RoutedEventArgs e)
+    private async void BlockButton_Click(object sender, RoutedEventArgs e)
     {
-        var next = _settings.Data.BlockMode switch { BlockMode.Standard => BlockMode.Strict, BlockMode.Strict => BlockMode.Off, _ => BlockMode.Standard };
-        _settings.Data.BlockMode = next;
+        var page = _active?.View.CoreWebView2?.Source;
+        var dialog = new BlockWindow(_settings, page) { Owner = this };
+        if (dialog.ShowDialog() != true) return;
+
         _settings.Save();
         UpdateBlockButton();
-        StatusText.Text = $"YamaBlock: {next.ToLabel()} (uloženo pro příští spuštění)";
+        await ApplyYamaBlockToAllTabsAsync();
+
+        if (_active != null)
+        {
+            var host = GetPageHost(_active);
+            BlockedText.Text = !string.IsNullOrWhiteSpace(host) && IsWhitelisted(host)
+                ? "YamaBlock · výjimka pro tento web"
+                : $"YamaBlock · {_active.BlockedCount} blokováno";
+        }
+
+        StatusText.Text = $"YamaBlock: {_settings.Data.BlockMode.ToLabel()}";
     }
 
     private void UpdateShieldButton()
@@ -1263,7 +2050,7 @@ public partial class MainWindow : Window
     private void UpdateBlockButton()
     {
         var mode = _settings.Data.BlockMode;
-        BlockButton.ToolTip = $"YamaBlock · {mode.ToLabel()} — kliknutím přepneš režim";
+        BlockButton.ToolTip = $"YamaBlock · {mode.ToLabel()} — kliknutím otevřeš nastavení";
         BlockButton.Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString(mode switch
         {
             BlockMode.Strict => "#3B2811",
@@ -1312,12 +2099,22 @@ public partial class MainWindow : Window
 
     private void TitleBar_MouseDown(object sender, MouseButtonEventArgs e)
     {
-        if (e.ChangedButton == MouseButton.Left && !IsInteractiveHeaderElement(e.OriginalSource as DependencyObject))
+        if (e.ChangedButton != MouseButton.Left || IsInteractiveHeaderElement(e.OriginalSource as DependencyObject))
+            return;
+
+        if (e.ClickCount == 2)
         {
-            if (e.ClickCount == 2) WindowState = WindowState == WindowState.Maximized ? WindowState.Normal : WindowState.Maximized;
-            else DragMove();
+            ToggleWindowMaximize();
+            e.Handled = true;
+            return;
         }
+
+        if (_customMaximized)
+            RestoreCustomMaximize();
+
+        DragMove();
     }
+
     private static bool IsInteractiveHeaderElement(DependencyObject? source)
     {
         while (source != null)
@@ -1327,21 +2124,179 @@ public partial class MainWindow : Window
         }
         return false;
     }
+
+    private void ToggleWindowMaximize()
+    {
+        if (_videoFullScreen) return;
+        if (_customMaximized) RestoreCustomMaximize();
+        else MaximizeToWorkingArea();
+    }
+
+    private void MaximizeToWorkingArea()
+    {
+        if (!_customMaximized)
+        {
+            _restoreWindowBounds = new Rect(Left, Top, ActualWidth > 0 ? ActualWidth : Width, ActualHeight > 0 ? ActualHeight : Height);
+        }
+
+        WindowState = WindowState.Normal;
+        _customMaximized = true;
+        Topmost = false;
+        ResizeMode = ResizeMode.NoResize;
+        AppWindowChrome.ResizeBorderThickness = new Thickness(0);
+        ApplyMonitorBounds(useWorkingArea: true);
+    }
+
+    private void RestoreCustomMaximize()
+    {
+        _customMaximized = false;
+        WindowState = WindowState.Normal;
+        Topmost = false;
+        ResizeMode = ResizeMode.CanResize;
+        AppWindowChrome.ResizeBorderThickness = new Thickness(6);
+
+        if (_restoreWindowBounds.Width > 0 && _restoreWindowBounds.Height > 0)
+        {
+            Left = _restoreWindowBounds.Left;
+            Top = _restoreWindowBounds.Top;
+            Width = _restoreWindowBounds.Width;
+            Height = _restoreWindowBounds.Height;
+        }
+    }
+
     private void SetVideoFullScreen(bool enabled)
     {
+        if (_videoFullScreen == enabled) return;
+
         var rows = ((Grid)Content).RowDefinitions;
         if (enabled)
         {
-            rows[0].Height = new GridLength(0); rows[1].Height = new GridLength(0); rows[3].Height = new GridLength(0);
-            WindowState = WindowState.Maximized;
+            _videoFullScreen = true;
+            _wasMaximizedBeforeVideo = _customMaximized;
+            _sidePanelWasVisibleBeforeVideo = SidePanel.Visibility == Visibility.Visible;
+
+            if (!_customMaximized)
+                _videoRestoreBounds = new Rect(Left, Top, ActualWidth > 0 ? ActualWidth : Width, ActualHeight > 0 ? ActualHeight : Height);
+
+            FavoritesQuickPopup.IsOpen = false;
+            HistoryQuickPopup.IsOpen = false;
+            DownloadPopup.IsOpen = false;
+            FavoritesOverflowPopup.IsOpen = false;
+            SidePanel.Visibility = Visibility.Collapsed;
+            PanelColumn.Width = new GridLength(0);
+
+            rows[0].Height = new GridLength(0);
+            rows[1].Height = new GridLength(0);
+            rows[2].Height = new GridLength(0);
+            rows[4].Height = new GridLength(0);
+
+            WindowState = WindowState.Normal;
+            ResizeMode = ResizeMode.NoResize;
+            AppWindowChrome.ResizeBorderThickness = new Thickness(0);
+            Topmost = true;
+            ApplyMonitorBounds(useWorkingArea: false, forceTopmost: true);
+
+            // WebView2/YouTube can change focus/z-order immediately after raising the
+            // fullscreen event. Re-assert monitor bounds and topmost once that transition
+            // has completed so the video also covers the Windows taskbar.
+            _ = Dispatcher.BeginInvoke(
+                System.Windows.Threading.DispatcherPriority.ApplicationIdle,
+                new Action(() =>
+                {
+                    if (!_videoFullScreen) return;
+                    Topmost = true;
+                    ApplyMonitorBounds(useWorkingArea: false, forceTopmost: true);
+                    Activate();
+                }));
         }
         else
         {
-            rows[0].Height = new GridLength(54); rows[1].Height = new GridLength(64); rows[3].Height = new GridLength(30);
+            _videoFullScreen = false;
+            Topmost = false;
+            SetWindowTopmostState(false);
+            ResizeMode = ResizeMode.CanResize;
+            AppWindowChrome.ResizeBorderThickness = new Thickness(6);
+            rows[0].Height = new GridLength(60);
+            rows[1].Height = new GridLength(64);
+            rows[2].Height = GridLength.Auto;
+            rows[4].Height = new GridLength(30);
+            FavoritesBar.Visibility = _settings.Data.FavoritesBarVisible ? Visibility.Visible : Visibility.Collapsed;
+
+            if (_sidePanelWasVisibleBeforeVideo)
+            {
+                SidePanel.Visibility = Visibility.Visible;
+                PanelColumn.Width = new GridLength(300);
+            }
+
+            if (_wasMaximizedBeforeVideo)
+            {
+                _customMaximized = false;
+                MaximizeToWorkingArea();
+            }
+            else if (_videoRestoreBounds.Width > 0 && _videoRestoreBounds.Height > 0)
+            {
+                WindowState = WindowState.Normal;
+                Left = _videoRestoreBounds.Left;
+                Top = _videoRestoreBounds.Top;
+                Width = _videoRestoreBounds.Width;
+                Height = _videoRestoreBounds.Height;
+            }
         }
     }
+
+    private void ApplyMonitorBounds(bool useWorkingArea, bool forceTopmost = false)
+    {
+        var handle = new System.Windows.Interop.WindowInteropHelper(this).Handle;
+        if (handle == IntPtr.Zero) return;
+
+        const uint MonitorDefaultToNearest = 0x00000002;
+        var monitor = MonitorFromWindow(handle, MonitorDefaultToNearest);
+        if (monitor == IntPtr.Zero) return;
+
+        var info = new MonitorInfo { CbSize = Marshal.SizeOf<MonitorInfo>() };
+        if (!GetMonitorInfo(monitor, ref info)) return;
+
+        var rect = useWorkingArea ? info.WorkArea : info.MonitorArea;
+        const uint SwpNoZOrder = 0x0004;
+        const uint SwpNoActivate = 0x0010;
+        const uint SwpFrameChanged = 0x0020;
+        const uint SwpShowWindow = 0x0040;
+        var insertAfter = forceTopmost ? new IntPtr(-1) : IntPtr.Zero; // HWND_TOPMOST
+        var flags = SwpFrameChanged | SwpShowWindow;
+
+        if (!forceTopmost)
+            flags |= SwpNoActivate | SwpNoZOrder;
+
+        SetWindowPos(
+            handle,
+            insertAfter,
+            rect.Left,
+            rect.Top,
+            rect.Right - rect.Left,
+            rect.Bottom - rect.Top,
+            flags);
+
+        if (forceTopmost)
+        {
+            SetForegroundWindow(handle);
+            SetActiveWindow(handle);
+        }
+    }
+
+    private void SetWindowTopmostState(bool topmost)
+    {
+        var handle = new System.Windows.Interop.WindowInteropHelper(this).Handle;
+        if (handle == IntPtr.Zero) return;
+
+        const uint SwpNoMove = 0x0002;
+        const uint SwpNoSize = 0x0001;
+        const uint SwpNoActivate = 0x0010;
+        var insertAfter = topmost ? new IntPtr(-1) : new IntPtr(-2); // HWND_TOPMOST / HWND_NOTOPMOST
+        SetWindowPos(handle, insertAfter, 0, 0, 0, 0, SwpNoMove | SwpNoSize | SwpNoActivate);
+    }
+
     private void Minimize_Click(object sender, RoutedEventArgs e) => WindowState = WindowState.Minimized;
-    private void Maximize_Click(object sender, RoutedEventArgs e) => WindowState = WindowState == WindowState.Maximized ? WindowState.Normal : WindowState.Maximized;
+    private void Maximize_Click(object sender, RoutedEventArgs e) => ToggleWindowMaximize();
     private void Close_Click(object sender, RoutedEventArgs e) => Close();
     private void MainWindow_KeyDown(object sender, KeyEventArgs e) { if (Keyboard.Modifiers == ModifierKeys.Control && e.Key == Key.T) { _ = CreateTabAsync(); e.Handled = true; } if (Keyboard.Modifiers == ModifierKeys.Control && e.Key == Key.L) { AddressBox.Focus(); AddressBox.SelectAll(); e.Handled = true; } }
     private void ApplyTheme(string theme)
@@ -1352,6 +2307,106 @@ public partial class MainWindow : Window
         Resources["TextBrush"] = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#EAF3FF"));
         Resources["MutedBrush"] = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#96A7BD"));
     }
+    private void InitializeWindowInterop()
+    {
+        SetDarkWindowBorder();
+        var handle = new System.Windows.Interop.WindowInteropHelper(this).Handle;
+        System.Windows.Interop.HwndSource.FromHwnd(handle)?.AddHook(WindowProc);
+    }
+
+    private IntPtr WindowProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
+    {
+        const int WmGetMinMaxInfo = 0x0024;
+        if (msg == WmGetMinMaxInfo)
+        {
+            ApplyMonitorWorkingArea(hwnd, lParam);
+            handled = true;
+        }
+        return IntPtr.Zero;
+    }
+
+    private static void ApplyMonitorWorkingArea(IntPtr hwnd, IntPtr lParam)
+    {
+        const uint MonitorDefaultToNearest = 0x00000002;
+        var monitor = MonitorFromWindow(hwnd, MonitorDefaultToNearest);
+        if (monitor == IntPtr.Zero) return;
+
+        var info = new MonitorInfo { CbSize = Marshal.SizeOf<MonitorInfo>() };
+        if (!GetMonitorInfo(monitor, ref info)) return;
+
+        var mmi = Marshal.PtrToStructure<MinMaxInfo>(lParam);
+        var work = info.WorkArea;
+        var monitorArea = info.MonitorArea;
+
+        mmi.MaxPosition.X = Math.Abs(work.Left - monitorArea.Left);
+        mmi.MaxPosition.Y = Math.Abs(work.Top - monitorArea.Top);
+        mmi.MaxSize.X = Math.Abs(work.Right - work.Left);
+        mmi.MaxSize.Y = Math.Abs(work.Bottom - work.Top);
+        mmi.MaxTrackSize = mmi.MaxSize;
+
+        Marshal.StructureToPtr(mmi, lParam, true);
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct NativePoint
+    {
+        public int X;
+        public int Y;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct MinMaxInfo
+    {
+        public NativePoint Reserved;
+        public NativePoint MaxSize;
+        public NativePoint MaxPosition;
+        public NativePoint MinTrackSize;
+        public NativePoint MaxTrackSize;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct NativeRect
+    {
+        public int Left;
+        public int Top;
+        public int Right;
+        public int Bottom;
+    }
+
+    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Auto)]
+    private struct MonitorInfo
+    {
+        public int CbSize;
+        public NativeRect MonitorArea;
+        public NativeRect WorkArea;
+        public uint Flags;
+    }
+
+    [DllImport("user32.dll")]
+    private static extern IntPtr MonitorFromWindow(IntPtr hwnd, uint flags);
+
+    [DllImport("user32.dll", CharSet = CharSet.Auto)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool GetMonitorInfo(IntPtr monitor, ref MonitorInfo info);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool SetWindowPos(
+        IntPtr hWnd,
+        IntPtr hWndInsertAfter,
+        int x,
+        int y,
+        int cx,
+        int cy,
+        uint uFlags);
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool SetForegroundWindow(IntPtr hWnd);
+
+    [DllImport("user32.dll")]
+    private static extern IntPtr SetActiveWindow(IntPtr hWnd);
+
     private void SetDarkWindowBorder()
     {
         const int DwmwaBorderColor = 34;
@@ -1367,9 +2422,7 @@ public partial class MainWindow : Window
     {
         var assetFolder = Path.Combine(AppContext.BaseDirectory, "Assets");
         var brandPath = Path.Combine(assetFolder, "YamaSearch-brand.png");
-        var symbolPath = Path.Combine(assetFolder, "YamaSearch-symbol-64.png");
         var brand = File.Exists(brandPath) ? Convert.ToBase64String(File.ReadAllBytes(brandPath)) : "";
-        var symbol = File.Exists(symbolPath) ? Convert.ToBase64String(File.ReadAllBytes(symbolPath)) : brand;
 
         var favorites = _settings.Data.Bookmarks.Take(12).Select(url =>
         {
@@ -1396,7 +2449,7 @@ public partial class MainWindow : Window
             var safeLabel = System.Net.WebUtility.HtmlEncode(label);
             var safeHost = System.Net.WebUtility.HtmlEncode(page.Host);
             var safeFavicon = System.Net.WebUtility.HtmlEncode(faviconUrl);
-            return $"<div class='favorite-card' data-url='{safeUrl}' title='{safeHost}'><button class='favorite-remove' type='button' title='Odebrat z oblíbených' onclick='removeFavorite(event,this)'>×</button><a class='favorite-main' href='{safeUrl}'><span class='favorite-icon'><img src='{safeFavicon}' alt='' onerror=\"this.onerror=null;this.src='data:image/png;base64,{symbol}'\"></span><span class='favorite-name'>{safeLabel}</span><span class='favorite-host'>{safeHost}</span></a></div>";
+            return $"<div class='favorite-card' data-url='{safeUrl}' title='{safeHost}'><button class='favorite-remove' type='button' title='Odebrat z oblíbených' onclick='removeFavorite(event,this)'>×</button><a class='favorite-main' href='{safeUrl}'><span class='favorite-icon'><span class='favorite-fallback'>✦</span><img src='{safeFavicon}' alt='' onload=\"this.previousElementSibling.style.display='none'\" onerror=\"this.style.display='none'\"></span><span class='favorite-name'>{safeLabel}</span><span class='favorite-host'>{safeHost}</span></a></div>";
         }).Where(x => !string.IsNullOrWhiteSpace(x)).ToList();
 
         var favoriteContent = favorites.Count > 0
@@ -1438,7 +2491,9 @@ public partial class MainWindow : Window
             .favorite-card:hover .favorite-remove{{opacity:1}}
             .favorite-remove:hover{{background:#5a263c;border-color:#d85a7b}}
             .favorite-icon{{width:42px;height:42px;border-radius:11px;background:#0d1727;border:1px solid #2d4667;display:grid;place-items:center;margin-bottom:10px;overflow:hidden}}
-            .favorite-icon img{{width:28px;height:28px;object-fit:contain}}
+            .favorite-icon{{position:relative}}
+            .favorite-fallback{{position:absolute;inset:0;display:grid;place-items:center;color:#54d7f8;font-size:22px;text-shadow:0 0 10px #23c9f566}}
+            .favorite-icon img{{position:relative;z-index:1;width:28px;height:28px;object-fit:contain}}
             .favorite-name{{font-weight:650;font-size:14px;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}}
             .favorite-host{{font-size:11px;color:#8fa4be;margin-top:4px;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}}
             .favorites-empty{{grid-column:1/-1;border:1px dashed #294465;border-radius:14px;padding:22px;color:#8fa4be;text-align:center;background:#101a2912}}
@@ -1470,7 +2525,7 @@ public partial class MainWindow : Window
     private string SearchEndpoint() => _settings.Data.SearchEngine switch { "Google" => "https://www.google.com/search", "Bing" => "https://www.bing.com/search", "Seznam" => "https://search.seznam.cz/", "Brave Search" => "https://search.brave.com/search", "Ecosia" => "https://www.ecosia.org/search", "Yahoo" => "https://search.yahoo.com/search", "Startpage" => "https://www.startpage.com/sp/search", "Custom" => _settings.Data.CustomSearchEndpoint.Replace("{query}", ""), _ => "https://duckduckgo.com/" };
 }
 
-public sealed class BrowserTab { public WebView2 View { get; } = new() { DefaultBackgroundColor = System.Drawing.Color.FromArgb(0x0B, 0x10, 0x1A) }; public string Title { get; set; } = "Nová karta"; public ImageSource? Favicon { get; set; } public bool IsYamaNewTab { get; set; } public int BlockedCount { get; set; } }
+public sealed class BrowserTab { public WebView2 View { get; } = new() { DefaultBackgroundColor = System.Drawing.Color.FromArgb(0x0B, 0x10, 0x1A) }; public string Title { get; set; } = "Nová karta"; public ImageSource? Favicon { get; set; } public bool IsYamaNewTab { get; set; } public int BlockedCount { get; set; } public string? YamaBlockScriptId { get; set; } }
 public enum BlockMode { Off, Standard, Strict }
 public enum SecurityLevel { Recommended, Strict, Custom }
 public static class BlockModeExtensions { public static string ToLabel(this BlockMode mode) => mode switch { BlockMode.Off => "Vypnuto", BlockMode.Strict => "Přísný", _ => "Standard" }; }
@@ -1483,7 +2538,7 @@ public static class UrlTools
         var query = Uri.EscapeDataString(input); return engine switch { "Google" => "https://www.google.com/search?q=" + query, "Bing" => "https://www.bing.com/search?q=" + query, "Seznam" => "https://search.seznam.cz/?q=" + query, "Brave Search" => "https://search.brave.com/search?q=" + query, "Ecosia" => "https://www.ecosia.org/search?q=" + query, "Yahoo" => "https://search.yahoo.com/search?p=" + query, "Startpage" => "https://www.startpage.com/sp/search?query=" + query, _ => "https://duckduckgo.com/?q=" + query };
     }
 }
-public sealed class AppData { public string Theme { get; set; } = "dark"; public string HomePage { get; set; } = "yamasearch://newtab"; public string SearchEngine { get; set; } = "DuckDuckGo"; public string CustomSearchEndpoint { get; set; } = ""; public bool OnboardingCompleted { get; set; } = false; public BlockMode BlockMode { get; set; } = BlockMode.Standard; public SecurityLevel SecurityLevel { get; set; } = SecurityLevel.Recommended; public bool EnableSmartScreen { get; set; } = true; public bool OfferPasswordSave { get; set; } = true; public List<string> Whitelist { get; set; } = []; public List<string> Bookmarks { get; set; } = []; public List<HistoryEntry> History { get; set; } = []; public List<DownloadEntry> Downloads { get; set; } = []; }
+public sealed class AppData { public string Theme { get; set; } = "dark"; public string HomePage { get; set; } = "yamasearch://newtab"; public string SearchEngine { get; set; } = "DuckDuckGo"; public string CustomSearchEndpoint { get; set; } = ""; public bool OnboardingCompleted { get; set; } = false; public bool FavoritesBarVisible { get; set; } = false; public BlockMode BlockMode { get; set; } = BlockMode.Standard; public bool EnableYouTubeAdBlock { get; set; } = true; public bool EnableCosmeticBlocking { get; set; } = true; public bool EnableTrackerBlocking { get; set; } = true; public SecurityLevel SecurityLevel { get; set; } = SecurityLevel.Recommended; public bool EnableSmartScreen { get; set; } = true; public bool OfferPasswordSave { get; set; } = true; public List<string> Whitelist { get; set; } = []; public List<string> Bookmarks { get; set; } = []; public List<HistoryEntry> History { get; set; } = []; public List<DownloadEntry> Downloads { get; set; } = []; }
 public sealed class HistoryEntry { public string Url { get; set; } = ""; public string Title { get; set; } = ""; public string FaviconUrl { get; set; } = ""; public DateTimeOffset VisitedAt { get; set; } }
 public sealed class DownloadEntry
 {

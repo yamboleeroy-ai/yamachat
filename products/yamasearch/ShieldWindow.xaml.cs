@@ -26,7 +26,6 @@ public partial class ShieldWindow : Window
         _settings.Data.SecurityLevel = Recommended.IsChecked == true ? SecurityLevel.Recommended : Strict.IsChecked == true ? SecurityLevel.Strict : SecurityLevel.Custom;
         _settings.Data.EnableSmartScreen = SmartScreen.IsChecked == true;
         _settings.Data.OfferPasswordSave = PasswordSave.IsChecked == true;
-        _settings.Data.BlockMode = _settings.Data.SecurityLevel == SecurityLevel.Strict ? BlockMode.Strict : _settings.Data.SecurityLevel == SecurityLevel.Recommended ? BlockMode.Standard : _settings.Data.BlockMode;
         DialogResult = true;
     }
     private void Cancel_Click(object sender, RoutedEventArgs e) => DialogResult = false;
