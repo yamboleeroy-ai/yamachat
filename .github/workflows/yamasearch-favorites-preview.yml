@@ -1,0 +1,47 @@
+name: Build YamaSearch Favorites Preview
+
+on:
+  push:
+    branches:
+      - preview/yamasearch-favorites-20261006
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Restore YamaSearch
+        shell: pwsh
+        run: dotnet restore products/yamasearch/YamaSearch.csproj
+      - name: Verify favorites new-tab source
+        shell: pwsh
+        run: |
+          $source = Get-Content products/yamasearch/MainWindow.xaml.cs -Raw
+          foreach ($required in @('Oblíbené stránky','favorite-card','FaviconUrl','YamaSearch-symbol-64.png')) {
+            if ($source -notmatch [regex]::Escape($required)) { throw "Missing favorites preview marker: $required" }
+          }
+      - name: Publish portable preview
+        shell: pwsh
+        run: |
+          $out = 'products/yamasearch/artifacts/favorites-preview'
+          Remove-Item -LiteralPath $out -Recurse -Force -ErrorAction SilentlyContinue
+          New-Item -ItemType Directory -Path $out -Force | Out-Null
+          dotnet publish products/yamasearch/YamaSearch.csproj -c Release -r win-x64 --self-contained false -p:Version=0.1.1 -p:AssemblyVersion=0.1.1.0 -p:FileVersion=0.1.1.0 -o $out
+          if ($LASTEXITCODE -ne 0) { throw 'YamaSearch preview publish failed.' }
+          if (-not (Test-Path "$out/YamaSearch.exe")) { throw 'YamaSearch.exe missing from preview.' }
+          Compress-Archive -Path "$out/*" -DestinationPath 'YamaSearch-Favorites-Preview-Portable.zip' -Force
+          if (-not (Test-Path 'YamaSearch-Favorites-Preview-Portable.zip')) { throw 'Preview ZIP was not created.' }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: YamaSearch-Favorites-Preview-Portable
+          path: YamaSearch-Favorites-Preview-Portable.zip
+          if-no-files-found: error
+          retention-days: 14
+          compression-level: 0
