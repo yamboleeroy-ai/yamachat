@@ -5,7 +5,7 @@ on:
     branches:
       - preview/yamahelp-full-header-logo
     paths:
-      - 'preview/yamahelp-build-source.zip'
+      - 'preview/yamahelp-parts/**'
       - '.github/workflows/yamahelp-branding-preview.yml'
   workflow_dispatch:
 
@@ -15,7 +15,7 @@ permissions:
 jobs:
   build:
     runs-on: windows-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
 
     steps:
       - uses: actions/checkout@v4
@@ -24,13 +24,74 @@ jobs:
         with:
           dotnet-version: '10.0.x'
 
-      - name: Extract source
+      - name: Reconstruct source and branding assets
         shell: pwsh
         run: |
-          Get-Item preview/yamahelp-build-source.zip | Format-List Name,Length
-          New-Item -ItemType Directory -Path preview/yamahelp-src -Force | Out-Null
-          tar -xf preview/yamahelp-build-source.zip -C preview/yamahelp-src
-          Get-ChildItem preview/yamahelp-src/desktop | Select-Object -First 20
+          $ErrorActionPreference = 'Stop'
+          $partsRoot = Join-Path $env:GITHUB_WORKSPACE 'preview\yamahelp-parts'
+          $srcRoot = Join-Path $env:GITHUB_WORKSPACE 'preview\yamahelp-src'
+          $desktop = Join-Path $srcRoot 'desktop'
+
+          $srcParts = Get-ChildItem $partsRoot -Filter 'src.*.part' -File | Sort-Object Name
+          if (-not $srcParts) { throw 'Missing source parts.' }
+          $srcB64 = ($srcParts | ForEach-Object { Get-Content $_.FullName -Raw }) -join ''
+          $sourceArchive = Join-Path $env:GITHUB_WORKSPACE 'preview\yamahelp-source.tar.gz'
+          [IO.File]::WriteAllBytes($sourceArchive, [Convert]::FromBase64String($srcB64))
+
+          New-Item -ItemType Directory -Path $srcRoot -Force | Out-Null
+          tar -xzf $sourceArchive -C $srcRoot
+          if (-not (Test-Path (Join-Path $desktop 'MainWindow.xaml'))) { throw 'Source extraction failed.' }
+
+          $logoParts = Get-ChildItem $partsRoot -Filter 'header-logo.*.part' -File | Sort-Object Name
+          $logoB64 = ($logoParts | ForEach-Object { Get-Content $_.FullName -Raw }) -join ''
+          [IO.File]::WriteAllBytes((Join-Path $desktop 'yamahelp-logo.png'), [Convert]::FromBase64String($logoB64))
+
+          $iconParts = Get-ChildItem $partsRoot -Filter 'square-icon.*.part' -File | Sort-Object Name
+          $iconB64 = ($iconParts | ForEach-Object { Get-Content $_.FullName -Raw }) -join ''
+          [IO.File]::WriteAllBytes((Join-Path $desktop 'yamahelp-icon.png'), [Convert]::FromBase64String($iconB64))
+
+          @'
+          import struct
+          from pathlib import Path
+          root = Path(r"preview/yamahelp-src/desktop")
+          png = (root / "yamahelp-icon.png").read_bytes()
+          header = struct.pack("<HHH", 0, 1, 1)
+          entry = struct.pack("<BBBBHHII", 192, 192, 0, 0, 1, 32, len(png), 22)
+          (root / "yamahelp-icon.ico").write_bytes(header + entry + png)
+          '@ | python -
+
+          @'
+          <Project Sdk="Microsoft.NET.Sdk">
+            <PropertyGroup>
+              <OutputType>WinExe</OutputType>
+              <TargetFramework>net10.0-windows</TargetFramework>
+              <UseWPF>true</UseWPF>
+              <ImplicitUsings>enable</ImplicitUsings>
+              <Nullable>enable</Nullable>
+              <ApplicationIcon>yamahelp-icon.ico</ApplicationIcon>
+              <Version>1.0.82</Version>
+              <AssemblyVersion>1.0.82.0</AssemblyVersion>
+              <FileVersion>1.0.82.0</FileVersion>
+              <InformationalVersion>1.0.82-preview-full-logo</InformationalVersion>
+            </PropertyGroup>
+            <ItemGroup>
+              <PackageReference Include="LibreHardwareMonitorLib" Version="0.9.6" />
+              <PackageReference Include="System.Management" Version="10.0.12" />
+            </ItemGroup>
+            <ItemGroup>
+              <Content Include="yamahelp-logo.png">
+                <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+              </Content>
+              <Content Include="yamahelp-icon.png">
+                <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+              </Content>
+            </ItemGroup>
+          </Project>
+          '@ | Set-Content -Path (Join-Path $desktop 'YamaHelp.Desktop.csproj') -Encoding UTF8
+
+          Write-Host 'Header line:'
+          Select-String -Path (Join-Path $desktop 'MainWindow.xaml') -Pattern 'yamahelp-logo.png'
+          Get-Item (Join-Path $desktop 'yamahelp-logo.png'), (Join-Path $desktop 'yamahelp-icon.png') | Format-Table Name,Length
 
       - name: Build Windows portable preview
         shell: pwsh
@@ -52,8 +113,10 @@ jobs:
         shell: pwsh
         run: |
           foreach ($name in @('YamaHelp.Desktop.exe','YamaHelp.Desktop.dll','yamahelp-logo.png','yamahelp-icon.png')) {
-            if (-not (Test-Path (Join-Path 'preview/yamahelp-out' $name))) { throw "Missing output: $name" }
+            $p = Join-Path 'preview/yamahelp-out' $name
+            if (-not (Test-Path $p)) { throw "Missing output: $name" }
           }
+          Get-Item preview/yamahelp-out/YamaHelp.Desktop.exe, preview/yamahelp-out/YamaHelp.Desktop.dll | Format-Table Name,Length
 
       - name: Package preview
         shell: pwsh
