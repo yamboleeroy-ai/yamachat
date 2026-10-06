@@ -1,0 +1,70 @@
+<Window x:Class="YamaSearch.BlockWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="YamaBlock"
+        Icon="pack://application:,,,/Assets/YamaSearch.ico"
+        Width="570" Height="670" MinWidth="540" MinHeight="630"
+        ResizeMode="NoResize" WindowStartupLocation="CenterOwner"
+        Background="#0B101A" Foreground="#EAF3FF">
+  <Grid Margin="26">
+    <Grid.RowDefinitions>
+      <RowDefinition Height="Auto"/>
+      <RowDefinition Height="Auto"/>
+      <RowDefinition Height="*"/>
+      <RowDefinition Height="Auto"/>
+    </Grid.RowDefinitions>
+
+    <StackPanel>
+      <DockPanel LastChildFill="False">
+        <TextBlock Text="◆  YamaBlock" Foreground="#FCD34D" FontWeight="SemiBold" FontSize="25"/>
+        <Button Content="×" DockPanel.Dock="Right" Click="Cancel_Click" Padding="10,4"/>
+      </DockPanel>
+      <TextBlock x:Name="PageState" Margin="0,9,0,0" Foreground="#AFC2D8" TextWrapping="Wrap"/>
+    </StackPanel>
+
+    <Border Grid.Row="1" Background="#152238" BorderBrush="#2B4568" BorderThickness="1"
+            CornerRadius="12" Padding="16" Margin="0,18,0,14">
+      <StackPanel>
+        <TextBlock Text="Režim blokování" FontSize="17" FontWeight="SemiBold"/>
+        <RadioButton x:Name="Off" Content="Vypnuto — nic neblokovat" Foreground="#EAF3FF" Margin="0,12,0,4"/>
+        <RadioButton x:Name="Standard" Content="Standard — reklamy a známé reklamní požadavky" Foreground="#EAF3FF" Margin="0,4"/>
+        <RadioButton x:Name="Strict" Content="Přísný — navíc trackery a agresivnější pravidla" Foreground="#EAF3FF" Margin="0,4"/>
+        <TextBlock Text="Přísný režim může na některých webech vyžadovat výjimku."
+                   Foreground="#8FA4BE" FontSize="11" Margin="22,6,0,0"/>
+      </StackPanel>
+    </Border>
+
+    <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto">
+      <StackPanel>
+        <TextBlock Text="Rozšířená pravidla" FontSize="17" FontWeight="SemiBold" Margin="0,0,0,8"/>
+        <CheckBox x:Name="YouTubeEnhanced" Content="Lepší blokování reklam na YouTube"
+                  Foreground="#EAF3FF" Margin="0,8"/>
+        <TextBlock Text="Blokuje známé reklamní požadavky YouTube, skrývá reklamní prvky a automaticky použije tlačítko Přeskočit. V Přísném režimu navíc zkusí přeskočit právě přehrávaný reklamní úsek."
+                   Foreground="#8FA4BE" FontSize="11" TextWrapping="Wrap" Margin="24,-2,4,10"/>
+
+        <CheckBox x:Name="CosmeticBlocking" Content="Skrývat reklamní prvky na stránkách"
+                  Foreground="#EAF3FF" Margin="0,8"/>
+        <TextBlock Text="Odstraňuje běžné reklamní kontejnery a reklamní iframe bez blokování samotného obsahu stránky."
+                   Foreground="#8FA4BE" FontSize="11" TextWrapping="Wrap" Margin="24,-2,4,10"/>
+
+        <CheckBox x:Name="TrackerBlocking" Content="Blokovat známé trackery"
+                  Foreground="#EAF3FF" Margin="0,8"/>
+        <TextBlock Text="Omezí známé analytické a sledovací požadavky. V Přísném režimu se používají i další URL pravidla."
+                   Foreground="#8FA4BE" FontSize="11" TextWrapping="Wrap" Margin="24,-2,4,12"/>
+
+        <Border Height="1" Background="#294465" Margin="0,6,0,14"/>
+
+        <TextBlock Text="Výjimka pro aktuální web" FontSize="17" FontWeight="SemiBold"/>
+        <CheckBox x:Name="AllowCurrentSite" Content="Povolit reklamy a trackery na tomto webu"
+                  Foreground="#EAF3FF" Margin="0,10,0,4"/>
+        <TextBlock x:Name="CurrentHostText" Foreground="#8FA4BE" FontSize="11" Margin="24,0,4,0"/>
+      </StackPanel>
+    </ScrollViewer>
+
+    <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,16,0,0">
+      <Button Content="Zrušit" Click="Cancel_Click" Margin="0,0,8,0" Padding="14,8"/>
+      <Button Content="Uložit YamaBlock" Background="#5B4510" BorderBrush="#E0A915"
+              Foreground="#FFE68A" BorderThickness="1" Click="Save_Click" Padding="14,8"/>
+    </StackPanel>
+  </Grid>
+</Window>
