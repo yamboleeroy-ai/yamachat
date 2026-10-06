@@ -33,4 +33,10 @@ public partial class FindWindow : Window
         e.Handled = true;
         Find_Click(sender, e);
     }
+
+    private void TitleBar_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        if (e.LeftButton == MouseButtonState.Pressed)
+            DragMove();
+    }
 }
