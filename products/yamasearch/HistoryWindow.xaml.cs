@@ -80,7 +80,7 @@ public partial class HistoryWindow : Window
         root.Children.Add(info);
 
         var actions = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
-        var open = new Button { Content = "Otevřít", Margin = new Thickness(4, 0, 0, 0), Padding = new Thickness(10, 6) };
+        var open = new Button { Content = "Otevřít", Margin = new Thickness(4, 0, 0, 0), Padding = new Thickness(10, 6, 10, 6) };
         open.Click += (_, _) => { _openUrl(entry.Url); Close(); };
         actions.Children.Add(open);
 
@@ -91,7 +91,7 @@ public partial class HistoryWindow : Window
             Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#FFB7C5")),
             Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#35202B")),
             Margin = new Thickness(5, 0, 0, 0),
-            Padding = new Thickness(10, 6)
+            Padding = new Thickness(10, 6, 10, 6)
         };
         remove.Click += (_, _) =>
         {
