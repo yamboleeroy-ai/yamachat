@@ -1,7 +1,7 @@
 {
   "product": "YamaSearch",
-  "version": "0.1.0",
-  "notes": "První samostatné vydání YamaSearch.",
+  "version": "0.2.0",
+  "notes": "Oblíbené stránky, správa historie, historie stahování, průběh stahování a vylepšený adresní řádek.",
   "portableUrl": "https://updates.yamachat.eu/yamasearch/YamaSearch-Portable-latest.zip",
   "installerUrl": "https://updates.yamachat.eu/yamasearch/YamaSearch-Setup-latest.exe"
 }

@@ -23,6 +23,8 @@ public partial class MainWindow : Window
     private BrowserTab? _active;
     private System.Windows.Controls.Primitives.Popup? _tabActionsPopup;
     private bool _suppressSuggestions;
+    private bool _downloadUiRefreshQueued;
+    private readonly Dictionary<CoreWebView2DownloadOperation, DownloadEntry> _activeDownloads = [];
     private readonly string _webDataFolder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "YamaSearch", "WebView");
     private readonly HashSet<string> _adHosts = new(StringComparer.OrdinalIgnoreCase)
     { "doubleclick.net", "googlesyndication.com", "google-analytics.com", "adservice.google.com", "connect.facebook.net", "scorecardresearch.com" };
@@ -31,9 +33,29 @@ public partial class MainWindow : Window
     {
         InitializeComponent();
         SourceInitialized += (_, _) => SetDarkWindowBorder();
-        ApplyTheme(_settings.Data.Theme);
+        if (!_settings.Data.Theme.Equals("dark", StringComparison.OrdinalIgnoreCase))
+        {
+            _settings.Data.Theme = "dark";
+            _settings.Save();
+        }
+        ApplyTheme("dark");
+        RecoverInterruptedDownloads();
+        UpdateShieldButton();
         UpdateBlockButton();
+        UpdateDownloadToolbar();
         KeyDown += MainWindow_KeyDown;
+    }
+
+    private void RecoverInterruptedDownloads()
+    {
+        var changed = false;
+        foreach (var entry in _settings.Data.Downloads.Where(x => x.State == "Probíhá"))
+        {
+            entry.State = "Přerušeno";
+            entry.CompletedAt ??= DateTimeOffset.Now;
+            changed = true;
+        }
+        if (changed) _settings.Save();
     }
 
     private async void Window_Loaded(object sender, RoutedEventArgs e)
@@ -102,7 +124,16 @@ public partial class MainWindow : Window
         core.Settings.IsGeneralAutofillEnabled = false;
         core.AddWebResourceRequestedFilter("*", CoreWebView2WebResourceContext.All);
         core.WebResourceRequested += (_, e) => BlockRequest(tab, e);
-        core.NavigationStarting += (_, _) => { if (_active == tab) StatusText.Text = "Načítání…"; };
+        core.WebMessageReceived += (_, e) => HandleNewTabMessage(tab, e);
+        core.NavigationStarting += (_, e) =>
+        {
+            if (Uri.TryCreate(e.Uri, UriKind.Absolute, out var destination) && destination.Scheme is "http" or "https")
+            {
+                tab.IsYamaNewTab = false;
+                if (_active == tab) SetAddressText(e.Uri);
+            }
+            if (_active == tab) StatusText.Text = "Načítání…";
+        };
         core.NavigationCompleted += (_, e) => { if (_active == tab) StatusText.Text = e.IsSuccess ? "Hotovo" : "Stránku se nepodařilo načíst"; UpdateTabTitle(tab); if (e.IsSuccess && Uri.TryCreate(core.Source, UriKind.Absolute, out var page) && page.Scheme is "http" or "https") AddHistory(core.Source, core.DocumentTitle, core.FaviconUri); };
         core.DocumentTitleChanged += (_, _) => UpdateTabTitle(tab);
         core.FaviconChanged += (_, _) => UpdateFavicon(tab);
@@ -110,7 +141,7 @@ public partial class MainWindow : Window
         core.SourceChanged += (_, _) => { UpdateTabTitle(tab); if (_active == tab) SetAddressText(tab.IsYamaNewTab ? "YamaSearch — nová karta" : core.Source); };
         core.PermissionRequested += (_, e) => HandlePermissionRequest(e);
         core.NewWindowRequested += async (_, e) => { e.Handled = true; await CreateTabAsync(e.Uri); };
-        core.DownloadStarting += (_, e) => { StatusText.Text = $"Stahování: {e.DownloadOperation.ResultFilePath}"; };
+        core.DownloadStarting += (_, e) => HandleDownloadStarting(e);
     }
     private async Task<CoreWebView2Environment> CreateWebViewEnvironmentAsync()
     {
@@ -237,21 +268,119 @@ public partial class MainWindow : Window
     private void Back_Click(object sender, RoutedEventArgs e) { if (_active?.View.CoreWebView2.CanGoBack == true) _active.View.CoreWebView2.GoBack(); }
     private void Forward_Click(object sender, RoutedEventArgs e) { if (_active?.View.CoreWebView2.CanGoForward == true) _active.View.CoreWebView2.GoForward(); }
     private void Reload_Click(object sender, RoutedEventArgs e) => _active?.View.CoreWebView2.Reload();
-    private void AddressBox_KeyDown(object sender, KeyEventArgs e) { if (e.Key == Key.Enter && _active != null) _ = NavigateAsync(_active, AddressBox.Text); }
+    private void AddressBox_KeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key != Key.Enter || _active == null) return;
+        AddressSuggestions.IsOpen = false;
+        _ = NavigateAsync(_active, AddressBox.Text);
+    }
+
+    private void AddressBox_GotKeyboardFocus(object sender, KeyboardFocusChangedEventArgs e)
+    {
+        PrepareAddressBoxForInput();
+        ScheduleAddressSuggestions();
+    }
+
+    private void AddressBox_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        var cleared = PrepareAddressBoxForInput();
+
+        if (!AddressBox.IsKeyboardFocusWithin)
+        {
+            AddressBox.Focus();
+            e.Handled = true;
+        }
+
+        if (cleared)
+            AddressBox.CaretIndex = 0;
+
+        ScheduleAddressSuggestions();
+    }
+
+    private void ScheduleAddressSuggestions()
+    {
+        _ = Dispatcher.BeginInvoke(
+            System.Windows.Threading.DispatcherPriority.ContextIdle,
+            new Action(ShowAddressSuggestions));
+    }
+
+    private bool PrepareAddressBoxForInput()
+    {
+        var current = AddressBox.Text.Trim();
+        if (!current.Equals("about:blank", StringComparison.OrdinalIgnoreCase)
+            && !current.Equals("YamaSearch — nová karta", StringComparison.OrdinalIgnoreCase)) return false;
+
+        _suppressSuggestions = true;
+        AddressBox.Clear();
+        AddressBox.CaretIndex = 0;
+        _suppressSuggestions = false;
+        return true;
+    }
+
     private void AddressBox_TextChanged(object sender, TextChangedEventArgs e)
     {
-        var query = AddressBox.Text.Trim(); AddressSuggestionList.Children.Clear();
-        if (_suppressSuggestions || !AddressBox.IsKeyboardFocusWithin || query.Length < 1) { AddressSuggestions.IsOpen = false; return; }
+        if (_suppressSuggestions || !AddressBox.IsKeyboardFocusWithin)
+        {
+            AddressSuggestions.IsOpen = false;
+            return;
+        }
+
+        ShowAddressSuggestions();
+    }
+
+    private void ShowAddressSuggestions()
+    {
+        AddressSuggestionList.Children.Clear();
+        if (_suppressSuggestions || !AddressBox.IsKeyboardFocusWithin)
+        {
+            AddressSuggestions.IsOpen = false;
+            return;
+        }
+
+        var query = AddressBox.Text.Trim();
+        if (query.Length == 0)
+        {
+            foreach (var item in _settings.Data.History
+                .Where(x => !string.IsNullOrWhiteSpace(x.Url))
+                .Take(6))
+            {
+                var title = string.IsNullOrWhiteSpace(item.Title) ? item.Url : item.Title;
+                var suggestion = CreateSuggestionButton(title, item.Url, "◷", false, item.FaviconUrl);
+                suggestion.Click += (_, _) =>
+                {
+                    AddressSuggestions.IsOpen = false;
+                    if (_active != null) _ = NavigateAsync(_active, item.Url);
+                };
+                AddressSuggestionList.Children.Add(suggestion);
+            }
+
+            AddressSuggestions.IsOpen = AddressSuggestionList.Children.Count > 0;
+            return;
+        }
+
         var search = CreateSuggestionButton($"Hledat „{query}“ v {_settings.Data.SearchEngine}", "Potvrďte Enterem nebo kliknutím", "⌕", true);
-        search.Click += (_, _) => { AddressSuggestions.IsOpen = false; if (_active != null) _ = NavigateAsync(_active, query); };
+        search.Click += (_, _) =>
+        {
+            AddressSuggestions.IsOpen = false;
+            if (_active != null) _ = NavigateAsync(_active, query);
+        };
         AddressSuggestionList.Children.Add(search);
-        foreach (var item in _settings.Data.History.Where(x => x.Url.Contains(query, StringComparison.OrdinalIgnoreCase) || x.Title.Contains(query, StringComparison.OrdinalIgnoreCase)).Take(4))
+
+        foreach (var item in _settings.Data.History
+            .Where(x => x.Url.Contains(query, StringComparison.OrdinalIgnoreCase)
+                || x.Title.Contains(query, StringComparison.OrdinalIgnoreCase))
+            .Take(4))
         {
             var title = string.IsNullOrWhiteSpace(item.Title) ? item.Url : item.Title;
             var suggestion = CreateSuggestionButton(title, item.Url, "↗", false, item.FaviconUrl);
-            suggestion.Click += (_, _) => { AddressSuggestions.IsOpen = false; if (_active != null) _ = NavigateAsync(_active, item.Url); };
+            suggestion.Click += (_, _) =>
+            {
+                AddressSuggestions.IsOpen = false;
+                if (_active != null) _ = NavigateAsync(_active, item.Url);
+            };
             AddressSuggestionList.Children.Add(suggestion);
         }
+
         AddressSuggestions.IsOpen = true;
     }
     private static Button CreateSuggestionButton(string title, string subtitle, string glyph, bool highlight, string? faviconUrl = null)
@@ -287,7 +416,315 @@ public partial class MainWindow : Window
         if (_active?.View.CoreWebView2 != null) _ = NavigateAsync(_active, AddressBox.Text);
         else StatusText.Text = "Webový engine se ještě spouští…";
     }
-    private void Bookmark_Click(object sender, RoutedEventArgs e) { if (_active?.View.CoreWebView2.Source is { } url && !_settings.Data.Bookmarks.Contains(url)) { _settings.Data.Bookmarks.Add(url); _settings.Save(); StatusText.Text = "Záložka uložena"; } }
+    private void Bookmark_Click(object sender, RoutedEventArgs e)
+    {
+        if (_active?.View.CoreWebView2 == null) return;
+        if (_active.IsYamaNewTab)
+        {
+            StatusText.Text = "Oblíbené můžeš přidávat a odebírat přímo na nové kartě.";
+            return;
+        }
+
+        var url = _active.View.CoreWebView2.Source;
+        if (!TryNormalizeFavoriteUrl(url, out var normalized)) return;
+
+        var index = FindFavoriteIndex(normalized);
+        if (index >= 0)
+        {
+            _settings.Data.Bookmarks.RemoveAt(index);
+            _settings.Save();
+            StatusText.Text = "Odebráno z oblíbených";
+        }
+        else
+        {
+            _settings.Data.Bookmarks.Insert(0, normalized);
+            _settings.Save();
+            StatusText.Text = "Přidáno do oblíbených";
+        }
+
+        RefreshFavoriteViews();
+    }
+    private void HandleDownloadStarting(CoreWebView2DownloadStartingEventArgs e)
+    {
+        var operation = e.DownloadOperation;
+        var path = operation.ResultFilePath ?? "";
+        var entry = new DownloadEntry
+        {
+            Id = Guid.NewGuid().ToString("N"),
+            Url = operation.Uri ?? "",
+            FilePath = path,
+            FileName = string.IsNullOrWhiteSpace(path) ? "Stažený soubor" : Path.GetFileName(path),
+            BytesReceived = operation.BytesReceived,
+            TotalBytes = operation.TotalBytesToReceive is ulong total && total <= long.MaxValue ? (long)total : 0,
+            State = "Probíhá",
+            StartedAt = DateTimeOffset.Now
+        };
+
+        _settings.Data.Downloads.Insert(0, entry);
+        if (_settings.Data.Downloads.Count > 300)
+            _settings.Data.Downloads.RemoveRange(300, _settings.Data.Downloads.Count - 300);
+        _settings.Save();
+
+        _activeDownloads[operation] = entry;
+        operation.BytesReceivedChanged += (_, _) => Dispatcher.BeginInvoke(() => UpdateDownloadEntry(operation, entry, false));
+        operation.StateChanged += (_, _) => Dispatcher.BeginInvoke(() => UpdateDownloadEntry(operation, entry, true));
+
+        StatusText.Text = $"Stahování: {entry.FileName}";
+        UpdateDownloadEntry(operation, entry, false);
+    }
+
+    private void UpdateDownloadEntry(CoreWebView2DownloadOperation operation, DownloadEntry entry, bool persist)
+    {
+        entry.BytesReceived = operation.BytesReceived;
+        entry.TotalBytes = operation.TotalBytesToReceive is ulong total && total <= long.MaxValue ? (long)total : 0;
+        entry.FilePath = operation.ResultFilePath ?? entry.FilePath;
+        if (!string.IsNullOrWhiteSpace(entry.FilePath))
+            entry.FileName = Path.GetFileName(entry.FilePath);
+
+        entry.State = operation.State switch
+        {
+            CoreWebView2DownloadState.Completed => "Dokončeno",
+            CoreWebView2DownloadState.Interrupted => "Přerušeno",
+            _ => "Probíhá"
+        };
+
+        if (operation.State == CoreWebView2DownloadState.Completed)
+        {
+            entry.CompletedAt ??= DateTimeOffset.Now;
+            _activeDownloads.Remove(operation);
+            StatusText.Text = $"Staženo: {entry.FileName}";
+            persist = true;
+        }
+        else if (operation.State == CoreWebView2DownloadState.Interrupted)
+        {
+            entry.CompletedAt ??= DateTimeOffset.Now;
+            _activeDownloads.Remove(operation);
+            StatusText.Text = $"Stahování přerušeno: {entry.FileName}";
+            persist = true;
+        }
+
+        if (persist) _settings.Save();
+        QueueDownloadUiRefresh();
+    }
+
+    private void QueueDownloadUiRefresh()
+    {
+        if (_downloadUiRefreshQueued) return;
+        _downloadUiRefreshQueued = true;
+        _ = Dispatcher.BeginInvoke(
+            System.Windows.Threading.DispatcherPriority.ContextIdle,
+            new Action(() =>
+            {
+                _downloadUiRefreshQueued = false;
+                UpdateDownloadToolbar();
+                if (DownloadPopup.IsOpen) RenderDownloadQuickPopup();
+                if (SidePanel.Visibility == Visibility.Visible && PanelTitle.Text == "Stahování")
+                    ShowDownloadsPanel();
+            }));
+    }
+
+    private void UpdateDownloadToolbar()
+    {
+        var active = _settings.Data.Downloads.FirstOrDefault(x => x.State == "Probíhá");
+        if (active != null)
+        {
+            var progress = active.TotalBytes > 0 ? Math.Clamp((double)active.BytesReceived / active.TotalBytes, 0, 1) : 0.18;
+            DownloadProgressFill.Height = 24 * progress;
+            DownloadProgressFill.Visibility = Visibility.Visible;
+            DownloadArrowIcon.Visibility = Visibility.Visible;
+            DownloadCheckMark.Visibility = Visibility.Collapsed;
+            DownloadButton.Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#54D7F8"));
+            DownloadButton.BorderBrush = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#2F7EAA"));
+            DownloadButton.ToolTip = active.TotalBytes > 0
+                ? $"Stahování · {progress:P0} · {active.FileName}"
+                : $"Stahování · {active.FileName}";
+            return;
+        }
+
+        DownloadProgressFill.Height = 0;
+        DownloadProgressFill.Visibility = Visibility.Collapsed;
+        var latest = _settings.Data.Downloads.FirstOrDefault();
+        var completed = latest?.State == "Dokončeno";
+        DownloadArrowIcon.Visibility = completed ? Visibility.Collapsed : Visibility.Visible;
+        DownloadCheckMark.Visibility = completed ? Visibility.Visible : Visibility.Collapsed;
+        DownloadButton.Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString(completed ? "#4ADE80" : "#7DDFFF"));
+        DownloadButton.BorderBrush = new SolidColorBrush((Color)ColorConverter.ConvertFromString(completed ? "#2F855A" : "#31537D"));
+        DownloadButton.ToolTip = completed ? $"Staženo · {latest!.FileName}" : "Stahování";
+    }
+
+    private void DownloadButton_Click(object sender, RoutedEventArgs e)
+    {
+        HistoryQuickPopup.IsOpen = false;
+        RenderDownloadQuickPopup();
+        DownloadPopup.IsOpen = !DownloadPopup.IsOpen;
+    }
+
+    private void HistoryQuickButton_Click(object sender, RoutedEventArgs e)
+    {
+        DownloadPopup.IsOpen = false;
+        RenderHistoryQuickPopup();
+        HistoryQuickPopup.IsOpen = !HistoryQuickPopup.IsOpen;
+    }
+
+    private void RenderDownloadQuickPopup()
+    {
+        DownloadQuickList.Children.Clear();
+        var recent = _settings.Data.Downloads.Take(5).ToList();
+        DownloadPopupStatus.Text = _activeDownloads.Count > 0 ? $"{_activeDownloads.Count} aktivní" : "poslední soubory";
+
+        if (recent.Count == 0)
+        {
+            DownloadQuickList.Children.Add(new TextBlock
+            {
+                Text = "Zatím nebyly staženy žádné soubory.",
+                Foreground = (Brush)FindResource("MutedBrush"),
+                Margin = new Thickness(8, 12, 8, 12),
+                TextWrapping = TextWrapping.Wrap
+            });
+            return;
+        }
+
+        foreach (var item in recent)
+            DownloadQuickList.Children.Add(CreateDownloadQuickItem(item));
+    }
+
+    private FrameworkElement CreateDownloadQuickItem(DownloadEntry entry)
+    {
+        var grid = new Grid();
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(34) });
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+
+        var state = new TextBlock
+        {
+            Text = entry.State == "Dokončeno" ? "✓" : entry.State == "Přerušeno" ? "!" : "⇩",
+            Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString(entry.State == "Dokončeno" ? "#4ADE80" : entry.State == "Přerušeno" ? "#FCA5A5" : "#54D7F8")),
+            FontSize = 18,
+            FontWeight = FontWeights.SemiBold,
+            VerticalAlignment = VerticalAlignment.Center,
+            HorizontalAlignment = HorizontalAlignment.Center
+        };
+        grid.Children.Add(state);
+
+        var info = new StackPanel();
+        info.Children.Add(new TextBlock { Text = entry.FileName, Foreground = Brushes.White, FontWeight = FontWeights.SemiBold, TextTrimming = TextTrimming.CharacterEllipsis });
+        var progress = entry.TotalBytes > 0 ? Math.Clamp((double)entry.BytesReceived / entry.TotalBytes, 0, 1) : 0;
+        var subtitle = entry.State == "Probíhá"
+            ? (entry.TotalBytes > 0 ? $"{progress:P0} · {FormatBytes(entry.BytesReceived)} z {FormatBytes(entry.TotalBytes)}" : $"{FormatBytes(entry.BytesReceived)} staženo")
+            : $"{entry.State} · {entry.StartedAt:dd.MM. HH:mm}";
+        info.Children.Add(new TextBlock { Text = subtitle, Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#91A8C2")), FontSize = 11, Margin = new Thickness(0, 3, 0, 0), TextTrimming = TextTrimming.CharacterEllipsis });
+        if (entry.State == "Probíhá")
+        {
+            info.Children.Add(new ProgressBar { Minimum = 0, Maximum = 1, Value = progress, Height = 4, Margin = new Thickness(0, 6, 0, 0) });
+        }
+
+        Grid.SetColumn(info, 1);
+        grid.Children.Add(info);
+
+        var button = new Button
+        {
+            Content = grid,
+            HorizontalContentAlignment = HorizontalAlignment.Stretch,
+            Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#132238")),
+            BorderBrush = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#1D3857")),
+            BorderThickness = new Thickness(1),
+            Margin = new Thickness(0, 3, 0, 3),
+            Padding = new Thickness(8)
+        };
+        button.Click += (_, _) =>
+        {
+            if (entry.State == "Dokončeno") OpenDownloadedFile(entry);
+        };
+        return button;
+    }
+
+    private void RenderHistoryQuickPopup()
+    {
+        HistoryQuickList.Children.Clear();
+        var recent = _settings.Data.History.Take(6).ToList();
+        if (recent.Count == 0)
+        {
+            HistoryQuickList.Children.Add(new TextBlock
+            {
+                Text = "Historie je zatím prázdná.",
+                Foreground = (Brush)FindResource("MutedBrush"),
+                Margin = new Thickness(8, 12, 8, 12)
+            });
+            return;
+        }
+
+        foreach (var entry in recent)
+        {
+            var title = string.IsNullOrWhiteSpace(entry.Title) ? entry.Url : entry.Title;
+            var item = CreateSuggestionButton(title, entry.Url, "◷", false, entry.FaviconUrl);
+            item.Margin = new Thickness(0, 3, 0, 3);
+            item.Click += (_, _) =>
+            {
+                HistoryQuickPopup.IsOpen = false;
+                if (_active != null) _ = NavigateAsync(_active, entry.Url);
+            };
+            HistoryQuickList.Children.Add(item);
+        }
+    }
+
+    private void ShowAllDownloads_Click(object sender, RoutedEventArgs e)
+    {
+        DownloadPopup.IsOpen = false;
+        var window = new DownloadsWindow(_settings, OnDownloadsChanged) { Owner = this };
+        window.Show();
+    }
+
+    private void ShowAllHistory_Click(object sender, RoutedEventArgs e)
+    {
+        HistoryQuickPopup.IsOpen = false;
+        var window = new HistoryWindow(
+            _settings,
+            url => { if (_active != null) _ = NavigateAsync(_active, url); },
+            OnHistoryChanged) { Owner = this };
+        window.Show();
+    }
+
+    private void OnDownloadsChanged()
+    {
+        _settings.Save();
+        UpdateDownloadToolbar();
+        if (DownloadPopup.IsOpen) RenderDownloadQuickPopup();
+        if (SidePanel.Visibility == Visibility.Visible && PanelTitle.Text == "Stahování")
+            ShowDownloadsPanel();
+    }
+
+    private void OnHistoryChanged()
+    {
+        _settings.Save();
+        RefreshFavoriteViews();
+        if (HistoryQuickPopup.IsOpen) RenderHistoryQuickPopup();
+        if (SidePanel.Visibility == Visibility.Visible && PanelTitle.Text == "Historie")
+            ShowHistoryPanel();
+    }
+
+    private void OpenDownloadedFile(DownloadEntry entry)
+    {
+        try
+        {
+            if (!string.IsNullOrWhiteSpace(entry.FilePath) && File.Exists(entry.FilePath))
+                Process.Start(new ProcessStartInfo(entry.FilePath) { UseShellExecute = true });
+            else
+                StatusText.Text = "Stažený soubor už na disku není.";
+        }
+        catch (Exception error)
+        {
+            StatusText.Text = "Soubor se nepodařilo otevřít: " + error.Message;
+        }
+    }
+
+    private static string FormatBytes(long bytes)
+    {
+        string[] units = ["B", "KB", "MB", "GB", "TB"];
+        var value = Math.Max(0, (double)bytes);
+        var unit = 0;
+        while (value >= 1024 && unit < units.Length - 1) { value /= 1024; unit++; }
+        return unit == 0 ? $"{value:0} {units[unit]}" : $"{value:0.##} {units[unit]}";
+    }
+
     private void Menu_Click(object sender, RoutedEventArgs e)
     {
         bool opening = SidePanel.Visibility != Visibility.Visible;
@@ -297,6 +734,7 @@ public partial class MainWindow : Window
     }
     private void BookmarksPanel_Click(object sender, RoutedEventArgs e) => ShowBookmarksPanel();
     private void HistoryPanel_Click(object sender, RoutedEventArgs e) => ShowHistoryPanel();
+    private void DownloadsPanel_Click(object sender, RoutedEventArgs e) => ShowDownloadsPanel();
     private void Settings_Click(object sender, RoutedEventArgs e)
     {
         var dialog = new SettingsWindow(_settings, _active?.View.CoreWebView2?.Profile) { Owner = this };
@@ -305,19 +743,330 @@ public partial class MainWindow : Window
     private void ShowBookmarksPanel()
     {
         PanelTitle.Text = "Oblíbené"; PanelList.Items.Clear();
-        if (_settings.Data.Bookmarks.Count == 0) PanelList.Items.Add(new TextBlock { Text = "Zatím nemáte uložené žádné oblíbené stránky.", Foreground = (Brush)FindResource("MutedBrush"), TextWrapping = TextWrapping.Wrap });
-        foreach (var url in _settings.Data.Bookmarks) PanelList.Items.Add(CreatePanelLink(url, url));
+
+        if (_active?.View.CoreWebView2 != null && !_active.IsYamaNewTab && TryNormalizeFavoriteUrl(_active.View.CoreWebView2.Source, out var currentUrl))
+        {
+            var currentIsFavorite = FindFavoriteIndex(currentUrl) >= 0;
+            var currentButton = new Button
+            {
+                Content = currentIsFavorite ? "★  Odebrat aktuální stránku" : "☆  Přidat aktuální stránku",
+                HorizontalContentAlignment = HorizontalAlignment.Left,
+                Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString(currentIsFavorite ? "#35202B" : "#17334A")),
+                Margin = new Thickness(0, 0, 0, 10)
+            };
+            currentButton.Click += (_, _) =>
+            {
+                var index = FindFavoriteIndex(currentUrl);
+                if (index >= 0) _settings.Data.Bookmarks.RemoveAt(index);
+                else _settings.Data.Bookmarks.Insert(0, currentUrl);
+                _settings.Save();
+                RefreshFavoriteViews();
+                ShowBookmarksPanel();
+            };
+            PanelList.Items.Add(currentButton);
+        }
+
+        if (_settings.Data.Bookmarks.Count == 0)
+        {
+            PanelList.Items.Add(new TextBlock { Text = "Zatím nemáte uložené žádné oblíbené stránky.", Foreground = (Brush)FindResource("MutedBrush"), TextWrapping = TextWrapping.Wrap });
+            return;
+        }
+
+        foreach (var url in _settings.Data.Bookmarks.ToList()) PanelList.Items.Add(CreateBookmarkPanelItem(url));
     }
+    private void ShowDownloadsPanel()
+    {
+        PanelTitle.Text = "Stahování";
+        PanelList.Items.Clear();
+
+        if (_settings.Data.Downloads.Count == 0)
+        {
+            PanelList.Items.Add(new TextBlock
+            {
+                Text = "Zatím nebyly staženy žádné soubory.",
+                Foreground = (Brush)FindResource("MutedBrush"),
+                TextWrapping = TextWrapping.Wrap
+            });
+        }
+        else
+        {
+            foreach (var entry in _settings.Data.Downloads.Take(20).ToList())
+                PanelList.Items.Add(CreateDownloadPanelItem(entry));
+        }
+
+        var showAll = new Button
+        {
+            Content = "Zobrazit celou historii stahování",
+            HorizontalContentAlignment = HorizontalAlignment.Center,
+            Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#182A43")),
+            Margin = new Thickness(0, 10, 0, 0)
+        };
+        showAll.Click += ShowAllDownloads_Click;
+        PanelList.Items.Add(showAll);
+    }
+
+    private FrameworkElement CreateDownloadPanelItem(DownloadEntry entry)
+    {
+        var row = new Grid { Margin = new Thickness(0, 2, 0, 2) };
+        row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(28) });
+        row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+
+        row.Children.Add(new TextBlock
+        {
+            Text = entry.State == "Dokončeno" ? "✓" : entry.State == "Přerušeno" ? "!" : "⇩",
+            Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString(entry.State == "Dokončeno" ? "#4ADE80" : entry.State == "Přerušeno" ? "#FCA5A5" : "#54D7F8")),
+            VerticalAlignment = VerticalAlignment.Center,
+            HorizontalAlignment = HorizontalAlignment.Center,
+            FontSize = 16
+        });
+
+        var info = new StackPanel();
+        info.Children.Add(new TextBlock { Text = entry.FileName, Foreground = Brushes.White, TextTrimming = TextTrimming.CharacterEllipsis });
+        var progress = entry.TotalBytes > 0 ? Math.Clamp((double)entry.BytesReceived / entry.TotalBytes, 0, 1) : 0;
+        info.Children.Add(new TextBlock
+        {
+            Text = entry.State == "Probíhá"
+                ? (entry.TotalBytes > 0 ? $"{progress:P0} · {FormatBytes(entry.BytesReceived)} / {FormatBytes(entry.TotalBytes)}" : $"{FormatBytes(entry.BytesReceived)} staženo")
+                : $"{entry.State} · {entry.StartedAt:dd.MM. HH:mm}",
+            Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#91A8C2")),
+            FontSize = 10,
+            Margin = new Thickness(0, 2, 0, 0),
+            TextTrimming = TextTrimming.CharacterEllipsis
+        });
+        Grid.SetColumn(info, 1);
+        row.Children.Add(info);
+
+        var button = new Button
+        {
+            Content = row,
+            ToolTip = entry.FilePath,
+            HorizontalContentAlignment = HorizontalAlignment.Stretch,
+            Padding = new Thickness(8),
+            Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#132238"))
+        };
+        button.Click += (_, _) => { if (entry.State == "Dokončeno") OpenDownloadedFile(entry); };
+        return button;
+    }
+
     private void ShowHistoryPanel()
     {
-        PanelTitle.Text = "Historie"; PanelList.Items.Clear();
-        if (_settings.Data.History.Count == 0) PanelList.Items.Add(new TextBlock { Text = "Historie je zatím prázdná.", Foreground = (Brush)FindResource("MutedBrush") });
-        foreach (var item in _settings.Data.History.Take(50)) PanelList.Items.Add(CreatePanelLink(item.Url, string.IsNullOrWhiteSpace(item.Title) ? item.Url : item.Title));
+        PanelTitle.Text = "Historie";
+        PanelList.Items.Clear();
+
+        if (_settings.Data.History.Count == 0)
+        {
+            PanelList.Items.Add(new TextBlock
+            {
+                Text = "Historie je zatím prázdná.",
+                Foreground = (Brush)FindResource("MutedBrush"),
+                TextWrapping = TextWrapping.Wrap
+            });
+            return;
+        }
+
+        var clearAll = new Button
+        {
+            Content = "🗑  Vymazat celou historii",
+            ToolTip = "Odstraní všechny uložené položky historie",
+            HorizontalContentAlignment = HorizontalAlignment.Left,
+            Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#FFD3DB")),
+            Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#3A202A")),
+            BorderBrush = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#68404D")),
+            BorderThickness = new Thickness(1),
+            Margin = new Thickness(0, 0, 0, 10)
+        };
+        clearAll.Click += (_, _) =>
+        {
+            if (MessageBox.Show(
+                "Opravdu chceš vymazat celou historii YamaSearch?",
+                "Vymazat historii",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Warning) != MessageBoxResult.Yes) return;
+
+            _settings.Data.History.Clear();
+            _settings.Save();
+            StatusText.Text = "Historie byla vymazána";
+            RefreshFavoriteViews();
+            ShowHistoryPanel();
+        };
+        PanelList.Items.Add(clearAll);
+
+        foreach (var item in _settings.Data.History.Take(50).ToList())
+            PanelList.Items.Add(CreateHistoryPanelItem(item));
+
+        var showAll = new Button
+        {
+            Content = "Zobrazit celou historii",
+            HorizontalContentAlignment = HorizontalAlignment.Center,
+            Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#182A43")),
+            Margin = new Thickness(0, 10, 0, 0)
+        };
+        showAll.Click += ShowAllHistory_Click;
+        PanelList.Items.Add(showAll);
+    }
+
+    private FrameworkElement CreateHistoryPanelItem(HistoryEntry entry)
+    {
+        var row = new Grid { Margin = new Thickness(0, 2, 0, 2) };
+        row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+        var label = string.IsNullOrWhiteSpace(entry.Title) ? entry.Url : entry.Title;
+        var open = new Button
+        {
+            Content = label,
+            ToolTip = entry.Url,
+            HorizontalContentAlignment = HorizontalAlignment.Left,
+            Padding = new Thickness(10, 8, 8, 8)
+        };
+        open.Click += (_, _) => { if (_active != null) _ = NavigateAsync(_active, entry.Url); };
+        row.Children.Add(open);
+
+        var remove = new Button
+        {
+            Content = "×",
+            ToolTip = "Smazat tuto položku z historie",
+            Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#FFB7C5")),
+            Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#35202B")),
+            Padding = new Thickness(9, 7, 9, 7),
+            Margin = new Thickness(5, 0, 0, 0)
+        };
+        Grid.SetColumn(remove, 1);
+        remove.Click += (_, _) =>
+        {
+            _settings.Data.History.Remove(entry);
+            _settings.Save();
+            StatusText.Text = "Položka byla odstraněna z historie";
+            RefreshFavoriteViews();
+            ShowHistoryPanel();
+        };
+        row.Children.Add(remove);
+        return row;
+    }
+
+    private FrameworkElement CreateBookmarkPanelItem(string url)
+    {
+        var row = new Grid { Margin = new Thickness(0, 2, 0, 2) };
+        row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+        var history = _settings.Data.History.FirstOrDefault(x => SameFavorite(x.Url, url));
+        var label = string.IsNullOrWhiteSpace(history?.Title)
+            ? (Uri.TryCreate(url, UriKind.Absolute, out var page) ? page.Host : url)
+            : history.Title;
+
+        var open = new Button { Content = label, ToolTip = url, HorizontalContentAlignment = HorizontalAlignment.Left, Padding = new Thickness(10, 8, 8, 8) };
+        open.Click += (_, _) => { if (_active != null) _ = NavigateAsync(_active, url); };
+        row.Children.Add(open);
+
+        var remove = new Button
+        {
+            Content = "×",
+            ToolTip = "Odebrat z oblíbených",
+            Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#FFB7C5")),
+            Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#35202B")),
+            Padding = new Thickness(9, 7, 9, 7),
+            Margin = new Thickness(5, 0, 0, 0)
+        };
+        Grid.SetColumn(remove, 1);
+        remove.Click += (_, _) =>
+        {
+            RemoveFavorite(url);
+            ShowBookmarksPanel();
+        };
+        row.Children.Add(remove);
+        return row;
     }
     private Button CreatePanelLink(string url, string label)
     {
         var item = new Button { Content = label, ToolTip = url, HorizontalContentAlignment = HorizontalAlignment.Left, Margin = new Thickness(0, 2, 0, 2) };
         item.Click += (_, _) => { if (_active != null) _ = NavigateAsync(_active, url); }; return item;
+    }
+
+    private void HandleNewTabMessage(BrowserTab tab, CoreWebView2WebMessageReceivedEventArgs e)
+    {
+        if (!tab.IsYamaNewTab) return;
+
+        try
+        {
+            var json = e.TryGetWebMessageAsString();
+            using var document = JsonDocument.Parse(json);
+            var root = document.RootElement;
+            if (!root.TryGetProperty("action", out var actionElement) || !root.TryGetProperty("url", out var urlElement)) return;
+            var action = actionElement.GetString();
+            var url = urlElement.GetString() ?? "";
+
+            if (string.Equals(action, "addFavorite", StringComparison.Ordinal))
+            {
+                if (!TryNormalizeFavoriteUrl(url, out var normalized))
+                {
+                    StatusText.Text = "Zadej platnou HTTP(S) adresu.";
+                    return;
+                }
+
+                if (FindFavoriteIndex(normalized) < 0)
+                {
+                    _settings.Data.Bookmarks.Insert(0, normalized);
+                    _settings.Save();
+                    StatusText.Text = "Přidáno do oblíbených";
+                }
+                else StatusText.Text = "Tato stránka už je v oblíbených.";
+
+                RefreshFavoriteViews();
+                return;
+            }
+
+            if (string.Equals(action, "removeFavorite", StringComparison.Ordinal))
+            {
+                RemoveFavorite(url);
+            }
+        }
+        catch
+        {
+            StatusText.Text = "Oblíbené se nepodařilo změnit.";
+        }
+    }
+
+    private void RemoveFavorite(string url)
+    {
+        var index = FindFavoriteIndex(url);
+        if (index < 0) return;
+        _settings.Data.Bookmarks.RemoveAt(index);
+        _settings.Save();
+        StatusText.Text = "Odebráno z oblíbených";
+        RefreshFavoriteViews();
+    }
+
+    private void RefreshFavoriteViews()
+    {
+        foreach (var tab in _tabs.Where(x => x.IsYamaNewTab && x.View.CoreWebView2 != null).ToList())
+            tab.View.CoreWebView2.NavigateToString(CreateNewTabHtml());
+
+        if (SidePanel.Visibility == Visibility.Visible && PanelTitle.Text == "Oblíbené")
+            ShowBookmarksPanel();
+    }
+
+    private int FindFavoriteIndex(string url)
+        => _settings.Data.Bookmarks.FindIndex(existing => SameFavorite(existing, url));
+
+    private static bool SameFavorite(string left, string right)
+    {
+        if (!TryNormalizeFavoriteUrl(left, out var a) || !TryNormalizeFavoriteUrl(right, out var b))
+            return string.Equals(left.Trim(), right.Trim(), StringComparison.OrdinalIgnoreCase);
+        return string.Equals(a, b, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool TryNormalizeFavoriteUrl(string raw, out string normalized)
+    {
+        normalized = "";
+        raw = raw.Trim();
+        if (string.IsNullOrWhiteSpace(raw)) return false;
+        if (!raw.Contains("://", StringComparison.Ordinal) && raw.Contains('.', StringComparison.Ordinal)) raw = "https://" + raw;
+        if (!Uri.TryCreate(raw, UriKind.Absolute, out var uri) || uri.Scheme is not ("http" or "https")) return false;
+        normalized = uri.GetComponents(UriComponents.SchemeAndServer | UriComponents.PathAndQuery, UriFormat.UriEscaped);
+        if (string.IsNullOrEmpty(uri.AbsolutePath) || uri.AbsolutePath == "/")
+            normalized = uri.GetLeftPart(UriPartial.Authority) + "/";
+        return true;
     }
     private void AddHistory(string url, string title, string faviconUrl)
     {
@@ -325,6 +1074,7 @@ public partial class MainWindow : Window
         _settings.Data.History.Insert(0, new HistoryEntry { Url = url, Title = title, FaviconUrl = faviconUrl, VisitedAt = DateTimeOffset.Now });
         if (_settings.Data.History.Count > 500) _settings.Data.History.RemoveRange(500, _settings.Data.History.Count - 500);
         _settings.Save();
+        if (HistoryQuickPopup.IsOpen) RenderHistoryQuickPopup();
     }
     private void BlockButton_Click(object sender, RoutedEventArgs e)
     {
@@ -335,35 +1085,49 @@ public partial class MainWindow : Window
         StatusText.Text = $"YamaBlock: {next.ToLabel()} (uloženo pro příští spuštění)";
     }
 
+    private void UpdateShieldButton()
+    {
+        var level = _settings.Data.SecurityLevel;
+        var label = level switch
+        {
+            SecurityLevel.Strict => "Přísná",
+            SecurityLevel.Custom => "Vlastní",
+            _ => "Doporučená"
+        };
+        ShieldButton.ToolTip = $"YamaShield · {label} — kliknutím zobrazíš nastavení";
+        ShieldButton.Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString(level switch
+        {
+            SecurityLevel.Strict => "#67E8F9",
+            SecurityLevel.Custom => "#A78BFA",
+            _ => "#54D7F8"
+        }));
+        ShieldButton.Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#10243A"));
+        ShieldButton.BorderBrush = new SolidColorBrush((Color)ColorConverter.ConvertFromString(level == SecurityLevel.Custom ? "#7654D6" : "#2F7EAA"));
+    }
+
     private void UpdateBlockButton()
     {
         var mode = _settings.Data.BlockMode;
-        BlockButton.Content = mode switch
-        {
-            BlockMode.Strict => "◆  YamaBlock · Přísný",
-            BlockMode.Off => "○  YamaBlock · Vypnuto",
-            _ => "●  YamaBlock · Standard"
-        };
+        BlockButton.ToolTip = $"YamaBlock · {mode.ToLabel()} — kliknutím přepneš režim";
         BlockButton.Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString(mode switch
         {
-            BlockMode.Strict => "#5B2A18",
+            BlockMode.Strict => "#3B2811",
             BlockMode.Off => "#202B3B",
-            _ => "#0C4051"
+            _ => "#2B2410"
         }));
         BlockButton.BorderBrush = new SolidColorBrush((Color)ColorConverter.ConvertFromString(mode switch
         {
             BlockMode.Strict => "#F59E0B",
             BlockMode.Off => "#52657F",
-            _ => "#22D3EE"
+            _ => "#B98215"
         }));
         BlockButton.BorderThickness = new Thickness(1);
         BlockButton.Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString(mode switch
         {
-            BlockMode.Strict => "#FCD34D",
-            BlockMode.Off => "#B7C4D6",
-            _ => "#A5F3FC"
+            BlockMode.Strict => "#FBBF24",
+            BlockMode.Off => "#8FA4BE",
+            _ => "#FCD34D"
         }));
-        BlockButton.FontWeight = FontWeights.SemiBold;
     }
     private void ShieldButton_Click(object sender, RoutedEventArgs e)
     {
@@ -377,8 +1141,9 @@ public partial class MainWindow : Window
                 tab.View.CoreWebView2.Settings.IsReputationCheckingRequired = _settings.Data.EnableSmartScreen;
                 tab.View.CoreWebView2.Settings.IsPasswordAutosaveEnabled = _settings.Data.OfferPasswordSave;
             }
+            UpdateShieldButton();
             UpdateBlockButton();
-            StatusText.Text = "Nastavení YamaShield bylo uloženo";
+            StatusText.Text = $"YamaShield: {(_settings.Data.SecurityLevel == SecurityLevel.Strict ? "Přísná" : _settings.Data.SecurityLevel == SecurityLevel.Custom ? "Vlastní" : "Doporučená")}";
         }
     }
     private void HandlePermissionRequest(CoreWebView2PermissionRequestedEventArgs e)
@@ -389,12 +1154,7 @@ public partial class MainWindow : Window
         var answer = MessageBox.Show($"{e.Uri} chce použít {label}.\n\nPovolit pouze pro toto rozhodnutí?", "YamaShield", MessageBoxButton.YesNo, MessageBoxImage.Question);
         e.State = answer == MessageBoxResult.Yes ? CoreWebView2PermissionState.Allow : CoreWebView2PermissionState.Deny;
     }
-    private void ThemeButton_Click(object sender, RoutedEventArgs e)
-    {
-        _settings.Data.Theme = _settings.Data.Theme.Equals("dark", StringComparison.OrdinalIgnoreCase) ? "light" : "dark";
-        ApplyTheme(_settings.Data.Theme); _settings.Save();
-        StatusText.Text = _settings.Data.Theme.Equals("dark") ? "Tmavý vzhled" : "Světlý vzhled";
-    }
+
     private void TitleBar_MouseDown(object sender, MouseButtonEventArgs e)
     {
         if (e.ChangedButton == MouseButton.Left && !IsInteractiveHeaderElement(e.OriginalSource as DependencyObject))
@@ -431,12 +1191,11 @@ public partial class MainWindow : Window
     private void MainWindow_KeyDown(object sender, KeyEventArgs e) { if (Keyboard.Modifiers == ModifierKeys.Control && e.Key == Key.T) { _ = CreateTabAsync(); e.Handled = true; } if (Keyboard.Modifiers == ModifierKeys.Control && e.Key == Key.L) { AddressBox.Focus(); AddressBox.SelectAll(); e.Handled = true; } }
     private void ApplyTheme(string theme)
     {
-        bool light = theme.Equals("light", StringComparison.OrdinalIgnoreCase);
-        Resources["WindowBrush"] = new SolidColorBrush((Color)ColorConverter.ConvertFromString(light ? "#F5F8FC" : "#0B101A"));
-        Resources["SurfaceBrush"] = new SolidColorBrush((Color)ColorConverter.ConvertFromString(light ? "#FFFFFF" : "#121A27"));
-        Resources["SurfaceRaisedBrush"] = new SolidColorBrush((Color)ColorConverter.ConvertFromString(light ? "#EAF0F8" : "#192437"));
-        Resources["TextBrush"] = new SolidColorBrush((Color)ColorConverter.ConvertFromString(light ? "#10213B" : "#EAF3FF"));
-        Resources["MutedBrush"] = new SolidColorBrush((Color)ColorConverter.ConvertFromString(light ? "#52657B" : "#96A7BD"));
+        Resources["WindowBrush"] = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#0B101A"));
+        Resources["SurfaceBrush"] = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#121A27"));
+        Resources["SurfaceRaisedBrush"] = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#192437"));
+        Resources["TextBrush"] = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#EAF3FF"));
+        Resources["MutedBrush"] = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#96A7BD"));
     }
     private void SetDarkWindowBorder()
     {
@@ -453,10 +1212,105 @@ public partial class MainWindow : Window
     {
         var assetFolder = Path.Combine(AppContext.BaseDirectory, "Assets");
         var brandPath = Path.Combine(assetFolder, "YamaSearch-brand.png");
+        var symbolPath = Path.Combine(assetFolder, "YamaSearch-symbol-64.png");
         var brand = File.Exists(brandPath) ? Convert.ToBase64String(File.ReadAllBytes(brandPath)) : "";
-        var favorites = _settings.Data.Bookmarks.Take(8).Select(url => Uri.TryCreate(url, UriKind.Absolute, out var page) ? $"<a href='{System.Net.WebUtility.HtmlEncode(url)}'>{System.Net.WebUtility.HtmlEncode(page.Host)}</a>" : "");
-        var suggestions = _settings.Data.History.Take(20).Concat(_settings.Data.Bookmarks.Select(url => new HistoryEntry { Url = url, Title = url })).Where(x => !string.IsNullOrWhiteSpace(x.Url)).Select(x => $"<option value='{System.Net.WebUtility.HtmlEncode(x.Url)}'>{System.Net.WebUtility.HtmlEncode(x.Title)}</option>");
-        return string.Format("""<!doctype html><html><head><meta charset='utf-8'><style>body{{margin:0;background:#0b101a;color:#eaf3ff;font-family:Segoe UI,Arial;display:grid;place-items:center;min-height:100vh}}main{{text-align:center;width:min(700px,90vw)}}.brand{{width:min(430px,78vw);height:auto;display:block;margin:0 auto 22px;filter:drop-shadow(0 18px 42px #087eaa33)}}p{{color:#9fb2c9;font-size:17px}}.provider{{color:#66dfff;font-size:13px}}form{{margin:32px auto;display:flex;background:#192437;border:1px solid #31537d;border-radius:16px;padding:7px;max-width:590px}}input{{flex:1;background:transparent;border:0;color:#fff;font-size:16px;padding:12px;outline:0}}button{{background:#12add8;color:#041018;border:0;border-radius:11px;font-weight:700;padding:0 20px;cursor:pointer}}.tags{{display:flex;justify-content:center;gap:10px;flex-wrap:wrap}}a{{color:#a9eaff;background:#16243a;border:1px solid #294465;border-radius:99px;padding:9px 15px;text-decoration:none}}</style></head><body><main><img class='brand' src='data:image/png;base64,{0}' alt='YamaSearch'><p>Rychlé hledání. YamaBlock proti reklamám. YamaShield pro bezpečnější prohlížení.</p><div class='provider'>Hledání: {3}</div><form action='{1}'><input name='q' list='yamasearch-suggestions' autocomplete='off' placeholder='Hledat na webu nebo zadat adresu'><datalist id='yamasearch-suggestions'>{4}</datalist><button>Hledat</button></form><div class='tags'>{2}</div></main></body></html>""", brand, SearchEndpoint(), string.Join("", favorites), System.Net.WebUtility.HtmlEncode(_settings.Data.SearchEngine), string.Join("", suggestions));
+        var symbol = File.Exists(symbolPath) ? Convert.ToBase64String(File.ReadAllBytes(symbolPath)) : brand;
+
+        var favorites = _settings.Data.Bookmarks.Take(12).Select(url =>
+        {
+            if (!Uri.TryCreate(url, UriKind.Absolute, out var page) || page.Scheme is not ("http" or "https")) return "";
+
+            var history = _settings.Data.History.FirstOrDefault(x =>
+            {
+                if (string.Equals(x.Url, url, StringComparison.OrdinalIgnoreCase)) return true;
+                return Uri.TryCreate(x.Url, UriKind.Absolute, out var historyPage)
+                    && string.Equals(historyPage.Host, page.Host, StringComparison.OrdinalIgnoreCase);
+            });
+
+            var label = string.IsNullOrWhiteSpace(history?.Title) ? page.Host.Replace("www.", "", StringComparison.OrdinalIgnoreCase) : history.Title.Trim();
+            if (label.Length > 28) label = label[..27] + "…";
+
+            var faviconUrl = history?.FaviconUrl ?? "";
+            if (!Uri.TryCreate(faviconUrl, UriKind.Absolute, out var favicon)
+                || favicon.Scheme is not ("http" or "https"))
+            {
+                faviconUrl = $"{page.Scheme}://{page.Host}/favicon.ico";
+            }
+
+            var safeUrl = System.Net.WebUtility.HtmlEncode(url);
+            var safeLabel = System.Net.WebUtility.HtmlEncode(label);
+            var safeHost = System.Net.WebUtility.HtmlEncode(page.Host);
+            var safeFavicon = System.Net.WebUtility.HtmlEncode(faviconUrl);
+            return $"<div class='favorite-card' data-url='{safeUrl}' title='{safeHost}'><button class='favorite-remove' type='button' title='Odebrat z oblíbených' onclick='removeFavorite(event,this)'>×</button><a class='favorite-main' href='{safeUrl}'><span class='favorite-icon'><img src='{safeFavicon}' alt='' onerror=\"this.onerror=null;this.src='data:image/png;base64,{symbol}'\"></span><span class='favorite-name'>{safeLabel}</span><span class='favorite-host'>{safeHost}</span></a></div>";
+        }).Where(x => !string.IsNullOrWhiteSpace(x)).ToList();
+
+        var favoriteContent = favorites.Count > 0
+            ? string.Join("", favorites)
+            : "<div class='favorites-empty'>Zatím tu nic není. Klikni na „Přidat stránku“ a vlož adresu webu.</div>";
+
+        var suggestions = _settings.Data.History.Take(20)
+            .Concat(_settings.Data.Bookmarks.Select(url => new HistoryEntry { Url = url, Title = url }))
+            .Where(x => !string.IsNullOrWhiteSpace(x.Url))
+            .Select(x => $"<option value='{System.Net.WebUtility.HtmlEncode(x.Url)}'>{System.Net.WebUtility.HtmlEncode(x.Title)}</option>");
+
+        return string.Format(
+            """
+            <!doctype html><html><head><meta charset='utf-8'><style>
+            *{{box-sizing:border-box}}
+            body{{margin:0;background:#0b101a;color:#eaf3ff;font-family:Segoe UI,Arial;min-height:100vh}}
+            main{{width:min(860px,90vw);margin:0 auto;padding:clamp(72px,11vh,132px) 0 60px;text-align:center}}
+            .brand{{width:min(430px,78vw);height:auto;display:block;margin:0 auto 22px;filter:drop-shadow(0 18px 42px #087eaa33)}}
+            p{{color:#9fb2c9;font-size:17px}}
+            .provider{{color:#66dfff;font-size:13px}}
+            form{{margin:32px auto 0;display:flex;background:#192437;border:1px solid #31537d;border-radius:16px;padding:7px;max-width:610px;box-shadow:0 12px 34px #00000022}}
+            input{{flex:1;background:transparent;border:0;color:#fff;font-size:16px;padding:12px;outline:0;min-width:0}}
+            button{{background:#12add8;color:#041018;border:0;border-radius:11px;font-weight:700;padding:0 20px;cursor:pointer}}
+            .favorites-section{{margin-top:38px;text-align:left}}
+            .favorites-head{{display:flex;align-items:center;justify-content:space-between;gap:10px;color:#eaf3ff;font-size:17px;font-weight:650;margin:0 0 14px 4px}}
+            .favorites-title{{display:flex;align-items:center;gap:10px}}
+            .favorites-star{{color:#23c9f5;font-size:20px;filter:drop-shadow(0 0 10px #23c9f566)}}
+            .favorites-add{{background:#142a42;color:#a9eaff;border:1px solid #31537d;border-radius:10px;padding:8px 12px;font-weight:650}}
+            .favorites-add:hover{{background:#1c3a59;border-color:#23c9f5}}
+            .add-panel{{display:none;gap:8px;margin:0 0 14px;padding:10px;background:#111d30;border:1px solid #294465;border-radius:12px}}
+            .add-panel.open{{display:flex}}
+            .add-panel input{{background:#192437;border:1px solid #31537d;border-radius:9px;padding:10px 12px}}
+            .add-panel button{{padding:0 16px}}
+            .favorites-grid{{display:grid;grid-template-columns:repeat(auto-fit,minmax(138px,1fr));gap:14px}}
+            .favorite-card{{position:relative;min-height:126px;border-radius:15px;border:1px solid #294465;background:linear-gradient(180deg,#142137,#101a2b);color:#eaf3ff;transition:transform .15s ease,border-color .15s ease,background .15s ease,box-shadow .15s ease;overflow:hidden}}
+            .favorite-card:hover{{transform:translateY(-2px);border-color:#3b80b8;background:linear-gradient(180deg,#192a44,#122139);box-shadow:0 12px 26px #00000030,0 0 0 1px #23c9f522}}
+            .favorite-main{{min-height:126px;padding:17px 14px 14px;text-decoration:none;color:#eaf3ff;display:flex;flex-direction:column;align-items:center;justify-content:center}}
+            .favorite-remove{{position:absolute;z-index:2;right:7px;top:7px;width:25px;height:25px;padding:0;border-radius:8px;background:#3a2030;color:#ffbdc9;border:1px solid #654052;opacity:.72;font-size:16px;line-height:20px}}
+            .favorite-card:hover .favorite-remove{{opacity:1}}
+            .favorite-remove:hover{{background:#5a263c;border-color:#d85a7b}}
+            .favorite-icon{{width:42px;height:42px;border-radius:11px;background:#0d1727;border:1px solid #2d4667;display:grid;place-items:center;margin-bottom:10px;overflow:hidden}}
+            .favorite-icon img{{width:28px;height:28px;object-fit:contain}}
+            .favorite-name{{font-weight:650;font-size:14px;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}}
+            .favorite-host{{font-size:11px;color:#8fa4be;margin-top:4px;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}}
+            .favorites-empty{{grid-column:1/-1;border:1px dashed #294465;border-radius:14px;padding:22px;color:#8fa4be;text-align:center;background:#101a2912}}
+            @media(max-width:700px){{main{{padding-top:58px}}.favorites-grid{{grid-template-columns:repeat(2,minmax(0,1fr))}}}}
+            </style></head><body><main>
+            <img class='brand' src='data:image/png;base64,{0}' alt='YamaSearch'>
+            <p>Rychlé hledání. YamaBlock proti reklamám. YamaShield pro bezpečnější prohlížení.</p>
+            <div class='provider'>Hledání: {3}</div>
+            <form action='{1}'><input name='q' list='yamasearch-suggestions' autocomplete='off' placeholder='Hledat na webu nebo zadat adresu'><datalist id='yamasearch-suggestions'>{4}</datalist><button>Hledat</button></form>
+            <section class='favorites-section'>
+              <div class='favorites-head'><span class='favorites-title'><span class='favorites-star'>★</span><span>Oblíbené stránky</span></span><button class='favorites-add' type='button' onclick='toggleAdd()'>＋ Přidat stránku</button></div>
+              <form id='favoriteAddPanel' class='add-panel' onsubmit='addFavorite(event)'><input id='favoriteUrl' type='text' autocomplete='off' placeholder='např. youtube.com'><button type='submit'>Přidat</button></form>
+              <div class='favorites-grid'>{2}</div>
+            </section>
+            <script>
+            const postFavorite=(action,url)=>window.chrome.webview.postMessage(JSON.stringify({{action,url}}));
+            function toggleAdd(){{const panel=document.getElementById('favoriteAddPanel');panel.classList.toggle('open');if(panel.classList.contains('open'))document.getElementById('favoriteUrl').focus();}}
+            function addFavorite(event){{event.preventDefault();const input=document.getElementById('favoriteUrl');const url=input.value.trim();if(!url)return;postFavorite('addFavorite',url);}}
+            function removeFavorite(event,button){{event.preventDefault();event.stopPropagation();const card=button.closest('.favorite-card');if(card)postFavorite('removeFavorite',card.dataset.url);}}
+            </script>
+            </main></body></html>
+            """,
+            brand,
+            SearchEndpoint(),
+            favoriteContent,
+            System.Net.WebUtility.HtmlEncode(_settings.Data.SearchEngine),
+            string.Join("", suggestions));
     }
     private string SearchEndpoint() => _settings.Data.SearchEngine switch { "Google" => "https://www.google.com/search", "Bing" => "https://www.bing.com/search", "Seznam" => "https://search.seznam.cz/", "Brave Search" => "https://search.brave.com/search", "Ecosia" => "https://www.ecosia.org/search", "Yahoo" => "https://search.yahoo.com/search", "Startpage" => "https://www.startpage.com/sp/search", "Custom" => _settings.Data.CustomSearchEndpoint.Replace("{query}", ""), _ => "https://duckduckgo.com/" };
 }
@@ -474,8 +1328,20 @@ public static class UrlTools
         var query = Uri.EscapeDataString(input); return engine switch { "Google" => "https://www.google.com/search?q=" + query, "Bing" => "https://www.bing.com/search?q=" + query, "Seznam" => "https://search.seznam.cz/?q=" + query, "Brave Search" => "https://search.brave.com/search?q=" + query, "Ecosia" => "https://www.ecosia.org/search?q=" + query, "Yahoo" => "https://search.yahoo.com/search?p=" + query, "Startpage" => "https://www.startpage.com/sp/search?query=" + query, _ => "https://duckduckgo.com/?q=" + query };
     }
 }
-public sealed class AppData { public string Theme { get; set; } = "dark"; public string HomePage { get; set; } = "yamasearch://newtab"; public string SearchEngine { get; set; } = "DuckDuckGo"; public string CustomSearchEndpoint { get; set; } = ""; public bool OnboardingCompleted { get; set; } = false; public BlockMode BlockMode { get; set; } = BlockMode.Standard; public SecurityLevel SecurityLevel { get; set; } = SecurityLevel.Recommended; public bool EnableSmartScreen { get; set; } = true; public bool OfferPasswordSave { get; set; } = true; public List<string> Whitelist { get; set; } = []; public List<string> Bookmarks { get; set; } = []; public List<HistoryEntry> History { get; set; } = []; }
+public sealed class AppData { public string Theme { get; set; } = "dark"; public string HomePage { get; set; } = "yamasearch://newtab"; public string SearchEngine { get; set; } = "DuckDuckGo"; public string CustomSearchEndpoint { get; set; } = ""; public bool OnboardingCompleted { get; set; } = false; public BlockMode BlockMode { get; set; } = BlockMode.Standard; public SecurityLevel SecurityLevel { get; set; } = SecurityLevel.Recommended; public bool EnableSmartScreen { get; set; } = true; public bool OfferPasswordSave { get; set; } = true; public List<string> Whitelist { get; set; } = []; public List<string> Bookmarks { get; set; } = []; public List<HistoryEntry> History { get; set; } = []; public List<DownloadEntry> Downloads { get; set; } = []; }
 public sealed class HistoryEntry { public string Url { get; set; } = ""; public string Title { get; set; } = ""; public string FaviconUrl { get; set; } = ""; public DateTimeOffset VisitedAt { get; set; } }
+public sealed class DownloadEntry
+{
+    public string Id { get; set; } = Guid.NewGuid().ToString("N");
+    public string Url { get; set; } = "";
+    public string FileName { get; set; } = "";
+    public string FilePath { get; set; } = "";
+    public long BytesReceived { get; set; }
+    public long TotalBytes { get; set; }
+    public string State { get; set; } = "Probíhá";
+    public DateTimeOffset StartedAt { get; set; } = DateTimeOffset.Now;
+    public DateTimeOffset? CompletedAt { get; set; }
+}
 public sealed class SettingsStore
 {
     private readonly string _path = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "YamaSearch", "settings.json");

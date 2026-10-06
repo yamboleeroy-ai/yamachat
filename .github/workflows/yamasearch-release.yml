@@ -12,6 +12,11 @@ on:
         required: false
         default: 'Vydání YamaSearch.'
         type: string
+  push:
+    branches:
+      - main
+    paths:
+      - 'products/yamasearch/release/latest.json'
 
 permissions:
   contents: read
@@ -24,21 +29,44 @@ jobs:
   build:
     runs-on: windows-latest
     timeout-minutes: 40
+    outputs:
+      version: ${{ steps.release_meta.outputs.version }}
     steps:
       - uses: actions/checkout@v4
+
+      - name: Resolve release metadata
+        id: release_meta
+        shell: pwsh
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          INPUT_VERSION: ${{ inputs.version }}
+          INPUT_NOTES: ${{ inputs.notes }}
+        run: |
+          if ($env:EVENT_NAME -eq 'workflow_dispatch') {
+            $version = [string]$env:INPUT_VERSION
+            $notes = [string]$env:INPUT_NOTES
+          } else {
+            $manifest = Get-Content products/yamasearch/release/latest.json -Raw | ConvertFrom-Json
+            $version = [string]$manifest.version
+            $notes = [string]$manifest.notes
+          }
+          if ([string]::IsNullOrWhiteSpace($notes)) { $notes = 'Vydání YamaSearch.' }
+          if ($version -notmatch '^\d+\.\d+\.\d+$') { throw 'Version must use X.Y.Z.' }
+          "version=$version" >> $env:GITHUB_OUTPUT
+          "VERSION=$version" >> $env:GITHUB_ENV
+          "NOTES=$notes" >> $env:GITHUB_ENV
+
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '8.0.x'
+
       - name: Install Inno Setup
         shell: pwsh
         run: choco install innosetup --no-progress -y
+
       - name: Build and verify YamaSearch artifacts
         shell: pwsh
-        env:
-          VERSION: ${{ inputs.version }}
-          NOTES: ${{ inputs.notes }}
         run: |
-          if ($env:VERSION -notmatch '^\d+\.\d+\.\d+$') { throw 'Version must use X.Y.Z.' }
           ./products/yamasearch/scripts/verify-release-contract.ps1 -Version $env:VERSION
           ./products/yamasearch/scripts/build-release.ps1 -Version $env:VERSION -Notes $env:NOTES
           $dir='products/yamasearch/artifacts'
@@ -53,9 +81,10 @@ jobs:
           $manifest=Get-Content (Join-Path $dir 'latest.json') -Raw | ConvertFrom-Json
           if ($manifest.product -ne 'YamaSearch' -or $manifest.version -ne $env:VERSION) { throw 'Invalid YamaSearch manifest.' }
           if ($manifest.portableUrl -notmatch '^https://updates\.yamachat\.eu/yamasearch/' -or $manifest.installerUrl -notmatch '^https://updates\.yamachat\.eu/yamasearch/') { throw 'Manifest URL escaped the YamaSearch namespace.' }
+
       - uses: actions/upload-artifact@v4
         with:
-          name: yamasearch-windows-${{ inputs.version }}
+          name: yamasearch-windows-${{ steps.release_meta.outputs.version }}
           path: products/yamasearch/artifacts/
           if-no-files-found: error
           retention-days: 30
@@ -69,10 +98,12 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+
       - uses: actions/download-artifact@v4
         with:
-          name: yamasearch-windows-${{ inputs.version }}
+          name: yamasearch-windows-${{ needs.build.outputs.version }}
           path: release-assets
+
       - name: Verify Cloudflare R2 access
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
@@ -82,11 +113,12 @@ jobs:
           test -n "${CLOUDFLARE_API_TOKEN:-}"
           test -n "${CLOUDFLARE_ACCOUNT_ID:-}"
           npx --yes wrangler@latest r2 bucket list | grep -q 'yamachat-releases'
+
       - name: Publish isolated YamaSearch artifacts
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          VERSION: ${{ inputs.version }}
+          VERSION: ${{ needs.build.outputs.version }}
         run: |
           set -euo pipefail
           W='npx --yes wrangler@latest'
@@ -97,9 +129,10 @@ jobs:
           $W r2 object put "$BUCKET/YamaSearch-Setup-latest.exe" --file "release-assets/YamaSearch-Setup-$VERSION.exe" --content-type application/vnd.microsoft.portable-executable --content-disposition 'attachment; filename=YamaSearch-Setup-latest.exe' --cache-control 'no-cache' --remote
           $W r2 object put "$BUCKET/SHA256SUMS.txt" --file release-assets/SHA256SUMS.txt --content-type text/plain --cache-control 'no-cache' --remote
           $W r2 object put "$BUCKET/latest.json" --file release-assets/latest.json --content-type application/json --cache-control 'no-cache, no-store' --remote
+
       - name: Verify public YamaSearch feed
         env:
-          VERSION: ${{ inputs.version }}
+          VERSION: ${{ needs.build.outputs.version }}
         run: |
           set -euo pipefail
           for i in $(seq 1 30); do
@@ -108,3 +141,4 @@ jobs:
             sleep 10
           done
           curl -fsSI --max-time 20 https://updates.yamachat.eu/yamasearch/YamaSearch-Setup-latest.exe >/dev/null
+          curl -fsSI --max-time 20 https://updates.yamachat.eu/yamasearch/YamaSearch-Portable-latest.zip >/dev/null
