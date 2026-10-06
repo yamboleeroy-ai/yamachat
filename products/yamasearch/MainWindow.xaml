@@ -32,7 +32,7 @@
   </Window.Resources>
   <Grid>
     <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="0" x:Name="PanelColumn"/></Grid.ColumnDefinitions>
-    <Grid.RowDefinitions><RowDefinition Height="60"/><RowDefinition Height="64"/><RowDefinition Height="*"/><RowDefinition Height="30"/></Grid.RowDefinitions>
+    <Grid.RowDefinitions><RowDefinition Height="60"/><RowDefinition Height="64"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="30"/></Grid.RowDefinitions>
     <Grid x:Name="TitleBar" Background="{DynamicResource SurfaceBrush}" PreviewMouseLeftButtonDown="TitleBar_MouseDown">
       <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="196"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
         <Image Source="pack://application:,,,/Assets/YamaSearch-brand.png" Width="180" Height="54" Stretch="Uniform" HorizontalAlignment="Left" VerticalAlignment="Center" Margin="10,0,6,0"/>
@@ -48,7 +48,7 @@
         <Button Grid.Column="0" Content="←" FontSize="18" Click="Back_Click"/><Button Grid.Column="1" Content="→" FontSize="18" Click="Forward_Click"/><Button x:Name="ReloadButton" Grid.Column="2" Content="↻" FontSize="18" Click="Reload_Click"/>
         <Grid Grid.Column="3" Margin="8,0"><TextBox x:Name="AddressBox" VerticalContentAlignment="Center" KeyDown="AddressBox_KeyDown" TextChanged="AddressBox_TextChanged" GotKeyboardFocus="AddressBox_GotKeyboardFocus" PreviewMouseLeftButtonDown="AddressBox_PreviewMouseLeftButtonDown" ToolTip="Zadejte adresu nebo vyhledávání"/><Popup x:Name="AddressSuggestions" Placement="Custom" CustomPopupPlacementCallback="AddressSuggestions_CustomPopupPlacement" PlacementTarget="{Binding ElementName=AddressBox}" StaysOpen="False" AllowsTransparency="True"><Border x:Name="AddressSuggestionsBorder" Background="#16243A" BorderBrush="#31537D" BorderThickness="1" CornerRadius="0,0,10,10" MinWidth="360" Padding="6"><StackPanel x:Name="AddressSuggestionList"/></Border></Popup></Grid>
         <Button Grid.Column="4" Content="Přejít" Click="Go_Click"/>
-        <Button Grid.Column="5" Content="☆" FontSize="18" ToolTip="Přidat záložku" Click="Bookmark_Click"/>
+        <Button x:Name="FavoritesButton" Grid.Column="5" Content="☆" FontSize="18" ToolTip="Oblíbené" Click="FavoritesButton_Click"/>
 
         <Button x:Name="HistoryQuickButton" Grid.Column="6" Style="{StaticResource ToolbarShieldButton}" ToolTip="Historie" Click="HistoryQuickButton_Click">
           <Viewbox Width="23" Height="23">
@@ -88,6 +88,18 @@
           </Viewbox>
         </Button>
 
+        <Popup x:Name="FavoritesQuickPopup" Placement="Bottom" PlacementTarget="{Binding ElementName=FavoritesButton}" StaysOpen="False" AllowsTransparency="True">
+          <Border Background="#101A29" BorderBrush="#31537D" BorderThickness="1" CornerRadius="12" Width="330" Padding="12" Margin="0,6,0,0">
+            <StackPanel>
+              <TextBlock Text="Oblíbené" FontSize="16" FontWeight="SemiBold" Foreground="#EAF3FF" Margin="2,0,2,8"/>
+              <Button x:Name="FavoriteCurrentPageButton" Content="☆ Přidat aktuální stránku" HorizontalContentAlignment="Left" Background="#182A43" Click="FavoriteCurrentPage_Click" Margin="0,2"/>
+              <CheckBox x:Name="ShowFavoritesBarCheckBox" Content="Zobrazit lištu oblíbených" Foreground="#EAF3FF" Margin="8,10,8,4" Click="ShowFavoritesBarCheckBox_Click"/>
+              <TextBlock Text="Když je zapnutá, lišta zůstane pod adresním řádkem." Foreground="#8FA4BE" FontSize="11" TextWrapping="Wrap" Margin="8,0,8,8"/>
+              <Button Content="Spravovat oblíbené" HorizontalContentAlignment="Center" Background="#182A43" Click="ManageFavorites_Click"/>
+            </StackPanel>
+          </Border>
+        </Popup>
+
         <Popup x:Name="HistoryQuickPopup" Placement="Bottom" PlacementTarget="{Binding ElementName=HistoryQuickButton}" StaysOpen="False" AllowsTransparency="True">
           <Border Background="#101A29" BorderBrush="#31537D" BorderThickness="1" CornerRadius="12" Width="390" Padding="12" Margin="0,6,0,0">
             <StackPanel>
@@ -109,9 +121,23 @@
         </Popup>
       </Grid>
     </Border>
-    <Grid x:Name="BrowserHost" Grid.Row="2" Background="{DynamicResource WindowBrush}"/>
-    <Border Grid.Row="3" Background="{DynamicResource SurfaceBrush}" Padding="12,4"><DockPanel LastChildFill="False"><TextBlock x:Name="StatusText" DockPanel.Dock="Left" Foreground="{DynamicResource MutedBrush}"/><TextBlock x:Name="BlockedText" DockPanel.Dock="Right" Foreground="{DynamicResource AccentBrush}"/></DockPanel></Border>
-    <Border Grid.Column="1" Grid.RowSpan="4" x:Name="SidePanel" Background="#101A29" BorderBrush="#294465" BorderThickness="1,0,0,0" Visibility="Collapsed">
+    <Border x:Name="FavoritesBar" Grid.Row="2" Background="#0D1624" BorderBrush="#253A57" BorderThickness="0,0,0,1" Padding="12,5" Visibility="Collapsed" SizeChanged="FavoritesBar_SizeChanged">
+      <Grid ClipToBounds="True">
+        <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+        <StackPanel x:Name="FavoritesBarItems" Orientation="Horizontal" VerticalAlignment="Center" ClipToBounds="True"/>
+        <Button x:Name="FavoritesOverflowButton" Grid.Column="1" Content="•••" ToolTip="Další oblíbené" Visibility="Collapsed" Margin="6,0,0,0" Padding="10,4" Click="FavoritesOverflowButton_Click"/>
+        <Popup x:Name="FavoritesOverflowPopup" Placement="Bottom" PlacementTarget="{Binding ElementName=FavoritesOverflowButton}" StaysOpen="False" AllowsTransparency="True">
+          <Border Background="#101A29" BorderBrush="#31537D" BorderThickness="1" CornerRadius="10" Width="320" Padding="8" Margin="0,5,0,0">
+            <ScrollViewer MaxHeight="420" VerticalScrollBarVisibility="Auto">
+              <StackPanel x:Name="FavoritesOverflowList"/>
+            </ScrollViewer>
+          </Border>
+        </Popup>
+      </Grid>
+    </Border>
+    <Grid x:Name="BrowserHost" Grid.Row="3" Background="{DynamicResource WindowBrush}"/>
+    <Border Grid.Row="4" Background="{DynamicResource SurfaceBrush}" Padding="12,4"><DockPanel LastChildFill="False"><TextBlock x:Name="StatusText" DockPanel.Dock="Left" Foreground="{DynamicResource MutedBrush}"/><TextBlock x:Name="BlockedText" DockPanel.Dock="Right" Foreground="{DynamicResource AccentBrush}"/></DockPanel></Border>
+    <Border Grid.Column="1" Grid.RowSpan="5" x:Name="SidePanel" Background="#101A29" BorderBrush="#294465" BorderThickness="1,0,0,0" Visibility="Collapsed">
       <Grid Margin="18"><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
         <DockPanel><Image Source="pack://application:,,,/Assets/YamaSearch-brand.png" Width="220" Height="64" Stretch="Uniform" HorizontalAlignment="Left"/><Button Content="×" DockPanel.Dock="Right" Click="Menu_Click"/></DockPanel>
         <StackPanel Grid.Row="1" Margin="0,24,0,14"><TextBlock Text="KNIHOVNA" Foreground="#7794B5" FontSize="11" FontWeight="SemiBold" Margin="9,0,0,6"/><Button Content="◈  YamaShield" Background="#182A43" HorizontalContentAlignment="Left" Click="ShieldButton_Click" Margin="0,2"/><Button Content="☆  Oblíbené" Background="#182A43" HorizontalContentAlignment="Left" Click="BookmarksPanel_Click" Margin="0,2"/><Button Content="◷  Historie" Background="#182A43" HorizontalContentAlignment="Left" Click="HistoryPanel_Click" Margin="0,2"/><Separator Margin="4,10" Background="#294465"/><TextBlock Text="DALŠÍ" Foreground="#7794B5" FontSize="11" FontWeight="SemiBold" Margin="9,0,0,6"/><Button Content="⇩  Stahování" HorizontalContentAlignment="Left" Click="DownloadsPanel_Click"/><Button Content="⚙  Nastavení" HorizontalContentAlignment="Left" Click="Settings_Click"/></StackPanel>
