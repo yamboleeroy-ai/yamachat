@@ -280,7 +280,7 @@ public partial class MainWindow : Window
             if (await Task.WhenAny(initializeTask, Task.Delay(TimeSpan.FromSeconds(12))) != initializeTask)
                 throw new TimeoutException("WebView2 Runtime se nespustil během 12 sekund.");
             await initializeTask;
-            ConfigureWebView(tab);
+            await ConfigureWebViewAsync(tab);
             SelectTab(tab);
             _ = Dispatcher.BeginInvoke(() => TabsScroller.ScrollToRightEnd());
             await NavigateAsync(tab, address ?? _settings.Data.HomePage);
@@ -298,7 +298,7 @@ public partial class MainWindow : Window
         }
     }
 
-    private void ConfigureWebView(BrowserTab tab)
+    private async Task ConfigureWebViewAsync(BrowserTab tab)
     {
         var core = tab.View.CoreWebView2;
         core.Settings.AreDevToolsEnabled = false;
@@ -308,7 +308,7 @@ public partial class MainWindow : Window
         core.Settings.IsGeneralAutofillEnabled = false;
         core.AddWebResourceRequestedFilter("*", CoreWebView2WebResourceContext.All);
         core.WebResourceRequested += (_, e) => BlockRequest(tab, e);
-        _ = core.AddScriptToExecuteOnDocumentCreatedAsync(YamaBlockPageScript);
+        await RefreshYamaBlockBootstrapAsync(tab);
         core.WebMessageReceived += (_, e) => HandleNewTabMessage(tab, e);
         core.NavigationStarting += (_, e) =>
         {
@@ -359,32 +359,57 @@ public partial class MainWindow : Window
 
     private void BlockRequest(BrowserTab tab, CoreWebView2WebResourceRequestedEventArgs e)
     {
-        if (_settings.Data.BlockMode == BlockMode.Off || string.IsNullOrWhiteSpace(e.Request.Uri))
-            return;
-
-        if (!Uri.TryCreate(e.Request.Uri, UriKind.Absolute, out var uri))
+        if (string.IsNullOrWhiteSpace(e.Request.Uri)
+            || !Uri.TryCreate(e.Request.Uri, UriKind.Absolute, out var uri))
             return;
 
         var pageHost = GetPageHost(tab);
-        if (!string.IsNullOrWhiteSpace(pageHost) && IsWhitelisted(pageHost))
+        var youtubePage = IsYouTubeHost(pageHost);
+        var relevantYoutubeRequest = youtubePage && IsYouTubeDiagnosticRequest(uri);
+
+        if (_settings.Data.BlockMode == BlockMode.Off)
+        {
+            if (relevantYoutubeRequest)
+                YamaBlockDiagnostics.Add("PROŠLO", "Síť / YamaBlock vypnutý", ShortRequest(uri));
             return;
+        }
+
+        if (!string.IsNullOrWhiteSpace(pageHost) && IsWhitelisted(pageHost))
+        {
+            if (relevantYoutubeRequest)
+                YamaBlockDiagnostics.Add("PROŠLO", "Síť / výjimka webu", ShortRequest(uri));
+            return;
+        }
 
         var hostIsAd = HostMatchesAny(uri.Host, _adHosts);
         var hostIsTracker = _settings.Data.EnableTrackerBlocking && HostMatchesAny(uri.Host, _trackerHosts);
+
+        // First-party YouTube playback/stat traffic is intentionally not cut off. Modern
+        // blockers get better results by pruning ad metadata from player JSON responses
+        // than by forcing the player into retries/timeouts.
+        var youtubePlaybackInfrastructure = youtubePage && IsYouTubePlaybackInfrastructure(uri.Host);
         var strictUrlMatch = _settings.Data.BlockMode == BlockMode.Strict
+            && !youtubePlaybackInfrastructure
             && StrictUrlTokens.Any(token => uri.PathAndQuery.Contains(token, StringComparison.OrdinalIgnoreCase));
 
-        // Do not block YouTube's own first-party playback/stat endpoints. Those can be
-        // required by the player and blocking them causes retries, flicker and delayed playback.
-        // YouTube ad handling is kept to known third-party ad hosts plus cosmetic/skip rules.
         var youtubeThirdPartyAd = _settings.Data.EnableYouTubeAdBlock
-            && IsYouTubeHost(pageHost)
+            && youtubePage
             && (uri.Host.Equals("googleads.g.doubleclick.net", StringComparison.OrdinalIgnoreCase)
                 || uri.Host.Equals("static.doubleclick.net", StringComparison.OrdinalIgnoreCase)
                 || uri.Host.EndsWith(".googlesyndication.com", StringComparison.OrdinalIgnoreCase));
 
         if (!hostIsAd && !hostIsTracker && !strictUrlMatch && !youtubeThirdPartyAd)
+        {
+            if (relevantYoutubeRequest)
+                YamaBlockDiagnostics.Add("PROŠLO", "Síť / player", ShortRequest(uri));
             return;
+        }
+
+        var reason = youtubeThirdPartyAd || hostIsAd
+            ? "reklamní doména"
+            : hostIsTracker
+                ? "tracker"
+                : "přísné URL pravidlo";
 
         e.Response = tab.View.CoreWebView2.Environment.CreateWebResourceResponse(
             null,
@@ -392,9 +417,32 @@ public partial class MainWindow : Window
             "Blocked by YamaBlock",
             "Cache-Control: no-store");
 
+        YamaBlockDiagnostics.Add("BLOKOVÁNO", $"Síť / {reason}", ShortRequest(uri));
         tab.BlockedCount++;
         if (_active == tab)
             BlockedText.Text = $"YamaBlock · {tab.BlockedCount} blokováno";
+    }
+
+    private static bool IsYouTubePlaybackInfrastructure(string host)
+        => IsYouTubeHost(host)
+           || host.EndsWith(".googlevideo.com", StringComparison.OrdinalIgnoreCase)
+           || host.Equals("googlevideo.com", StringComparison.OrdinalIgnoreCase)
+           || host.EndsWith(".ytimg.com", StringComparison.OrdinalIgnoreCase)
+           || host.Equals("ytimg.com", StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsYouTubeDiagnosticRequest(Uri uri)
+        => uri.AbsolutePath.Contains("/youtubei/v1/player", StringComparison.OrdinalIgnoreCase)
+           || uri.AbsolutePath.EndsWith("/player", StringComparison.OrdinalIgnoreCase)
+           || uri.AbsolutePath.Contains("/pagead/", StringComparison.OrdinalIgnoreCase)
+           || uri.AbsolutePath.Contains("/get_midroll_info", StringComparison.OrdinalIgnoreCase)
+           || uri.Host.Contains("doubleclick", StringComparison.OrdinalIgnoreCase)
+           || uri.Host.Contains("googlesyndication", StringComparison.OrdinalIgnoreCase);
+
+    private static string ShortRequest(Uri uri)
+    {
+        var path = uri.AbsolutePath;
+        if (path.Length > 110) path = path[..107] + "…";
+        return uri.Host + path;
     }
 
     private static bool HostMatchesAny(string host, IEnumerable<string> rules)
@@ -432,7 +480,8 @@ public partial class MainWindow : Window
             enabled,
             youtube = enabled && _settings.Data.EnableYouTubeAdBlock && IsYouTubeHost(pageHost),
             cosmetic = enabled && _settings.Data.EnableCosmeticBlocking,
-            strict = enabled && _settings.Data.BlockMode == BlockMode.Strict
+            strict = enabled && _settings.Data.BlockMode == BlockMode.Strict,
+            whitelist = _settings.Data.Whitelist.ToArray()
         };
 
         try
@@ -450,7 +499,38 @@ public partial class MainWindow : Window
     private async Task ApplyYamaBlockToAllTabsAsync()
     {
         foreach (var tab in _tabs.Where(x => x.View.CoreWebView2 != null).ToList())
+        {
+            await RefreshYamaBlockBootstrapAsync(tab);
             await ApplyYamaBlockPageRulesAsync(tab);
+        }
+    }
+
+    private async Task RefreshYamaBlockBootstrapAsync(BrowserTab tab)
+    {
+        var core = tab.View.CoreWebView2;
+        if (core == null) return;
+
+        if (!string.IsNullOrWhiteSpace(tab.YamaBlockScriptId))
+        {
+            try { core.RemoveScriptToExecuteOnDocumentCreated(tab.YamaBlockScriptId); }
+            catch { }
+        }
+
+        tab.YamaBlockScriptId = await core.AddScriptToExecuteOnDocumentCreatedAsync(CreateYamaBlockPageScript());
+    }
+
+    private string CreateYamaBlockPageScript()
+    {
+        var initial = JsonSerializer.Serialize(new
+        {
+            enabled = _settings.Data.BlockMode != BlockMode.Off,
+            youtube = _settings.Data.EnableYouTubeAdBlock,
+            cosmetic = _settings.Data.EnableCosmeticBlocking,
+            strict = _settings.Data.BlockMode == BlockMode.Strict,
+            whitelist = _settings.Data.Whitelist.ToArray()
+        });
+
+        return YamaBlockPageScript.Replace("__YAMA_INITIAL_CONFIG__", initial, StringComparison.Ordinal);
     }
 
     private const string YamaBlockPageScript = """
@@ -458,15 +538,174 @@ public partial class MainWindow : Window
           if (window.__yamaBlockInstalled) return;
           window.__yamaBlockInstalled = true;
 
-          let config = { enabled: false, youtube: false, cosmetic: false, strict: false };
+          let config = Object.assign(
+            { enabled: false, youtube: false, cosmetic: false, strict: false, whitelist: [] },
+            __YAMA_INITIAL_CONFIG__
+          );
           let scheduled = false;
           let timer = 0;
-
           const styleId = 'yamablock-cosmetic-style';
+
+          const isWhitelisted = () => {
+            const host = location.hostname.toLowerCase();
+            return Array.isArray(config.whitelist) && config.whitelist.some(raw => {
+              const rule = String(raw || '').toLowerCase();
+              return rule && (host === rule || host.endsWith('.' + rule));
+            });
+          };
+
+          const active = () => !!config.enabled && !isWhitelisted();
+          const youtubeActive = () =>
+            active() && !!config.youtube && location.hostname.endsWith('youtube.com');
+
+          const postLog = (status, category, detail) => {
+            try {
+              window.chrome?.webview?.postMessage(JSON.stringify({
+                action: 'yamaBlockLog',
+                status,
+                category,
+                detail: String(detail || '').slice(0, 260)
+              }));
+            } catch {}
+          };
+
+          const compactUrl = (raw) => {
+            try {
+              const u = new URL(raw, location.href);
+              return u.host + u.pathname;
+            } catch {
+              return String(raw || '').slice(0, 180);
+            }
+          };
+
+          const pruneAdFields = (value) => {
+            if (!value || typeof value !== 'object') return 0;
+            let removed = 0;
+
+            const pruneObject = (obj) => {
+              if (!obj || typeof obj !== 'object') return;
+              for (const key of ['adPlacements', 'adSlots', 'playerAds']) {
+                if (Object.prototype.hasOwnProperty.call(obj, key)) {
+                  try {
+                    delete obj[key];
+                    removed++;
+                  } catch {}
+                }
+              }
+            };
+
+            pruneObject(value);
+            pruneObject(value.playerResponse);
+
+            if (Array.isArray(value)) {
+              for (const item of value) {
+                if (item && typeof item === 'object') {
+                  pruneObject(item);
+                  pruneObject(item.playerResponse);
+                }
+              }
+            }
+
+            return removed;
+          };
+
+          const isPlayerApi = (raw) => {
+            try {
+              const u = new URL(raw, location.href);
+              if (!u.hostname.endsWith('youtube.com')) return false;
+              return u.pathname.includes('/youtubei/v1/player')
+                || /\/player$/.test(u.pathname)
+                || u.pathname.includes('/get_watch');
+            } catch {
+              return false;
+            }
+          };
+
+          // AdGuard-style idea: let the YouTube player request finish normally, then remove
+          // only ad metadata from its JSON. This avoids the retries/blank player caused by
+          // blocking YouTube's own playback endpoints.
+          const nativeFetch = window.fetch?.bind(window);
+          if (nativeFetch) {
+            window.fetch = async (...args) => {
+              const response = await nativeFetch(...args);
+              const rawUrl = typeof args[0] === 'string'
+                ? args[0]
+                : (args[0]?.url || response.url || '');
+
+              if (!youtubeActive() || !isPlayerApi(rawUrl))
+                return response;
+
+              try {
+                const text = await response.clone().text();
+                if (!text || (text[0] !== '{' && text[0] !== '[')) {
+                  postLog('PROŠLO', 'YouTube player JSON', compactUrl(rawUrl));
+                  return response;
+                }
+
+                const data = JSON.parse(text);
+                const removed = pruneAdFields(data);
+                if (removed <= 0) {
+                  postLog('PROŠLO', 'YouTube player JSON', compactUrl(rawUrl));
+                  return response;
+                }
+
+                const headers = new Headers(response.headers);
+                headers.delete('content-length');
+                headers.delete('content-encoding');
+
+                postLog('ODSTRANĚNO', 'YouTube player JSON',
+                  removed + ' reklamních polí · ' + compactUrl(rawUrl));
+
+                return new Response(JSON.stringify(data), {
+                  status: response.status,
+                  statusText: response.statusText,
+                  headers
+                });
+              } catch {
+                postLog('PROŠLO', 'YouTube player JSON / bez zásahu', compactUrl(rawUrl));
+                return response;
+              }
+            };
+          }
+
+          // Initial player data may be embedded directly into the page before the normal
+          // player API fetch. Trap that object early and prune the same ad metadata.
+          try {
+            let initialPlayerResponse;
+            Object.defineProperty(window, 'ytInitialPlayerResponse', {
+              configurable: true,
+              get() { return initialPlayerResponse; },
+              set(value) {
+                if (youtubeActive()) {
+                  const removed = pruneAdFields(value);
+                  if (removed > 0)
+                    postLog('ODSTRANĚNO', 'YouTube initial player',
+                      removed + ' reklamních polí');
+                }
+                initialPlayerResponse = value;
+              }
+            });
+          } catch {}
+
+          const pruneLegacyPlayerConfig = () => {
+            if (!youtubeActive()) return;
+            try {
+              const args = window.ytplayer?.config?.args;
+              const raw = args?.player_response;
+              if (typeof raw !== 'string' || !raw.startsWith('{')) return;
+              const data = JSON.parse(raw);
+              const removed = pruneAdFields(data);
+              if (removed > 0) {
+                args.player_response = JSON.stringify(data);
+                postLog('ODSTRANĚNO', 'YouTube legacy player',
+                  removed + ' reklamních polí');
+              }
+            } catch {}
+          };
 
           const ensureStyle = () => {
             let style = document.getElementById(styleId);
-            if (!config.enabled || (!config.cosmetic && !config.youtube)) {
+            if (!active() || (!config.cosmetic && !config.youtube)) {
               if (style) style.remove();
               return;
             }
@@ -488,10 +727,7 @@ public partial class MainWindow : Window
               );
             }
 
-            if (config.youtube && location.hostname.endsWith('youtube.com')) {
-              // Keep the actual video/ad playback containers intact. Removing .video-ads,
-              // .ytp-ad-module or manipulating the <video> element makes YouTube retry
-              // playback and causes the visible flicker/delay we want to avoid.
+            if (youtubeActive()) {
               rules.push(
                 '#player-ads',
                 '.ytp-ad-overlay-container',
@@ -511,17 +747,21 @@ public partial class MainWindow : Window
           };
 
           const clickSkip = () => {
-            if (!config.enabled || !config.youtube || !location.hostname.endsWith('youtube.com')) return false;
+            if (!youtubeActive()) return false;
             const selectors = [
               '.ytp-skip-ad-button',
               '.ytp-ad-skip-button',
               '.ytp-ad-skip-button-modern',
               'button[class*="skip-ad"]'
             ];
+
             for (const selector of selectors) {
               const button = document.querySelector(selector);
               if (button instanceof HTMLElement && button.offsetParent !== null) {
-                try { button.click(); } catch {}
+                try {
+                  button.click();
+                  postLog('ODSTRANĚNO', 'YouTube přehrávač', 'Použito tlačítko Přeskočit reklamu');
+                } catch {}
                 return true;
               }
             }
@@ -531,6 +771,7 @@ public partial class MainWindow : Window
           const run = () => {
             scheduled = false;
             ensureStyle();
+            pruneLegacyPlayerConfig();
             clickSkip();
           };
 
@@ -538,25 +779,21 @@ public partial class MainWindow : Window
             if (scheduled) return;
             scheduled = true;
             clearTimeout(timer);
-            timer = setTimeout(run, 120);
+            timer = setTimeout(run, 140);
           };
 
           const observer = new MutationObserver(schedule);
           const start = () => {
             if (document.documentElement) {
-              observer.observe(document.documentElement, {
-                childList: true,
-                subtree: true
-              });
+              observer.observe(document.documentElement, { childList: true, subtree: true });
             }
             schedule();
           };
 
-          if (document.readyState === 'loading') {
+          if (document.readyState === 'loading')
             document.addEventListener('DOMContentLoaded', start, { once: true });
-          } else {
+          else
             start();
-          }
 
           window.addEventListener('yt-navigate-finish', schedule);
           window.__yamaBlockApply = (next) => {
@@ -564,9 +801,8 @@ public partial class MainWindow : Window
             schedule();
           };
 
-          // Low-frequency fallback for skip buttons that appear without a useful DOM mutation.
           setInterval(() => {
-            if (config.enabled && config.youtube) clickSkip();
+            if (youtubeActive()) clickSkip();
           }, 2500);
         })();
         """;
@@ -2273,7 +2509,7 @@ public partial class MainWindow : Window
     private string SearchEndpoint() => _settings.Data.SearchEngine switch { "Google" => "https://www.google.com/search", "Bing" => "https://www.bing.com/search", "Seznam" => "https://search.seznam.cz/", "Brave Search" => "https://search.brave.com/search", "Ecosia" => "https://www.ecosia.org/search", "Yahoo" => "https://search.yahoo.com/search", "Startpage" => "https://www.startpage.com/sp/search", "Custom" => _settings.Data.CustomSearchEndpoint.Replace("{query}", ""), _ => "https://duckduckgo.com/" };
 }
 
-public sealed class BrowserTab { public WebView2 View { get; } = new() { DefaultBackgroundColor = System.Drawing.Color.FromArgb(0x0B, 0x10, 0x1A) }; public string Title { get; set; } = "Nová karta"; public ImageSource? Favicon { get; set; } public bool IsYamaNewTab { get; set; } public int BlockedCount { get; set; } }
+public sealed class BrowserTab { public WebView2 View { get; } = new() { DefaultBackgroundColor = System.Drawing.Color.FromArgb(0x0B, 0x10, 0x1A) }; public string Title { get; set; } = "Nová karta"; public ImageSource? Favicon { get; set; } public bool IsYamaNewTab { get; set; } public int BlockedCount { get; set; } public string? YamaBlockScriptId { get; set; } }
 public enum BlockMode { Off, Standard, Strict }
 public enum SecurityLevel { Recommended, Strict, Custom }
 public static class BlockModeExtensions { public static string ToLabel(this BlockMode mode) => mode switch { BlockMode.Off => "Vypnuto", BlockMode.Strict => "Přísný", _ => "Standard" }; }
