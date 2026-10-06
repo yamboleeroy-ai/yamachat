@@ -25,6 +25,7 @@ public partial class MainWindow : Window
     private bool _suppressSuggestions;
     private bool _downloadUiRefreshQueued;
     private readonly Dictionary<CoreWebView2DownloadOperation, DownloadEntry> _activeDownloads = [];
+    private readonly List<string> _favoriteOverflow = [];
     private readonly string _webDataFolder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "YamaSearch", "WebView");
     private readonly HashSet<string> _adHosts = new(StringComparer.OrdinalIgnoreCase)
     { "doubleclick.net", "googlesyndication.com", "google-analytics.com", "adservice.google.com", "connect.facebook.net", "scorecardresearch.com" };
@@ -43,6 +44,9 @@ public partial class MainWindow : Window
         UpdateShieldButton();
         UpdateBlockButton();
         UpdateDownloadToolbar();
+        ShowFavoritesBarCheckBox.IsChecked = _settings.Data.FavoritesBarVisible;
+        FavoritesBar.Visibility = _settings.Data.FavoritesBarVisible ? Visibility.Visible : Visibility.Collapsed;
+        Loaded += (_, _) => RenderFavoritesBar();
         KeyDown += MainWindow_KeyDown;
     }
 
@@ -586,12 +590,44 @@ public partial class MainWindow : Window
         if (_active?.View.CoreWebView2 != null) _ = NavigateAsync(_active, AddressBox.Text);
         else StatusText.Text = "Webový engine se ještě spouští…";
     }
-    private void Bookmark_Click(object sender, RoutedEventArgs e)
+    private void FavoritesButton_Click(object sender, RoutedEventArgs e)
     {
-        if (_active?.View.CoreWebView2 == null) return;
-        if (_active.IsYamaNewTab)
+        HistoryQuickPopup.IsOpen = false;
+        DownloadPopup.IsOpen = false;
+        FavoritesOverflowPopup.IsOpen = false;
+        UpdateFavoritesPopupState();
+        FavoritesQuickPopup.IsOpen = !FavoritesQuickPopup.IsOpen;
+    }
+
+    private void UpdateFavoritesPopupState()
+    {
+        ShowFavoritesBarCheckBox.IsChecked = _settings.Data.FavoritesBarVisible;
+
+        if (_active?.View.CoreWebView2 == null || _active.IsYamaNewTab)
         {
-            StatusText.Text = "Oblíbené můžeš přidávat a odebírat přímo na nové kartě.";
+            FavoriteCurrentPageButton.Content = "☆ Přidat aktuální stránku";
+            FavoriteCurrentPageButton.IsEnabled = false;
+            return;
+        }
+
+        FavoriteCurrentPageButton.IsEnabled = true;
+        var url = _active.View.CoreWebView2.Source;
+        FavoriteCurrentPageButton.Content = FindFavoriteIndex(url) >= 0
+            ? "★ Odebrat aktuální stránku"
+            : "☆ Přidat aktuální stránku";
+    }
+
+    private void FavoriteCurrentPage_Click(object sender, RoutedEventArgs e)
+    {
+        ToggleCurrentFavorite();
+        UpdateFavoritesPopupState();
+    }
+
+    private void ToggleCurrentFavorite()
+    {
+        if (_active?.View.CoreWebView2 == null || _active.IsYamaNewTab)
+        {
+            StatusText.Text = "Na nové kartě použij tlačítko Přidat stránku.";
             return;
         }
 
@@ -602,18 +638,177 @@ public partial class MainWindow : Window
         if (index >= 0)
         {
             _settings.Data.Bookmarks.RemoveAt(index);
-            _settings.Save();
             StatusText.Text = "Odebráno z oblíbených";
         }
         else
         {
             _settings.Data.Bookmarks.Insert(0, normalized);
-            _settings.Save();
             StatusText.Text = "Přidáno do oblíbených";
         }
 
+        _settings.Save();
         RefreshFavoriteViews();
     }
+
+    private void ShowFavoritesBarCheckBox_Click(object sender, RoutedEventArgs e)
+    {
+        _settings.Data.FavoritesBarVisible = ShowFavoritesBarCheckBox.IsChecked == true;
+        _settings.Save();
+        FavoritesBar.Visibility = _settings.Data.FavoritesBarVisible ? Visibility.Visible : Visibility.Collapsed;
+        RenderFavoritesBar();
+        StatusText.Text = _settings.Data.FavoritesBarVisible
+            ? "Lišta oblíbených je zapnutá"
+            : "Lišta oblíbených je skrytá";
+    }
+
+    private void ManageFavorites_Click(object sender, RoutedEventArgs e)
+    {
+        FavoritesQuickPopup.IsOpen = false;
+        SidePanel.Visibility = Visibility.Visible;
+        PanelColumn.Width = new GridLength(300);
+        ShowBookmarksPanel();
+    }
+
+    private void FavoritesBar_SizeChanged(object sender, SizeChangedEventArgs e)
+        => RenderFavoritesBar();
+
+    private void RenderFavoritesBar()
+    {
+        FavoritesBarItems.Children.Clear();
+        FavoritesOverflowList.Children.Clear();
+        _favoriteOverflow.Clear();
+
+        if (!_settings.Data.FavoritesBarVisible || FavoritesBar.Visibility != Visibility.Visible)
+        {
+            FavoritesOverflowButton.Visibility = Visibility.Collapsed;
+            FavoritesOverflowPopup.IsOpen = false;
+            return;
+        }
+
+        var bookmarks = _settings.Data.Bookmarks.ToList();
+        if (bookmarks.Count == 0)
+        {
+            FavoritesOverflowButton.Visibility = Visibility.Collapsed;
+            FavoritesBarItems.Children.Add(new TextBlock
+            {
+                Text = "Oblíbené jsou prázdné",
+                Foreground = (Brush)FindResource("MutedBrush"),
+                VerticalAlignment = VerticalAlignment.Center,
+                Margin = new Thickness(8, 0, 0, 0)
+            });
+            return;
+        }
+
+        var available = Math.Max(120, FavoritesBar.ActualWidth - 74);
+        double used = 0;
+
+        for (var i = 0; i < bookmarks.Count; i++)
+        {
+            var url = bookmarks[i];
+            var button = CreateFavoriteBarButton(url, compact: true);
+            button.Measure(new Size(double.PositiveInfinity, 34));
+            var width = Math.Clamp(button.DesiredSize.Width, 88, 190);
+
+            if (used + width <= available || FavoritesBarItems.Children.Count == 0)
+            {
+                button.Width = width;
+                FavoritesBarItems.Children.Add(button);
+                used += width + 5;
+            }
+            else
+            {
+                _favoriteOverflow.Add(url);
+            }
+        }
+
+        FavoritesOverflowButton.Visibility = _favoriteOverflow.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
+        if (_favoriteOverflow.Count == 0) FavoritesOverflowPopup.IsOpen = false;
+    }
+
+    private Button CreateFavoriteBarButton(string url, bool compact)
+    {
+        var history = _settings.Data.History.FirstOrDefault(x => SameFavorite(x.Url, url));
+        var label = string.IsNullOrWhiteSpace(history?.Title)
+            ? (Uri.TryCreate(url, UriKind.Absolute, out var page) ? page.Host.Replace("www.", "", StringComparison.OrdinalIgnoreCase) : url)
+            : history.Title.Trim();
+
+        if (label.Length > 22) label = label[..21] + "…";
+
+        var grid = new Grid();
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(24) });
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+
+        var iconHost = new Grid { Width = 18, Height = 18, VerticalAlignment = VerticalAlignment.Center };
+        iconHost.Children.Add(new TextBlock
+        {
+            Text = "✦",
+            Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#54D7F8")),
+            FontSize = 14,
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Center
+        });
+
+        var faviconUrl = history?.FaviconUrl;
+        if (string.IsNullOrWhiteSpace(faviconUrl) && Uri.TryCreate(url, UriKind.Absolute, out var favoriteUri))
+            faviconUrl = $"{favoriteUri.Scheme}://{favoriteUri.Host}/favicon.ico";
+
+        if (Uri.TryCreate(faviconUrl, UriKind.Absolute, out var favicon))
+        {
+            try
+            {
+                var image = new Image
+                {
+                    Source = new BitmapImage(favicon),
+                    Width = 16,
+                    Height = 16,
+                    Stretch = Stretch.Uniform
+                };
+                image.ImageFailed += (_, _) => image.Visibility = Visibility.Collapsed;
+                iconHost.Children.Add(image);
+            }
+            catch { }
+        }
+
+        grid.Children.Add(iconHost);
+        var text = new TextBlock
+        {
+            Text = label,
+            Foreground = Brushes.White,
+            VerticalAlignment = VerticalAlignment.Center,
+            TextTrimming = TextTrimming.CharacterEllipsis
+        };
+        Grid.SetColumn(text, 1);
+        grid.Children.Add(text);
+
+        var button = new Button
+        {
+            Content = grid,
+            ToolTip = url,
+            HorizontalContentAlignment = HorizontalAlignment.Left,
+            Padding = compact ? new Thickness(8, 4, 9, 4) : new Thickness(9, 7, 9, 7),
+            Margin = compact ? new Thickness(0, 0, 5, 0) : new Thickness(0, 2, 0, 2),
+            Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#142238")),
+            BorderBrush = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#294465")),
+            BorderThickness = new Thickness(1)
+        };
+
+        button.Click += (_, _) =>
+        {
+            FavoritesOverflowPopup.IsOpen = false;
+            if (_active != null) _ = NavigateAsync(_active, url);
+        };
+        return button;
+    }
+
+    private void FavoritesOverflowButton_Click(object sender, RoutedEventArgs e)
+    {
+        FavoritesOverflowList.Children.Clear();
+        foreach (var url in _favoriteOverflow)
+            FavoritesOverflowList.Children.Add(CreateFavoriteBarButton(url, compact: false));
+
+        FavoritesOverflowPopup.IsOpen = !FavoritesOverflowPopup.IsOpen;
+    }
+
     private void HandleDownloadStarting(CoreWebView2DownloadStartingEventArgs e)
     {
         var operation = e.DownloadOperation;
@@ -1214,6 +1409,9 @@ public partial class MainWindow : Window
 
         if (SidePanel.Visibility == Visibility.Visible && PanelTitle.Text == "Oblíbené")
             ShowBookmarksPanel();
+
+        RenderFavoritesBar();
+        if (FavoritesQuickPopup.IsOpen) UpdateFavoritesPopupState();
     }
 
     private int FindFavoriteIndex(string url)
@@ -1347,12 +1545,19 @@ public partial class MainWindow : Window
         var rows = ((Grid)Content).RowDefinitions;
         if (enabled)
         {
-            rows[0].Height = new GridLength(0); rows[1].Height = new GridLength(0); rows[3].Height = new GridLength(0);
+            rows[0].Height = new GridLength(0);
+            rows[1].Height = new GridLength(0);
+            rows[2].Height = new GridLength(0);
+            rows[4].Height = new GridLength(0);
             WindowState = WindowState.Maximized;
         }
         else
         {
-            rows[0].Height = new GridLength(54); rows[1].Height = new GridLength(64); rows[3].Height = new GridLength(30);
+            rows[0].Height = new GridLength(60);
+            rows[1].Height = new GridLength(64);
+            rows[2].Height = GridLength.Auto;
+            rows[4].Height = new GridLength(30);
+            FavoritesBar.Visibility = _settings.Data.FavoritesBarVisible ? Visibility.Visible : Visibility.Collapsed;
         }
     }
     private void Minimize_Click(object sender, RoutedEventArgs e) => WindowState = WindowState.Minimized;
@@ -1580,7 +1785,7 @@ public static class UrlTools
         var query = Uri.EscapeDataString(input); return engine switch { "Google" => "https://www.google.com/search?q=" + query, "Bing" => "https://www.bing.com/search?q=" + query, "Seznam" => "https://search.seznam.cz/?q=" + query, "Brave Search" => "https://search.brave.com/search?q=" + query, "Ecosia" => "https://www.ecosia.org/search?q=" + query, "Yahoo" => "https://search.yahoo.com/search?p=" + query, "Startpage" => "https://www.startpage.com/sp/search?query=" + query, _ => "https://duckduckgo.com/?q=" + query };
     }
 }
-public sealed class AppData { public string Theme { get; set; } = "dark"; public string HomePage { get; set; } = "yamasearch://newtab"; public string SearchEngine { get; set; } = "DuckDuckGo"; public string CustomSearchEndpoint { get; set; } = ""; public bool OnboardingCompleted { get; set; } = false; public BlockMode BlockMode { get; set; } = BlockMode.Standard; public SecurityLevel SecurityLevel { get; set; } = SecurityLevel.Recommended; public bool EnableSmartScreen { get; set; } = true; public bool OfferPasswordSave { get; set; } = true; public List<string> Whitelist { get; set; } = []; public List<string> Bookmarks { get; set; } = []; public List<HistoryEntry> History { get; set; } = []; public List<DownloadEntry> Downloads { get; set; } = []; }
+public sealed class AppData { public string Theme { get; set; } = "dark"; public string HomePage { get; set; } = "yamasearch://newtab"; public string SearchEngine { get; set; } = "DuckDuckGo"; public string CustomSearchEndpoint { get; set; } = ""; public bool OnboardingCompleted { get; set; } = false; public bool FavoritesBarVisible { get; set; } = false; public BlockMode BlockMode { get; set; } = BlockMode.Standard; public SecurityLevel SecurityLevel { get; set; } = SecurityLevel.Recommended; public bool EnableSmartScreen { get; set; } = true; public bool OfferPasswordSave { get; set; } = true; public List<string> Whitelist { get; set; } = []; public List<string> Bookmarks { get; set; } = []; public List<HistoryEntry> History { get; set; } = []; public List<DownloadEntry> Downloads { get; set; } = []; }
 public sealed class HistoryEntry { public string Url { get; set; } = ""; public string Title { get; set; } = ""; public string FaviconUrl { get; set; } = ""; public DateTimeOffset VisitedAt { get; set; } }
 public sealed class DownloadEntry
 {
