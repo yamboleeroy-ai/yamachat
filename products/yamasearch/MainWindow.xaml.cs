@@ -483,8 +483,19 @@ public partial class MainWindow : Window
         ShowAddressSuggestions();
     }
 
+    private System.Windows.Controls.Primitives.CustomPopupPlacement[] AddressSuggestions_CustomPopupPlacement(Size popupSize, Size targetSize, Point offset)
+    {
+        return
+        [
+            new System.Windows.Controls.Primitives.CustomPopupPlacement(
+                new Point(0, targetSize.Height),
+                System.Windows.Controls.Primitives.PopupPrimaryAxis.Horizontal)
+        ];
+    }
+
     private void ShowAddressSuggestions()
     {
+        AddressSuggestionsBorder.Width = Math.Max(360, AddressBox.ActualWidth);
         AddressSuggestionList.Children.Clear();
         if (_suppressSuggestions || !AddressBox.IsKeyboardFocusWithin)
         {
