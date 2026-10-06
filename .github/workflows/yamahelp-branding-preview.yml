@@ -26,9 +26,15 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           New-Item -ItemType Directory -Path preview -Force | Out-Null
-          $json = gh api repos/yamboleeroy-ai/yamachat/git/blobs/556d1676e60f29cd15969008b5f2267f0c2ecda2 | ConvertFrom-Json
-          $base64 = ($json.content -replace '\s','')
-          [IO.File]::WriteAllBytes((Join-Path $env:GITHUB_WORKSPACE 'preview\yamahelp-build-source.zip'), [Convert]::FromBase64String($base64))
+          gh api repos/yamboleeroy-ai/yamachat/git/blobs/556d1676e60f29cd15969008b5f2267f0c2ecda2 --jq .content | Set-Content -Path preview/yamahelp-build-source.b64 -Encoding ascii
+          @'
+          import base64
+          from pathlib import Path
+          src = Path("preview/yamahelp-build-source.b64").read_text(encoding="ascii")
+          data = base64.b64decode("".join(src.split()))
+          Path("preview/yamahelp-build-source.zip").write_bytes(data)
+          print("source zip bytes:", len(data))
+          '@ | python -
           New-Item -ItemType Directory -Path preview/yamahelp-src -Force | Out-Null
           Expand-Archive preview/yamahelp-build-source.zip preview/yamahelp-src -Force
 
