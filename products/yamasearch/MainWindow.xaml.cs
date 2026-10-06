@@ -2631,18 +2631,10 @@ public partial class MainWindow : Window
             Topmost = true;
             ApplyMonitorBounds(useWorkingArea: false, forceTopmost: true);
 
-            // WebView2/YouTube can change focus/z-order immediately after raising the
-            // fullscreen event. Re-assert monitor bounds and topmost once that transition
-            // has completed so the video also covers the Windows taskbar.
-            _ = Dispatcher.BeginInvoke(
-                System.Windows.Threading.DispatcherPriority.ApplicationIdle,
-                new Action(() =>
-                {
-                    if (!_videoFullScreen) return;
-                    Topmost = true;
-                    ApplyMonitorBounds(useWorkingArea: false, forceTopmost: true);
-                    Activate();
-                }));
+            // WebView2/YouTube and the Windows shell can both touch the z-order while
+            // entering fullscreen. Re-assert the real monitor bounds a few times after
+            // the transition so the video remains above the Windows taskbar as well.
+            _ = ReassertVideoFullscreenAsync();
         }
         else
         {
@@ -2676,6 +2668,23 @@ public partial class MainWindow : Window
                 Width = _videoRestoreBounds.Width;
                 Height = _videoRestoreBounds.Height;
             }
+        }
+    }
+
+    private async Task ReassertVideoFullscreenAsync()
+    {
+        foreach (var delay in new[] { 40, 180, 550 })
+        {
+            await Task.Delay(delay);
+            if (!_videoFullScreen) return;
+
+            await Dispatcher.InvokeAsync(() =>
+            {
+                if (!_videoFullScreen) return;
+                Topmost = true;
+                ApplyMonitorBounds(useWorkingArea: false, forceTopmost: true);
+                Activate();
+            }, System.Windows.Threading.DispatcherPriority.Send);
         }
     }
 
@@ -2713,6 +2722,7 @@ public partial class MainWindow : Window
 
         if (forceTopmost)
         {
+            BringWindowToTop(handle);
             SetForegroundWindow(handle);
             SetActiveWindow(handle);
         }
@@ -2784,13 +2794,13 @@ public partial class MainWindow : Window
         const int WmGetMinMaxInfo = 0x0024;
         if (msg == WmGetMinMaxInfo)
         {
-            ApplyMonitorWorkingArea(hwnd, lParam);
+            ApplyMonitorMaxBounds(hwnd, lParam, useWorkingArea: !_videoFullScreen);
             handled = true;
         }
         return IntPtr.Zero;
     }
 
-    private static void ApplyMonitorWorkingArea(IntPtr hwnd, IntPtr lParam)
+    private static void ApplyMonitorMaxBounds(IntPtr hwnd, IntPtr lParam, bool useWorkingArea)
     {
         const uint MonitorDefaultToNearest = 0x00000002;
         var monitor = MonitorFromWindow(hwnd, MonitorDefaultToNearest);
@@ -2800,13 +2810,13 @@ public partial class MainWindow : Window
         if (!GetMonitorInfo(monitor, ref info)) return;
 
         var mmi = Marshal.PtrToStructure<MinMaxInfo>(lParam);
-        var work = info.WorkArea;
         var monitorArea = info.MonitorArea;
+        var target = useWorkingArea ? info.WorkArea : monitorArea;
 
-        mmi.MaxPosition.X = Math.Abs(work.Left - monitorArea.Left);
-        mmi.MaxPosition.Y = Math.Abs(work.Top - monitorArea.Top);
-        mmi.MaxSize.X = Math.Abs(work.Right - work.Left);
-        mmi.MaxSize.Y = Math.Abs(work.Bottom - work.Top);
+        mmi.MaxPosition.X = target.Left - monitorArea.Left;
+        mmi.MaxPosition.Y = target.Top - monitorArea.Top;
+        mmi.MaxSize.X = target.Right - target.Left;
+        mmi.MaxSize.Y = target.Bottom - target.Top;
         mmi.MaxTrackSize = mmi.MaxSize;
 
         Marshal.StructureToPtr(mmi, lParam, true);
@@ -2864,6 +2874,10 @@ public partial class MainWindow : Window
         int cx,
         int cy,
         uint uFlags);
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool BringWindowToTop(IntPtr hWnd);
 
     [DllImport("user32.dll")]
     [return: MarshalAs(UnmanagedType.Bool)]
