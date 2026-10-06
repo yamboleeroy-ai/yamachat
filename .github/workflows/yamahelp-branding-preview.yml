@@ -1,8 +1,63 @@
-name: YamaHelp preview
+name: YamaHelp branding preview build
+
 on:
+  push:
+    branches:
+      - preview/yamahelp-full-header-logo
   workflow_dispatch:
+
+permissions:
+  contents: read
+
 jobs:
   build:
     runs-on: windows-latest
+    timeout-minutes: 20
     steps:
-      - run: echo "YamaHelp preview workflow"
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Materialize YamaHelp source
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          New-Item -ItemType Directory -Path preview -Force | Out-Null
+          $json = gh api repos/yamboleeroy-ai/yamachat/git/blobs/556d1676e60f29cd15969008b5f2267f0c2ecda2 | ConvertFrom-Json
+          $base64 = ($json.content -replace '\s','')
+          [IO.File]::WriteAllBytes((Join-Path $env:GITHUB_WORKSPACE 'preview\yamahelp-build-source.zip'), [Convert]::FromBase64String($base64))
+          New-Item -ItemType Directory -Path preview/yamahelp-src -Force | Out-Null
+          Expand-Archive preview/yamahelp-build-source.zip preview/yamahelp-src -Force
+
+      - name: Publish Windows preview
+        shell: pwsh
+        run: |
+          dotnet publish preview/yamahelp-src/desktop/YamaHelp.Desktop.csproj -c Release -r win-x64 --self-contained false -o preview/yamahelp-out
+
+      - name: Verify preview
+        shell: pwsh
+        run: |
+          $required = @(
+            'preview/yamahelp-out/YamaHelp.Desktop.exe',
+            'preview/yamahelp-out/YamaHelp.Desktop.dll',
+            'preview/yamahelp-out/yamahelp-logo.png',
+            'preview/yamahelp-out/yamahelp-icon.png'
+          )
+          foreach ($file in $required) {
+            if (-not (Test-Path $file)) { throw "Missing build output: $file" }
+          }
+
+      - name: Package preview
+        shell: pwsh
+        run: |
+          Compress-Archive -Path preview/yamahelp-out/* -DestinationPath YamaHelp-Preview-Full-Logo-SourceBuild.zip -Force
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: YamaHelp-Preview-Full-Logo-SourceBuild
+          path: YamaHelp-Preview-Full-Logo-SourceBuild.zip
+          if-no-files-found: error
+          retention-days: 7
