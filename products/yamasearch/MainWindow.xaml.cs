@@ -18,7 +18,7 @@ public partial class MainWindow : Window
 {
     private readonly ObservableCollection<BrowserTab> _tabs = [];
     private readonly SettingsStore _settings = new();
-    private static readonly HttpClient UpdateClient = new() { Timeout = TimeSpan.FromSeconds(5) };
+    private static readonly HttpClient UpdateClient = new() { Timeout = TimeSpan.FromMinutes(5) };
     private const string UpdateManifestUrl = "https://updates.yamachat.eu/yamasearch/latest.json";
     private BrowserTab? _active;
     private System.Windows.Controls.Primitives.Popup? _tabActionsPopup;
@@ -71,20 +71,175 @@ public partial class MainWindow : Window
     }
 
     private sealed record YamaSearchUpdate(string? Version, string? Notes, string? PortableUrl, string? InstallerUrl);
+
     private async Task CheckForYamaSearchUpdateAsync()
     {
         try
         {
-            var json = await UpdateClient.GetStringAsync(UpdateManifestUrl);
-            var update = JsonSerializer.Deserialize<YamaSearchUpdate>(json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+            using var manifestResponse = await UpdateClient.GetAsync(UpdateManifestUrl, HttpCompletionOption.ResponseContentRead);
+            manifestResponse.EnsureSuccessStatusCode();
+            var json = await manifestResponse.Content.ReadAsStringAsync();
+
+            var update = JsonSerializer.Deserialize<YamaSearchUpdate>(
+                json,
+                new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
             var current = typeof(MainWindow).Assembly.GetName().Version;
-            if (update is null || !Version.TryParse(update.Version, out var available) || current is null || available <= current) return;
-            var message = string.IsNullOrWhiteSpace(update.Notes) ? $"Je dostupná nová verze YamaSearch {available}." : update.Notes;
-            var choice = MessageBox.Show(message + "\n\nAno: Installer\nNe: Portable ZIP", "Aktualizace YamaSearch", MessageBoxButton.YesNoCancel, MessageBoxImage.Information);
-            var target = choice == MessageBoxResult.Yes ? update.InstallerUrl : choice == MessageBoxResult.No ? update.PortableUrl : null;
-            if (!string.IsNullOrWhiteSpace(target) && Uri.TryCreate(target, UriKind.Absolute, out var uri) && uri.Scheme == Uri.UriSchemeHttps && string.Equals(uri.Host, "updates.yamachat.eu", StringComparison.OrdinalIgnoreCase)) Process.Start(new ProcessStartInfo(uri.ToString()) { UseShellExecute = true });
+            if (update is null
+                || !Version.TryParse(update.Version, out var available)
+                || current is null
+                || available <= current)
+                return;
+
+            var notes = string.IsNullOrWhiteSpace(update.Notes)
+                ? $"Je dostupná nová verze YamaSearch {available}."
+                : update.Notes!;
+
+            var dialog = new UpdateWindow(current, available, notes, IsInstalledBuild()) { Owner = this };
+            if (dialog.ShowDialog() != true || dialog.Choice == YamaSearchUpdateChoice.Later)
+                return;
+
+            if (dialog.Choice == YamaSearchUpdateChoice.Installer)
+            {
+                if (!TryGetTrustedUpdateUri(update.InstallerUrl, out var installerUri))
+                {
+                    MessageBox.Show("Adresa instalátoru aktualizace není platná.", "YamaSearch", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    return;
+                }
+
+                await DownloadAndLaunchInstallerAsync(installerUri, available);
+                return;
+            }
+
+            if (!TryGetTrustedUpdateUri(update.PortableUrl, out var portableUri))
+            {
+                MessageBox.Show("Adresa Portable aktualizace není platná.", "YamaSearch", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            await DownloadPortableAsync(portableUri, available);
         }
-        catch { /* Update availability must never prevent normal browsing. */ }
+        catch (Exception exception)
+        {
+            StatusText.Text = "Kontrola aktualizace se nepodařila.";
+            Debug.WriteLine("YamaSearch update check failed: " + exception);
+        }
+    }
+
+    private static bool TryGetTrustedUpdateUri(string? raw, out Uri uri)
+    {
+        uri = null!;
+        return !string.IsNullOrWhiteSpace(raw)
+            && Uri.TryCreate(raw, UriKind.Absolute, out uri)
+            && uri.Scheme == Uri.UriSchemeHttps
+            && string.Equals(uri.Host, "updates.yamachat.eu", StringComparison.OrdinalIgnoreCase)
+            && uri.AbsolutePath.StartsWith("/yamasearch/", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool IsInstalledBuild()
+    {
+        var installedRoot = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "Programs",
+            "YamaSearch");
+
+        var runningRoot = Path.GetFullPath(AppContext.BaseDirectory)
+            .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+
+        installedRoot = Path.GetFullPath(installedRoot)
+            .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+
+        return runningRoot.Equals(installedRoot, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private async Task DownloadAndLaunchInstallerAsync(Uri uri, Version available)
+    {
+        var updateDir = Path.Combine(Path.GetTempPath(), "YamaSearch", "Updates");
+        Directory.CreateDirectory(updateDir);
+        var target = Path.Combine(updateDir, $"YamaSearch-Setup-{available}.exe");
+
+        try
+        {
+            StatusText.Text = $"Stahuji aktualizaci YamaSearch {available}…";
+            await DownloadUpdateFileAsync(uri, target);
+
+            if (!File.Exists(target) || new FileInfo(target).Length < 100_000)
+                throw new InvalidDataException("Stažený instalátor je neplatný nebo neúplný.");
+
+            StatusText.Text = "Spouštím instalátor aktualizace…";
+            Process.Start(new ProcessStartInfo(target)
+            {
+                UseShellExecute = true,
+                Arguments = "/CLOSEAPPLICATIONS"
+            });
+
+            Application.Current.Shutdown();
+        }
+        catch (Exception exception)
+        {
+            MessageBox.Show(
+                "Aktualizaci se nepodařilo stáhnout nebo spustit.\n\n" + exception.Message,
+                "YamaSearch",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
+            StatusText.Text = "Aktualizace se nezdařila.";
+        }
+    }
+
+    private async Task DownloadPortableAsync(Uri uri, Version available)
+    {
+        var downloads = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+            "Downloads");
+        Directory.CreateDirectory(downloads);
+
+        var target = Path.Combine(downloads, $"YamaSearch-Portable-{available}.zip");
+        try
+        {
+            StatusText.Text = $"Stahuji Portable YamaSearch {available}…";
+            await DownloadUpdateFileAsync(uri, target);
+
+            if (!File.Exists(target) || new FileInfo(target).Length < 100_000)
+                throw new InvalidDataException("Stažený Portable ZIP je neplatný nebo neúplný.");
+
+            StatusText.Text = $"Portable YamaSearch {available} je stažený.";
+            Process.Start(new ProcessStartInfo("explorer.exe", $"/select,\"{target}\"")
+            {
+                UseShellExecute = true
+            });
+
+            MessageBox.Show(
+                "Portable ZIP je stažený. Rozbal ho do nové složky a spusť YamaSearch.exe z této nové verze.\n\n" +
+                "Pokud budeš dál spouštět starý Portable EXE, bude ti stará verze aktualizaci znovu nabízet.",
+                "YamaSearch Portable aktualizace",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+        }
+        catch (Exception exception)
+        {
+            MessageBox.Show(
+                "Portable aktualizaci se nepodařilo stáhnout.\n\n" + exception.Message,
+                "YamaSearch",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
+            StatusText.Text = "Stažení Portable aktualizace se nezdařilo.";
+        }
+    }
+
+    private static async Task DownloadUpdateFileAsync(Uri uri, string targetPath)
+    {
+        var partialPath = targetPath + ".partial";
+        if (File.Exists(partialPath)) File.Delete(partialPath);
+
+        using var response = await UpdateClient.GetAsync(uri, HttpCompletionOption.ResponseHeadersRead);
+        response.EnsureSuccessStatusCode();
+
+        await using (var source = await response.Content.ReadAsStreamAsync())
+        await using (var destination = new FileStream(partialPath, FileMode.Create, FileAccess.Write, FileShare.None))
+            await source.CopyToAsync(destination);
+
+        if (File.Exists(targetPath)) File.Delete(targetPath);
+        File.Move(partialPath, targetPath);
     }
 
     private async Task CreateTabAsync(string? address = null)
