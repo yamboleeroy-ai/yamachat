@@ -39,10 +39,23 @@ public partial class MainWindow : Window
             _settings.Save();
         }
         ApplyTheme("dark");
+        RecoverInterruptedDownloads();
         UpdateShieldButton();
         UpdateBlockButton();
         UpdateDownloadToolbar();
         KeyDown += MainWindow_KeyDown;
+    }
+
+    private void RecoverInterruptedDownloads()
+    {
+        var changed = false;
+        foreach (var entry in _settings.Data.Downloads.Where(x => x.State == "Probíhá"))
+        {
+            entry.State = "Přerušeno";
+            entry.CompletedAt ??= DateTimeOffset.Now;
+            changed = true;
+        }
+        if (changed) _settings.Save();
     }
 
     private async void Window_Loaded(object sender, RoutedEventArgs e)
