@@ -431,6 +431,287 @@ public partial class MainWindow : Window
 
         RefreshFavoriteViews();
     }
+    private void HandleDownloadStarting(CoreWebView2DownloadStartingEventArgs e)
+    {
+        var operation = e.DownloadOperation;
+        var path = operation.ResultFilePath ?? "";
+        var entry = new DownloadEntry
+        {
+            Id = Guid.NewGuid().ToString("N"),
+            Url = operation.Uri ?? "",
+            FilePath = path,
+            FileName = string.IsNullOrWhiteSpace(path) ? "Stažený soubor" : Path.GetFileName(path),
+            BytesReceived = operation.BytesReceived,
+            TotalBytes = operation.TotalBytesToReceive,
+            State = "Probíhá",
+            StartedAt = DateTimeOffset.Now
+        };
+
+        _settings.Data.Downloads.Insert(0, entry);
+        if (_settings.Data.Downloads.Count > 300)
+            _settings.Data.Downloads.RemoveRange(300, _settings.Data.Downloads.Count - 300);
+        _settings.Save();
+
+        _activeDownloads[operation] = entry;
+        operation.BytesReceivedChanged += (_, _) => Dispatcher.BeginInvoke(() => UpdateDownloadEntry(operation, entry, false));
+        operation.StateChanged += (_, _) => Dispatcher.BeginInvoke(() => UpdateDownloadEntry(operation, entry, true));
+
+        StatusText.Text = $"Stahování: {entry.FileName}";
+        UpdateDownloadEntry(operation, entry, false);
+    }
+
+    private void UpdateDownloadEntry(CoreWebView2DownloadOperation operation, DownloadEntry entry, bool persist)
+    {
+        entry.BytesReceived = operation.BytesReceived;
+        entry.TotalBytes = operation.TotalBytesToReceive;
+        entry.FilePath = operation.ResultFilePath ?? entry.FilePath;
+        if (!string.IsNullOrWhiteSpace(entry.FilePath))
+            entry.FileName = Path.GetFileName(entry.FilePath);
+
+        entry.State = operation.State switch
+        {
+            CoreWebView2DownloadState.Completed => "Dokončeno",
+            CoreWebView2DownloadState.Interrupted => "Přerušeno",
+            _ => "Probíhá"
+        };
+
+        if (operation.State == CoreWebView2DownloadState.Completed)
+        {
+            entry.CompletedAt ??= DateTimeOffset.Now;
+            _activeDownloads.Remove(operation);
+            StatusText.Text = $"Staženo: {entry.FileName}";
+            persist = true;
+        }
+        else if (operation.State == CoreWebView2DownloadState.Interrupted)
+        {
+            entry.CompletedAt ??= DateTimeOffset.Now;
+            _activeDownloads.Remove(operation);
+            StatusText.Text = $"Stahování přerušeno: {entry.FileName}";
+            persist = true;
+        }
+
+        if (persist) _settings.Save();
+        QueueDownloadUiRefresh();
+    }
+
+    private void QueueDownloadUiRefresh()
+    {
+        if (_downloadUiRefreshQueued) return;
+        _downloadUiRefreshQueued = true;
+        _ = Dispatcher.BeginInvoke(
+            System.Windows.Threading.DispatcherPriority.ContextIdle,
+            new Action(() =>
+            {
+                _downloadUiRefreshQueued = false;
+                UpdateDownloadToolbar();
+                if (DownloadPopup.IsOpen) RenderDownloadQuickPopup();
+                if (SidePanel.Visibility == Visibility.Visible && PanelTitle.Text == "Stahování")
+                    ShowDownloadsPanel();
+            }));
+    }
+
+    private void UpdateDownloadToolbar()
+    {
+        var active = _settings.Data.Downloads.FirstOrDefault(x => x.State == "Probíhá");
+        if (active != null)
+        {
+            var progress = active.TotalBytes > 0 ? Math.Clamp((double)active.BytesReceived / active.TotalBytes, 0, 1) : 0.18;
+            DownloadProgressFill.Height = 24 * progress;
+            DownloadProgressFill.Visibility = Visibility.Visible;
+            DownloadArrowIcon.Visibility = Visibility.Visible;
+            DownloadCheckMark.Visibility = Visibility.Collapsed;
+            DownloadButton.Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#54D7F8"));
+            DownloadButton.BorderBrush = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#2F7EAA"));
+            DownloadButton.ToolTip = active.TotalBytes > 0
+                ? $"Stahování · {progress:P0} · {active.FileName}"
+                : $"Stahování · {active.FileName}";
+            return;
+        }
+
+        DownloadProgressFill.Height = 0;
+        DownloadProgressFill.Visibility = Visibility.Collapsed;
+        var latest = _settings.Data.Downloads.FirstOrDefault();
+        var completed = latest?.State == "Dokončeno";
+        DownloadArrowIcon.Visibility = completed ? Visibility.Collapsed : Visibility.Visible;
+        DownloadCheckMark.Visibility = completed ? Visibility.Visible : Visibility.Collapsed;
+        DownloadButton.Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString(completed ? "#4ADE80" : "#7DDFFF"));
+        DownloadButton.BorderBrush = new SolidColorBrush((Color)ColorConverter.ConvertFromString(completed ? "#2F855A" : "#31537D"));
+        DownloadButton.ToolTip = completed ? $"Staženo · {latest!.FileName}" : "Stahování";
+    }
+
+    private void DownloadButton_Click(object sender, RoutedEventArgs e)
+    {
+        HistoryQuickPopup.IsOpen = false;
+        RenderDownloadQuickPopup();
+        DownloadPopup.IsOpen = !DownloadPopup.IsOpen;
+    }
+
+    private void HistoryQuickButton_Click(object sender, RoutedEventArgs e)
+    {
+        DownloadPopup.IsOpen = false;
+        RenderHistoryQuickPopup();
+        HistoryQuickPopup.IsOpen = !HistoryQuickPopup.IsOpen;
+    }
+
+    private void RenderDownloadQuickPopup()
+    {
+        DownloadQuickList.Children.Clear();
+        var recent = _settings.Data.Downloads.Take(5).ToList();
+        DownloadPopupStatus.Text = _activeDownloads.Count > 0 ? $"{_activeDownloads.Count} aktivní" : "poslední soubory";
+
+        if (recent.Count == 0)
+        {
+            DownloadQuickList.Children.Add(new TextBlock
+            {
+                Text = "Zatím nebyly staženy žádné soubory.",
+                Foreground = (Brush)FindResource("MutedBrush"),
+                Margin = new Thickness(8, 12, 8, 12),
+                TextWrapping = TextWrapping.Wrap
+            });
+            return;
+        }
+
+        foreach (var item in recent)
+            DownloadQuickList.Children.Add(CreateDownloadQuickItem(item));
+    }
+
+    private FrameworkElement CreateDownloadQuickItem(DownloadEntry entry)
+    {
+        var grid = new Grid();
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(34) });
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+
+        var state = new TextBlock
+        {
+            Text = entry.State == "Dokončeno" ? "✓" : entry.State == "Přerušeno" ? "!" : "⇩",
+            Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString(entry.State == "Dokončeno" ? "#4ADE80" : entry.State == "Přerušeno" ? "#FCA5A5" : "#54D7F8")),
+            FontSize = 18,
+            FontWeight = FontWeights.SemiBold,
+            VerticalAlignment = VerticalAlignment.Center,
+            HorizontalAlignment = HorizontalAlignment.Center
+        };
+        grid.Children.Add(state);
+
+        var info = new StackPanel();
+        info.Children.Add(new TextBlock { Text = entry.FileName, Foreground = Brushes.White, FontWeight = FontWeights.SemiBold, TextTrimming = TextTrimming.CharacterEllipsis });
+        var progress = entry.TotalBytes > 0 ? Math.Clamp((double)entry.BytesReceived / entry.TotalBytes, 0, 1) : 0;
+        var subtitle = entry.State == "Probíhá"
+            ? (entry.TotalBytes > 0 ? $"{progress:P0} · {FormatBytes(entry.BytesReceived)} z {FormatBytes(entry.TotalBytes)}" : $"{FormatBytes(entry.BytesReceived)} staženo")
+            : $"{entry.State} · {entry.StartedAt:dd.MM. HH:mm}";
+        info.Children.Add(new TextBlock { Text = subtitle, Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#91A8C2")), FontSize = 11, Margin = new Thickness(0, 3, 0, 0), TextTrimming = TextTrimming.CharacterEllipsis });
+        if (entry.State == "Probíhá")
+        {
+            info.Children.Add(new ProgressBar { Minimum = 0, Maximum = 1, Value = progress, Height = 4, Margin = new Thickness(0, 6, 0, 0) });
+        }
+
+        Grid.SetColumn(info, 1);
+        grid.Children.Add(info);
+
+        var button = new Button
+        {
+            Content = grid,
+            HorizontalContentAlignment = HorizontalAlignment.Stretch,
+            Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#132238")),
+            BorderBrush = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#1D3857")),
+            BorderThickness = new Thickness(1),
+            Margin = new Thickness(0, 3, 0, 3),
+            Padding = new Thickness(8)
+        };
+        button.Click += (_, _) =>
+        {
+            if (entry.State == "Dokončeno") OpenDownloadedFile(entry);
+        };
+        return button;
+    }
+
+    private void RenderHistoryQuickPopup()
+    {
+        HistoryQuickList.Children.Clear();
+        var recent = _settings.Data.History.Take(6).ToList();
+        if (recent.Count == 0)
+        {
+            HistoryQuickList.Children.Add(new TextBlock
+            {
+                Text = "Historie je zatím prázdná.",
+                Foreground = (Brush)FindResource("MutedBrush"),
+                Margin = new Thickness(8, 12, 8, 12)
+            });
+            return;
+        }
+
+        foreach (var entry in recent)
+        {
+            var title = string.IsNullOrWhiteSpace(entry.Title) ? entry.Url : entry.Title;
+            var item = CreateSuggestionButton(title, entry.Url, "◷", false, entry.FaviconUrl);
+            item.Margin = new Thickness(0, 3, 0, 3);
+            item.Click += (_, _) =>
+            {
+                HistoryQuickPopup.IsOpen = false;
+                if (_active != null) _ = NavigateAsync(_active, entry.Url);
+            };
+            HistoryQuickList.Children.Add(item);
+        }
+    }
+
+    private void ShowAllDownloads_Click(object sender, RoutedEventArgs e)
+    {
+        DownloadPopup.IsOpen = false;
+        var window = new DownloadsWindow(_settings, OnDownloadsChanged) { Owner = this };
+        window.Show();
+    }
+
+    private void ShowAllHistory_Click(object sender, RoutedEventArgs e)
+    {
+        HistoryQuickPopup.IsOpen = false;
+        var window = new HistoryWindow(
+            _settings,
+            url => { if (_active != null) _ = NavigateAsync(_active, url); },
+            OnHistoryChanged) { Owner = this };
+        window.Show();
+    }
+
+    private void OnDownloadsChanged()
+    {
+        _settings.Save();
+        UpdateDownloadToolbar();
+        if (DownloadPopup.IsOpen) RenderDownloadQuickPopup();
+        if (SidePanel.Visibility == Visibility.Visible && PanelTitle.Text == "Stahování")
+            ShowDownloadsPanel();
+    }
+
+    private void OnHistoryChanged()
+    {
+        _settings.Save();
+        RefreshFavoriteViews();
+        if (HistoryQuickPopup.IsOpen) RenderHistoryQuickPopup();
+        if (SidePanel.Visibility == Visibility.Visible && PanelTitle.Text == "Historie")
+            ShowHistoryPanel();
+    }
+
+    private void OpenDownloadedFile(DownloadEntry entry)
+    {
+        try
+        {
+            if (!string.IsNullOrWhiteSpace(entry.FilePath) && File.Exists(entry.FilePath))
+                Process.Start(new ProcessStartInfo(entry.FilePath) { UseShellExecute = true });
+            else
+                StatusText.Text = "Stažený soubor už na disku není.";
+        }
+        catch (Exception error)
+        {
+            StatusText.Text = "Soubor se nepodařilo otevřít: " + error.Message;
+        }
+    }
+
+    private static string FormatBytes(long bytes)
+    {
+        string[] units = ["B", "KB", "MB", "GB", "TB"];
+        var value = Math.Max(0, (double)bytes);
+        var unit = 0;
+        while (value >= 1024 && unit < units.Length - 1) { value /= 1024; unit++; }
+        return unit == 0 ? $"{value:0} {units[unit]}" : $"{value:0.##} {units[unit]}";
+    }
+
     private void Menu_Click(object sender, RoutedEventArgs e)
     {
         bool opening = SidePanel.Visibility != Visibility.Visible;
@@ -440,6 +721,7 @@ public partial class MainWindow : Window
     }
     private void BookmarksPanel_Click(object sender, RoutedEventArgs e) => ShowBookmarksPanel();
     private void HistoryPanel_Click(object sender, RoutedEventArgs e) => ShowHistoryPanel();
+    private void DownloadsPanel_Click(object sender, RoutedEventArgs e) => ShowDownloadsPanel();
     private void Settings_Click(object sender, RoutedEventArgs e)
     {
         var dialog = new SettingsWindow(_settings, _active?.View.CoreWebView2?.Profile) { Owner = this };
