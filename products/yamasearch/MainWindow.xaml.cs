@@ -1943,11 +1943,25 @@ public partial class MainWindow : Window
             AppWindowChrome.ResizeBorderThickness = new Thickness(0);
             Topmost = true;
             ApplyMonitorBounds(useWorkingArea: false, forceTopmost: true);
+
+            // WebView2/YouTube can change focus/z-order immediately after raising the
+            // fullscreen event. Re-assert monitor bounds and topmost once that transition
+            // has completed so the video also covers the Windows taskbar.
+            _ = Dispatcher.BeginInvoke(
+                System.Windows.Threading.DispatcherPriority.ApplicationIdle,
+                new Action(() =>
+                {
+                    if (!_videoFullScreen) return;
+                    Topmost = true;
+                    ApplyMonitorBounds(useWorkingArea: false, forceTopmost: true);
+                    Activate();
+                }));
         }
         else
         {
             _videoFullScreen = false;
             Topmost = false;
+            SetWindowTopmostState(false);
             ResizeMode = ResizeMode.CanResize;
             AppWindowChrome.ResizeBorderThickness = new Thickness(6);
             rows[0].Height = new GridLength(60);
@@ -1994,8 +2008,12 @@ public partial class MainWindow : Window
         const uint SwpNoZOrder = 0x0004;
         const uint SwpNoActivate = 0x0010;
         const uint SwpFrameChanged = 0x0020;
+        const uint SwpShowWindow = 0x0040;
         var insertAfter = forceTopmost ? new IntPtr(-1) : IntPtr.Zero; // HWND_TOPMOST
-        var flags = SwpNoActivate | SwpFrameChanged | (forceTopmost ? 0u : SwpNoZOrder);
+        var flags = SwpFrameChanged | SwpShowWindow;
+
+        if (!forceTopmost)
+            flags |= SwpNoActivate | SwpNoZOrder;
 
         SetWindowPos(
             handle,
@@ -2005,6 +2023,24 @@ public partial class MainWindow : Window
             rect.Right - rect.Left,
             rect.Bottom - rect.Top,
             flags);
+
+        if (forceTopmost)
+        {
+            SetForegroundWindow(handle);
+            SetActiveWindow(handle);
+        }
+    }
+
+    private void SetWindowTopmostState(bool topmost)
+    {
+        var handle = new System.Windows.Interop.WindowInteropHelper(this).Handle;
+        if (handle == IntPtr.Zero) return;
+
+        const uint SwpNoMove = 0x0002;
+        const uint SwpNoSize = 0x0001;
+        const uint SwpNoActivate = 0x0010;
+        var insertAfter = topmost ? new IntPtr(-1) : new IntPtr(-2); // HWND_TOPMOST / HWND_NOTOPMOST
+        SetWindowPos(handle, insertAfter, 0, 0, 0, 0, SwpNoMove | SwpNoSize | SwpNoActivate);
     }
 
     private void Minimize_Click(object sender, RoutedEventArgs e) => WindowState = WindowState.Minimized;
@@ -2111,6 +2147,13 @@ public partial class MainWindow : Window
         int cx,
         int cy,
         uint uFlags);
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool SetForegroundWindow(IntPtr hWnd);
+
+    [DllImport("user32.dll")]
+    private static extern IntPtr SetActiveWindow(IntPtr hWnd);
 
     private void SetDarkWindowBorder()
     {
