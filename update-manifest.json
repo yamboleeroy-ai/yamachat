@@ -1,12 +1,12 @@
 {
   "schemaVersion": 1,
-  "publishedAt": "2026-10-05T08:20:36Z",
+  "publishedAt": "2026-10-06T08:38:04.692Z",
   "windows": {
-    "latestVersion": "1.0.114",
+    "latestVersion": "1.0.115",
     "required": true,
     "notes": "Yamachat 1.0.114: odkazy YamaHelp používají stálé kanály nejnovější verze.",
     "feedUrl": "https://updates.yamachat.eu/windows/",
-    "installerUrl": "https://updates.yamachat.eu/windows/Yamachat-Setup-1.0.114.exe"
+    "installerUrl": "https://updates.yamachat.eu/windows/Yamachat-Setup-1.0.115.exe"
   },
   "android": {
     "latestVersion": "1.1.0.789",
