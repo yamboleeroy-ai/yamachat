@@ -1691,8 +1691,12 @@ public partial class MainWindow : Window
 
     private void DownloadsPanel_Click(object sender, RoutedEventArgs e)
     {
-        ShowDownloadsPanel();
-        ScrollSidePanelToContent();
+        // V bočním menu je Stahování samostatný nástroj. Otevřeme proto rovnou
+        // vlastní okno historie stahování místo vykreslování obsahu až pod menu,
+        // kde mohl zůstat mimo viditelnou oblast.
+        DownloadPopup.IsOpen = false;
+        var window = new DownloadsWindow(_settings, OnDownloadsChanged) { Owner = this };
+        window.Show();
     }
 
     private void ScrollSidePanelToContent()
