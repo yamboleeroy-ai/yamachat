@@ -32,7 +32,7 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
-        SourceInitialized += (_, _) => SetDarkWindowBorder();
+        SourceInitialized += (_, _) => InitializeWindowInterop();
         if (!_settings.Data.Theme.Equals("dark", StringComparison.OrdinalIgnoreCase))
         {
             _settings.Data.Theme = "dark";
@@ -1363,6 +1363,88 @@ public partial class MainWindow : Window
         Resources["TextBrush"] = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#EAF3FF"));
         Resources["MutedBrush"] = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#96A7BD"));
     }
+    private void InitializeWindowInterop()
+    {
+        SetDarkWindowBorder();
+        var handle = new System.Windows.Interop.WindowInteropHelper(this).Handle;
+        System.Windows.Interop.HwndSource.FromHwnd(handle)?.AddHook(WindowProc);
+    }
+
+    private IntPtr WindowProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
+    {
+        const int WmGetMinMaxInfo = 0x0024;
+        if (msg == WmGetMinMaxInfo)
+        {
+            ApplyMonitorWorkingArea(hwnd, lParam);
+            handled = true;
+        }
+        return IntPtr.Zero;
+    }
+
+    private static void ApplyMonitorWorkingArea(IntPtr hwnd, IntPtr lParam)
+    {
+        const uint MonitorDefaultToNearest = 0x00000002;
+        var monitor = MonitorFromWindow(hwnd, MonitorDefaultToNearest);
+        if (monitor == IntPtr.Zero) return;
+
+        var info = new MonitorInfo { CbSize = Marshal.SizeOf<MonitorInfo>() };
+        if (!GetMonitorInfo(monitor, ref info)) return;
+
+        var mmi = Marshal.PtrToStructure<MinMaxInfo>(lParam);
+        var work = info.WorkArea;
+        var monitorArea = info.MonitorArea;
+
+        mmi.MaxPosition.X = Math.Abs(work.Left - monitorArea.Left);
+        mmi.MaxPosition.Y = Math.Abs(work.Top - monitorArea.Top);
+        mmi.MaxSize.X = Math.Abs(work.Right - work.Left);
+        mmi.MaxSize.Y = Math.Abs(work.Bottom - work.Top);
+        mmi.MaxTrackSize = mmi.MaxSize;
+
+        Marshal.StructureToPtr(mmi, lParam, true);
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct NativePoint
+    {
+        public int X;
+        public int Y;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct MinMaxInfo
+    {
+        public NativePoint Reserved;
+        public NativePoint MaxSize;
+        public NativePoint MaxPosition;
+        public NativePoint MinTrackSize;
+        public NativePoint MaxTrackSize;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct NativeRect
+    {
+        public int Left;
+        public int Top;
+        public int Right;
+        public int Bottom;
+    }
+
+    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Auto)]
+    private struct MonitorInfo
+    {
+        public int CbSize;
+        public NativeRect MonitorArea;
+        public NativeRect WorkArea;
+        public uint Flags;
+    }
+
+    [DllImport("user32.dll")]
+    private static extern IntPtr MonitorFromWindow(IntPtr hwnd, uint flags);
+
+    [DllImport("user32.dll", CharSet = CharSet.Auto)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool GetMonitorInfo(IntPtr monitor, ref MonitorInfo info);
+
     private void SetDarkWindowBorder()
     {
         const int DwmwaBorderColor = 34;
