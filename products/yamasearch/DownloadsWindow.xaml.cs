@@ -47,12 +47,12 @@ public partial class DownloadsWindow : Window
     {
         var border = new Border
         {
-            Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#132238")),
-            BorderBrush = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#1D3857")),
+            Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#10233B")),
+            BorderBrush = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#245A84")),
             BorderThickness = new Thickness(1),
-            CornerRadius = new CornerRadius(10),
-            Padding = new Thickness(12),
-            Margin = new Thickness(0, 4, 0, 4)
+            CornerRadius = new CornerRadius(12),
+            Padding = new Thickness(14),
+            Margin = new Thickness(0, 5, 0, 5)
         };
 
         var root = new Grid();
@@ -122,11 +122,11 @@ public partial class DownloadsWindow : Window
         var actions = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
         if (entry.State == "Dokončeno")
         {
-            var open = new Button { Content = "Otevřít", Margin = new Thickness(4, 0, 0, 0), Padding = new Thickness(10, 6, 10, 6) };
+            var open = new Button { Content = "Otevřít", Style = (Style)FindResource("YamaSecondaryButton"), Margin = new Thickness(4, 0, 0, 0) };
             open.Click += (_, _) => OpenFile(entry);
             actions.Children.Add(open);
 
-            var folder = new Button { Content = "Složka", Margin = new Thickness(4, 0, 0, 0), Padding = new Thickness(10, 6, 10, 6) };
+            var folder = new Button { Content = "Složka", Style = (Style)FindResource("YamaSecondaryButton"), Margin = new Thickness(4, 0, 0, 0) };
             folder.Click += (_, _) => OpenFolder(entry);
             actions.Children.Add(folder);
         }
@@ -136,10 +136,8 @@ public partial class DownloadsWindow : Window
             Content = "×",
             ToolTip = entry.State == "Probíhá" ? "Aktivní stahování nelze odstranit z historie" : "Odebrat z historie",
             IsEnabled = entry.State != "Probíhá",
-            Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#FFB7C5")),
-            Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#35202B")),
-            Margin = new Thickness(5, 0, 0, 0),
-            Padding = new Thickness(10, 6, 10, 6)
+            Style = (Style)FindResource("YamaDangerButton"),
+            Margin = new Thickness(5, 0, 0, 0)
         };
         remove.Click += (_, _) =>
         {
@@ -155,6 +153,8 @@ public partial class DownloadsWindow : Window
         border.Child = root;
         return border;
     }
+
+    private void Close_Click(object sender, RoutedEventArgs e) => Close();
 
     private void ClearHistory_Click(object sender, RoutedEventArgs e)
     {
