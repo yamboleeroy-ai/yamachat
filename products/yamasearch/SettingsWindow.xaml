@@ -73,6 +73,8 @@
                          Style="{StaticResource YamaSubtleText}"/>
               <Button Content="Smazat všechna uložená hesla" Style="{StaticResource YamaDangerButton}"
                       HorizontalAlignment="Left" Margin="0,14,0,0" Click="DeletePasswords_Click"/>
+              <TextBlock Text="Poznámka: WebView2 zatím neposkytuje bezpečné veřejné API pro výpis a smazání jednoho konkrétního uloženého hesla podle webu. YamaSearch proto nebude sahat přímo do interní databáze hesel, aby nehrozilo její poškození."
+                         Style="{StaticResource YamaSubtleText}" Margin="0,10,0,0"/>
             </StackPanel>
           </Border>
 
