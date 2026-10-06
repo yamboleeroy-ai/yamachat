@@ -453,10 +453,81 @@ public partial class MainWindow : Window
     {
         var assetFolder = Path.Combine(AppContext.BaseDirectory, "Assets");
         var brandPath = Path.Combine(assetFolder, "YamaSearch-brand.png");
+        var symbolPath = Path.Combine(assetFolder, "YamaSearch-symbol-64.png");
         var brand = File.Exists(brandPath) ? Convert.ToBase64String(File.ReadAllBytes(brandPath)) : "";
-        var favorites = _settings.Data.Bookmarks.Take(8).Select(url => Uri.TryCreate(url, UriKind.Absolute, out var page) ? $"<a href='{System.Net.WebUtility.HtmlEncode(url)}'>{System.Net.WebUtility.HtmlEncode(page.Host)}</a>" : "");
-        var suggestions = _settings.Data.History.Take(20).Concat(_settings.Data.Bookmarks.Select(url => new HistoryEntry { Url = url, Title = url })).Where(x => !string.IsNullOrWhiteSpace(x.Url)).Select(x => $"<option value='{System.Net.WebUtility.HtmlEncode(x.Url)}'>{System.Net.WebUtility.HtmlEncode(x.Title)}</option>");
-        return string.Format("""<!doctype html><html><head><meta charset='utf-8'><style>body{{margin:0;background:#0b101a;color:#eaf3ff;font-family:Segoe UI,Arial;display:grid;place-items:center;min-height:100vh}}main{{text-align:center;width:min(700px,90vw)}}.brand{{width:min(430px,78vw);height:auto;display:block;margin:0 auto 22px;filter:drop-shadow(0 18px 42px #087eaa33)}}p{{color:#9fb2c9;font-size:17px}}.provider{{color:#66dfff;font-size:13px}}form{{margin:32px auto;display:flex;background:#192437;border:1px solid #31537d;border-radius:16px;padding:7px;max-width:590px}}input{{flex:1;background:transparent;border:0;color:#fff;font-size:16px;padding:12px;outline:0}}button{{background:#12add8;color:#041018;border:0;border-radius:11px;font-weight:700;padding:0 20px;cursor:pointer}}.tags{{display:flex;justify-content:center;gap:10px;flex-wrap:wrap}}a{{color:#a9eaff;background:#16243a;border:1px solid #294465;border-radius:99px;padding:9px 15px;text-decoration:none}}</style></head><body><main><img class='brand' src='data:image/png;base64,{0}' alt='YamaSearch'><p>Rychlé hledání. YamaBlock proti reklamám. YamaShield pro bezpečnější prohlížení.</p><div class='provider'>Hledání: {3}</div><form action='{1}'><input name='q' list='yamasearch-suggestions' autocomplete='off' placeholder='Hledat na webu nebo zadat adresu'><datalist id='yamasearch-suggestions'>{4}</datalist><button>Hledat</button></form><div class='tags'>{2}</div></main></body></html>""", brand, SearchEndpoint(), string.Join("", favorites), System.Net.WebUtility.HtmlEncode(_settings.Data.SearchEngine), string.Join("", suggestions));
+        var symbol = File.Exists(symbolPath) ? Convert.ToBase64String(File.ReadAllBytes(symbolPath)) : brand;
+
+        var favorites = _settings.Data.Bookmarks.Take(12).Select(url =>
+        {
+            if (!Uri.TryCreate(url, UriKind.Absolute, out var page) || page.Scheme is not ("http" or "https")) return "";
+
+            var history = _settings.Data.History.FirstOrDefault(x =>
+            {
+                if (string.Equals(x.Url, url, StringComparison.OrdinalIgnoreCase)) return true;
+                return Uri.TryCreate(x.Url, UriKind.Absolute, out var historyPage)
+                    && string.Equals(historyPage.Host, page.Host, StringComparison.OrdinalIgnoreCase);
+            });
+
+            var label = string.IsNullOrWhiteSpace(history?.Title) ? page.Host.Replace("www.", "", StringComparison.OrdinalIgnoreCase) : history.Title.Trim();
+            if (label.Length > 28) label = label[..27] + "…";
+
+            var faviconUrl = history?.FaviconUrl ?? "";
+            if (!Uri.TryCreate(faviconUrl, UriKind.Absolute, out var favicon)
+                || favicon.Scheme is not ("http" or "https"))
+            {
+                faviconUrl = $"{page.Scheme}://{page.Host}/favicon.ico";
+            }
+
+            var safeUrl = System.Net.WebUtility.HtmlEncode(url);
+            var safeLabel = System.Net.WebUtility.HtmlEncode(label);
+            var safeHost = System.Net.WebUtility.HtmlEncode(page.Host);
+            var safeFavicon = System.Net.WebUtility.HtmlEncode(faviconUrl);
+            return $"<a class='favorite-card' href='{safeUrl}' title='{safeHost}'><span class='favorite-icon'><img src='{safeFavicon}' alt='' onerror=\"this.onerror=null;this.src='data:image/png;base64,{symbol}'\"></span><span class='favorite-name'>{safeLabel}</span><span class='favorite-host'>{safeHost}</span></a>";
+        }).Where(x => !string.IsNullOrWhiteSpace(x)).ToList();
+
+        var favoriteContent = favorites.Count > 0
+            ? string.Join("", favorites)
+            : "<div class='favorites-empty'>Oblíbené stránky si přidáš hvězdičkou v horní liště prohlížeče.</div>";
+
+        var suggestions = _settings.Data.History.Take(20)
+            .Concat(_settings.Data.Bookmarks.Select(url => new HistoryEntry { Url = url, Title = url }))
+            .Where(x => !string.IsNullOrWhiteSpace(x.Url))
+            .Select(x => $"<option value='{System.Net.WebUtility.HtmlEncode(x.Url)}'>{System.Net.WebUtility.HtmlEncode(x.Title)}</option>");
+
+        return string.Format("""<!doctype html><html><head><meta charset='utf-8'><style>
+        *{{box-sizing:border-box}}
+        body{{margin:0;background:#0b101a;color:#eaf3ff;font-family:Segoe UI,Arial;min-height:100vh}}
+        main{{width:min(860px,90vw);margin:0 auto;padding:clamp(72px,11vh,132px) 0 60px;text-align:center}}
+        .brand{{width:min(430px,78vw);height:auto;display:block;margin:0 auto 22px;filter:drop-shadow(0 18px 42px #087eaa33)}}
+        p{{color:#9fb2c9;font-size:17px}}
+        .provider{{color:#66dfff;font-size:13px}}
+        form{{margin:32px auto 0;display:flex;background:#192437;border:1px solid #31537d;border-radius:16px;padding:7px;max-width:610px;box-shadow:0 12px 34px #00000022}}
+        input{{flex:1;background:transparent;border:0;color:#fff;font-size:16px;padding:12px;outline:0;min-width:0}}
+        button{{background:#12add8;color:#041018;border:0;border-radius:11px;font-weight:700;padding:0 20px;cursor:pointer}}
+        .favorites-section{{margin-top:38px;text-align:left}}
+        .favorites-head{{display:flex;align-items:center;gap:10px;color:#eaf3ff;font-size:17px;font-weight:650;margin:0 0 14px 4px}}
+        .favorites-star{{color:#23c9f5;font-size:20px;filter:drop-shadow(0 0 10px #23c9f566)}}
+        .favorites-grid{{display:grid;grid-template-columns:repeat(auto-fit,minmax(138px,1fr));gap:14px}}
+        .favorite-card{{min-height:126px;padding:17px 14px 14px;border-radius:15px;border:1px solid #294465;background:linear-gradient(180deg,#142137,#101a2b);text-decoration:none;color:#eaf3ff;display:flex;flex-direction:column;align-items:center;justify-content:center;transition:transform .15s ease,border-color .15s ease,background .15s ease,box-shadow .15s ease;overflow:hidden}}
+        .favorite-card:hover{{transform:translateY(-2px);border-color:#3b80b8;background:linear-gradient(180deg,#192a44,#122139);box-shadow:0 12px 26px #00000030,0 0 0 1px #23c9f522}}
+        .favorite-icon{{width:42px;height:42px;border-radius:11px;background:#0d1727;border:1px solid #2d4667;display:grid;place-items:center;margin-bottom:10px;overflow:hidden}}
+        .favorite-icon img{{width:28px;height:28px;object-fit:contain}}
+        .favorite-name{{font-weight:650;font-size:14px;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}}
+        .favorite-host{{font-size:11px;color:#8fa4be;margin-top:4px;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}}
+        .favorites-empty{{grid-column:1/-1;border:1px dashed #294465;border-radius:14px;padding:22px;color:#8fa4be;text-align:center;background:#101a2912}}
+        @media(max-width:700px){{main{{padding-top:58px}}.favorites-grid{{grid-template-columns:repeat(2,minmax(0,1fr))}}}}
+        </style></head><body><main>
+        <img class='brand' src='data:image/png;base64,{0}' alt='YamaSearch'>
+        <p>Rychlé hledání. YamaBlock proti reklamám. YamaShield pro bezpečnější prohlížení.</p>
+        <div class='provider'>Hledání: {3}</div>
+        <form action='{1}'><input name='q' list='yamasearch-suggestions' autocomplete='off' placeholder='Hledat na webu nebo zadat adresu'><datalist id='yamasearch-suggestions'>{4}</datalist><button>Hledat</button></form>
+        <section class='favorites-section'><div class='favorites-head'><span class='favorites-star'>★</span><span>Oblíbené stránky</span></div><div class='favorites-grid'>{2}</div></section>
+        </main></body></html>""",
+            brand,
+            SearchEndpoint(),
+            favoriteContent,
+            System.Net.WebUtility.HtmlEncode(_settings.Data.SearchEngine),
+            string.Join("", suggestions));
     }
     private string SearchEndpoint() => _settings.Data.SearchEngine switch { "Google" => "https://www.google.com/search", "Bing" => "https://www.bing.com/search", "Seznam" => "https://search.seznam.cz/", "Brave Search" => "https://search.brave.com/search", "Ecosia" => "https://www.ecosia.org/search", "Yahoo" => "https://search.yahoo.com/search", "Startpage" => "https://www.startpage.com/sp/search", "Custom" => _settings.Data.CustomSearchEndpoint.Replace("{query}", ""), _ => "https://duckduckgo.com/" };
 }
