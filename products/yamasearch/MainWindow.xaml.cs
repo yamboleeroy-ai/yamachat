@@ -18,6 +18,8 @@ public partial class MainWindow : Window
 {
     private readonly ObservableCollection<BrowserTab> _tabs = [];
     private readonly SettingsStore _settings = new();
+    private readonly string? _startupUrl;
+    private readonly bool _siteAppMode;
     private static readonly HttpClient UpdateClient = new() { Timeout = TimeSpan.FromMinutes(5) };
     private const string UpdateManifestUrl = "https://updates.yamachat.eu/yamasearch/latest.json";
     private BrowserTab? _active;
@@ -51,8 +53,10 @@ public partial class MainWindow : Window
         "collect?v=", "event.gif", "imp.gif"
     ];
 
-    public MainWindow()
+    public MainWindow(string? startupUrl = null, bool siteAppMode = false)
     {
+        _startupUrl = startupUrl;
+        _siteAppMode = siteAppMode;
         InitializeComponent();
         SourceInitialized += (_, _) => InitializeWindowInterop();
         if (!_settings.Data.Theme.Equals("dark", StringComparison.OrdinalIgnoreCase))
@@ -68,6 +72,8 @@ public partial class MainWindow : Window
         ShowFavoritesBarCheckBox.IsChecked = _settings.Data.FavoritesBarVisible;
         FavoritesBar.Visibility = _settings.Data.FavoritesBarVisible ? Visibility.Visible : Visibility.Collapsed;
         Loaded += (_, _) => RenderFavoritesBar();
+        if (_siteAppMode)
+            ApplySiteAppMode();
         KeyDown += MainWindow_KeyDown;
     }
 
@@ -91,8 +97,9 @@ public partial class MainWindow : Window
             if (welcome.ShowDialog() != true) { Close(); return; }
             _settings.Save();
         }
-        await CreateTabAsync();
-        _ = CheckForYamaSearchUpdateAsync();
+        await CreateTabAsync(_startupUrl);
+        if (!_siteAppMode)
+            _ = CheckForYamaSearchUpdateAsync();
     }
 
     private sealed record YamaSearchUpdate(string? Version, string? Notes, string? PortableUrl, string? InstallerUrl);
@@ -342,10 +349,14 @@ public partial class MainWindow : Window
     }
     private async Task<CoreWebView2Environment> CreateWebViewEnvironmentAsync()
     {
+        var options = new CoreWebView2EnvironmentOptions();
+        if (!_settings.Data.HardwareAccelerationEnabled)
+            options.AdditionalBrowserArguments = "--disable-gpu --disable-gpu-compositing";
+
         try
         {
             Directory.CreateDirectory(_webDataFolder);
-            return await CoreWebView2Environment.CreateAsync(null, _webDataFolder);
+            return await CoreWebView2Environment.CreateAsync(null, _webDataFolder, options);
         }
         catch (Exception exception) when (exception is ArgumentException or System.Runtime.InteropServices.COMException)
         {
@@ -353,7 +364,7 @@ public partial class MainWindow : Window
             var fallback = Path.Combine(Path.GetTempPath(), "YamaSearch-WebView-" + Environment.ProcessId);
             Directory.CreateDirectory(fallback);
             StatusText.Text = "Používám izolovaný profil webového enginu…";
-            return await CoreWebView2Environment.CreateAsync(null, fallback);
+            return await CoreWebView2Environment.CreateAsync(null, fallback, options);
         }
     }
 
@@ -2538,7 +2549,7 @@ public static class UrlTools
         var query = Uri.EscapeDataString(input); return engine switch { "Google" => "https://www.google.com/search?q=" + query, "Bing" => "https://www.bing.com/search?q=" + query, "Seznam" => "https://search.seznam.cz/?q=" + query, "Brave Search" => "https://search.brave.com/search?q=" + query, "Ecosia" => "https://www.ecosia.org/search?q=" + query, "Yahoo" => "https://search.yahoo.com/search?p=" + query, "Startpage" => "https://www.startpage.com/sp/search?query=" + query, _ => "https://duckduckgo.com/?q=" + query };
     }
 }
-public sealed class AppData { public string Theme { get; set; } = "dark"; public string HomePage { get; set; } = "yamasearch://newtab"; public string SearchEngine { get; set; } = "DuckDuckGo"; public string CustomSearchEndpoint { get; set; } = ""; public bool OnboardingCompleted { get; set; } = false; public bool FavoritesBarVisible { get; set; } = false; public BlockMode BlockMode { get; set; } = BlockMode.Standard; public bool EnableYouTubeAdBlock { get; set; } = true; public bool EnableCosmeticBlocking { get; set; } = true; public bool EnableTrackerBlocking { get; set; } = true; public SecurityLevel SecurityLevel { get; set; } = SecurityLevel.Recommended; public bool EnableSmartScreen { get; set; } = true; public bool OfferPasswordSave { get; set; } = true; public List<string> Whitelist { get; set; } = []; public List<string> Bookmarks { get; set; } = []; public List<HistoryEntry> History { get; set; } = []; public List<DownloadEntry> Downloads { get; set; } = []; }
+public sealed class AppData { public string Theme { get; set; } = "dark"; public string HomePage { get; set; } = "yamasearch://newtab"; public string SearchEngine { get; set; } = "DuckDuckGo"; public string CustomSearchEndpoint { get; set; } = ""; public bool OnboardingCompleted { get; set; } = false; public bool FavoritesBarVisible { get; set; } = false; public bool HardwareAccelerationEnabled { get; set; } = true; public BlockMode BlockMode { get; set; } = BlockMode.Standard; public bool EnableYouTubeAdBlock { get; set; } = true; public bool EnableCosmeticBlocking { get; set; } = true; public bool EnableTrackerBlocking { get; set; } = true; public SecurityLevel SecurityLevel { get; set; } = SecurityLevel.Recommended; public bool EnableSmartScreen { get; set; } = true; public bool OfferPasswordSave { get; set; } = true; public List<string> Whitelist { get; set; } = []; public List<string> Bookmarks { get; set; } = []; public List<HistoryEntry> History { get; set; } = []; public List<DownloadEntry> Downloads { get; set; } = []; }
 public sealed class HistoryEntry { public string Url { get; set; } = ""; public string Title { get; set; } = ""; public string FaviconUrl { get; set; } = ""; public DateTimeOffset VisitedAt { get; set; } }
 public sealed class DownloadEntry
 {
