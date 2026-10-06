@@ -27,7 +27,8 @@ for(const marker of [
   'ycYamaSearchWindowsLogin',
   'YamaSearch-Portable-latest.zip',
   'YamaSearch-Setup-latest.exe',
-  'LOGIN SCROLL FIX'
+  'LOGIN SCROLL FIX',
+  'ycAuthScrollRuntime'
 ]) assert(client.includes(marker),'Generated Windows client missing marker: '+marker);
 
 assert(!client.includes("addEventListener('change',ycStopMicTest)"),'Windows mic setting change still stops active mic test');
