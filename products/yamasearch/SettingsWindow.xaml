@@ -14,7 +14,7 @@
         <RowDefinition Height="Auto"/>
       </Grid.RowDefinitions>
 
-      <Grid Margin="0,0,0,16">
+      <Grid Margin="0,0,0,16" MouseLeftButtonDown="TitleBar_MouseLeftButtonDown">
         <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
         <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
           <Image Source="pack://application:,,,/Assets/YamaSearch-symbol-64.png" Width="42" Height="42" Margin="0,0,12,0"/>
