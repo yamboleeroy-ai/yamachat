@@ -1938,24 +1938,22 @@ public partial class MainWindow : Window
         PanelTitle.Text = "◷  Historie";
         PanelList.Items.Clear();
 
-        if (_settings.Data.History.Count == 0)
+        var showAll = new Button
         {
-            PanelList.Items.Add(new TextBlock
-            {
-                Text = "Historie je zatím prázdná.",
-                Foreground = (Brush)FindResource("MutedBrush"),
-                TextWrapping = TextWrapping.Wrap
-            });
-            return;
-        }
+            Content = "Zobrazit celou historii",
+            Style = (Style)FindResource("SideNavButton"),
+            HorizontalContentAlignment = HorizontalAlignment.Center,
+            Margin = new Thickness(0, 0, 0, 8)
+        };
+        showAll.Click += ShowAllHistory_Click;
+        PanelList.Items.Add(showAll);
 
         var clearAll = new Button
         {
             Content = "🗑  Vymazat celou historii",
             ToolTip = "Odstraní všechny uložené položky historie",
-            HorizontalContentAlignment = HorizontalAlignment.Left,
             Style = (Style)FindResource("SideDangerButton"),
-            Margin = new Thickness(0, 0, 0, 10)
+            Margin = new Thickness(0, 0, 0, 12)
         };
         clearAll.Click += (_, _) =>
         {
@@ -1973,18 +1971,20 @@ public partial class MainWindow : Window
         };
         PanelList.Items.Add(clearAll);
 
+        if (_settings.Data.History.Count == 0)
+        {
+            PanelList.Items.Add(new TextBlock
+            {
+                Text = "Historie je zatím prázdná.",
+                Foreground = (Brush)FindResource("MutedBrush"),
+                TextWrapping = TextWrapping.Wrap,
+                Margin = new Thickness(4, 8, 4, 0)
+            });
+            return;
+        }
+
         foreach (var item in _settings.Data.History.Take(50).ToList())
             PanelList.Items.Add(CreateHistoryPanelItem(item));
-
-        var showAll = new Button
-        {
-            Content = "Zobrazit celou historii",
-            HorizontalContentAlignment = HorizontalAlignment.Center,
-            Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#182A43")),
-            Margin = new Thickness(0, 10, 0, 0)
-        };
-        showAll.Click += ShowAllHistory_Click;
-        PanelList.Items.Add(showAll);
     }
 
     private FrameworkElement CreateHistoryPanelItem(HistoryEntry entry)
