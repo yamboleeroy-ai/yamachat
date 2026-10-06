@@ -27,8 +27,10 @@ jobs:
       - name: Extract source
         shell: pwsh
         run: |
+          Get-Item preview/yamahelp-build-source.zip | Format-List Name,Length
           New-Item -ItemType Directory -Path preview/yamahelp-src -Force | Out-Null
-          Expand-Archive -Path preview/yamahelp-build-source.zip -DestinationPath preview/yamahelp-src -Force
+          tar -xf preview/yamahelp-build-source.zip -C preview/yamahelp-src
+          Get-ChildItem preview/yamahelp-src/desktop | Select-Object -First 20
 
       - name: Build Windows portable preview
         shell: pwsh
