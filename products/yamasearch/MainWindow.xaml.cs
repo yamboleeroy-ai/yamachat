@@ -343,7 +343,7 @@ public partial class MainWindow : Window
         core.DocumentTitleChanged += (_, _) => UpdateTabTitle(tab);
         core.FaviconChanged += (_, _) => UpdateFavicon(tab);
         core.ContainsFullScreenElementChanged += (_, _) => Dispatcher.Invoke(() => SetVideoFullScreen(core.ContainsFullScreenElement));
-        core.SourceChanged += (_, _) => { UpdateTabTitle(tab); if (_active == tab) SetAddressText(tab.IsYamaNewTab ? "YamaSearch — nová karta" : core.Source); };
+        core.SourceChanged += (_, _) => { UpdateTabTitle(tab); if (_active == tab) SetAddressText(tab.IsYamaNewTab ? "" : core.Source); };
         core.PermissionRequested += (_, e) => HandlePermissionRequest(e);
         core.NewWindowRequested += async (_, e) => { e.Handled = true; await CreateTabAsync(e.Uri); };
         core.DownloadStarting += (_, e) => HandleDownloadStarting(e);
@@ -835,7 +835,7 @@ public partial class MainWindow : Window
     private void SelectTab(BrowserTab tab)
     {
         _active = tab; BrowserHost.Children.Clear(); BrowserHost.Children.Add(tab.View);
-        SetAddressText(tab.IsYamaNewTab ? "YamaSearch — nová karta" : tab.View.CoreWebView2?.Source ?? "");
+        SetAddressText(tab.IsYamaNewTab ? "" : tab.View.CoreWebView2?.Source ?? "");
         RenderTabs(); BlockedText.Text = $"YamaBlock · {tab.BlockedCount} blokováno";
     }
     private void RenderTabs()
@@ -911,6 +911,13 @@ public partial class MainWindow : Window
     private void Back_Click(object sender, RoutedEventArgs e) { if (_active?.View.CoreWebView2.CanGoBack == true) _active.View.CoreWebView2.GoBack(); }
     private void Forward_Click(object sender, RoutedEventArgs e) { if (_active?.View.CoreWebView2.CanGoForward == true) _active.View.CoreWebView2.GoForward(); }
     private void Reload_Click(object sender, RoutedEventArgs e) => _active?.View.CoreWebView2.Reload();
+
+    private void Home_Click(object sender, RoutedEventArgs e)
+    {
+        if (_active == null) return;
+        var home = string.IsNullOrWhiteSpace(_settings.Data.HomePage) ? "yamasearch://newtab" : _settings.Data.HomePage;
+        _ = NavigateAsync(_active, home);
+    }
     private void AddressBox_PreviewKeyDown(object sender, KeyEventArgs e)
     {
         if (e.Key is Key.Down or Key.Up)
@@ -984,7 +991,12 @@ public partial class MainWindow : Window
     private void AddressBox_GotKeyboardFocus(object sender, KeyboardFocusChangedEventArgs e)
     {
         PrepareAddressBoxForInput();
-        ScheduleAddressSuggestions();
+
+        // Při kliknutí myší se popup otevře až po MouseUp. Kdyby se otevřel už
+        // během MouseDown, WPF ho může okamžitě vyhodnotit jako kliknutí mimo popup
+        // a zase zavřít — přesně to způsobovalo první krátké probliknutí.
+        if (Mouse.LeftButton != MouseButtonState.Pressed)
+            ScheduleAddressSuggestions();
     }
 
     private void AddressBox_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
@@ -999,6 +1011,12 @@ public partial class MainWindow : Window
 
         if (cleared)
             AddressBox.CaretIndex = 0;
+    }
+
+    private void AddressBox_PreviewMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+    {
+        if (!AddressBox.IsKeyboardFocusWithin)
+            return;
 
         ScheduleAddressSuggestions();
     }
@@ -1006,8 +1024,12 @@ public partial class MainWindow : Window
     private void ScheduleAddressSuggestions()
     {
         _ = Dispatcher.BeginInvoke(
-            System.Windows.Threading.DispatcherPriority.ContextIdle,
-            new Action(ShowAddressSuggestions));
+            System.Windows.Threading.DispatcherPriority.ApplicationIdle,
+            new Action(() =>
+            {
+                if (AddressBox.IsKeyboardFocusWithin)
+                    ShowAddressSuggestions();
+            }));
     }
 
     private bool PrepareAddressBoxForInput()
