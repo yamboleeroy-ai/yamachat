@@ -26,6 +26,7 @@ public partial class MainWindow : Window
     private System.Windows.Controls.Primitives.Popup? _tabActionsPopup;
     private bool _suppressSuggestions;
     private int _addressSuggestionIndex = -1;
+    private string _lastFindQuery = "";
     private bool _downloadUiRefreshQueued;
     private readonly Dictionary<CoreWebView2DownloadOperation, DownloadEntry> _activeDownloads = [];
     private readonly List<string> _favoriteOverflow = [];
@@ -1660,7 +1661,168 @@ public partial class MainWindow : Window
     private void Settings_Click(object sender, RoutedEventArgs e)
     {
         var dialog = new SettingsWindow(_settings, _active?.View.CoreWebView2?.Profile) { Owner = this };
-        if (dialog.ShowDialog() == true) { _settings.Save(); StatusText.Text = "Nastavení bylo uloženo"; }
+        if (dialog.ShowDialog() != true) return;
+
+        _settings.Save();
+        StatusText.Text = "Nastavení bylo uloženo";
+
+        if (!dialog.RestartRequired) return;
+
+        var restart = MessageBox.Show(
+            "Změna hardwarové akcelerace se projeví až po restartu YamaSearch.\n\nRestartovat nyní?",
+            "YamaSearch",
+            MessageBoxButton.YesNo,
+            MessageBoxImage.Information);
+
+        if (restart == MessageBoxResult.Yes)
+            RestartApplication();
+    }
+
+    private void NewWindow_Click(object sender, RoutedEventArgs e)
+        => StartYamaSearchProcess();
+
+    private async void FindOnPage_Click(object sender, RoutedEventArgs e)
+    {
+        if (_active?.View.CoreWebView2 == null) return;
+
+        var dialog = new FindWindow(_lastFindQuery) { Owner = this };
+        if (dialog.ShowDialog() != true) return;
+
+        _lastFindQuery = dialog.Query;
+        var serialized = JsonSerializer.Serialize(_lastFindQuery);
+        try
+        {
+            var result = await _active.View.CoreWebView2.ExecuteScriptAsync(
+                $"window.find({serialized}, false, false, true, false, false, false)");
+            StatusText.Text = result.Equals("true", StringComparison.OrdinalIgnoreCase)
+                ? $"Nalezeno: {_lastFindQuery}"
+                : $"Text nenalezen: {_lastFindQuery}";
+        }
+        catch (Exception error)
+        {
+            StatusText.Text = "Hledání na stránce se nepodařilo: " + error.Message;
+        }
+    }
+
+    private void PrintPage_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            _active?.View.CoreWebView2?.ShowPrintUI(CoreWebView2PrintDialogKind.Browser);
+        }
+        catch (Exception error)
+        {
+            MessageBox.Show("Tisk se nepodařilo otevřít.\n\n" + error.Message, "YamaSearch", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+    }
+
+    private void CreateSiteApp_Click(object sender, RoutedEventArgs e)
+    {
+        if (_active?.View.CoreWebView2 == null
+            || !Uri.TryCreate(_active.View.CoreWebView2.Source, UriKind.Absolute, out var uri)
+            || uri.Scheme is not ("http" or "https"))
+        {
+            MessageBox.Show("Nejdřív otevři webovou stránku, ze které chceš vytvořit aplikaci.", "YamaSearch");
+            return;
+        }
+
+        var executable = Environment.ProcessPath;
+        if (string.IsNullOrWhiteSpace(executable) || !File.Exists(executable))
+        {
+            MessageBox.Show("YamaSearch nemohl zjistit cestu ke své aplikaci.", "YamaSearch", MessageBoxButton.OK, MessageBoxImage.Error);
+            return;
+        }
+
+        var title = string.IsNullOrWhiteSpace(_active.View.CoreWebView2.DocumentTitle)
+            ? uri.Host
+            : _active.View.CoreWebView2.DocumentTitle.Trim();
+
+        foreach (var invalid in Path.GetInvalidFileNameChars())
+            title = title.Replace(invalid, '_');
+
+        if (title.Length > 70) title = title[..70];
+        var desktop = Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory);
+        var shortcutPath = Path.Combine(desktop, $"{title}.lnk");
+
+        static string PsQuote(string value) => value.Replace("'", "''");
+        var workingDirectory = Path.GetDirectoryName(executable) ?? AppContext.BaseDirectory;
+        var command =
+            "$w=New-Object -ComObject WScript.Shell;" +
+            $"$s=$w.CreateShortcut('{PsQuote(shortcutPath)}');" +
+            $"$s.TargetPath='{PsQuote(executable)}';" +
+            $"$s.Arguments='--app=\"{PsQuote(uri.ToString())}\"';" +
+            $"$s.WorkingDirectory='{PsQuote(workingDirectory)}';" +
+            $"$s.IconLocation='{PsQuote(executable)},0';" +
+            "$s.Save();";
+
+        try
+        {
+            var start = new ProcessStartInfo("powershell.exe")
+            {
+                UseShellExecute = false,
+                CreateNoWindow = true
+            };
+            start.ArgumentList.Add("-NoProfile");
+            start.ArgumentList.Add("-NonInteractive");
+            start.ArgumentList.Add("-WindowStyle");
+            start.ArgumentList.Add("Hidden");
+            start.ArgumentList.Add("-Command");
+            start.ArgumentList.Add(command);
+
+            using var process = Process.Start(start);
+            process?.WaitForExit(5000);
+
+            if (!File.Exists(shortcutPath))
+                throw new IOException("Zástupce aplikace se nepodařilo vytvořit.");
+
+            MessageBox.Show(
+                $"Aplikace „{title}“ byla vytvořena na ploše.\n\nPo spuštění se web otevře v samostatném YamaSearch okně.",
+                "YamaSearch",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+        }
+        catch (Exception error)
+        {
+            MessageBox.Show("Aplikaci stránky se nepodařilo vytvořit.\n\n" + error.Message, "YamaSearch", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+    }
+
+    private void ApplySiteAppMode()
+    {
+        if (Content is not Grid root || root.RowDefinitions.Count < 5) return;
+
+        Title = "YamaSearch App";
+        TabsScroller.Visibility = Visibility.Collapsed;
+        root.RowDefinitions[1].Height = new GridLength(0);
+        root.RowDefinitions[2].Height = new GridLength(0);
+        root.RowDefinitions[4].Height = new GridLength(0);
+        FavoritesBar.Visibility = Visibility.Collapsed;
+        SidePanel.Visibility = Visibility.Collapsed;
+        PanelColumn.Width = new GridLength(0);
+    }
+
+    private void RestartApplication()
+    {
+        var current = _active?.View.CoreWebView2?.Source;
+        if (_siteAppMode && !string.IsNullOrWhiteSpace(current))
+            StartYamaSearchProcess($"--app={current}");
+        else if (!string.IsNullOrWhiteSpace(current))
+            StartYamaSearchProcess($"--url={current}");
+        else
+            StartYamaSearchProcess();
+
+        Application.Current.Shutdown();
+    }
+
+    private static void StartYamaSearchProcess(params string[] arguments)
+    {
+        var executable = Environment.ProcessPath;
+        if (string.IsNullOrWhiteSpace(executable)) return;
+
+        var start = new ProcessStartInfo(executable) { UseShellExecute = true };
+        foreach (var argument in arguments)
+            start.ArgumentList.Add(argument);
+        Process.Start(start);
     }
     private void ShowBookmarksPanel()
     {
@@ -2309,7 +2471,37 @@ public partial class MainWindow : Window
     private void Minimize_Click(object sender, RoutedEventArgs e) => WindowState = WindowState.Minimized;
     private void Maximize_Click(object sender, RoutedEventArgs e) => ToggleWindowMaximize();
     private void Close_Click(object sender, RoutedEventArgs e) => Close();
-    private void MainWindow_KeyDown(object sender, KeyEventArgs e) { if (Keyboard.Modifiers == ModifierKeys.Control && e.Key == Key.T) { _ = CreateTabAsync(); e.Handled = true; } if (Keyboard.Modifiers == ModifierKeys.Control && e.Key == Key.L) { AddressBox.Focus(); AddressBox.SelectAll(); e.Handled = true; } }
+    private void MainWindow_KeyDown(object sender, KeyEventArgs e)
+    {
+        if (Keyboard.Modifiers != ModifierKeys.Control) return;
+
+        if (e.Key == Key.T)
+        {
+            if (!_siteAppMode) _ = CreateTabAsync();
+            e.Handled = true;
+        }
+        else if (e.Key == Key.N)
+        {
+            NewWindow_Click(sender, e);
+            e.Handled = true;
+        }
+        else if (e.Key == Key.L && !_siteAppMode)
+        {
+            AddressBox.Focus();
+            AddressBox.SelectAll();
+            e.Handled = true;
+        }
+        else if (e.Key == Key.F)
+        {
+            FindOnPage_Click(sender, e);
+            e.Handled = true;
+        }
+        else if (e.Key == Key.P)
+        {
+            PrintPage_Click(sender, e);
+            e.Handled = true;
+        }
+    }
     private void ApplyTheme(string theme)
     {
         Resources["WindowBrush"] = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#0B101A"));
