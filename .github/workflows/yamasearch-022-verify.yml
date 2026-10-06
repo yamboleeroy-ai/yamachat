@@ -1,0 +1,41 @@
+name: Verify YamaSearch 0.2.2 installer migration
+
+on:
+  push:
+    branches:
+      - hotfix/yamasearch-install-migration-0.2.2
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Install Inno Setup
+        shell: pwsh
+        run: choco install innosetup --no-progress -y
+      - name: Build release artifacts
+        shell: pwsh
+        run: |
+          ./products/yamasearch/scripts/verify-release-contract.ps1 -Version 0.2.2
+          ./products/yamasearch/scripts/build-release.ps1 -Version 0.2.2 -Notes 'Installer migration hotfix'
+          foreach ($file in @(
+            'products/yamasearch/artifacts/YamaSearch-Portable-0.2.2.zip',
+            'products/yamasearch/artifacts/YamaSearch-Setup-0.2.2.exe',
+            'products/yamasearch/artifacts/latest.json'
+          )) {
+            if (-not (Test-Path $file)) { throw "Missing $file" }
+          }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: YamaSearch-0.2.2-verify
+          path: products/yamasearch/artifacts/
+          if-no-files-found: error
+          retention-days: 7
+          compression-level: 0
