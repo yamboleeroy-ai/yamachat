@@ -262,7 +262,7 @@ public partial class MainWindow : Window
     private void AddressBox_GotKeyboardFocus(object sender, KeyboardFocusChangedEventArgs e)
     {
         PrepareAddressBoxForInput();
-        ShowAddressSuggestions();
+        ScheduleAddressSuggestions();
     }
 
     private void AddressBox_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
@@ -278,7 +278,14 @@ public partial class MainWindow : Window
         if (cleared)
             AddressBox.CaretIndex = 0;
 
-        _ = Dispatcher.BeginInvoke(ShowAddressSuggestions);
+        ScheduleAddressSuggestions();
+    }
+
+    private void ScheduleAddressSuggestions()
+    {
+        _ = Dispatcher.BeginInvoke(
+            System.Windows.Threading.DispatcherPriority.ContextIdle,
+            new Action(ShowAddressSuggestions));
     }
 
     private bool PrepareAddressBoxForInput()
