@@ -442,7 +442,7 @@ public partial class MainWindow : Window
             FilePath = path,
             FileName = string.IsNullOrWhiteSpace(path) ? "Stažený soubor" : Path.GetFileName(path),
             BytesReceived = operation.BytesReceived,
-            TotalBytes = operation.TotalBytesToReceive,
+            TotalBytes = operation.TotalBytesToReceive is ulong total && total <= long.MaxValue ? (long)total : 0,
             State = "Probíhá",
             StartedAt = DateTimeOffset.Now
         };
@@ -463,7 +463,7 @@ public partial class MainWindow : Window
     private void UpdateDownloadEntry(CoreWebView2DownloadOperation operation, DownloadEntry entry, bool persist)
     {
         entry.BytesReceived = operation.BytesReceived;
-        entry.TotalBytes = operation.TotalBytesToReceive;
+        entry.TotalBytes = operation.TotalBytesToReceive is ulong total && total <= long.MaxValue ? (long)total : 0;
         entry.FilePath = operation.ResultFilePath ?? entry.FilePath;
         if (!string.IsNullOrWhiteSpace(entry.FilePath))
             entry.FileName = Path.GetFileName(entry.FilePath);
