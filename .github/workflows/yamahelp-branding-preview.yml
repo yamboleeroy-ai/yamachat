@@ -129,3 +129,5 @@ jobs:
           path: YamaHelp-Preview-Full-Logo-SourceBuild.zip
           if-no-files-found: error
           retention-days: 7
+
+# retrigger after source-part repair
