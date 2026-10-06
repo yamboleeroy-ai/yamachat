@@ -35,7 +35,26 @@ public partial class MainWindow : Window
     private Rect _videoRestoreBounds;
     private readonly string _webDataFolder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "YamaSearch", "WebView");
     private readonly HashSet<string> _adHosts = new(StringComparer.OrdinalIgnoreCase)
-    { "doubleclick.net", "googlesyndication.com", "google-analytics.com", "adservice.google.com", "connect.facebook.net", "scorecardresearch.com" };
+    {
+        "doubleclick.net", "googlesyndication.com", "googleadservices.com", "adservice.google.com",
+        "adservice.google.cz", "googletagservices.com", "amazon-adsystem.com", "adnxs.com",
+        "criteo.com", "criteo.net", "taboola.com", "outbrain.com"
+    };
+    private readonly HashSet<string> _trackerHosts = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "google-analytics.com", "analytics.google.com", "googletagmanager.com", "connect.facebook.net",
+        "scorecardresearch.com", "hotjar.com", "hotjar.io", "clarity.ms"
+    };
+    private static readonly string[] StrictUrlTokens =
+    [
+        "/analytics", "/tracker", "/tracking", "/telemetry", "/pixel", "/beacon",
+        "collect?v=", "event.gif", "imp.gif"
+    ];
+    private static readonly string[] YouTubeAdTokens =
+    [
+        "/pagead/", "/api/stats/ads", "/ptracking", "/get_midroll_info",
+        "adformat=", "ad_type=", "adunit=", "googleads"
+    ];
 
     public MainWindow()
     {
