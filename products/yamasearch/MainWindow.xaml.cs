@@ -102,6 +102,7 @@ public partial class MainWindow : Window
         core.Settings.IsGeneralAutofillEnabled = false;
         core.AddWebResourceRequestedFilter("*", CoreWebView2WebResourceContext.All);
         core.WebResourceRequested += (_, e) => BlockRequest(tab, e);
+        core.WebMessageReceived += (_, e) => HandleNewTabMessage(tab, e);
         core.NavigationStarting += (_, _) => { if (_active == tab) StatusText.Text = "Načítání…"; };
         core.NavigationCompleted += (_, e) => { if (_active == tab) StatusText.Text = e.IsSuccess ? "Hotovo" : "Stránku se nepodařilo načíst"; UpdateTabTitle(tab); if (e.IsSuccess && Uri.TryCreate(core.Source, UriKind.Absolute, out var page) && page.Scheme is "http" or "https") AddHistory(core.Source, core.DocumentTitle, core.FaviconUri); };
         core.DocumentTitleChanged += (_, _) => UpdateTabTitle(tab);
@@ -287,7 +288,34 @@ public partial class MainWindow : Window
         if (_active?.View.CoreWebView2 != null) _ = NavigateAsync(_active, AddressBox.Text);
         else StatusText.Text = "Webový engine se ještě spouští…";
     }
-    private void Bookmark_Click(object sender, RoutedEventArgs e) { if (_active?.View.CoreWebView2.Source is { } url && !_settings.Data.Bookmarks.Contains(url)) { _settings.Data.Bookmarks.Add(url); _settings.Save(); StatusText.Text = "Záložka uložena"; } }
+    private void Bookmark_Click(object sender, RoutedEventArgs e)
+    {
+        if (_active?.View.CoreWebView2 == null) return;
+        if (_active.IsYamaNewTab)
+        {
+            StatusText.Text = "Oblíbené můžeš přidávat a odebírat přímo na nové kartě.";
+            return;
+        }
+
+        var url = _active.View.CoreWebView2.Source;
+        if (!TryNormalizeFavoriteUrl(url, out var normalized)) return;
+
+        var index = FindFavoriteIndex(normalized);
+        if (index >= 0)
+        {
+            _settings.Data.Bookmarks.RemoveAt(index);
+            _settings.Save();
+            StatusText.Text = "Odebráno z oblíbených";
+        }
+        else
+        {
+            _settings.Data.Bookmarks.Insert(0, normalized);
+            _settings.Save();
+            StatusText.Text = "Přidáno do oblíbených";
+        }
+
+        RefreshFavoriteViews();
+    }
     private void Menu_Click(object sender, RoutedEventArgs e)
     {
         bool opening = SidePanel.Visibility != Visibility.Visible;
@@ -305,8 +333,36 @@ public partial class MainWindow : Window
     private void ShowBookmarksPanel()
     {
         PanelTitle.Text = "Oblíbené"; PanelList.Items.Clear();
-        if (_settings.Data.Bookmarks.Count == 0) PanelList.Items.Add(new TextBlock { Text = "Zatím nemáte uložené žádné oblíbené stránky.", Foreground = (Brush)FindResource("MutedBrush"), TextWrapping = TextWrapping.Wrap });
-        foreach (var url in _settings.Data.Bookmarks) PanelList.Items.Add(CreatePanelLink(url, url));
+
+        if (_active?.View.CoreWebView2 != null && !_active.IsYamaNewTab && TryNormalizeFavoriteUrl(_active.View.CoreWebView2.Source, out var currentUrl))
+        {
+            var currentIsFavorite = FindFavoriteIndex(currentUrl) >= 0;
+            var currentButton = new Button
+            {
+                Content = currentIsFavorite ? "★  Odebrat aktuální stránku" : "☆  Přidat aktuální stránku",
+                HorizontalContentAlignment = HorizontalAlignment.Left,
+                Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString(currentIsFavorite ? "#35202B" : "#17334A")),
+                Margin = new Thickness(0, 0, 0, 10)
+            };
+            currentButton.Click += (_, _) =>
+            {
+                var index = FindFavoriteIndex(currentUrl);
+                if (index >= 0) _settings.Data.Bookmarks.RemoveAt(index);
+                else _settings.Data.Bookmarks.Insert(0, currentUrl);
+                _settings.Save();
+                RefreshFavoriteViews();
+                ShowBookmarksPanel();
+            };
+            PanelList.Items.Add(currentButton);
+        }
+
+        if (_settings.Data.Bookmarks.Count == 0)
+        {
+            PanelList.Items.Add(new TextBlock { Text = "Zatím nemáte uložené žádné oblíbené stránky.", Foreground = (Brush)FindResource("MutedBrush"), TextWrapping = TextWrapping.Wrap });
+            return;
+        }
+
+        foreach (var url in _settings.Data.Bookmarks.ToList()) PanelList.Items.Add(CreateBookmarkPanelItem(url));
     }
     private void ShowHistoryPanel()
     {
@@ -314,10 +370,129 @@ public partial class MainWindow : Window
         if (_settings.Data.History.Count == 0) PanelList.Items.Add(new TextBlock { Text = "Historie je zatím prázdná.", Foreground = (Brush)FindResource("MutedBrush") });
         foreach (var item in _settings.Data.History.Take(50)) PanelList.Items.Add(CreatePanelLink(item.Url, string.IsNullOrWhiteSpace(item.Title) ? item.Url : item.Title));
     }
+    private FrameworkElement CreateBookmarkPanelItem(string url)
+    {
+        var row = new Grid { Margin = new Thickness(0, 2, 0, 2) };
+        row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+        var history = _settings.Data.History.FirstOrDefault(x => SameFavorite(x.Url, url));
+        var label = string.IsNullOrWhiteSpace(history?.Title)
+            ? (Uri.TryCreate(url, UriKind.Absolute, out var page) ? page.Host : url)
+            : history.Title;
+
+        var open = new Button { Content = label, ToolTip = url, HorizontalContentAlignment = HorizontalAlignment.Left, Padding = new Thickness(10, 8, 8, 8) };
+        open.Click += (_, _) => { if (_active != null) _ = NavigateAsync(_active, url); };
+        row.Children.Add(open);
+
+        var remove = new Button
+        {
+            Content = "×",
+            ToolTip = "Odebrat z oblíbených",
+            Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#FFB7C5")),
+            Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#35202B")),
+            Padding = new Thickness(9, 7, 9, 7),
+            Margin = new Thickness(5, 0, 0, 0)
+        };
+        Grid.SetColumn(remove, 1);
+        remove.Click += (_, _) =>
+        {
+            RemoveFavorite(url);
+            ShowBookmarksPanel();
+        };
+        row.Children.Add(remove);
+        return row;
+    }
     private Button CreatePanelLink(string url, string label)
     {
         var item = new Button { Content = label, ToolTip = url, HorizontalContentAlignment = HorizontalAlignment.Left, Margin = new Thickness(0, 2, 0, 2) };
         item.Click += (_, _) => { if (_active != null) _ = NavigateAsync(_active, url); }; return item;
+    }
+
+    private void HandleNewTabMessage(BrowserTab tab, CoreWebView2WebMessageReceivedEventArgs e)
+    {
+        if (!tab.IsYamaNewTab) return;
+
+        try
+        {
+            var json = e.TryGetWebMessageAsString();
+            using var document = JsonDocument.Parse(json);
+            var root = document.RootElement;
+            if (!root.TryGetProperty("action", out var actionElement) || !root.TryGetProperty("url", out var urlElement)) return;
+            var action = actionElement.GetString();
+            var url = urlElement.GetString() ?? "";
+
+            if (string.Equals(action, "addFavorite", StringComparison.Ordinal))
+            {
+                if (!TryNormalizeFavoriteUrl(url, out var normalized))
+                {
+                    StatusText.Text = "Zadej platnou HTTP(S) adresu.";
+                    return;
+                }
+
+                if (FindFavoriteIndex(normalized) < 0)
+                {
+                    _settings.Data.Bookmarks.Insert(0, normalized);
+                    _settings.Save();
+                    StatusText.Text = "Přidáno do oblíbených";
+                }
+                else StatusText.Text = "Tato stránka už je v oblíbených.";
+
+                RefreshFavoriteViews();
+                return;
+            }
+
+            if (string.Equals(action, "removeFavorite", StringComparison.Ordinal))
+            {
+                RemoveFavorite(url);
+            }
+        }
+        catch
+        {
+            StatusText.Text = "Oblíbené se nepodařilo změnit.";
+        }
+    }
+
+    private void RemoveFavorite(string url)
+    {
+        var index = FindFavoriteIndex(url);
+        if (index < 0) return;
+        _settings.Data.Bookmarks.RemoveAt(index);
+        _settings.Save();
+        StatusText.Text = "Odebráno z oblíbených";
+        RefreshFavoriteViews();
+    }
+
+    private void RefreshFavoriteViews()
+    {
+        foreach (var tab in _tabs.Where(x => x.IsYamaNewTab && x.View.CoreWebView2 != null).ToList())
+            tab.View.CoreWebView2.NavigateToString(CreateNewTabHtml());
+
+        if (SidePanel.Visibility == Visibility.Visible && PanelTitle.Text == "Oblíbené")
+            ShowBookmarksPanel();
+    }
+
+    private int FindFavoriteIndex(string url)
+        => _settings.Data.Bookmarks.FindIndex(existing => SameFavorite(existing, url));
+
+    private static bool SameFavorite(string left, string right)
+    {
+        if (!TryNormalizeFavoriteUrl(left, out var a) || !TryNormalizeFavoriteUrl(right, out var b))
+            return string.Equals(left.Trim(), right.Trim(), StringComparison.OrdinalIgnoreCase);
+        return string.Equals(a, b, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool TryNormalizeFavoriteUrl(string raw, out string normalized)
+    {
+        normalized = "";
+        raw = raw.Trim();
+        if (string.IsNullOrWhiteSpace(raw)) return false;
+        if (!raw.Contains("://", StringComparison.Ordinal) && raw.Contains('.', StringComparison.Ordinal)) raw = "https://" + raw;
+        if (!Uri.TryCreate(raw, UriKind.Absolute, out var uri) || uri.Scheme is not ("http" or "https")) return false;
+        normalized = uri.GetComponents(UriComponents.SchemeAndServer | UriComponents.PathAndQuery, UriFormat.UriEscaped);
+        if (string.IsNullOrEmpty(uri.AbsolutePath) || uri.AbsolutePath == "/")
+            normalized = uri.GetLeftPart(UriPartial.Authority) + "/";
+        return true;
     }
     private void AddHistory(string url, string title, string faviconUrl)
     {
@@ -482,12 +657,12 @@ public partial class MainWindow : Window
             var safeLabel = System.Net.WebUtility.HtmlEncode(label);
             var safeHost = System.Net.WebUtility.HtmlEncode(page.Host);
             var safeFavicon = System.Net.WebUtility.HtmlEncode(faviconUrl);
-            return $"<a class='favorite-card' href='{safeUrl}' title='{safeHost}'><span class='favorite-icon'><img src='{safeFavicon}' alt='' onerror=\"this.onerror=null;this.src='data:image/png;base64,{symbol}'\"></span><span class='favorite-name'>{safeLabel}</span><span class='favorite-host'>{safeHost}</span></a>";
+            return $"<div class='favorite-card' data-url='{safeUrl}' title='{safeHost}'><button class='favorite-remove' type='button' title='Odebrat z oblíbených' onclick='removeFavorite(event,this)'>×</button><a class='favorite-main' href='{safeUrl}'><span class='favorite-icon'><img src='{safeFavicon}' alt='' onerror=\"this.onerror=null;this.src='data:image/png;base64,{symbol}'\"></span><span class='favorite-name'>{safeLabel}</span><span class='favorite-host'>{safeHost}</span></a></div>";
         }).Where(x => !string.IsNullOrWhiteSpace(x)).ToList();
 
         var favoriteContent = favorites.Count > 0
             ? string.Join("", favorites)
-            : "<div class='favorites-empty'>Oblíbené stránky si přidáš hvězdičkou v horní liště prohlížeče.</div>";
+            : "<div class='favorites-empty'>Zatím tu nic není. Klikni na „Přidat stránku“ a vlož adresu webu.</div>";
 
         var suggestions = _settings.Data.History.Take(20)
             .Concat(_settings.Data.Bookmarks.Select(url => new HistoryEntry { Url = url, Title = url }))
@@ -507,11 +682,22 @@ public partial class MainWindow : Window
             input{{flex:1;background:transparent;border:0;color:#fff;font-size:16px;padding:12px;outline:0;min-width:0}}
             button{{background:#12add8;color:#041018;border:0;border-radius:11px;font-weight:700;padding:0 20px;cursor:pointer}}
             .favorites-section{{margin-top:38px;text-align:left}}
-            .favorites-head{{display:flex;align-items:center;gap:10px;color:#eaf3ff;font-size:17px;font-weight:650;margin:0 0 14px 4px}}
+            .favorites-head{{display:flex;align-items:center;justify-content:space-between;gap:10px;color:#eaf3ff;font-size:17px;font-weight:650;margin:0 0 14px 4px}}
+            .favorites-title{{display:flex;align-items:center;gap:10px}}
             .favorites-star{{color:#23c9f5;font-size:20px;filter:drop-shadow(0 0 10px #23c9f566)}}
+            .favorites-add{{background:#142a42;color:#a9eaff;border:1px solid #31537d;border-radius:10px;padding:8px 12px;font-weight:650}}
+            .favorites-add:hover{{background:#1c3a59;border-color:#23c9f5}}
+            .add-panel{{display:none;gap:8px;margin:0 0 14px;padding:10px;background:#111d30;border:1px solid #294465;border-radius:12px}}
+            .add-panel.open{{display:flex}}
+            .add-panel input{{background:#192437;border:1px solid #31537d;border-radius:9px;padding:10px 12px}}
+            .add-panel button{{padding:0 16px}}
             .favorites-grid{{display:grid;grid-template-columns:repeat(auto-fit,minmax(138px,1fr));gap:14px}}
-            .favorite-card{{min-height:126px;padding:17px 14px 14px;border-radius:15px;border:1px solid #294465;background:linear-gradient(180deg,#142137,#101a2b);text-decoration:none;color:#eaf3ff;display:flex;flex-direction:column;align-items:center;justify-content:center;transition:transform .15s ease,border-color .15s ease,background .15s ease,box-shadow .15s ease;overflow:hidden}}
+            .favorite-card{{position:relative;min-height:126px;border-radius:15px;border:1px solid #294465;background:linear-gradient(180deg,#142137,#101a2b);color:#eaf3ff;transition:transform .15s ease,border-color .15s ease,background .15s ease,box-shadow .15s ease;overflow:hidden}}
             .favorite-card:hover{{transform:translateY(-2px);border-color:#3b80b8;background:linear-gradient(180deg,#192a44,#122139);box-shadow:0 12px 26px #00000030,0 0 0 1px #23c9f522}}
+            .favorite-main{{min-height:126px;padding:17px 14px 14px;text-decoration:none;color:#eaf3ff;display:flex;flex-direction:column;align-items:center;justify-content:center}}
+            .favorite-remove{{position:absolute;z-index:2;right:7px;top:7px;width:25px;height:25px;padding:0;border-radius:8px;background:#3a2030;color:#ffbdc9;border:1px solid #654052;opacity:.72;font-size:16px;line-height:20px}}
+            .favorite-card:hover .favorite-remove{{opacity:1}}
+            .favorite-remove:hover{{background:#5a263c;border-color:#d85a7b}}
             .favorite-icon{{width:42px;height:42px;border-radius:11px;background:#0d1727;border:1px solid #2d4667;display:grid;place-items:center;margin-bottom:10px;overflow:hidden}}
             .favorite-icon img{{width:28px;height:28px;object-fit:contain}}
             .favorite-name{{font-weight:650;font-size:14px;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}}
@@ -523,7 +709,17 @@ public partial class MainWindow : Window
             <p>Rychlé hledání. YamaBlock proti reklamám. YamaShield pro bezpečnější prohlížení.</p>
             <div class='provider'>Hledání: {3}</div>
             <form action='{1}'><input name='q' list='yamasearch-suggestions' autocomplete='off' placeholder='Hledat na webu nebo zadat adresu'><datalist id='yamasearch-suggestions'>{4}</datalist><button>Hledat</button></form>
-            <section class='favorites-section'><div class='favorites-head'><span class='favorites-star'>★</span><span>Oblíbené stránky</span></div><div class='favorites-grid'>{2}</div></section>
+            <section class='favorites-section'>
+              <div class='favorites-head'><span class='favorites-title'><span class='favorites-star'>★</span><span>Oblíbené stránky</span></span><button class='favorites-add' type='button' onclick='toggleAdd()'>＋ Přidat stránku</button></div>
+              <form id='favoriteAddPanel' class='add-panel' onsubmit='addFavorite(event)'><input id='favoriteUrl' type='text' autocomplete='off' placeholder='např. youtube.com'><button type='submit'>Přidat</button></form>
+              <div class='favorites-grid'>{2}</div>
+            </section>
+            <script>
+            const postFavorite=(action,url)=>window.chrome.webview.postMessage(JSON.stringify({{action,url}}));
+            function toggleAdd(){{const panel=document.getElementById('favoriteAddPanel');panel.classList.toggle('open');if(panel.classList.contains('open'))document.getElementById('favoriteUrl').focus();}}
+            function addFavorite(event){{event.preventDefault();const input=document.getElementById('favoriteUrl');const url=input.value.trim();if(!url)return;postFavorite('addFavorite',url);}}
+            function removeFavorite(event,button){{event.preventDefault();event.stopPropagation();const card=button.closest('.favorite-card');if(card)postFavorite('removeFavorite',card.dataset.url);}}
+            </script>
             </main></body></html>
             """,
             brand,
