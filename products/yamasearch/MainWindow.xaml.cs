@@ -23,6 +23,7 @@ public partial class MainWindow : Window
     private BrowserTab? _active;
     private System.Windows.Controls.Primitives.Popup? _tabActionsPopup;
     private bool _suppressSuggestions;
+    private int _addressSuggestionIndex = -1;
     private bool _downloadUiRefreshQueued;
     private readonly Dictionary<CoreWebView2DownloadOperation, DownloadEntry> _activeDownloads = [];
     private readonly List<string> _favoriteOverflow = [];
@@ -433,9 +434,70 @@ public partial class MainWindow : Window
     private void Reload_Click(object sender, RoutedEventArgs e) => _active?.View.CoreWebView2.Reload();
     private void AddressBox_KeyDown(object sender, KeyEventArgs e)
     {
+        if (e.Key is Key.Down or Key.Up)
+        {
+            if (!AddressSuggestions.IsOpen)
+                ShowAddressSuggestions();
+
+            MoveAddressSuggestionSelection(e.Key == Key.Down ? 1 : -1);
+            e.Handled = true;
+            return;
+        }
+
+        if (e.Key == Key.Escape && AddressSuggestions.IsOpen)
+        {
+            AddressSuggestions.IsOpen = false;
+            _addressSuggestionIndex = -1;
+            e.Handled = true;
+            return;
+        }
+
         if (e.Key != Key.Enter || _active == null) return;
+
+        var buttons = AddressSuggestionList.Children.OfType<Button>().ToList();
+        if (AddressSuggestions.IsOpen
+            && _addressSuggestionIndex >= 0
+            && _addressSuggestionIndex < buttons.Count)
+        {
+            var selected = buttons[_addressSuggestionIndex];
+            selected.RaiseEvent(new RoutedEventArgs(Button.ClickEvent, selected));
+            e.Handled = true;
+            return;
+        }
+
         AddressSuggestions.IsOpen = false;
+        _addressSuggestionIndex = -1;
         _ = NavigateAsync(_active, AddressBox.Text);
+        e.Handled = true;
+    }
+
+    private void MoveAddressSuggestionSelection(int delta)
+    {
+        var buttons = AddressSuggestionList.Children.OfType<Button>().ToList();
+        if (buttons.Count == 0) return;
+
+        if (_addressSuggestionIndex < 0)
+            _addressSuggestionIndex = delta > 0 ? 0 : buttons.Count - 1;
+        else
+            _addressSuggestionIndex = (_addressSuggestionIndex + delta + buttons.Count) % buttons.Count;
+
+        ApplyAddressSuggestionSelection();
+    }
+
+    private void ApplyAddressSuggestionSelection()
+    {
+        var buttons = AddressSuggestionList.Children.OfType<Button>().ToList();
+        for (var i = 0; i < buttons.Count; i++)
+        {
+            var button = buttons[i];
+            var isSelected = i == _addressSuggestionIndex;
+            var isPrimarySearch = button.Tag is bool highlight && highlight;
+
+            button.Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString(
+                isSelected ? "#21496B" : isPrimarySearch ? "#1C3553" : "#132238"));
+            button.BorderBrush = new SolidColorBrush((Color)ColorConverter.ConvertFromString(
+                isSelected ? "#38D9FF" : isPrimarySearch ? "#315B82" : "#1D3857"));
+        }
     }
 
     private void AddressBox_GotKeyboardFocus(object sender, KeyboardFocusChangedEventArgs e)
@@ -505,6 +567,7 @@ public partial class MainWindow : Window
     {
         AddressSuggestionsBorder.Width = Math.Max(360, AddressBox.ActualWidth);
         AddressSuggestionList.Children.Clear();
+        _addressSuggestionIndex = -1;
         if (_suppressSuggestions || !AddressBox.IsKeyboardFocusWithin)
         {
             AddressSuggestions.IsOpen = false;
@@ -557,7 +620,7 @@ public partial class MainWindow : Window
 
         AddressSuggestions.IsOpen = true;
     }
-    private static Button CreateSuggestionButton(string title, string subtitle, string glyph, bool highlight, string? faviconUrl = null)
+    private Button CreateSuggestionButton(string title, string subtitle, string glyph, bool highlight, string? faviconUrl = null)
     {
         var layout = new Grid();
         layout.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(28) });
@@ -573,9 +636,22 @@ public partial class MainWindow : Window
         text.Children.Add(new TextBlock { Text = subtitle, Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#91A8C2")), FontSize = 11, TextTrimming = TextTrimming.CharacterEllipsis, Margin = new Thickness(0, 2, 0, 0) });
         Grid.SetColumn(text, 1); layout.Children.Add(text);
         var baseBackground = highlight ? "#1C3553" : "#132238";
-        var button = new Button { Content = layout, HorizontalContentAlignment = HorizontalAlignment.Stretch, Padding = new Thickness(11, 8, 11, 8), Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString(baseBackground)), BorderBrush = new SolidColorBrush((Color)ColorConverter.ConvertFromString(highlight ? "#315B82" : "#1D3857")), BorderThickness = new Thickness(1), Margin = new Thickness(0, 3, 0, 3) };
-        button.MouseEnter += (_, _) => { button.Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#21496B")); button.BorderBrush = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#38D9FF")); };
-        button.MouseLeave += (_, _) => { button.Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString(baseBackground)); button.BorderBrush = new SolidColorBrush((Color)ColorConverter.ConvertFromString(highlight ? "#315B82" : "#1D3857")); };
+        var button = new Button
+        {
+            Content = layout,
+            Tag = highlight,
+            HorizontalContentAlignment = HorizontalAlignment.Stretch,
+            Padding = new Thickness(11, 8, 11, 8),
+            Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString(baseBackground)),
+            BorderBrush = new SolidColorBrush((Color)ColorConverter.ConvertFromString(highlight ? "#315B82" : "#1D3857")),
+            BorderThickness = new Thickness(1),
+            Margin = new Thickness(0, 3, 0, 3)
+        };
+        button.MouseEnter += (_, _) =>
+        {
+            _addressSuggestionIndex = AddressSuggestionList.Children.IndexOf(button);
+            ApplyAddressSuggestionSelection();
+        };
         return button;
     }
     private void SetAddressText(string value)
@@ -584,6 +660,7 @@ public partial class MainWindow : Window
         AddressBox.Text = value;
         _suppressSuggestions = false;
         AddressSuggestions.IsOpen = false;
+        _addressSuggestionIndex = -1;
     }
     private void Go_Click(object sender, RoutedEventArgs e)
     {
