@@ -1896,15 +1896,33 @@ public partial class MainWindow : Window
 
     private void HandleNewTabMessage(BrowserTab tab, CoreWebView2WebMessageReceivedEventArgs e)
     {
-        if (!tab.IsYamaNewTab) return;
-
         try
         {
             var json = e.TryGetWebMessageAsString();
             using var document = JsonDocument.Parse(json);
             var root = document.RootElement;
-            if (!root.TryGetProperty("action", out var actionElement) || !root.TryGetProperty("url", out var urlElement)) return;
+            if (!root.TryGetProperty("action", out var actionElement)) return;
+
             var action = actionElement.GetString();
+            if (string.Equals(action, "yamaBlockLog", StringComparison.Ordinal))
+            {
+                var status = root.TryGetProperty("status", out var statusElement)
+                    ? statusElement.GetString() ?? "INFO"
+                    : "INFO";
+                var category = root.TryGetProperty("category", out var categoryElement)
+                    ? categoryElement.GetString() ?? "YouTube"
+                    : "YouTube";
+                var detail = root.TryGetProperty("detail", out var detailElement)
+                    ? detailElement.GetString() ?? ""
+                    : "";
+
+                YamaBlockDiagnostics.Add(status, category, detail);
+                return;
+            }
+
+            if (!tab.IsYamaNewTab || !root.TryGetProperty("url", out var urlElement))
+                return;
+
             var url = urlElement.GetString() ?? "";
 
             if (string.Equals(action, "addFavorite", StringComparison.Ordinal))
@@ -1928,13 +1946,11 @@ public partial class MainWindow : Window
             }
 
             if (string.Equals(action, "removeFavorite", StringComparison.Ordinal))
-            {
                 RemoveFavorite(url);
-            }
         }
-        catch
+        catch (Exception error)
         {
-            StatusText.Text = "Oblíbené se nepodařilo změnit.";
+            Debug.WriteLine("WebView message failed: " + error.Message);
         }
     }
 
