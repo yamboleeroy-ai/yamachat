@@ -364,19 +364,222 @@ public partial class MainWindow : Window
 
     private void BlockRequest(BrowserTab tab, CoreWebView2WebResourceRequestedEventArgs e)
     {
-        if (_settings.Data.BlockMode == BlockMode.Off || string.IsNullOrEmpty(e.Request.Uri)) return;
-        if (!Uri.TryCreate(e.Request.Uri, UriKind.Absolute, out var uri) || IsWhitelisted(uri.Host)) return;
-        bool knownHost = _adHosts.Any(host => uri.Host.Equals(host, StringComparison.OrdinalIgnoreCase) || uri.Host.EndsWith('.' + host, StringComparison.OrdinalIgnoreCase));
-        bool strictTracker = _settings.Data.BlockMode == BlockMode.Strict && (uri.AbsolutePath.Contains("analytics", StringComparison.OrdinalIgnoreCase) || uri.AbsolutePath.Contains("tracker", StringComparison.OrdinalIgnoreCase));
-        if (knownHost || strictTracker)
+        if (_settings.Data.BlockMode == BlockMode.Off || string.IsNullOrWhiteSpace(e.Request.Uri))
+            return;
+
+        if (!Uri.TryCreate(e.Request.Uri, UriKind.Absolute, out var uri))
+            return;
+
+        var pageHost = GetPageHost(tab);
+        if (!string.IsNullOrWhiteSpace(pageHost) && IsWhitelisted(pageHost))
+            return;
+
+        var hostIsAd = HostMatchesAny(uri.Host, _adHosts);
+        var hostIsTracker = _settings.Data.EnableTrackerBlocking && HostMatchesAny(uri.Host, _trackerHosts);
+        var strictUrlMatch = _settings.Data.BlockMode == BlockMode.Strict
+            && StrictUrlTokens.Any(token => uri.PathAndQuery.Contains(token, StringComparison.OrdinalIgnoreCase));
+
+        var youtubeAdRequest = _settings.Data.EnableYouTubeAdBlock
+            && IsYouTubeHost(pageHost)
+            && (YouTubeAdTokens.Any(token => uri.PathAndQuery.Contains(token, StringComparison.OrdinalIgnoreCase))
+                || uri.Host.Equals("googleads.g.doubleclick.net", StringComparison.OrdinalIgnoreCase)
+                || uri.Host.Equals("static.doubleclick.net", StringComparison.OrdinalIgnoreCase));
+
+        if (!hostIsAd && !hostIsTracker && !strictUrlMatch && !youtubeAdRequest)
+            return;
+
+        e.Response = tab.View.CoreWebView2.Environment.CreateWebResourceResponse(
+            null,
+            204,
+            "Blocked by YamaBlock",
+            "Cache-Control: no-store");
+
+        tab.BlockedCount++;
+        if (_active == tab)
+            BlockedText.Text = $"YamaBlock · {tab.BlockedCount} blokováno";
+    }
+
+    private static bool HostMatchesAny(string host, IEnumerable<string> rules)
+        => rules.Any(rule =>
+            host.Equals(rule, StringComparison.OrdinalIgnoreCase)
+            || host.EndsWith("." + rule, StringComparison.OrdinalIgnoreCase));
+
+    private string GetPageHost(BrowserTab tab)
+    {
+        var source = tab.View.CoreWebView2?.Source;
+        return Uri.TryCreate(source, UriKind.Absolute, out var page) ? page.Host : "";
+    }
+
+    private bool IsWhitelisted(string host)
+        => _settings.Data.Whitelist.Any(x =>
+            host.Equals(x, StringComparison.OrdinalIgnoreCase)
+            || host.EndsWith("." + x, StringComparison.OrdinalIgnoreCase));
+
+    private static bool IsYouTubeHost(string? host)
+        => !string.IsNullOrWhiteSpace(host)
+           && (host.Equals("youtube.com", StringComparison.OrdinalIgnoreCase)
+               || host.EndsWith(".youtube.com", StringComparison.OrdinalIgnoreCase));
+
+    private async Task ApplyYamaBlockPageRulesAsync(BrowserTab tab)
+    {
+        if (tab.View.CoreWebView2 == null) return;
+
+        var pageHost = GetPageHost(tab);
+        var enabled = _settings.Data.BlockMode != BlockMode.Off
+            && !string.IsNullOrWhiteSpace(pageHost)
+            && !IsWhitelisted(pageHost);
+
+        var config = new
         {
-            e.Response = tab.View.CoreWebView2.Environment.CreateWebResourceResponse(null, 204, "Blocked by YamaBlock", "");
-            tab.BlockedCount++;
-            if (_active == tab) BlockedText.Text = $"YamaBlock · {tab.BlockedCount} blokováno";
+            enabled,
+            youtube = enabled && _settings.Data.EnableYouTubeAdBlock && IsYouTubeHost(pageHost),
+            cosmetic = enabled && _settings.Data.EnableCosmeticBlocking,
+            strict = enabled && _settings.Data.BlockMode == BlockMode.Strict
+        };
+
+        try
+        {
+            var json = JsonSerializer.Serialize(config);
+            await tab.View.CoreWebView2.ExecuteScriptAsync(
+                $"window.__yamaBlockApply && window.__yamaBlockApply({json});");
+        }
+        catch (Exception error)
+        {
+            Debug.WriteLine("YamaBlock page rules failed: " + error.Message);
         }
     }
 
-    private bool IsWhitelisted(string host) => _settings.Data.Whitelist.Any(x => host.Equals(x, StringComparison.OrdinalIgnoreCase) || host.EndsWith('.' + x, StringComparison.OrdinalIgnoreCase));
+    private async Task ApplyYamaBlockToAllTabsAsync()
+    {
+        foreach (var tab in _tabs.Where(x => x.View.CoreWebView2 != null).ToList())
+            await ApplyYamaBlockPageRulesAsync(tab);
+    }
+
+    private const string YamaBlockPageScript = """
+        (() => {
+          if (window.__yamaBlockInstalled) return;
+          window.__yamaBlockInstalled = true;
+
+          let config = { enabled: false, youtube: false, cosmetic: false, strict: false };
+          let scheduled = false;
+
+          const hide = (node) => {
+            if (!(node instanceof HTMLElement)) return;
+            node.style.setProperty('display', 'none', 'important');
+            node.style.setProperty('visibility', 'hidden', 'important');
+          };
+
+          const clickSkip = () => {
+            const selectors = [
+              '.ytp-skip-ad-button',
+              '.ytp-ad-skip-button',
+              '.ytp-ad-skip-button-modern',
+              'button[class*="skip-ad"]'
+            ];
+            for (const selector of selectors) {
+              const button = document.querySelector(selector);
+              if (button instanceof HTMLElement) {
+                button.click();
+                return true;
+              }
+            }
+            return false;
+          };
+
+          const cleanGeneral = () => {
+            if (!config.cosmetic) return;
+            const selectors = [
+              'ins.adsbygoogle',
+              '[id^="google_ads_"]',
+              'iframe[src*="doubleclick.net"]',
+              'iframe[src*="googlesyndication.com"]',
+              '[data-ad-client]'
+            ];
+            for (const selector of selectors) {
+              document.querySelectorAll(selector).forEach(hide);
+            }
+          };
+
+          const cleanYouTube = () => {
+            if (!config.youtube || !location.hostname.endsWith('youtube.com')) return;
+
+            const selectors = [
+              '#player-ads',
+              '.video-ads',
+              '.ytp-ad-module',
+              '.ytp-ad-overlay-container',
+              '.ytp-ad-text-overlay',
+              'ytd-display-ad-renderer',
+              'ytd-ad-slot-renderer',
+              'ytd-promoted-sparkles-web-renderer',
+              'ytd-promoted-video-renderer',
+              'ytd-companion-slot-renderer',
+              'ytd-in-feed-ad-layout-renderer'
+            ];
+
+            for (const selector of selectors) {
+              document.querySelectorAll(selector).forEach(hide);
+            }
+
+            clickSkip();
+
+            if (config.strict) {
+              const player = document.querySelector('.html5-video-player.ad-showing');
+              const video = player?.querySelector('video');
+              if (video instanceof HTMLVideoElement
+                  && Number.isFinite(video.duration)
+                  && video.duration > 0.25
+                  && video.currentTime < video.duration - 0.1) {
+                try {
+                  video.currentTime = Math.max(video.currentTime, video.duration - 0.05);
+                } catch {}
+              }
+            }
+          };
+
+          const clean = () => {
+            scheduled = false;
+            if (!config.enabled) return;
+            cleanGeneral();
+            cleanYouTube();
+          };
+
+          const schedule = () => {
+            if (scheduled) return;
+            scheduled = true;
+            requestAnimationFrame(clean);
+          };
+
+          const observer = new MutationObserver(schedule);
+          const start = () => {
+            if (document.documentElement) {
+              observer.observe(document.documentElement, {
+                childList: true,
+                subtree: true,
+                attributes: true,
+                attributeFilter: ['class', 'style']
+              });
+            }
+            schedule();
+          };
+
+          if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', start, { once: true });
+          } else {
+            start();
+          }
+
+          window.addEventListener('yt-navigate-finish', schedule);
+          window.__yamaBlockApply = (next) => {
+            config = Object.assign({}, config, next || {});
+            schedule();
+          };
+
+          setInterval(() => {
+            if (config.enabled) schedule();
+          }, 1500);
+        })();
+        """;
     private async Task NavigateAsync(BrowserTab tab, string raw)
     {
         if (raw == "yamasearch://newtab")
