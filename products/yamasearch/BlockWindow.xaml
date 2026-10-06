@@ -39,7 +39,7 @@
         <TextBlock Text="Rozšířená pravidla" FontSize="17" FontWeight="SemiBold" Margin="0,0,0,8"/>
         <CheckBox x:Name="YouTubeEnhanced" Content="Lepší blokování reklam na YouTube"
                   Foreground="#EAF3FF" Margin="0,8"/>
-        <TextBlock Text="Blokuje známé reklamní požadavky YouTube, skrývá reklamní prvky a automaticky použije tlačítko Přeskočit. V Přísném režimu navíc zkusí přeskočit právě přehrávaný reklamní úsek."
+        <TextBlock Text="Blokuje známé reklamní domény, skrývá reklamní prvky mimo přehrávač a automaticky použije tlačítko Přeskočit. Nezasahuje do hlavního video streamu, aby přehrávání neblikalo a nezdržovalo start videa."
                    Foreground="#8FA4BE" FontSize="11" TextWrapping="Wrap" Margin="24,-2,4,10"/>
 
         <CheckBox x:Name="CosmeticBlocking" Content="Skrývat reklamní prvky na stránkách"
