@@ -1,86 +1,93 @@
 <Window x:Class="YamaSearch.BlockWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="YamaBlock"
-        Icon="pack://application:,,,/Assets/YamaSearch.ico"
-        Width="620" Height="760" MinWidth="580" MinHeight="700"
-        ResizeMode="NoResize" WindowStartupLocation="CenterOwner"
-        Background="#0B101A" Foreground="#EAF3FF">
-  <Grid Margin="26">
-    <Grid.RowDefinitions>
-      <RowDefinition Height="Auto"/>
-      <RowDefinition Height="Auto"/>
-      <RowDefinition Height="*"/>
-      <RowDefinition Height="Auto"/>
-    </Grid.RowDefinitions>
+        xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
+        Title="YamaBlock" Icon="pack://application:,,,/Assets/YamaSearch.ico"
+        Width="680" Height="800" MinWidth="620" MinHeight="720"
+        ResizeMode="CanResize" WindowStyle="None" WindowStartupLocation="CenterOwner"
+        Background="#08111D" Foreground="#EAF3FF">
+  <shell:WindowChrome.WindowChrome>
+    <shell:WindowChrome CaptionHeight="0" ResizeBorderThickness="6" GlassFrameThickness="0" CornerRadius="0" UseAeroCaptionButtons="False"/>
+  </shell:WindowChrome.WindowChrome>
+  <Border BorderBrush="#5D4B12" BorderThickness="1" CornerRadius="14" Background="#08111D">
+    <Grid Margin="24">
+      <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
 
-    <StackPanel>
-      <DockPanel LastChildFill="False">
-        <TextBlock Text="◆  YamaBlock" Foreground="#FCD34D" FontWeight="SemiBold" FontSize="25"/>
-        <Button Content="×" DockPanel.Dock="Right" Click="Cancel_Click" Padding="10,4"/>
-      </DockPanel>
-      <TextBlock x:Name="PageState" Margin="0,9,0,0" Foreground="#AFC2D8" TextWrapping="Wrap"/>
-    </StackPanel>
-
-    <Border Grid.Row="1" Background="#152238" BorderBrush="#2B4568" BorderThickness="1"
-            CornerRadius="12" Padding="16" Margin="0,18,0,14">
-      <StackPanel>
-        <TextBlock Text="Režim blokování" FontSize="17" FontWeight="SemiBold"/>
-        <RadioButton x:Name="Off" Content="Vypnuto — nic neblokovat" Foreground="#EAF3FF" Margin="0,12,0,4"/>
-        <RadioButton x:Name="Standard" Content="Standard — reklamy a známé reklamní požadavky" Foreground="#EAF3FF" Margin="0,4"/>
-        <RadioButton x:Name="Strict" Content="Přísný — navíc trackery a agresivnější pravidla" Foreground="#EAF3FF" Margin="0,4"/>
-        <TextBlock Text="Přísný režim může na některých webech vyžadovat výjimku."
-                   Foreground="#8FA4BE" FontSize="11" Margin="22,6,0,0"/>
-      </StackPanel>
-    </Border>
-
-    <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto">
-      <StackPanel>
-        <TextBlock Text="Rozšířená pravidla" FontSize="17" FontWeight="SemiBold" Margin="0,0,0,8"/>
-        <CheckBox x:Name="YouTubeEnhanced" Content="Lepší blokování reklam na YouTube"
-                  Foreground="#EAF3FF" Margin="0,8"/>
-        <TextBlock Text="Blokuje známé reklamní domény, skrývá reklamní prvky mimo přehrávač a automaticky použije tlačítko Přeskočit. Nezasahuje do hlavního video streamu, aby přehrávání neblikalo a nezdržovalo start videa."
-                   Foreground="#8FA4BE" FontSize="11" TextWrapping="Wrap" Margin="24,-2,4,10"/>
-
-        <CheckBox x:Name="CosmeticBlocking" Content="Skrývat reklamní prvky na stránkách"
-                  Foreground="#EAF3FF" Margin="0,8"/>
-        <TextBlock Text="Odstraňuje běžné reklamní kontejnery a reklamní iframe bez blokování samotného obsahu stránky."
-                   Foreground="#8FA4BE" FontSize="11" TextWrapping="Wrap" Margin="24,-2,4,10"/>
-
-        <CheckBox x:Name="TrackerBlocking" Content="Blokovat známé trackery"
-                  Foreground="#EAF3FF" Margin="0,8"/>
-        <TextBlock Text="Omezí známé analytické a sledovací požadavky. V Přísném režimu se používají i další URL pravidla."
-                   Foreground="#8FA4BE" FontSize="11" TextWrapping="Wrap" Margin="24,-2,4,12"/>
-
-        <Border Height="1" Background="#294465" Margin="0,6,0,14"/>
-
-        <TextBlock Text="Výjimka pro aktuální web" FontSize="17" FontWeight="SemiBold"/>
-        <CheckBox x:Name="AllowCurrentSite" Content="Povolit reklamy a trackery na tomto webu"
-                  Foreground="#EAF3FF" Margin="0,10,0,4"/>
-        <TextBlock x:Name="CurrentHostText" Foreground="#8FA4BE" FontSize="11" Margin="24,0,4,0"/>
-
-        <Border Height="1" Background="#294465" Margin="0,18,0,14"/>
-
-        <DockPanel Margin="0,0,0,8">
+      <Grid MouseLeftButtonDown="TitleBar_MouseLeftButtonDown">
+        <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+          <TextBlock Text="◆" Foreground="#FCD34D" FontSize="28" Margin="0,0,12,0"/>
           <StackPanel>
-            <TextBlock Text="Přehled blokování" FontSize="17" FontWeight="SemiBold"/>
-            <TextBlock x:Name="LogSummary" Foreground="#8FA4BE" FontSize="11" Margin="0,3,0,0"/>
+            <TextBlock Text="YamaBlock" Foreground="#FCD34D" FontWeight="SemiBold" FontSize="24"/>
+            <TextBlock x:Name="PageState" Margin="0,4,0,0" Foreground="#AFC2D8" TextWrapping="Wrap" Width="500"/>
           </StackPanel>
-          <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
-            <Button Content="Obnovit" Click="RefreshLog_Click" Padding="10,5" Margin="4,0"/>
-            <Button Content="Vymazat log" Click="ClearLog_Click" Padding="10,5" Margin="4,0"/>
-          </StackPanel>
-        </DockPanel>
-        <TextBlock Text="Zobrazuje jen relevantní reklamní / YouTube požadavky, aby log nezpomaloval prohlížení."
-                   Foreground="#8FA4BE" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,8"/>
-        <ListBox x:Name="LogList" Height="235" Background="#0E1725" BorderBrush="#294465" BorderThickness="1"/>
-      </StackPanel>
-    </ScrollViewer>
+        </StackPanel>
+        <Button Grid.Column="1" Content="×" Style="{StaticResource YamaCloseButton}" Click="Cancel_Click"/>
+      </Grid>
 
-    <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,16,0,0">
-      <Button Content="Zrušit" Click="Cancel_Click" Margin="0,0,8,0" Padding="14,8"/>
-      <Button Content="Uložit YamaBlock" Background="#5B4510" BorderBrush="#E0A915"
-              Foreground="#FFE68A" BorderThickness="1" Click="Save_Click" Padding="14,8"/>
-    </StackPanel>
-  </Grid>
+      <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Margin="0,18,0,14">
+        <ScrollViewer.Resources><Style TargetType="ScrollBar" BasedOn="{StaticResource YamaScrollBar}"/></ScrollViewer.Resources>
+        <StackPanel Margin="0,0,8,0">
+
+          <Border Style="{StaticResource YamaDialogCard}">
+            <StackPanel>
+              <TextBlock Text="Režim blokování" Style="{StaticResource YamaSectionTitle}"/>
+              <RadioButton x:Name="Off" Style="{StaticResource YamaRadioButton}" Content="Vypnuto — nic neblokovat" Margin="0,14,0,7"/>
+              <RadioButton x:Name="Standard" Style="{StaticResource YamaRadioButton}" Content="Standard — reklamy a známé reklamní požadavky" Margin="0,7"/>
+              <RadioButton x:Name="Strict" Style="{StaticResource YamaRadioButton}" Content="Přísný — navíc trackery a agresivnější pravidla" Margin="0,7"/>
+              <TextBlock Text="Přísný režim může na některých webech vyžadovat výjimku." Style="{StaticResource YamaSubtleText}" Margin="27,8,0,0"/>
+            </StackPanel>
+          </Border>
+
+          <Border Style="{StaticResource YamaDialogCard}">
+            <StackPanel>
+              <TextBlock Text="Rozšířená pravidla" Style="{StaticResource YamaSectionTitle}"/>
+              <CheckBox x:Name="YouTubeEnhanced" Style="{StaticResource YamaCheckBox}" Content="Lepší blokování reklam na YouTube" Margin="0,14,0,7"/>
+              <TextBlock Text="Blokuje známé reklamní domény, skrývá reklamní prvky mimo přehrávač a automaticky použije tlačítko Přeskočit. Nezasahuje do hlavního video streamu."
+                         Style="{StaticResource YamaSubtleText}" Margin="27,0,0,10"/>
+              <CheckBox x:Name="CosmeticBlocking" Style="{StaticResource YamaCheckBox}" Content="Skrývat reklamní prvky na stránkách" Margin="0,7"/>
+              <TextBlock Text="Odstraňuje běžné reklamní kontejnery a reklamní iframe bez blokování samotného obsahu stránky."
+                         Style="{StaticResource YamaSubtleText}" Margin="27,0,0,10"/>
+              <CheckBox x:Name="TrackerBlocking" Style="{StaticResource YamaCheckBox}" Content="Blokovat známé trackery" Margin="0,7"/>
+              <TextBlock Text="Omezí známé analytické a sledovací požadavky." Style="{StaticResource YamaSubtleText}" Margin="27,0,0,0"/>
+            </StackPanel>
+          </Border>
+
+          <Border Style="{StaticResource YamaDialogCard}">
+            <StackPanel>
+              <TextBlock Text="Výjimka pro aktuální web" Style="{StaticResource YamaSectionTitle}"/>
+              <CheckBox x:Name="AllowCurrentSite" Style="{StaticResource YamaCheckBox}" Content="Povolit reklamy a trackery na tomto webu" Margin="0,14,0,6"/>
+              <TextBlock x:Name="CurrentHostText" Style="{StaticResource YamaSubtleText}" Margin="27,0,0,0"/>
+            </StackPanel>
+          </Border>
+
+          <Border Style="{StaticResource YamaDialogCard}">
+            <StackPanel>
+              <Grid Margin="0,0,0,8">
+                <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                <StackPanel>
+                  <TextBlock Text="Přehled blokování" Style="{StaticResource YamaSectionTitle}"/>
+                  <TextBlock x:Name="LogSummary" Style="{StaticResource YamaSubtleText}" Margin="0,3,0,0"/>
+                </StackPanel>
+                <StackPanel Grid.Column="1" Orientation="Horizontal">
+                  <Button Content="Obnovit" Style="{StaticResource YamaSecondaryButton}" Click="RefreshLog_Click" Margin="0,0,8,0"/>
+                  <Button Content="Vymazat log" Style="{StaticResource YamaDangerButton}" Click="ClearLog_Click"/>
+                </StackPanel>
+              </Grid>
+              <TextBlock Text="Zobrazuje jen relevantní reklamní / YouTube požadavky, aby log nezpomaloval prohlížení."
+                         Style="{StaticResource YamaSubtleText}" Margin="0,0,0,8"/>
+              <ListBox x:Name="LogList" Height="250" Background="#0E1725" Foreground="#DCEAFF"
+                       BorderBrush="#245A84" BorderThickness="1" Padding="6"/>
+            </StackPanel>
+          </Border>
+        </StackPanel>
+      </ScrollViewer>
+
+      <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right">
+        <Button Content="Zrušit" Style="{StaticResource YamaSecondaryButton}" Click="Cancel_Click" Margin="0,0,8,0"/>
+        <Button Content="Uložit YamaBlock" Background="#5B4510" BorderBrush="#E0A915" Foreground="#FFE68A"
+                BorderThickness="1" Padding="14,8" Click="Save_Click"/>
+      </StackPanel>
+    </Grid>
+  </Border>
 </Window>

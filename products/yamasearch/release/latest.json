@@ -1,7 +1,7 @@
 {
   "product": "YamaSearch",
-  "version": "0.3.0",
-  "notes": "Nový YamaBlock s nastavením, přehledem blokovaných/propuštěných požadavků a YouTube filtrováním bez blokování hlavního video streamu. Opraven fullscreen videa přes celý monitor, maximalizace bez okrajů, lišta oblíbených, overflow oblíbených, klávesové ovládání návrhů a stabilita oblíbených.",
+  "version": "0.3.1",
+  "notes": "Redesign YamaSearch UI a bočního panelu, nové nástroje prohlížeče (nové okno, hledání na stránce, tisk, vytvoření aplikace webu), hardwarová akcelerace v nastavení, domovské tlačítko, oprava adresního pole a našeptávače, přepracovaná historie/oblíbené/stahování a oprava otevření okna historie stahování z bočního menu.",
   "portableUrl": "https://updates.yamachat.eu/yamasearch/YamaSearch-Portable-latest.zip",
   "installerUrl": "https://updates.yamachat.eu/yamasearch/YamaSearch-Setup-latest.exe"
 }

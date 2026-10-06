@@ -1,4 +1,5 @@
 using System.Windows;
+using System.Windows.Input;
 using System.Windows.Controls;
 using System.Windows.Media;
 
@@ -41,12 +42,12 @@ public partial class HistoryWindow : Window
     {
         var border = new Border
         {
-            Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#132238")),
-            BorderBrush = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#1D3857")),
+            Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#10233B")),
+            BorderBrush = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#245A84")),
             BorderThickness = new Thickness(1),
-            CornerRadius = new CornerRadius(10),
-            Padding = new Thickness(12),
-            Margin = new Thickness(0, 4, 0, 4)
+            CornerRadius = new CornerRadius(12),
+            Padding = new Thickness(14),
+            Margin = new Thickness(0, 5, 0, 5)
         };
 
         var root = new Grid();
@@ -80,7 +81,7 @@ public partial class HistoryWindow : Window
         root.Children.Add(info);
 
         var actions = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
-        var open = new Button { Content = "Otevřít", Margin = new Thickness(4, 0, 0, 0), Padding = new Thickness(10, 6, 10, 6) };
+        var open = new Button { Content = "Otevřít", Style = (Style)FindResource("YamaSecondaryButton"), Margin = new Thickness(4, 0, 0, 0) };
         open.Click += (_, _) => { _openUrl(entry.Url); Close(); };
         actions.Children.Add(open);
 
@@ -88,10 +89,8 @@ public partial class HistoryWindow : Window
         {
             Content = "×",
             ToolTip = "Smazat tuto položku",
-            Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#FFB7C5")),
-            Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#35202B")),
-            Margin = new Thickness(5, 0, 0, 0),
-            Padding = new Thickness(10, 6, 10, 6)
+            Style = (Style)FindResource("YamaDangerButton"),
+            Margin = new Thickness(5, 0, 0, 0)
         };
         remove.Click += (_, _) =>
         {
@@ -108,6 +107,8 @@ public partial class HistoryWindow : Window
         return border;
     }
 
+    private void Close_Click(object sender, RoutedEventArgs e) => Close();
+
     private void ClearHistory_Click(object sender, RoutedEventArgs e)
     {
         if (_settings.Data.History.Count == 0) return;
@@ -116,5 +117,11 @@ public partial class HistoryWindow : Window
         _settings.Save();
         _changed();
         RefreshList();
+    }
+
+    private void TitleBar_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        if (e.LeftButton == MouseButtonState.Pressed)
+            DragMove();
     }
 }

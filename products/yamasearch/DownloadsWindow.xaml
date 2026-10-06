@@ -1,35 +1,47 @@
 <Window x:Class="YamaSearch.DownloadsWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
         Title="YamaSearch – Historie stahování"
         Icon="pack://application:,,,/Assets/YamaSearch.ico"
-        Width="900" Height="650" MinWidth="700" MinHeight="480"
-        Background="#0B101A" Foreground="#EAF3FF"
-        WindowStartupLocation="CenterOwner">
-  <Grid Margin="22">
-    <Grid.RowDefinitions>
-      <RowDefinition Height="Auto"/>
-      <RowDefinition Height="*"/>
-      <RowDefinition Height="Auto"/>
-    </Grid.RowDefinitions>
+        Width="940" Height="690" MinWidth="720" MinHeight="520"
+        Background="#08111D" Foreground="#EAF3FF"
+        WindowStyle="None" ResizeMode="CanResize" WindowStartupLocation="CenterOwner">
+  <shell:WindowChrome.WindowChrome>
+    <shell:WindowChrome CaptionHeight="0" ResizeBorderThickness="6" GlassFrameThickness="0" CornerRadius="0" UseAeroCaptionButtons="False"/>
+  </shell:WindowChrome.WindowChrome>
+  <Border BorderBrush="#174B70" BorderThickness="1" CornerRadius="14" Background="#08111D">
+    <Grid Margin="22">
+      <Grid.RowDefinitions>
+        <RowDefinition Height="Auto"/>
+        <RowDefinition Height="*"/>
+        <RowDefinition Height="Auto"/>
+      </Grid.RowDefinitions>
 
-    <DockPanel Margin="0,0,0,16">
-      <StackPanel>
-        <TextBlock Text="Historie stahování" FontSize="25" FontWeight="SemiBold"/>
-        <TextBlock Text="Stažené soubory, průběh a předchozí stahování" Foreground="#96A7BD" Margin="0,4,0,0"/>
-      </StackPanel>
-      <Button DockPanel.Dock="Right" Content="Vymazat historii" Click="ClearHistory_Click"
-              Background="#3A202A" BorderBrush="#68404D" BorderThickness="1"
-              Foreground="#FFD3DB" Padding="14,8" VerticalAlignment="Center"/>
-    </DockPanel>
+      <Grid Margin="0,0,0,16" MouseLeftButtonDown="TitleBar_MouseLeftButtonDown">
+        <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+          <TextBlock Text="⇩" FontSize="28" Foreground="#42D8FF" Margin="0,0,12,0"/>
+          <StackPanel>
+            <TextBlock Text="Historie stahování" FontSize="25" FontWeight="SemiBold"/>
+            <TextBlock Text="Stažené soubory, průběh a předchozí stahování" Style="{StaticResource YamaSubtleText}" Margin="0,4,0,0"/>
+          </StackPanel>
+        </StackPanel>
+        <Button Grid.Column="1" Content="×" Style="{StaticResource YamaCloseButton}" Click="Close_Click"/>
+      </Grid>
 
-    <Border Grid.Row="1" Background="#101A29" BorderBrush="#294465" BorderThickness="1" CornerRadius="12" Padding="10">
-      <ScrollViewer VerticalScrollBarVisibility="Auto">
-        <StackPanel x:Name="DownloadList"/>
-      </ScrollViewer>
-    </Border>
+      <Border Grid.Row="1" Style="{StaticResource YamaDialogCard}" Margin="0">
+        <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+          <ScrollViewer.Resources><Style TargetType="ScrollBar" BasedOn="{StaticResource YamaScrollBar}"/></ScrollViewer.Resources>
+          <StackPanel x:Name="DownloadList" Margin="0,0,8,0"/>
+        </ScrollViewer>
+      </Border>
 
-    <TextBlock Grid.Row="2" Text="Vymazání historie neodstraní stažené soubory z disku."
-               Foreground="#7794B5" Margin="4,12,0,0"/>
-  </Grid>
+      <Grid Grid.Row="2" Margin="0,14,0,0">
+        <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+        <TextBlock Text="Vymazání historie neodstraní stažené soubory z disku." Style="{StaticResource YamaSubtleText}" VerticalAlignment="Center"/>
+        <Button Grid.Column="1" Content="Vymazat historii stahování" Style="{StaticResource YamaDangerButton}" Click="ClearHistory_Click"/>
+      </Grid>
+    </Grid>
+  </Border>
 </Window>

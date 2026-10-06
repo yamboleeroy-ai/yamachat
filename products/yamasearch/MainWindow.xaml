@@ -37,6 +37,126 @@
         <Setter.Value><ControlTemplate TargetType="MenuItem"><Border x:Name="MenuItemBorder" Background="{TemplateBinding Background}" CornerRadius="6" Padding="{TemplateBinding Padding}" Margin="2"><ContentPresenter ContentSource="Header" RecognizesAccessKey="True"/></Border><ControlTemplate.Triggers><Trigger Property="IsMouseOver" Value="True"><Setter TargetName="MenuItemBorder" Property="Background" Value="#21496B"/></Trigger><Trigger Property="IsEnabled" Value="False"><Setter TargetName="MenuItemBorder" Property="Opacity" Value=".45"/></Trigger></ControlTemplate.Triggers></ControlTemplate></Setter.Value>
       </Setter>
     </Style>
+    <Style x:Key="SidePanelScrollBar" TargetType="ScrollBar">
+      <Setter Property="Width" Value="10"/>
+      <Setter Property="Background" Value="#0B1624"/>
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="ScrollBar">
+            <Grid Background="{TemplateBinding Background}">
+              <Track x:Name="PART_Track" IsDirectionReversed="True">
+                <Track.Thumb>
+                  <Thumb Background="#1EC8F2" BorderBrush="#65E5FF" BorderThickness="1">
+                    <Thumb.Template>
+                      <ControlTemplate TargetType="Thumb">
+                        <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="5"/>
+                      </ControlTemplate>
+                    </Thumb.Template>
+                  </Thumb>
+                </Track.Thumb>
+              </Track>
+            </Grid>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+
+    <Style x:Key="SideSectionLabel" TargetType="TextBlock">
+      <Setter Property="Foreground" Value="#7FA8D8"/>
+      <Setter Property="FontSize" Value="11"/>
+      <Setter Property="FontWeight" Value="SemiBold"/>
+      <Setter Property="Margin" Value="4,12,0,7"/>
+    </Style>
+
+    <Style x:Key="SideNavButton" TargetType="Button">
+      <Setter Property="Height" Value="44"/>
+      <Setter Property="Margin" Value="0,3"/>
+      <Setter Property="Padding" Value="12,0"/>
+      <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+      <Setter Property="Background" Value="#10233B"/>
+      <Setter Property="BorderBrush" Value="#1E527C"/>
+      <Setter Property="BorderThickness" Value="1"/>
+      <Setter Property="Foreground" Value="#F4F8FF"/>
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="Button">
+            <Border x:Name="NavBorder" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="10" Padding="{TemplateBinding Padding}">
+              <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}" VerticalAlignment="Center"/>
+            </Border>
+            <ControlTemplate.Triggers>
+              <Trigger Property="IsMouseOver" Value="True">
+                <Setter TargetName="NavBorder" Property="Background" Value="#173A5A"/>
+                <Setter TargetName="NavBorder" Property="BorderBrush" Value="#2EAEE3"/>
+              </Trigger>
+              <Trigger Property="IsPressed" Value="True"><Setter TargetName="NavBorder" Property="Opacity" Value=".84"/></Trigger>
+            </ControlTemplate.Triggers>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+
+    <Style x:Key="SideLibraryButton" TargetType="Button" BasedOn="{StaticResource SideNavButton}">
+      <Setter Property="Background" Value="#132A46"/>
+      <Setter Property="BorderBrush" Value="#245A84"/>
+    </Style>
+
+    <Style x:Key="SideContentButton" TargetType="Button">
+      <Setter Property="MinHeight" Value="54"/>
+      <Setter Property="Margin" Value="0,3"/>
+      <Setter Property="Padding" Value="10,7"/>
+      <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+      <Setter Property="Background" Value="#10233B"/>
+      <Setter Property="BorderBrush" Value="#1E527C"/>
+      <Setter Property="BorderThickness" Value="1"/>
+      <Setter Property="Foreground" Value="#F4F8FF"/>
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="Button">
+            <Border x:Name="ContentCardBorder" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="9" Padding="{TemplateBinding Padding}">
+              <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}" VerticalAlignment="Center"/>
+            </Border>
+            <ControlTemplate.Triggers>
+              <Trigger Property="IsMouseOver" Value="True">
+                <Setter TargetName="ContentCardBorder" Property="Background" Value="#173A5A"/>
+                <Setter TargetName="ContentCardBorder" Property="BorderBrush" Value="#2EAEE3"/>
+              </Trigger>
+            </ControlTemplate.Triggers>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+
+    <Style x:Key="SideDangerButton" TargetType="Button">
+      <Setter Property="Height" Value="42"/>
+      <Setter Property="Margin" Value="0,4,0,10"/>
+      <Setter Property="Padding" Value="12,0"/>
+      <Setter Property="HorizontalContentAlignment" Value="Left"/>
+      <Setter Property="Foreground" Value="#FFD5DC"/>
+      <Setter Property="Background" Value="#41212D"/>
+      <Setter Property="BorderBrush" Value="#A84E65"/>
+      <Setter Property="BorderThickness" Value="1"/>
+    </Style>
+
+    <Style x:Key="SideDeleteButton" TargetType="Button">
+      <Setter Property="Width" Value="38"/>
+      <Setter Property="Height" Value="38"/>
+      <Setter Property="Padding" Value="0"/>
+      <Setter Property="Foreground" Value="#FFB7C5"/>
+      <Setter Property="Background" Value="#3A202B"/>
+      <Setter Property="BorderBrush" Value="#6E3345"/>
+      <Setter Property="BorderThickness" Value="1"/>
+    </Style>
+
+    <Style x:Key="SideCloseButton" TargetType="Button">
+      <Setter Property="Width" Value="42"/>
+      <Setter Property="Height" Value="42"/>
+      <Setter Property="FontSize" Value="20"/>
+      <Setter Property="Padding" Value="0"/>
+      <Setter Property="Background" Value="#10243A"/>
+      <Setter Property="BorderBrush" Value="#245A84"/>
+      <Setter Property="BorderThickness" Value="1"/>
+    </Style>
+
   </Window.Resources>
   <Grid>
     <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="0" x:Name="PanelColumn"/></Grid.ColumnDefinitions>
@@ -52,13 +172,20 @@
       </Grid>
     </Grid>
     <Border Grid.Row="1" Background="#0E1726" BorderBrush="#253A57" BorderThickness="0,1,0,1" Padding="14,10">
-      <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+      <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
         <Button Grid.Column="0" Content="←" FontSize="18" Click="Back_Click"/><Button Grid.Column="1" Content="→" FontSize="18" Click="Forward_Click"/><Button x:Name="ReloadButton" Grid.Column="2" Content="↻" FontSize="18" Click="Reload_Click"/>
-        <Grid Grid.Column="3" Margin="8,0"><TextBox x:Name="AddressBox" VerticalContentAlignment="Center" PreviewKeyDown="AddressBox_PreviewKeyDown" KeyDown="AddressBox_KeyDown" TextChanged="AddressBox_TextChanged" GotKeyboardFocus="AddressBox_GotKeyboardFocus" PreviewMouseLeftButtonDown="AddressBox_PreviewMouseLeftButtonDown" ToolTip="Zadejte adresu nebo vyhledávání"/><Popup x:Name="AddressSuggestions" Placement="Custom" CustomPopupPlacementCallback="AddressSuggestions_CustomPopupPlacement" PlacementTarget="{Binding ElementName=AddressBox}" StaysOpen="False" AllowsTransparency="True"><Border x:Name="AddressSuggestionsBorder" Background="#16243A" BorderBrush="#31537D" BorderThickness="1" CornerRadius="0,0,10,10" MinWidth="360" Padding="6"><StackPanel x:Name="AddressSuggestionList"/></Border></Popup></Grid>
-        <Button Grid.Column="4" Content="Přejít" Click="Go_Click"/>
-        <Button x:Name="FavoritesButton" Grid.Column="5" Content="☆" FontSize="18" ToolTip="Oblíbené" Click="FavoritesButton_Click"/>
+        <Button Grid.Column="3" Style="{StaticResource ToolbarShieldButton}" ToolTip="Domovská stránka" Click="Home_Click">
+          <Viewbox Width="22" Height="22">
+            <Grid Width="24" Height="24">
+              <Path Data="M3,11 L12,3 L21,11 M6,9.5 L6,21 L18,21 L18,9.5 M10,21 L10,14 L14,14 L14,21" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" StrokeThickness="2" Fill="Transparent" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"/>
+            </Grid>
+          </Viewbox>
+        </Button>
+        <Grid Grid.Column="4" Margin="8,0"><TextBox x:Name="AddressBox" VerticalContentAlignment="Center" PreviewKeyDown="AddressBox_PreviewKeyDown" KeyDown="AddressBox_KeyDown" TextChanged="AddressBox_TextChanged" GotKeyboardFocus="AddressBox_GotKeyboardFocus" PreviewMouseLeftButtonDown="AddressBox_PreviewMouseLeftButtonDown" PreviewMouseLeftButtonUp="AddressBox_PreviewMouseLeftButtonUp" ToolTip="Zadejte adresu nebo vyhledávání"/><Popup x:Name="AddressSuggestions" Placement="Custom" CustomPopupPlacementCallback="AddressSuggestions_CustomPopupPlacement" PlacementTarget="{Binding ElementName=AddressBox}" StaysOpen="False" AllowsTransparency="True"><Border x:Name="AddressSuggestionsBorder" Background="#16243A" BorderBrush="#31537D" BorderThickness="1" CornerRadius="0,0,10,10" MinWidth="360" Padding="6"><StackPanel x:Name="AddressSuggestionList"/></Border></Popup></Grid>
+        <Button Grid.Column="5" Content="Přejít" Click="Go_Click"/>
+        <Button x:Name="FavoritesButton" Grid.Column="6" Content="☆" FontSize="18" ToolTip="Oblíbené" Click="FavoritesButton_Click"/>
 
-        <Button x:Name="HistoryQuickButton" Grid.Column="6" Style="{StaticResource ToolbarShieldButton}" ToolTip="Historie" Click="HistoryQuickButton_Click">
+        <Button x:Name="HistoryQuickButton" Grid.Column="7" Style="{StaticResource ToolbarShieldButton}" ToolTip="Historie" Click="HistoryQuickButton_Click">
           <Viewbox Width="23" Height="23">
             <Grid Width="24" Height="24">
               <Ellipse Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" StrokeThickness="2" Margin="2"/>
@@ -67,7 +194,7 @@
           </Viewbox>
         </Button>
 
-        <Button x:Name="DownloadButton" Grid.Column="7" Style="{StaticResource ToolbarShieldButton}" ToolTip="Stahování" Click="DownloadButton_Click">
+        <Button x:Name="DownloadButton" Grid.Column="8" Style="{StaticResource ToolbarShieldButton}" ToolTip="Stahování" Click="DownloadButton_Click">
           <Grid Width="24" Height="24" ClipToBounds="True">
             <Border x:Name="DownloadProgressFill" Height="0" VerticalAlignment="Bottom" Background="#2358D8A8" CornerRadius="4" Opacity=".8"/>
             <Viewbox x:Name="DownloadArrowIcon" Width="23" Height="23">
@@ -79,7 +206,7 @@
           </Grid>
         </Button>
 
-        <Button x:Name="ShieldButton" Grid.Column="8" Style="{StaticResource ToolbarShieldButton}" ToolTip="YamaShield" Click="ShieldButton_Click">
+        <Button x:Name="ShieldButton" Grid.Column="9" Style="{StaticResource ToolbarShieldButton}" ToolTip="YamaShield" Click="ShieldButton_Click">
           <Viewbox Width="23" Height="23">
             <Grid Width="24" Height="24">
               <Path Data="M12,2 L20,5 V10.6 C20,16.1 16.8,20 12,22 C7.2,20 4,16.1 4,10.6 V5 Z" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" StrokeThickness="2" Fill="Transparent" StrokeLineJoin="Round"/>
@@ -87,7 +214,7 @@
             </Grid>
           </Viewbox>
         </Button>
-        <Button x:Name="BlockButton" Grid.Column="9" Style="{StaticResource ToolbarShieldButton}" ToolTip="YamaBlock" Click="BlockButton_Click">
+        <Button x:Name="BlockButton" Grid.Column="10" Style="{StaticResource ToolbarShieldButton}" ToolTip="YamaBlock" Click="BlockButton_Click">
           <Viewbox Width="23" Height="23">
             <Grid Width="24" Height="24">
               <Path Data="M12,2 L20,5 V10.6 C20,16.1 16.8,20 12,22 C7.2,20 4,16.1 4,10.6 V5 Z" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" StrokeThickness="2" Fill="Transparent" StrokeLineJoin="Round"/>
@@ -145,12 +272,121 @@
     </Border>
     <Grid x:Name="BrowserHost" Grid.Row="3" Background="{DynamicResource WindowBrush}"/>
     <Border Grid.Row="4" Background="{DynamicResource SurfaceBrush}" Padding="12,4"><DockPanel LastChildFill="False"><TextBlock x:Name="StatusText" DockPanel.Dock="Left" Foreground="{DynamicResource MutedBrush}"/><TextBlock x:Name="BlockedText" DockPanel.Dock="Right" Foreground="{DynamicResource AccentBrush}"/></DockPanel></Border>
-    <Border Grid.Column="1" Grid.RowSpan="5" x:Name="SidePanel" Background="#101A29" BorderBrush="#294465" BorderThickness="1,0,0,0" Visibility="Collapsed">
-      <Grid Margin="18"><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
-        <DockPanel><Image Source="pack://application:,,,/Assets/YamaSearch-brand.png" Width="220" Height="64" Stretch="Uniform" HorizontalAlignment="Left"/><Button Content="×" DockPanel.Dock="Right" Click="Menu_Click"/></DockPanel>
-        <StackPanel Grid.Row="1" Margin="0,24,0,14"><TextBlock Text="KNIHOVNA" Foreground="#7794B5" FontSize="11" FontWeight="SemiBold" Margin="9,0,0,6"/><Button Content="◈  YamaShield" Background="#182A43" HorizontalContentAlignment="Left" Click="ShieldButton_Click" Margin="0,2"/><Button Content="☆  Oblíbené" Background="#182A43" HorizontalContentAlignment="Left" Click="BookmarksPanel_Click" Margin="0,2"/><Button Content="◷  Historie" Background="#182A43" HorizontalContentAlignment="Left" Click="HistoryPanel_Click" Margin="0,2"/><Separator Margin="4,10" Background="#294465"/><TextBlock Text="DALŠÍ" Foreground="#7794B5" FontSize="11" FontWeight="SemiBold" Margin="9,0,0,6"/><Button Content="⇩  Stahování" HorizontalContentAlignment="Left" Click="DownloadsPanel_Click"/><Button Content="⚙  Nastavení" HorizontalContentAlignment="Left" Click="Settings_Click"/></StackPanel>
-        <ScrollViewer Grid.Row="2"><ScrollViewer.Resources><Style TargetType="ScrollBar"><Setter Property="Width" Value="10"/><Setter Property="Background" Value="#101A29"/><Setter Property="Template"><Setter.Value><ControlTemplate TargetType="ScrollBar"><Border Background="{TemplateBinding Background}" CornerRadius="5" Margin="2"><Track x:Name="PART_Track"><Track.Thumb><Thumb Background="#365272" BorderBrush="#4F7197" BorderThickness="1"/></Track.Thumb></Track></Border></ControlTemplate></Setter.Value></Setter></Style></ScrollViewer.Resources><StackPanel><TextBlock x:Name="PanelTitle" Foreground="#EAF3FF" FontWeight="SemiBold" FontSize="16"/><ItemsControl x:Name="PanelList" Margin="0,10,0,0"/></StackPanel></ScrollViewer>
-        <TextBlock Grid.Row="3" Text="Další funkce se budou přidávat sem." Foreground="#8FA4BE" TextWrapping="Wrap"/>
+    <Border Grid.Column="1" Grid.RowSpan="5" x:Name="SidePanel"
+            Background="#0B1624" BorderBrush="#15486D" BorderThickness="1,0,0,0"
+            Visibility="Collapsed">
+      <Grid Margin="20,18,14,14">
+        <Grid.RowDefinitions>
+          <RowDefinition Height="Auto"/>
+          <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <Grid Margin="0,0,0,10">
+          <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+          <Image Source="pack://application:,,,/Assets/YamaSearch-brand.png"
+                 Width="230" Height="66" Stretch="Uniform" HorizontalAlignment="Left"/>
+          <Button Grid.Column="1" Style="{StaticResource SideCloseButton}" Content="×" ToolTip="Zavřít menu" Click="Menu_Click" VerticalAlignment="Center"/>
+        </Grid>
+
+        <ScrollViewer x:Name="SidePanelScrollViewer" Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+          <ScrollViewer.Resources>
+            <Style TargetType="ScrollBar" BasedOn="{StaticResource SidePanelScrollBar}"/>
+          </ScrollViewer.Resources>
+          <StackPanel Margin="0,2,4,10">
+
+            <DockPanel Margin="4,4,0,5">
+              <TextBlock Text="RYCHLÉ AKCE" Style="{StaticResource SideSectionLabel}" Margin="0"/>
+              <Border Height="1" Background="#2B678E" Margin="14,8,0,0" DockPanel.Dock="Right" Width="205"/>
+            </DockPanel>
+
+            <Button Style="{StaticResource SideNavButton}" Click="NewTab_Click">
+              <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="32"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                <TextBlock Text="＋" Foreground="#42D8FF" FontSize="19" VerticalAlignment="Center"/>
+                <TextBlock Grid.Column="1" Text="Nová karta" VerticalAlignment="Center"/>
+                <TextBlock Grid.Column="2" Text="Ctrl+T" Foreground="#9EB8D4" VerticalAlignment="Center"/>
+              </Grid>
+            </Button>
+            <Button Style="{StaticResource SideNavButton}" Click="NewWindow_Click">
+              <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="32"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                <TextBlock Text="▣" Foreground="#42D8FF" FontSize="15" VerticalAlignment="Center"/>
+                <TextBlock Grid.Column="1" Text="Nové okno" VerticalAlignment="Center"/>
+                <TextBlock Grid.Column="2" Text="Ctrl+N" Foreground="#9EB8D4" VerticalAlignment="Center"/>
+              </Grid>
+            </Button>
+            <Button Style="{StaticResource SideNavButton}" Click="FindOnPage_Click">
+              <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="32"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                <TextBlock Text="⌕" Foreground="#42D8FF" FontSize="18" VerticalAlignment="Center"/>
+                <TextBlock Grid.Column="1" Text="Najít na stránce" VerticalAlignment="Center"/>
+                <TextBlock Grid.Column="2" Text="Ctrl+F" Foreground="#9EB8D4" VerticalAlignment="Center"/>
+              </Grid>
+            </Button>
+            <Button Style="{StaticResource SideNavButton}" Click="PrintPage_Click">
+              <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="32"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                <TextBlock Text="▤" Foreground="#42D8FF" FontSize="15" VerticalAlignment="Center"/>
+                <TextBlock Grid.Column="1" Text="Tisk" VerticalAlignment="Center"/>
+                <TextBlock Grid.Column="2" Text="Ctrl+P" Foreground="#9EB8D4" VerticalAlignment="Center"/>
+              </Grid>
+            </Button>
+
+            <DockPanel Margin="4,13,0,5">
+              <TextBlock Text="DALŠÍ NÁSTROJE" Style="{StaticResource SideSectionLabel}" Margin="0"/>
+              <Border Height="1" Background="#2B678E" Margin="14,8,0,0" DockPanel.Dock="Right" Width="180"/>
+            </DockPanel>
+
+            <Button Style="{StaticResource SideNavButton}" Click="CreateSiteApp_Click">
+              <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="32"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                <TextBlock Text="⊞" Foreground="#42D8FF" FontSize="18" VerticalAlignment="Center"/>
+                <TextBlock Grid.Column="1" Text="Vytvořit aplikaci této stránky" VerticalAlignment="Center"/>
+              </Grid>
+            </Button>
+            <Button Style="{StaticResource SideNavButton}" Click="DownloadsPanel_Click">
+              <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="32"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                <TextBlock Text="⇩" Foreground="#42D8FF" FontSize="19" VerticalAlignment="Center"/>
+                <TextBlock Grid.Column="1" Text="Stahování" VerticalAlignment="Center"/>
+              </Grid>
+            </Button>
+            <Button Style="{StaticResource SideNavButton}" Click="Settings_Click">
+              <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="32"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                <TextBlock Text="⚙" Foreground="#42D8FF" FontSize="17" VerticalAlignment="Center"/>
+                <TextBlock Grid.Column="1" Text="Nastavení" VerticalAlignment="Center"/>
+              </Grid>
+            </Button>
+
+            <DockPanel Margin="4,13,0,5">
+              <TextBlock Text="KNIHOVNA" Style="{StaticResource SideSectionLabel}" Margin="0"/>
+              <Border Height="1" Background="#2B678E" Margin="14,8,0,0" DockPanel.Dock="Right" Width="230"/>
+            </DockPanel>
+
+            <Button Style="{StaticResource SideLibraryButton}" Click="ShieldButton_Click">
+              <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="32"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                <TextBlock Text="◈" Foreground="#55E3FF" FontSize="17" VerticalAlignment="Center"/>
+                <TextBlock Grid.Column="1" Text="YamaShield" VerticalAlignment="Center"/>
+                <TextBlock Grid.Column="2" Text="›" Foreground="#BBD4EC" FontSize="20" VerticalAlignment="Center"/>
+              </Grid>
+            </Button>
+            <Button Style="{StaticResource SideLibraryButton}" Click="BookmarksPanel_Click">
+              <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="32"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                <TextBlock Text="☆" Foreground="#55E3FF" FontSize="18" VerticalAlignment="Center"/>
+                <TextBlock Grid.Column="1" Text="Oblíbené" VerticalAlignment="Center"/>
+                <TextBlock Grid.Column="2" Text="›" Foreground="#BBD4EC" FontSize="20" VerticalAlignment="Center"/>
+              </Grid>
+            </Button>
+            <Button Style="{StaticResource SideLibraryButton}" Click="HistoryPanel_Click">
+              <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="32"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                <TextBlock Text="◷" Foreground="#55E3FF" FontSize="18" VerticalAlignment="Center"/>
+                <TextBlock Grid.Column="1" Text="Historie" VerticalAlignment="Center"/>
+                <TextBlock Grid.Column="2" Text="›" Foreground="#BBD4EC" FontSize="20" VerticalAlignment="Center"/>
+              </Grid>
+            </Button>
+
+            <Border Height="1" Background="#2B678E" Margin="4,16,0,14"/>
+
+            <DockPanel Margin="4,0,0,7">
+              <TextBlock x:Name="PanelTitle" Foreground="#F1F7FF" FontWeight="SemiBold" FontSize="19"/>
+            </DockPanel>
+            <ItemsControl x:Name="PanelList" Margin="0,2,0,6"/>
+          </StackPanel>
+        </ScrollViewer>
       </Grid>
     </Border>
   </Grid>
