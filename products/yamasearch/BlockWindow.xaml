@@ -3,7 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="YamaBlock"
         Icon="pack://application:,,,/Assets/YamaSearch.ico"
-        Width="570" Height="670" MinWidth="540" MinHeight="630"
+        Width="620" Height="760" MinWidth="580" MinHeight="700"
         ResizeMode="NoResize" WindowStartupLocation="CenterOwner"
         Background="#0B101A" Foreground="#EAF3FF">
   <Grid Margin="26">
@@ -58,6 +58,22 @@
         <CheckBox x:Name="AllowCurrentSite" Content="Povolit reklamy a trackery na tomto webu"
                   Foreground="#EAF3FF" Margin="0,10,0,4"/>
         <TextBlock x:Name="CurrentHostText" Foreground="#8FA4BE" FontSize="11" Margin="24,0,4,0"/>
+
+        <Border Height="1" Background="#294465" Margin="0,18,0,14"/>
+
+        <DockPanel Margin="0,0,0,8">
+          <StackPanel>
+            <TextBlock Text="Přehled blokování" FontSize="17" FontWeight="SemiBold"/>
+            <TextBlock x:Name="LogSummary" Foreground="#8FA4BE" FontSize="11" Margin="0,3,0,0"/>
+          </StackPanel>
+          <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+            <Button Content="Obnovit" Click="RefreshLog_Click" Padding="10,5" Margin="4,0"/>
+            <Button Content="Vymazat log" Click="ClearLog_Click" Padding="10,5" Margin="4,0"/>
+          </StackPanel>
+        </DockPanel>
+        <TextBlock Text="Zobrazuje jen relevantní reklamní / YouTube požadavky, aby log nezpomaloval prohlížení."
+                   Foreground="#8FA4BE" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,8"/>
+        <ListBox x:Name="LogList" Height="235" Background="#0E1725" BorderBrush="#294465" BorderThickness="1"/>
       </StackPanel>
     </ScrollViewer>
 
