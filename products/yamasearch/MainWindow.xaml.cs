@@ -264,8 +264,12 @@ public partial class MainWindow : Window
         {
             _tabs.Remove(tab);
             tab.View.Dispose();
-            StatusText.Text = "WebView2 se nepodařilo spustit: " + exception.Message;
-            MessageBox.Show("YamaSearch potřebuje Microsoft Edge WebView2 Runtime.\n\n" + exception.Message, "YamaSearch", MessageBoxButton.OK, MessageBoxImage.Error);
+            StatusText.Text = "Novou kartu se nepodařilo otevřít: " + exception.Message;
+            MessageBox.Show(
+                "YamaSearch nemohl otevřít novou kartu.\n\n" + exception.Message,
+                "YamaSearch",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
         }
     }
 
@@ -1460,9 +1464,7 @@ public partial class MainWindow : Window
     {
         var assetFolder = Path.Combine(AppContext.BaseDirectory, "Assets");
         var brandPath = Path.Combine(assetFolder, "YamaSearch-brand.png");
-        var symbolPath = Path.Combine(assetFolder, "YamaSearch-symbol-64.png");
         var brand = File.Exists(brandPath) ? Convert.ToBase64String(File.ReadAllBytes(brandPath)) : "";
-        var symbol = File.Exists(symbolPath) ? Convert.ToBase64String(File.ReadAllBytes(symbolPath)) : brand;
 
         var favorites = _settings.Data.Bookmarks.Take(12).Select(url =>
         {
@@ -1489,7 +1491,7 @@ public partial class MainWindow : Window
             var safeLabel = System.Net.WebUtility.HtmlEncode(label);
             var safeHost = System.Net.WebUtility.HtmlEncode(page.Host);
             var safeFavicon = System.Net.WebUtility.HtmlEncode(faviconUrl);
-            return $"<div class='favorite-card' data-url='{safeUrl}' title='{safeHost}'><button class='favorite-remove' type='button' title='Odebrat z oblíbených' onclick='removeFavorite(event,this)'>×</button><a class='favorite-main' href='{safeUrl}'><span class='favorite-icon'><img src='{safeFavicon}' alt='' onerror=\"this.onerror=null;this.src='data:image/png;base64,{symbol}'\"></span><span class='favorite-name'>{safeLabel}</span><span class='favorite-host'>{safeHost}</span></a></div>";
+            return $"<div class='favorite-card' data-url='{safeUrl}' title='{safeHost}'><button class='favorite-remove' type='button' title='Odebrat z oblíbených' onclick='removeFavorite(event,this)'>×</button><a class='favorite-main' href='{safeUrl}'><span class='favorite-icon'><span class='favorite-fallback'>✦</span><img src='{safeFavicon}' alt='' onload=\"this.previousElementSibling.style.display='none'\" onerror=\"this.style.display='none'\"></span><span class='favorite-name'>{safeLabel}</span><span class='favorite-host'>{safeHost}</span></a></div>";
         }).Where(x => !string.IsNullOrWhiteSpace(x)).ToList();
 
         var favoriteContent = favorites.Count > 0
@@ -1531,7 +1533,9 @@ public partial class MainWindow : Window
             .favorite-card:hover .favorite-remove{{opacity:1}}
             .favorite-remove:hover{{background:#5a263c;border-color:#d85a7b}}
             .favorite-icon{{width:42px;height:42px;border-radius:11px;background:#0d1727;border:1px solid #2d4667;display:grid;place-items:center;margin-bottom:10px;overflow:hidden}}
-            .favorite-icon img{{width:28px;height:28px;object-fit:contain}}
+            .favorite-icon{{position:relative}}
+            .favorite-fallback{{position:absolute;inset:0;display:grid;place-items:center;color:#54d7f8;font-size:22px;text-shadow:0 0 10px #23c9f566}}
+            .favorite-icon img{{position:relative;z-index:1;width:28px;height:28px;object-fit:contain}}
             .favorite-name{{font-weight:650;font-size:14px;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}}
             .favorite-host{{font-size:11px;color:#8fa4be;margin-top:4px;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}}
             .favorites-empty{{grid-column:1/-1;border:1px dashed #294465;border-radius:14px;padding:22px;color:#8fa4be;text-align:center;background:#101a2912}}
