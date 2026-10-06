@@ -23,7 +23,10 @@ for(const marker of [
   "table:'direct_thread_members',filter:'user_id=eq.'+uid",
   "String(user?.id||'')!==uid",
   "filter:'channel_id=eq.'+id",
-  'yc-win-notify-targeted-'
+  'yc-win-notify-targeted-',
+  'ycYamaSearchWindowsLogin',
+  'YamaSearch-Portable-latest.zip',
+  'YamaSearch-Setup-latest.exe'
 ]) assert(client.includes(marker),'Generated Windows client missing marker: '+marker);
 
 assert(!client.includes("addEventListener('change',ycStopMicTest)"),'Windows mic setting change still stops active mic test');
