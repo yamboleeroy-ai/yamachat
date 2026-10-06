@@ -432,7 +432,7 @@ public partial class MainWindow : Window
     private void Back_Click(object sender, RoutedEventArgs e) { if (_active?.View.CoreWebView2.CanGoBack == true) _active.View.CoreWebView2.GoBack(); }
     private void Forward_Click(object sender, RoutedEventArgs e) { if (_active?.View.CoreWebView2.CanGoForward == true) _active.View.CoreWebView2.GoForward(); }
     private void Reload_Click(object sender, RoutedEventArgs e) => _active?.View.CoreWebView2.Reload();
-    private void AddressBox_KeyDown(object sender, KeyEventArgs e)
+    private void AddressBox_PreviewKeyDown(object sender, KeyEventArgs e)
     {
         if (e.Key is Key.Down or Key.Up)
         {
@@ -449,9 +449,11 @@ public partial class MainWindow : Window
             AddressSuggestions.IsOpen = false;
             _addressSuggestionIndex = -1;
             e.Handled = true;
-            return;
         }
+    }
 
+    private void AddressBox_KeyDown(object sender, KeyEventArgs e)
+    {
         if (e.Key != Key.Enter || _active == null) return;
 
         var buttons = AddressSuggestionList.Children.OfType<Button>().ToList();
