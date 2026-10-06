@@ -100,6 +100,32 @@
       <Setter Property="BorderBrush" Value="#245A84"/>
     </Style>
 
+    <Style x:Key="SideContentButton" TargetType="Button">
+      <Setter Property="MinHeight" Value="54"/>
+      <Setter Property="Margin" Value="0,3"/>
+      <Setter Property="Padding" Value="10,7"/>
+      <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+      <Setter Property="Background" Value="#10233B"/>
+      <Setter Property="BorderBrush" Value="#1E527C"/>
+      <Setter Property="BorderThickness" Value="1"/>
+      <Setter Property="Foreground" Value="#F4F8FF"/>
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="Button">
+            <Border x:Name="ContentCardBorder" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="9" Padding="{TemplateBinding Padding}">
+              <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}" VerticalAlignment="Center"/>
+            </Border>
+            <ControlTemplate.Triggers>
+              <Trigger Property="IsMouseOver" Value="True">
+                <Setter TargetName="ContentCardBorder" Property="Background" Value="#173A5A"/>
+                <Setter TargetName="ContentCardBorder" Property="BorderBrush" Value="#2EAEE3"/>
+              </Trigger>
+            </ControlTemplate.Triggers>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+
     <Style x:Key="SideDangerButton" TargetType="Button">
       <Setter Property="Height" Value="42"/>
       <Setter Property="Margin" Value="0,4,0,10"/>
