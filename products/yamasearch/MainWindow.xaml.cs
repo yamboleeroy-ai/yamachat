@@ -31,7 +31,13 @@ public partial class MainWindow : Window
     {
         InitializeComponent();
         SourceInitialized += (_, _) => SetDarkWindowBorder();
-        ApplyTheme(_settings.Data.Theme);
+        if (!_settings.Data.Theme.Equals("dark", StringComparison.OrdinalIgnoreCase))
+        {
+            _settings.Data.Theme = "dark";
+            _settings.Save();
+        }
+        ApplyTheme("dark");
+        UpdateShieldButton();
         UpdateBlockButton();
         KeyDown += MainWindow_KeyDown;
     }
@@ -510,35 +516,49 @@ public partial class MainWindow : Window
         StatusText.Text = $"YamaBlock: {next.ToLabel()} (uloženo pro příští spuštění)";
     }
 
+    private void UpdateShieldButton()
+    {
+        var level = _settings.Data.SecurityLevel;
+        var label = level switch
+        {
+            SecurityLevel.Strict => "Přísná",
+            SecurityLevel.Custom => "Vlastní",
+            _ => "Doporučená"
+        };
+        ShieldButton.ToolTip = $"YamaShield · {label} — kliknutím zobrazíš nastavení";
+        ShieldButton.Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString(level switch
+        {
+            SecurityLevel.Strict => "#67E8F9",
+            SecurityLevel.Custom => "#A78BFA",
+            _ => "#54D7F8"
+        }));
+        ShieldButton.Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#10243A"));
+        ShieldButton.BorderBrush = new SolidColorBrush((Color)ColorConverter.ConvertFromString(level == SecurityLevel.Custom ? "#7654D6" : "#2F7EAA"));
+    }
+
     private void UpdateBlockButton()
     {
         var mode = _settings.Data.BlockMode;
-        BlockButton.Content = mode switch
-        {
-            BlockMode.Strict => "◆  YamaBlock · Přísný",
-            BlockMode.Off => "○  YamaBlock · Vypnuto",
-            _ => "●  YamaBlock · Standard"
-        };
+        BlockButton.ToolTip = $"YamaBlock · {mode.ToLabel()} — kliknutím přepneš režim";
         BlockButton.Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString(mode switch
         {
-            BlockMode.Strict => "#5B2A18",
+            BlockMode.Strict => "#3B2811",
             BlockMode.Off => "#202B3B",
-            _ => "#0C4051"
+            _ => "#2B2410"
         }));
         BlockButton.BorderBrush = new SolidColorBrush((Color)ColorConverter.ConvertFromString(mode switch
         {
             BlockMode.Strict => "#F59E0B",
             BlockMode.Off => "#52657F",
-            _ => "#22D3EE"
+            _ => "#B98215"
         }));
         BlockButton.BorderThickness = new Thickness(1);
         BlockButton.Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString(mode switch
         {
-            BlockMode.Strict => "#FCD34D",
-            BlockMode.Off => "#B7C4D6",
-            _ => "#A5F3FC"
+            BlockMode.Strict => "#FBBF24",
+            BlockMode.Off => "#8FA4BE",
+            _ => "#FCD34D"
         }));
-        BlockButton.FontWeight = FontWeights.SemiBold;
     }
     private void ShieldButton_Click(object sender, RoutedEventArgs e)
     {
@@ -552,8 +572,9 @@ public partial class MainWindow : Window
                 tab.View.CoreWebView2.Settings.IsReputationCheckingRequired = _settings.Data.EnableSmartScreen;
                 tab.View.CoreWebView2.Settings.IsPasswordAutosaveEnabled = _settings.Data.OfferPasswordSave;
             }
+            UpdateShieldButton();
             UpdateBlockButton();
-            StatusText.Text = "Nastavení YamaShield bylo uloženo";
+            StatusText.Text = $"YamaShield: {(_settings.Data.SecurityLevel == SecurityLevel.Strict ? "Přísná" : _settings.Data.SecurityLevel == SecurityLevel.Custom ? "Vlastní" : "Doporučená")}";
         }
     }
     private void HandlePermissionRequest(CoreWebView2PermissionRequestedEventArgs e)
@@ -564,12 +585,7 @@ public partial class MainWindow : Window
         var answer = MessageBox.Show($"{e.Uri} chce použít {label}.\n\nPovolit pouze pro toto rozhodnutí?", "YamaShield", MessageBoxButton.YesNo, MessageBoxImage.Question);
         e.State = answer == MessageBoxResult.Yes ? CoreWebView2PermissionState.Allow : CoreWebView2PermissionState.Deny;
     }
-    private void ThemeButton_Click(object sender, RoutedEventArgs e)
-    {
-        _settings.Data.Theme = _settings.Data.Theme.Equals("dark", StringComparison.OrdinalIgnoreCase) ? "light" : "dark";
-        ApplyTheme(_settings.Data.Theme); _settings.Save();
-        StatusText.Text = _settings.Data.Theme.Equals("dark") ? "Tmavý vzhled" : "Světlý vzhled";
-    }
+
     private void TitleBar_MouseDown(object sender, MouseButtonEventArgs e)
     {
         if (e.ChangedButton == MouseButton.Left && !IsInteractiveHeaderElement(e.OriginalSource as DependencyObject))
@@ -606,12 +622,11 @@ public partial class MainWindow : Window
     private void MainWindow_KeyDown(object sender, KeyEventArgs e) { if (Keyboard.Modifiers == ModifierKeys.Control && e.Key == Key.T) { _ = CreateTabAsync(); e.Handled = true; } if (Keyboard.Modifiers == ModifierKeys.Control && e.Key == Key.L) { AddressBox.Focus(); AddressBox.SelectAll(); e.Handled = true; } }
     private void ApplyTheme(string theme)
     {
-        bool light = theme.Equals("light", StringComparison.OrdinalIgnoreCase);
-        Resources["WindowBrush"] = new SolidColorBrush((Color)ColorConverter.ConvertFromString(light ? "#F5F8FC" : "#0B101A"));
-        Resources["SurfaceBrush"] = new SolidColorBrush((Color)ColorConverter.ConvertFromString(light ? "#FFFFFF" : "#121A27"));
-        Resources["SurfaceRaisedBrush"] = new SolidColorBrush((Color)ColorConverter.ConvertFromString(light ? "#EAF0F8" : "#192437"));
-        Resources["TextBrush"] = new SolidColorBrush((Color)ColorConverter.ConvertFromString(light ? "#10213B" : "#EAF3FF"));
-        Resources["MutedBrush"] = new SolidColorBrush((Color)ColorConverter.ConvertFromString(light ? "#52657B" : "#96A7BD"));
+        Resources["WindowBrush"] = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#0B101A"));
+        Resources["SurfaceBrush"] = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#121A27"));
+        Resources["SurfaceRaisedBrush"] = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#192437"));
+        Resources["TextBrush"] = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#EAF3FF"));
+        Resources["MutedBrush"] = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#96A7BD"));
     }
     private void SetDarkWindowBorder()
     {
