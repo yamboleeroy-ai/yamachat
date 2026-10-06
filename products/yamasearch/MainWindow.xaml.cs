@@ -1653,6 +1653,8 @@ public partial class MainWindow : Window
         WindowState = WindowState.Normal;
         _customMaximized = true;
         Topmost = false;
+        ResizeMode = ResizeMode.NoResize;
+        AppWindowChrome.ResizeBorderThickness = new Thickness(0);
         ApplyMonitorBounds(useWorkingArea: true);
     }
 
@@ -1661,6 +1663,8 @@ public partial class MainWindow : Window
         _customMaximized = false;
         WindowState = WindowState.Normal;
         Topmost = false;
+        ResizeMode = ResizeMode.CanResize;
+        AppWindowChrome.ResizeBorderThickness = new Thickness(6);
 
         if (_restoreWindowBounds.Width > 0 && _restoreWindowBounds.Height > 0)
         {
@@ -1698,13 +1702,17 @@ public partial class MainWindow : Window
             rows[4].Height = new GridLength(0);
 
             WindowState = WindowState.Normal;
+            ResizeMode = ResizeMode.NoResize;
+            AppWindowChrome.ResizeBorderThickness = new Thickness(0);
             Topmost = true;
-            ApplyMonitorBounds(useWorkingArea: false);
+            ApplyMonitorBounds(useWorkingArea: false, forceTopmost: true);
         }
         else
         {
             _videoFullScreen = false;
             Topmost = false;
+            ResizeMode = ResizeMode.CanResize;
+            AppWindowChrome.ResizeBorderThickness = new Thickness(6);
             rows[0].Height = new GridLength(60);
             rows[1].Height = new GridLength(64);
             rows[2].Height = GridLength.Auto;
@@ -1733,7 +1741,7 @@ public partial class MainWindow : Window
         }
     }
 
-    private void ApplyMonitorBounds(bool useWorkingArea)
+    private void ApplyMonitorBounds(bool useWorkingArea, bool forceTopmost = false)
     {
         var handle = new System.Windows.Interop.WindowInteropHelper(this).Handle;
         if (handle == IntPtr.Zero) return;
@@ -1749,15 +1757,17 @@ public partial class MainWindow : Window
         const uint SwpNoZOrder = 0x0004;
         const uint SwpNoActivate = 0x0010;
         const uint SwpFrameChanged = 0x0020;
+        var insertAfter = forceTopmost ? new IntPtr(-1) : IntPtr.Zero; // HWND_TOPMOST
+        var flags = SwpNoActivate | SwpFrameChanged | (forceTopmost ? 0u : SwpNoZOrder);
 
         SetWindowPos(
             handle,
-            IntPtr.Zero,
+            insertAfter,
             rect.Left,
             rect.Top,
             rect.Right - rect.Left,
             rect.Bottom - rect.Top,
-            SwpNoZOrder | SwpNoActivate | SwpFrameChanged);
+            flags);
     }
 
     private void Minimize_Click(object sender, RoutedEventArgs e) => WindowState = WindowState.Minimized;
