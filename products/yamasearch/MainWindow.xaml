@@ -1,5 +1,28 @@
 <Window x:Class="YamaSearch.MainWindow" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" Title="YamaSearch" Icon="pack://application:,,,/Assets/YamaSearch.ico" Width="1440" Height="920" MinWidth="960" MinHeight="650" Background="{DynamicResource WindowBrush}" WindowStyle="None" ResizeMode="CanResize" Loaded="Window_Loaded">
   <Window.Resources>
+    <Style x:Key="ToolbarShieldButton" TargetType="Button">
+      <Setter Property="Width" Value="40"/>
+      <Setter Property="Height" Value="40"/>
+      <Setter Property="Margin" Value="4,0"/>
+      <Setter Property="Padding" Value="8"/>
+      <Setter Property="Background" Value="#142238"/>
+      <Setter Property="BorderBrush" Value="#31537D"/>
+      <Setter Property="BorderThickness" Value="1"/>
+      <Setter Property="Foreground" Value="#7DDFFF"/>
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="Button">
+            <Border x:Name="ShieldBorder" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="10" Padding="{TemplateBinding Padding}">
+              <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+            </Border>
+            <ControlTemplate.Triggers>
+              <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="ShieldBorder" Property="Background" Value="#1B304B"/></Trigger>
+              <Trigger Property="IsPressed" Value="True"><Setter TargetName="ShieldBorder" Property="Opacity" Value=".82"/></Trigger>
+            </ControlTemplate.Triggers>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
     <Style x:Key="DarkTabMenuItem" TargetType="MenuItem">
       <Setter Property="Foreground" Value="#EAF3FF"/><Setter Property="Background" Value="#101D30"/>
       <Setter Property="Padding" Value="13,9"/><Setter Property="Template">
@@ -21,14 +44,27 @@
       </Grid>
     </Grid>
     <Border Grid.Row="1" Background="#0E1726" BorderBrush="#253A57" BorderThickness="0,1,0,1" Padding="14,10">
-      <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+      <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
         <Button Grid.Column="0" Content="←" FontSize="18" Click="Back_Click"/><Button Grid.Column="1" Content="→" FontSize="18" Click="Forward_Click"/><Button x:Name="ReloadButton" Grid.Column="2" Content="↻" FontSize="18" Click="Reload_Click"/>
         <Grid Grid.Column="3" Margin="8,0"><TextBox x:Name="AddressBox" VerticalContentAlignment="Center" KeyDown="AddressBox_KeyDown" TextChanged="AddressBox_TextChanged" ToolTip="Zadejte adresu nebo vyhledávání"/><Popup x:Name="AddressSuggestions" Placement="Bottom" PlacementTarget="{Binding ElementName=AddressBox}" StaysOpen="False" AllowsTransparency="True"><Border Background="#16243A" BorderBrush="#31537D" BorderThickness="1" CornerRadius="0,0,10,10" Width="600" Padding="6"><StackPanel x:Name="AddressSuggestionList"/></Border></Popup></Grid>
         <Button Grid.Column="4" Content="Přejít" Click="Go_Click"/>
         <Button Grid.Column="5" Content="☆" FontSize="18" ToolTip="Přidat záložku" Click="Bookmark_Click"/>
-        <Button x:Name="ShieldButton" Grid.Column="6" Content="◈ YamaShield" ToolTip="Stav bezpečnosti a nastavení ochrany" Click="ShieldButton_Click"/>
-        <Button Grid.Column="7" Content="☾" FontSize="18" ToolTip="Přepnout tmavý / světlý vzhled" Click="ThemeButton_Click"/>
-        <Button x:Name="BlockButton" Grid.Column="8" Content="YamaBlock · Standard" ToolTip="Ochrana pro aktuální stránku" Click="BlockButton_Click"/>
+        <Button x:Name="ShieldButton" Grid.Column="6" Style="{StaticResource ToolbarShieldButton}" ToolTip="YamaShield" Click="ShieldButton_Click">
+          <Viewbox Width="23" Height="23">
+            <Grid Width="24" Height="24">
+              <Path Data="M12,2 L20,5 V10.6 C20,16.1 16.8,20 12,22 C7.2,20 4,16.1 4,10.6 V5 Z" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" StrokeThickness="2" Fill="Transparent" StrokeLineJoin="Round"/>
+              <Path Data="M8.8,11.9 L11,14.1 L15.7,9.4" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" StrokeThickness="2" Fill="Transparent" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
+            </Grid>
+          </Viewbox>
+        </Button>
+        <Button x:Name="BlockButton" Grid.Column="7" Style="{StaticResource ToolbarShieldButton}" ToolTip="YamaBlock" Click="BlockButton_Click">
+          <Viewbox Width="23" Height="23">
+            <Grid Width="24" Height="24">
+              <Path Data="M12,2 L20,5 V10.6 C20,16.1 16.8,20 12,22 C7.2,20 4,16.1 4,10.6 V5 Z" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" StrokeThickness="2" Fill="Transparent" StrokeLineJoin="Round"/>
+              <Path Data="M12,7 L16,11 L12,15 L8,11 Z" Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"/>
+            </Grid>
+          </Viewbox>
+        </Button>
       </Grid>
     </Border>
     <Grid x:Name="BrowserHost" Grid.Row="2" Background="{DynamicResource WindowBrush}"/>
