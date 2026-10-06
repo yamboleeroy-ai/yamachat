@@ -14,7 +14,7 @@
         <RowDefinition Height="Auto"/>
       </Grid.RowDefinitions>
 
-      <Grid Margin="0,0,0,16">
+      <Grid Margin="0,0,0,16" MouseLeftButtonDown="TitleBar_MouseLeftButtonDown">
         <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
         <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
           <TextBlock Text="◷" FontSize="28" Foreground="#42D8FF" Margin="0,0,12,0"/>
