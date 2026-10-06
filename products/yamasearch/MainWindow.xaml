@@ -44,12 +44,34 @@
       </Grid>
     </Grid>
     <Border Grid.Row="1" Background="#0E1726" BorderBrush="#253A57" BorderThickness="0,1,0,1" Padding="14,10">
-      <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+      <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
         <Button Grid.Column="0" Content="←" FontSize="18" Click="Back_Click"/><Button Grid.Column="1" Content="→" FontSize="18" Click="Forward_Click"/><Button x:Name="ReloadButton" Grid.Column="2" Content="↻" FontSize="18" Click="Reload_Click"/>
         <Grid Grid.Column="3" Margin="8,0"><TextBox x:Name="AddressBox" VerticalContentAlignment="Center" KeyDown="AddressBox_KeyDown" TextChanged="AddressBox_TextChanged" GotKeyboardFocus="AddressBox_GotKeyboardFocus" PreviewMouseLeftButtonDown="AddressBox_PreviewMouseLeftButtonDown" ToolTip="Zadejte adresu nebo vyhledávání"/><Popup x:Name="AddressSuggestions" Placement="Bottom" PlacementTarget="{Binding ElementName=AddressBox}" StaysOpen="False" AllowsTransparency="True"><Border Background="#16243A" BorderBrush="#31537D" BorderThickness="1" CornerRadius="0,0,10,10" Width="600" Padding="6"><StackPanel x:Name="AddressSuggestionList"/></Border></Popup></Grid>
         <Button Grid.Column="4" Content="Přejít" Click="Go_Click"/>
         <Button Grid.Column="5" Content="☆" FontSize="18" ToolTip="Přidat záložku" Click="Bookmark_Click"/>
-        <Button x:Name="ShieldButton" Grid.Column="6" Style="{StaticResource ToolbarShieldButton}" ToolTip="YamaShield" Click="ShieldButton_Click">
+
+        <Button x:Name="HistoryQuickButton" Grid.Column="6" Style="{StaticResource ToolbarShieldButton}" ToolTip="Historie" Click="HistoryQuickButton_Click">
+          <Viewbox Width="23" Height="23">
+            <Grid Width="24" Height="24">
+              <Ellipse Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" StrokeThickness="2" Margin="2"/>
+              <Path Data="M12,6 L12,12 L16,14" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" StrokeThickness="2" Fill="Transparent" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
+            </Grid>
+          </Viewbox>
+        </Button>
+
+        <Button x:Name="DownloadButton" Grid.Column="7" Style="{StaticResource ToolbarShieldButton}" ToolTip="Stahování" Click="DownloadButton_Click">
+          <Grid Width="24" Height="24" ClipToBounds="True">
+            <Border x:Name="DownloadProgressFill" Height="0" VerticalAlignment="Bottom" Background="#2358D8A8" CornerRadius="4" Opacity=".8"/>
+            <Viewbox x:Name="DownloadArrowIcon" Width="23" Height="23">
+              <Grid Width="24" Height="24">
+                <Path Data="M12,3 L12,15 M7.5,11 L12,15.5 L16.5,11 M5,20 L19,20" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" StrokeThickness="2" Fill="Transparent" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
+              </Grid>
+            </Viewbox>
+            <TextBlock x:Name="DownloadCheckMark" Text="✓" FontSize="22" FontWeight="Bold" Foreground="#4ADE80" HorizontalAlignment="Center" VerticalAlignment="Center" Visibility="Collapsed"/>
+          </Grid>
+        </Button>
+
+        <Button x:Name="ShieldButton" Grid.Column="8" Style="{StaticResource ToolbarShieldButton}" ToolTip="YamaShield" Click="ShieldButton_Click">
           <Viewbox Width="23" Height="23">
             <Grid Width="24" Height="24">
               <Path Data="M12,2 L20,5 V10.6 C20,16.1 16.8,20 12,22 C7.2,20 4,16.1 4,10.6 V5 Z" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" StrokeThickness="2" Fill="Transparent" StrokeLineJoin="Round"/>
@@ -57,7 +79,7 @@
             </Grid>
           </Viewbox>
         </Button>
-        <Button x:Name="BlockButton" Grid.Column="7" Style="{StaticResource ToolbarShieldButton}" ToolTip="YamaBlock" Click="BlockButton_Click">
+        <Button x:Name="BlockButton" Grid.Column="9" Style="{StaticResource ToolbarShieldButton}" ToolTip="YamaBlock" Click="BlockButton_Click">
           <Viewbox Width="23" Height="23">
             <Grid Width="24" Height="24">
               <Path Data="M12,2 L20,5 V10.6 C20,16.1 16.8,20 12,22 C7.2,20 4,16.1 4,10.6 V5 Z" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" StrokeThickness="2" Fill="Transparent" StrokeLineJoin="Round"/>
@@ -65,6 +87,26 @@
             </Grid>
           </Viewbox>
         </Button>
+
+        <Popup x:Name="HistoryQuickPopup" Placement="Bottom" PlacementTarget="{Binding ElementName=HistoryQuickButton}" StaysOpen="False" AllowsTransparency="True">
+          <Border Background="#101A29" BorderBrush="#31537D" BorderThickness="1" CornerRadius="12" Width="390" Padding="12" Margin="0,6,0,0">
+            <StackPanel>
+              <DockPanel Margin="2,0,2,8"><TextBlock Text="Historie" FontSize="16" FontWeight="SemiBold" Foreground="#EAF3FF"/><TextBlock Text="poslední návštěvy" DockPanel.Dock="Right" Foreground="#7794B5" FontSize="11" VerticalAlignment="Center"/></DockPanel>
+              <StackPanel x:Name="HistoryQuickList"/>
+              <Button Content="Zobrazit vše" HorizontalContentAlignment="Center" Margin="0,10,0,0" Background="#182A43" Click="ShowAllHistory_Click"/>
+            </StackPanel>
+          </Border>
+        </Popup>
+
+        <Popup x:Name="DownloadPopup" Placement="Bottom" PlacementTarget="{Binding ElementName=DownloadButton}" StaysOpen="False" AllowsTransparency="True">
+          <Border Background="#101A29" BorderBrush="#31537D" BorderThickness="1" CornerRadius="12" Width="410" Padding="12" Margin="0,6,0,0">
+            <StackPanel>
+              <DockPanel Margin="2,0,2,8"><TextBlock Text="Stahování" FontSize="16" FontWeight="SemiBold" Foreground="#EAF3FF"/><TextBlock x:Name="DownloadPopupStatus" DockPanel.Dock="Right" Foreground="#7794B5" FontSize="11" VerticalAlignment="Center"/></DockPanel>
+              <StackPanel x:Name="DownloadQuickList"/>
+              <Button Content="Zobrazit vše" HorizontalContentAlignment="Center" Margin="0,10,0,0" Background="#182A43" Click="ShowAllDownloads_Click"/>
+            </StackPanel>
+          </Border>
+        </Popup>
       </Grid>
     </Border>
     <Grid x:Name="BrowserHost" Grid.Row="2" Background="{DynamicResource WindowBrush}"/>
@@ -72,7 +114,7 @@
     <Border Grid.Column="1" Grid.RowSpan="4" x:Name="SidePanel" Background="#101A29" BorderBrush="#294465" BorderThickness="1,0,0,0" Visibility="Collapsed">
       <Grid Margin="18"><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
         <DockPanel><Image Source="pack://application:,,,/Assets/YamaSearch-brand.png" Width="220" Height="64" Stretch="Uniform" HorizontalAlignment="Left"/><Button Content="×" DockPanel.Dock="Right" Click="Menu_Click"/></DockPanel>
-        <StackPanel Grid.Row="1" Margin="0,24,0,14"><TextBlock Text="KNIHOVNA" Foreground="#7794B5" FontSize="11" FontWeight="SemiBold" Margin="9,0,0,6"/><Button Content="◈  YamaShield" Background="#182A43" HorizontalContentAlignment="Left" Click="ShieldButton_Click" Margin="0,2"/><Button Content="☆  Oblíbené" Background="#182A43" HorizontalContentAlignment="Left" Click="BookmarksPanel_Click" Margin="0,2"/><Button Content="◷  Historie" Background="#182A43" HorizontalContentAlignment="Left" Click="HistoryPanel_Click" Margin="0,2"/><Separator Margin="4,10" Background="#294465"/><TextBlock Text="DALŠÍ" Foreground="#7794B5" FontSize="11" FontWeight="SemiBold" Margin="9,0,0,6"/><Button Content="⇩  Stahování" HorizontalContentAlignment="Left" IsEnabled="False"/><Button Content="⚙  Nastavení" HorizontalContentAlignment="Left" Click="Settings_Click"/></StackPanel>
+        <StackPanel Grid.Row="1" Margin="0,24,0,14"><TextBlock Text="KNIHOVNA" Foreground="#7794B5" FontSize="11" FontWeight="SemiBold" Margin="9,0,0,6"/><Button Content="◈  YamaShield" Background="#182A43" HorizontalContentAlignment="Left" Click="ShieldButton_Click" Margin="0,2"/><Button Content="☆  Oblíbené" Background="#182A43" HorizontalContentAlignment="Left" Click="BookmarksPanel_Click" Margin="0,2"/><Button Content="◷  Historie" Background="#182A43" HorizontalContentAlignment="Left" Click="HistoryPanel_Click" Margin="0,2"/><Separator Margin="4,10" Background="#294465"/><TextBlock Text="DALŠÍ" Foreground="#7794B5" FontSize="11" FontWeight="SemiBold" Margin="9,0,0,6"/><Button Content="⇩  Stahování" HorizontalContentAlignment="Left" Click="DownloadsPanel_Click"/><Button Content="⚙  Nastavení" HorizontalContentAlignment="Left" Click="Settings_Click"/></StackPanel>
         <ScrollViewer Grid.Row="2"><ScrollViewer.Resources><Style TargetType="ScrollBar"><Setter Property="Width" Value="10"/><Setter Property="Background" Value="#101A29"/><Setter Property="Template"><Setter.Value><ControlTemplate TargetType="ScrollBar"><Border Background="{TemplateBinding Background}" CornerRadius="5" Margin="2"><Track x:Name="PART_Track"><Track.Thumb><Thumb Background="#365272" BorderBrush="#4F7197" BorderThickness="1"/></Track.Thumb></Track></Border></ControlTemplate></Setter.Value></Setter></Style></ScrollViewer.Resources><StackPanel><TextBlock x:Name="PanelTitle" Foreground="#EAF3FF" FontWeight="SemiBold" FontSize="16"/><ItemsControl x:Name="PanelList" Margin="0,10,0,0"/></StackPanel></ScrollViewer>
         <TextBlock Grid.Row="3" Text="Další funkce se budou přidávat sem." Foreground="#8FA4BE" TextWrapping="Wrap"/>
       </Grid>
