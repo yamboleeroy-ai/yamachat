@@ -109,7 +109,15 @@ public partial class MainWindow : Window
         core.AddWebResourceRequestedFilter("*", CoreWebView2WebResourceContext.All);
         core.WebResourceRequested += (_, e) => BlockRequest(tab, e);
         core.WebMessageReceived += (_, e) => HandleNewTabMessage(tab, e);
-        core.NavigationStarting += (_, _) => { if (_active == tab) StatusText.Text = "Načítání…"; };
+        core.NavigationStarting += (_, e) =>
+        {
+            if (Uri.TryCreate(e.Uri, UriKind.Absolute, out var destination) && destination.Scheme is "http" or "https")
+            {
+                tab.IsYamaNewTab = false;
+                if (_active == tab) SetAddressText(e.Uri);
+            }
+            if (_active == tab) StatusText.Text = "Načítání…";
+        };
         core.NavigationCompleted += (_, e) => { if (_active == tab) StatusText.Text = e.IsSuccess ? "Hotovo" : "Stránku se nepodařilo načíst"; UpdateTabTitle(tab); if (e.IsSuccess && Uri.TryCreate(core.Source, UriKind.Absolute, out var page) && page.Scheme is "http" or "https") AddHistory(core.Source, core.DocumentTitle, core.FaviconUri); };
         core.DocumentTitleChanged += (_, _) => UpdateTabTitle(tab);
         core.FaviconChanged += (_, _) => UpdateFavicon(tab);
