@@ -1,4 +1,4 @@
-<Application x:Class="YamaSearch.App" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" StartupUri="MainWindow.xaml">
+<Application x:Class="YamaSearch.App" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" Startup="Application_Startup">
   <Application.Resources>
     <SolidColorBrush x:Key="WindowBrush" Color="#0B101A"/>
     <SolidColorBrush x:Key="SurfaceBrush" Color="#121A27"/>
