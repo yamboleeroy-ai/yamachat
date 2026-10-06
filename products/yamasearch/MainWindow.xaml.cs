@@ -342,6 +342,28 @@ public partial class MainWindow : Window
         };
         core.DocumentTitleChanged += (_, _) => UpdateTabTitle(tab);
         core.FaviconChanged += (_, _) => UpdateFavicon(tab);
+
+        tab.IsPlayingAudio = core.IsDocumentPlayingAudio;
+        tab.IsMuted = core.IsMuted;
+
+        core.IsDocumentPlayingAudioChanged += (_, _) =>
+        {
+            Dispatcher.Invoke(() =>
+            {
+                tab.IsPlayingAudio = core.IsDocumentPlayingAudio;
+                RenderTabs();
+            });
+        };
+
+        core.IsMutedChanged += (_, _) =>
+        {
+            Dispatcher.Invoke(() =>
+            {
+                tab.IsMuted = core.IsMuted;
+                RenderTabs();
+            });
+        };
+
         core.ContainsFullScreenElementChanged += (_, _) => Dispatcher.Invoke(() => SetVideoFullScreen(core.ContainsFullScreenElement));
         core.SourceChanged += (_, _) => { UpdateTabTitle(tab); if (_active == tab) SetAddressText(tab.IsYamaNewTab ? "" : core.Source); };
         core.PermissionRequested += (_, e) => HandlePermissionRequest(e);
@@ -845,18 +867,91 @@ public partial class MainWindow : Window
         var compact = _tabs.Count > 0 && usableWidth > 0 && _tabs.Count * 190 > usableWidth;
         var tabWidth = compact ? Math.Max(46, Math.Min(94, usableWidth / _tabs.Count)) : 190;
         var iconOnly = tabWidth < 82;
+
         foreach (var tab in _tabs)
         {
             var header = new StackPanel { Orientation = Orientation.Horizontal };
-            header.Children.Add(new Image { Source = tab.Favicon ?? new BitmapImage(new Uri("pack://application:,,,/Assets/YamaSearch-symbol-64.png")), Width = 16, Height = 16, Margin = new Thickness(0, 0, iconOnly ? 0 : 7, 0) });
-            if (!iconOnly) header.Children.Add(new TextBlock { Text = tab.Title, Width = tabWidth < 120 ? 55 : 125, TextTrimming = TextTrimming.CharacterEllipsis, VerticalAlignment = VerticalAlignment.Center });
+            header.Children.Add(new Image
+            {
+                Source = tab.Favicon ?? new BitmapImage(new Uri("pack://application:,,,/Assets/YamaSearch-symbol-64.png")),
+                Width = 16,
+                Height = 16,
+                Margin = new Thickness(0, 0, iconOnly ? 0 : 7, 0)
+            });
+
+            var showAudioButton = !compact && (tab.IsPlayingAudio || tab.IsMuted);
+
+            if (!iconOnly)
+            {
+                header.Children.Add(new TextBlock
+                {
+                    Text = tab.Title,
+                    Width = tabWidth < 120 ? 55 : showAudioButton ? 92 : 125,
+                    TextTrimming = TextTrimming.CharacterEllipsis,
+                    VerticalAlignment = VerticalAlignment.Center
+                });
+            }
+
             if (!compact)
             {
-                var close = new Button { Content = "×", Padding = new Thickness(5, 0, 0, 0), Margin = new Thickness(5, 0, 0, 0), ToolTip = "Zavřít kartu" };
-                close.Click += (_, e) => { e.Handled = true; CloseTab(tab); };
+                if (showAudioButton)
+                {
+                    var audio = new Button
+                    {
+                        Content = tab.IsMuted ? "🔇" : "🔊",
+                        ToolTip = tab.IsMuted ? "Zapnout zvuk této karty" : "Ztlumit tuto kartu",
+                        Padding = new Thickness(3, 0, 3, 0),
+                        Margin = new Thickness(3, 0, 0, 0),
+                        MinWidth = 25,
+                        Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString(tab.IsMuted ? "#9EB8D4" : "#54D7F8"))
+                    };
+
+                    audio.Click += (_, e) =>
+                    {
+                        e.Handled = true;
+                        ToggleTabMute(tab);
+                    };
+
+                    header.Children.Add(audio);
+                }
+
+                var close = new Button
+                {
+                    Content = "×",
+                    Padding = new Thickness(5, 0, 0, 0),
+                    Margin = new Thickness(4, 0, 0, 0),
+                    ToolTip = "Zavřít kartu"
+                };
+                close.Click += (_, e) =>
+                {
+                    e.Handled = true;
+                    CloseTab(tab);
+                };
                 header.Children.Add(close);
             }
-            var button = new Button { Content = header, ToolTip = tab.Title, Width = tabWidth, Margin = new Thickness(3, 8, 0, 8), Background = tab == _active ? new SolidColorBrush((Color)ColorConverter.ConvertFromString("#1B2A42")) : new SolidColorBrush((Color)ColorConverter.ConvertFromString("#101B2B")), BorderBrush = tab == _active ? new SolidColorBrush((Color)ColorConverter.ConvertFromString("#3B80B8")) : new SolidColorBrush((Color)ColorConverter.ConvertFromString("#21324A")), BorderThickness = new Thickness(1), HorizontalContentAlignment = HorizontalAlignment.Left };
+
+            var button = new Button
+            {
+                Content = header,
+                ToolTip = tab.IsPlayingAudio
+                    ? tab.IsMuted
+                        ? $"{tab.Title} · zvuk ztlumen"
+                        : $"{tab.Title} · přehrává zvuk"
+                    : tab.IsMuted
+                        ? $"{tab.Title} · zvuk ztlumen"
+                        : tab.Title,
+                Width = tabWidth,
+                Margin = new Thickness(3, 8, 0, 8),
+                Background = tab == _active
+                    ? new SolidColorBrush((Color)ColorConverter.ConvertFromString("#1B2A42"))
+                    : new SolidColorBrush((Color)ColorConverter.ConvertFromString("#101B2B")),
+                BorderBrush = tab == _active
+                    ? new SolidColorBrush((Color)ColorConverter.ConvertFromString("#3B80B8"))
+                    : new SolidColorBrush((Color)ColorConverter.ConvertFromString("#21324A")),
+                BorderThickness = new Thickness(1),
+                HorizontalContentAlignment = HorizontalAlignment.Left
+            };
+
             button.PreviewMouseRightButtonDown += (_, e) =>
             {
                 e.Handled = true;
@@ -868,6 +963,27 @@ public partial class MainWindow : Window
             TabsList.Items.Add(button);
         }
     }
+
+    private void ToggleTabMute(BrowserTab tab)
+    {
+        var core = tab.View.CoreWebView2;
+        if (core == null) return;
+
+        try
+        {
+            core.IsMuted = !core.IsMuted;
+            tab.IsMuted = core.IsMuted;
+            StatusText.Text = tab.IsMuted
+                ? $"Karta „{tab.Title}“ byla ztlumena"
+                : $"Zvuk karty „{tab.Title}“ byl zapnut";
+            RenderTabs();
+        }
+        catch (Exception error)
+        {
+            StatusText.Text = "Zvuk karty se nepodařilo změnit: " + error.Message;
+        }
+    }
+
     private System.Windows.Controls.Primitives.Popup CreateTabActionsPopup(BrowserTab tab, Button target)
     {
         var popup = new System.Windows.Controls.Primitives.Popup { PlacementTarget = target, Placement = System.Windows.Controls.Primitives.PlacementMode.Bottom, StaysOpen = true, AllowsTransparency = true, PopupAnimation = System.Windows.Controls.Primitives.PopupAnimation.Slide };
@@ -2874,7 +2990,7 @@ public partial class MainWindow : Window
     private string SearchEndpoint() => _settings.Data.SearchEngine switch { "Google" => "https://www.google.com/search", "Bing" => "https://www.bing.com/search", "Seznam" => "https://search.seznam.cz/", "Brave Search" => "https://search.brave.com/search", "Ecosia" => "https://www.ecosia.org/search", "Yahoo" => "https://search.yahoo.com/search", "Startpage" => "https://www.startpage.com/sp/search", "Custom" => _settings.Data.CustomSearchEndpoint.Replace("{query}", ""), _ => "https://duckduckgo.com/" };
 }
 
-public sealed class BrowserTab { public WebView2 View { get; } = new() { DefaultBackgroundColor = System.Drawing.Color.FromArgb(0x0B, 0x10, 0x1A) }; public string Title { get; set; } = "Nová karta"; public ImageSource? Favicon { get; set; } public bool IsYamaNewTab { get; set; } public int BlockedCount { get; set; } public string? YamaBlockScriptId { get; set; } }
+public sealed class BrowserTab { public WebView2 View { get; } = new() { DefaultBackgroundColor = System.Drawing.Color.FromArgb(0x0B, 0x10, 0x1A) }; public string Title { get; set; } = "Nová karta"; public ImageSource? Favicon { get; set; } public bool IsYamaNewTab { get; set; } public int BlockedCount { get; set; } public string? YamaBlockScriptId { get; set; } public bool IsPlayingAudio { get; set; } public bool IsMuted { get; set; } }
 public enum BlockMode { Off, Standard, Strict }
 public enum SecurityLevel { Recommended, Strict, Custom }
 public static class BlockModeExtensions { public static string ToLabel(this BlockMode mode) => mode switch { BlockMode.Off => "Vypnuto", BlockMode.Strict => "Přísný", _ => "Standard" }; }
