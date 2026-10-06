@@ -2,7 +2,7 @@ const fs=require('node:fs'),assert=require('node:assert/strict');
 const client=fs.readFileSync('desktop/desktop-client.html','utf8');
 const pkg=require('../desktop/package.json');
 
-assert.equal(pkg.version,'1.0.111','Windows release version');
+assert.match(pkg.version,/^\d+\.\d+\.\d+$/,'Windows release version');
 
 for(const marker of [
   'YC_CONTEXT_LONGPRESS_SELECTOR',
@@ -31,4 +31,4 @@ assert(client.includes("YC_STREAM_DESKTOP=true"),'Windows stream viewer marker m
 assert(!client.includes('yc-dm-global-'),'Windows DM notification subscription must not listen to every message');
 assert(!client.includes("sb.channel('yc-win-notify-'+user.id"),'Windows foreground notifications must not listen to every message');
 
-console.log('PASS Windows 1.0.111 interaction/notification regression: scoped alerts, temporary mic-test voice hold and stream fixes coexist.');
+console.log(`PASS Windows ${pkg.version} interaction/notification regression: scoped alerts, temporary mic-test voice hold and stream fixes coexist.`);

@@ -3,11 +3,11 @@ import {execFileSync} from 'node:child_process';
 import assert from 'node:assert/strict';
 
 const gitFile=(rev,file)=>execFileSync('git',['show',rev+':'+file],{encoding:'utf8',maxBuffer:20e6}).replaceAll('\r\n','\n');
-// Use the audited 1.0.109 release commit retained on the production ancestry.
-// The former short hash referenced an unreachable object, making a clean clone
-// fail before this regression guard could inspect the transport implementation.
-const baseline=gitFile('024d2f1','index.html');
-const desktop=gitFile('024d2f1','desktop/desktop-client.html');
+// Use the last verified public login-download baseline retained on production
+// ancestry. The old reference was an unreachable object, so a clean clone
+// could not run this regression guard.
+const baseline=gitFile('9ffc1d0c19503618f2c6e01fdb3afd2b11092fa2','index.html');
+const desktop=gitFile('9ffc1d0c19503618f2c6e01fdb3afd2b11092fa2','desktop/desktop-client.html');
 const functions=['voicePeer','sendVoiceSignal','ycRenegotiateScreenPeer','ycSendScreenWatchOrdered','toggleScreenShare','stopScreenShare','ycEnsureScreenAudio','attachVoiceAudio','getScreenMediaDevices'];
 function section(source,name){
  source=source.replaceAll('\r\n','\n');
