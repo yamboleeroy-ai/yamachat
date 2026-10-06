@@ -1,8 +1,52 @@
-<Window x:Class="YamaSearch.ShieldWindow" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" Title="YamaShield" Width="520" Height="610" WindowStartupLocation="CenterOwner" ResizeMode="NoResize" WindowStyle="None" Background="#0B101A" Foreground="#EAF3FF">
-  <Grid Margin="28"><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
-  <StackPanel><DockPanel LastChildFill="False"><TextBlock Text="◈  YamaShield" Foreground="#23C9F5" FontWeight="SemiBold" FontSize="25"/><Button Content="×" DockPanel.Dock="Right" Foreground="#EAF3FF" Click="Cancel_Click"/></DockPanel><TextBlock x:Name="PageState" Margin="0,10,0,0" Foreground="#C5D3E3" TextWrapping="Wrap"/></StackPanel>
-   <Border Grid.Row="1" Background="#16243A" CornerRadius="12" Padding="16" Margin="0,22,0,14"><StackPanel><TextBlock Text="Úroveň ochrany" FontSize="17" FontWeight="SemiBold"/><RadioButton x:Name="Recommended" Foreground="#EAF3FF" Content="Doporučená — bezpečné výchozí nastavení" Margin="0,12,0,4" Checked="Level_Checked"/><RadioButton x:Name="Strict" Foreground="#EAF3FF" Content="Přísná — silnější blokování, web může vyžadovat výjimku" Margin="0,4" Checked="Level_Checked"/><RadioButton x:Name="Custom" Foreground="#EAF3FF" Content="Vlastní — nastavit jednotlivé prvky" Margin="0,4" Checked="Level_Checked"/></StackPanel></Border>
-    <StackPanel Grid.Row="2"><TextBlock Text="Vlastní ochrana" FontWeight="SemiBold" FontSize="17" Margin="0,0,0,8"/><CheckBox x:Name="SmartScreen" Foreground="#EAF3FF" Content="Microsoft Defender SmartScreen pro weby a stahování" Margin="0,7"/><CheckBox x:Name="PasswordSave" Foreground="#EAF3FF" Content="Nabízet bezpečné ukládání hesel přes WebView2" Margin="0,7"/><TextBlock Text="Hesla se neukládají v nastavení YamaSearch. Spravuje je WebView2/Windows profil. Kontroly neplatných certifikátů nelze vypnout." Foreground="#C5D3E3" TextWrapping="Wrap" Margin="0,15,0,0"/></StackPanel>
-    <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right"><Button Content="Zrušit" Click="Cancel_Click" Margin="0,0,8,0"/><Button Content="Uložit ochranu" Background="#087EAA" Click="Save_Click"/></StackPanel>
-  </Grid>
+<Window x:Class="YamaSearch.ShieldWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="YamaShield" Width="590" Height="650"
+        WindowStartupLocation="CenterOwner" ResizeMode="NoResize" WindowStyle="None"
+        Background="#08111D" Foreground="#EAF3FF" Icon="pack://application:,,,/Assets/YamaSearch.ico">
+  <Border BorderBrush="#174B70" BorderThickness="1" CornerRadius="14" Background="#08111D">
+    <Grid Margin="24">
+      <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+      <Grid MouseLeftButtonDown="TitleBar_MouseLeftButtonDown">
+        <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+          <TextBlock Text="◈" Foreground="#42D8FF" FontSize="28" Margin="0,0,12,0"/>
+          <StackPanel>
+            <TextBlock Text="YamaShield" Foreground="#42D8FF" FontWeight="SemiBold" FontSize="24"/>
+            <TextBlock x:Name="PageState" Foreground="#9CB4CF" TextWrapping="Wrap" Width="430" Margin="0,4,0,0"/>
+          </StackPanel>
+        </StackPanel>
+        <Button Grid.Column="1" Content="×" Style="{StaticResource YamaCloseButton}" Click="Cancel_Click"/>
+      </Grid>
+
+      <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Margin="0,18,0,14">
+        <ScrollViewer.Resources><Style TargetType="ScrollBar" BasedOn="{StaticResource YamaScrollBar}"/></ScrollViewer.Resources>
+        <StackPanel Margin="0,0,8,0">
+          <Border Style="{StaticResource YamaDialogCard}">
+            <StackPanel>
+              <TextBlock Text="Úroveň ochrany" Style="{StaticResource YamaSectionTitle}"/>
+              <RadioButton x:Name="Recommended" Style="{StaticResource YamaRadioButton}" Content="Doporučená — bezpečné výchozí nastavení" Margin="0,14,0,7" Checked="Level_Checked"/>
+              <RadioButton x:Name="Strict" Style="{StaticResource YamaRadioButton}" Content="Přísná — silnější ochrana, web může vyžadovat výjimku" Margin="0,7" Checked="Level_Checked"/>
+              <RadioButton x:Name="Custom" Style="{StaticResource YamaRadioButton}" Content="Vlastní — nastavit jednotlivé prvky" Margin="0,7" Checked="Level_Checked"/>
+            </StackPanel>
+          </Border>
+
+          <Border Style="{StaticResource YamaDialogCard}">
+            <StackPanel>
+              <TextBlock Text="Vlastní ochrana" Style="{StaticResource YamaSectionTitle}"/>
+              <CheckBox x:Name="SmartScreen" Style="{StaticResource YamaCheckBox}" Content="Microsoft Defender SmartScreen pro weby a stahování" Margin="0,14,0,8"/>
+              <CheckBox x:Name="PasswordSave" Style="{StaticResource YamaCheckBox}" Content="Nabízet bezpečné ukládání hesel přes WebView2" Margin="0,8"/>
+              <TextBlock Text="Hesla se neukládají v nastavení YamaSearch. Spravuje je WebView2/Windows profil. Kontroly neplatných certifikátů nelze vypnout."
+                         Style="{StaticResource YamaSubtleText}" Margin="0,14,0,0"/>
+            </StackPanel>
+          </Border>
+        </StackPanel>
+      </ScrollViewer>
+
+      <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right">
+        <Button Content="Zrušit" Style="{StaticResource YamaSecondaryButton}" Click="Cancel_Click" Margin="0,0,8,0"/>
+        <Button Content="Uložit ochranu" Style="{StaticResource YamaPrimaryButton}" Click="Save_Click"/>
+      </StackPanel>
+    </Grid>
+  </Border>
 </Window>
