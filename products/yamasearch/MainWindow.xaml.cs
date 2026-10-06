@@ -313,9 +313,13 @@ public partial class MainWindow : Window
         core.Settings.IsGeneralAutofillEnabled = false;
         core.AddWebResourceRequestedFilter("*", CoreWebView2WebResourceContext.All);
         core.WebResourceRequested += (_, e) => BlockRequest(tab, e);
+        _ = core.AddScriptToExecuteOnDocumentCreatedAsync(YamaBlockPageScript);
         core.WebMessageReceived += (_, e) => HandleNewTabMessage(tab, e);
         core.NavigationStarting += (_, e) =>
         {
+            tab.BlockedCount = 0;
+            if (_active == tab) BlockedText.Text = "YamaBlock · 0 blokováno";
+
             if (Uri.TryCreate(e.Uri, UriKind.Absolute, out var destination) && destination.Scheme is "http" or "https")
             {
                 tab.IsYamaNewTab = false;
@@ -323,7 +327,16 @@ public partial class MainWindow : Window
             }
             if (_active == tab) StatusText.Text = "Načítání…";
         };
-        core.NavigationCompleted += (_, e) => { if (_active == tab) StatusText.Text = e.IsSuccess ? "Hotovo" : "Stránku se nepodařilo načíst"; UpdateTabTitle(tab); if (e.IsSuccess && Uri.TryCreate(core.Source, UriKind.Absolute, out var page) && page.Scheme is "http" or "https") AddHistory(core.Source, core.DocumentTitle, core.FaviconUri); };
+        core.NavigationCompleted += async (_, e) =>
+        {
+            if (_active == tab) StatusText.Text = e.IsSuccess ? "Hotovo" : "Stránku se nepodařilo načíst";
+            UpdateTabTitle(tab);
+            if (e.IsSuccess && Uri.TryCreate(core.Source, UriKind.Absolute, out var page) && page.Scheme is "http" or "https")
+            {
+                AddHistory(core.Source, core.DocumentTitle, core.FaviconUri);
+                await ApplyYamaBlockPageRulesAsync(tab);
+            }
+        };
         core.DocumentTitleChanged += (_, _) => UpdateTabTitle(tab);
         core.FaviconChanged += (_, _) => UpdateFavicon(tab);
         core.ContainsFullScreenElementChanged += (_, _) => Dispatcher.Invoke(() => SetVideoFullScreen(core.ContainsFullScreenElement));
