@@ -244,21 +244,101 @@ public partial class MainWindow : Window
     private void Back_Click(object sender, RoutedEventArgs e) { if (_active?.View.CoreWebView2.CanGoBack == true) _active.View.CoreWebView2.GoBack(); }
     private void Forward_Click(object sender, RoutedEventArgs e) { if (_active?.View.CoreWebView2.CanGoForward == true) _active.View.CoreWebView2.GoForward(); }
     private void Reload_Click(object sender, RoutedEventArgs e) => _active?.View.CoreWebView2.Reload();
-    private void AddressBox_KeyDown(object sender, KeyEventArgs e) { if (e.Key == Key.Enter && _active != null) _ = NavigateAsync(_active, AddressBox.Text); }
+    private void AddressBox_KeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key != Key.Enter || _active == null) return;
+        AddressSuggestions.IsOpen = false;
+        _ = NavigateAsync(_active, AddressBox.Text);
+    }
+
+    private void AddressBox_GotKeyboardFocus(object sender, KeyboardFocusChangedEventArgs e)
+    {
+        PrepareAddressBoxForInput();
+        ShowAddressSuggestions();
+    }
+
+    private void AddressBox_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        if (!AddressBox.IsKeyboardFocusWithin) return;
+        PrepareAddressBoxForInput();
+        _ = Dispatcher.BeginInvoke(ShowAddressSuggestions);
+    }
+
+    private void PrepareAddressBoxForInput()
+    {
+        var current = AddressBox.Text.Trim();
+        if (!current.Equals("about:blank", StringComparison.OrdinalIgnoreCase)
+            && !current.Equals("YamaSearch — nová karta", StringComparison.OrdinalIgnoreCase)) return;
+
+        _suppressSuggestions = true;
+        AddressBox.Clear();
+        _suppressSuggestions = false;
+    }
+
     private void AddressBox_TextChanged(object sender, TextChangedEventArgs e)
     {
-        var query = AddressBox.Text.Trim(); AddressSuggestionList.Children.Clear();
-        if (_suppressSuggestions || !AddressBox.IsKeyboardFocusWithin || query.Length < 1) { AddressSuggestions.IsOpen = false; return; }
+        if (_suppressSuggestions || !AddressBox.IsKeyboardFocusWithin)
+        {
+            AddressSuggestions.IsOpen = false;
+            return;
+        }
+
+        ShowAddressSuggestions();
+    }
+
+    private void ShowAddressSuggestions()
+    {
+        AddressSuggestionList.Children.Clear();
+        if (_suppressSuggestions || !AddressBox.IsKeyboardFocusWithin)
+        {
+            AddressSuggestions.IsOpen = false;
+            return;
+        }
+
+        var query = AddressBox.Text.Trim();
+        if (query.Length == 0)
+        {
+            foreach (var item in _settings.Data.History
+                .Where(x => !string.IsNullOrWhiteSpace(x.Url))
+                .Take(6))
+            {
+                var title = string.IsNullOrWhiteSpace(item.Title) ? item.Url : item.Title;
+                var suggestion = CreateSuggestionButton(title, item.Url, "◷", false, item.FaviconUrl);
+                suggestion.Click += (_, _) =>
+                {
+                    AddressSuggestions.IsOpen = false;
+                    if (_active != null) _ = NavigateAsync(_active, item.Url);
+                };
+                AddressSuggestionList.Children.Add(suggestion);
+            }
+
+            AddressSuggestions.IsOpen = AddressSuggestionList.Children.Count > 0;
+            return;
+        }
+
         var search = CreateSuggestionButton($"Hledat „{query}“ v {_settings.Data.SearchEngine}", "Potvrďte Enterem nebo kliknutím", "⌕", true);
-        search.Click += (_, _) => { AddressSuggestions.IsOpen = false; if (_active != null) _ = NavigateAsync(_active, query); };
+        search.Click += (_, _) =>
+        {
+            AddressSuggestions.IsOpen = false;
+            if (_active != null) _ = NavigateAsync(_active, query);
+        };
         AddressSuggestionList.Children.Add(search);
-        foreach (var item in _settings.Data.History.Where(x => x.Url.Contains(query, StringComparison.OrdinalIgnoreCase) || x.Title.Contains(query, StringComparison.OrdinalIgnoreCase)).Take(4))
+
+        foreach (var item in _settings.Data.History
+            .Where(x => x.Url.Contains(query, StringComparison.OrdinalIgnoreCase)
+                || x.Title.Contains(query, StringComparison.OrdinalIgnoreCase))
+            .Take(4))
         {
             var title = string.IsNullOrWhiteSpace(item.Title) ? item.Url : item.Title;
             var suggestion = CreateSuggestionButton(title, item.Url, "↗", false, item.FaviconUrl);
-            suggestion.Click += (_, _) => { AddressSuggestions.IsOpen = false; if (_active != null) _ = NavigateAsync(_active, item.Url); };
+            suggestion.Click += (_, _) =>
+            {
+                AddressSuggestions.IsOpen = false;
+                if (_active != null) _ = NavigateAsync(_active, item.Url);
+            };
             AddressSuggestionList.Children.Add(suggestion);
         }
+
         AddressSuggestions.IsOpen = true;
     }
     private static Button CreateSuggestionButton(string title, string subtitle, string glyph, bool highlight, string? faviconUrl = null)
