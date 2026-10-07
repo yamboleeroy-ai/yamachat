@@ -1,0 +1,56 @@
+<Window x:Class="YamaSearch.SiteAppInstallWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Nainstalovat aplikaci"
+        Width="520" Height="620" ResizeMode="NoResize" WindowStyle="None"
+        WindowStartupLocation="CenterOwner" Background="#08111D" Foreground="#EAF3FF"
+        Icon="pack://application:,,,/Assets/YamaSearch.ico">
+  <Border BorderBrush="#174B70" BorderThickness="1" CornerRadius="16" Background="#08111D">
+    <Grid Margin="24">
+      <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+
+      <Grid MouseLeftButtonDown="TitleBar_MouseLeftButtonDown">
+        <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+          <Border Width="54" Height="54" CornerRadius="12" Background="#10243A" BorderBrush="#245A84" BorderThickness="1" Margin="0,0,14,0">
+            <Image x:Name="AppIcon" Width="40" Height="40" Stretch="Uniform"/>
+          </Border>
+          <StackPanel VerticalAlignment="Center">
+            <TextBlock x:Name="HeadingText" FontSize="22" FontWeight="SemiBold"/>
+            <TextBlock x:Name="PublisherText" Style="{StaticResource YamaSubtleText}" Margin="0,4,0,0"/>
+          </StackPanel>
+        </StackPanel>
+        <Button Grid.Column="1" Content="×" Style="{StaticResource YamaCloseButton}" Click="Cancel_Click"/>
+      </Grid>
+
+      <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Margin="0,20,0,14">
+        <StackPanel>
+          <Border Style="{StaticResource YamaDialogCard}">
+            <StackPanel>
+              <TextBlock Text="Používáte tento web často?" Style="{StaticResource YamaSectionTitle}"/>
+              <TextBlock Text="YamaSearch ho může nainstalovat jako samostatnou aplikaci. Otevře se ve vlastním okně a může mít vlastní ikonu a zástupce."
+                         Style="{StaticResource YamaSubtleText}" Margin="0,8,0,0"/>
+            </StackPanel>
+          </Border>
+
+          <Border Style="{StaticResource YamaDialogCard}">
+            <StackPanel>
+              <TextBlock Text="Po instalaci" Style="{StaticResource YamaSectionTitle}"/>
+              <CheckBox x:Name="StartMenuCheck" Style="{StaticResource YamaCheckBox}" Content="Přidat do nabídky Start" IsChecked="True" Margin="0,14,0,8"/>
+              <CheckBox x:Name="TaskbarCheck" Style="{StaticResource YamaCheckBox}" Content="Zkusit připnout na hlavní panel" Margin="0,8"/>
+              <CheckBox x:Name="DesktopCheck" Style="{StaticResource YamaCheckBox}" Content="Vytvořit zástupce na ploše" Margin="0,8"/>
+              <CheckBox x:Name="StartupCheck" Style="{StaticResource YamaCheckBox}" Content="Automaticky spouštět při přihlášení do Windows" Margin="0,8"/>
+              <TextBlock Text="Windows 11 může z bezpečnostních důvodů vyžadovat ruční potvrzení připnutí na hlavní panel. YamaSearch v takovém případě otevře umístění zástupce."
+                         Style="{StaticResource YamaSubtleText}" Margin="27,8,0,0"/>
+            </StackPanel>
+          </Border>
+        </StackPanel>
+      </ScrollViewer>
+
+      <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right">
+        <Button Content="Teď ne" Style="{StaticResource YamaSecondaryButton}" Click="Cancel_Click" Margin="0,0,8,0"/>
+        <Button Content="Nainstalovat" Style="{StaticResource YamaPrimaryButton}" Click="Install_Click"/>
+      </StackPanel>
+    </Grid>
+  </Border>
+</Window>

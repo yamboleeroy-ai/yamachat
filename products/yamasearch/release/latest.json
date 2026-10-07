@@ -1,7 +1,7 @@
 {
   "product": "YamaSearch",
-  "version": "0.3.2",
-  "notes": "Indikátor zvuku přímo v kartách: karta, která přehrává zvuk, zobrazuje reproduktor a kliknutím ji lze ztlumit nebo znovu odtlumit. Opraven fullscreen videa tak, aby spolehlivě překryl i Windows taskbar a používal celou plochu monitoru.",
+  "version": "0.3.3",
+  "notes": "Nové instalované webové aplikace v YamaSearch: instalační dialog, vlastní nastavení aplikací, Start/plocha/autostart, odinstalace a vlastní ikona webu s fallbackem na YamaSearch. Součástí je také oprava adresního pole – první kliknutí označí celou aktuální URL, takže psaní ji okamžitě nahradí.",
   "portableUrl": "https://updates.yamachat.eu/yamasearch/YamaSearch-Portable-latest.zip",
   "installerUrl": "https://updates.yamachat.eu/yamasearch/YamaSearch-Setup-latest.exe"
 }
