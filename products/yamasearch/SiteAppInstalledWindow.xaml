@@ -1,0 +1,47 @@
+<Window x:Class="YamaSearch.SiteAppInstalledWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Aplikace nainstalována"
+        Width="520" Height="500" ResizeMode="NoResize" WindowStyle="None"
+        WindowStartupLocation="CenterOwner" Background="#08111D" Foreground="#EAF3FF"
+        Icon="pack://application:,,,/Assets/YamaSearch.ico">
+  <Border BorderBrush="#174B70" BorderThickness="1" CornerRadius="16" Background="#08111D">
+    <Grid Margin="24">
+      <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+
+      <Grid MouseLeftButtonDown="TitleBar_MouseLeftButtonDown">
+        <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+          <Border Width="54" Height="54" CornerRadius="12" Background="#10243A" BorderBrush="#245A84" BorderThickness="1" Margin="0,0,14,0">
+            <Image x:Name="AppIcon" Width="40" Height="40" Stretch="Uniform"/>
+          </Border>
+          <StackPanel VerticalAlignment="Center">
+            <TextBlock Text="Nainstalovaná aplikace" FontSize="22" FontWeight="SemiBold"/>
+            <TextBlock x:Name="PublisherText" Style="{StaticResource YamaSubtleText}" Margin="0,4,0,0"/>
+          </StackPanel>
+        </StackPanel>
+        <Button Grid.Column="1" Content="×" Style="{StaticResource YamaCloseButton}" Click="Close_Click"/>
+      </Grid>
+
+      <StackPanel Grid.Row="1" Margin="0,20,0,14">
+        <Border Style="{StaticResource YamaDialogCard}">
+          <StackPanel>
+            <TextBlock x:Name="InstalledText" Style="{StaticResource YamaSectionTitle}"/>
+            <TextBlock Text="Aplikace se bude bezpečně spouštět ve vlastním YamaSearch okně. Její zástupce, automatické spuštění i odinstalaci můžeš kdykoliv změnit v Nastavení aplikace."
+                       Style="{StaticResource YamaSubtleText}" Margin="0,8,0,0"/>
+          </StackPanel>
+        </Border>
+        <Border x:Name="TaskbarNotice" Style="{StaticResource YamaDialogCard}" Visibility="Collapsed">
+          <TextBlock Text="Windows nepovolil automatické připnutí na hlavní panel. Otevřel jsem umístění zástupce, odkud ho můžeš připnout ručně."
+                     Style="{StaticResource YamaSubtleText}"/>
+        </Border>
+      </StackPanel>
+
+      <Grid Grid.Row="2">
+        <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+        <Button Grid.Column="1" Content="Nastavení aplikace" Style="{StaticResource YamaSecondaryButton}" Click="Settings_Click" Margin="0,0,8,0"/>
+        <Button Grid.Column="2" Content="Otevřít" Style="{StaticResource YamaPrimaryButton}" Click="Open_Click"/>
+      </Grid>
+    </Grid>
+  </Border>
+</Window>
