@@ -1137,8 +1137,19 @@ public partial class MainWindow : Window
 
         if (!AddressBox.IsKeyboardFocusWithin)
         {
+            // Stejně jako v běžných prohlížečích: první kliknutí do adresního pole
+            // označí celou aktuální adresu. První napsaný znak ji tak rovnou nahradí.
             AddressBox.Focus();
+
+            if (cleared)
+                AddressBox.CaretIndex = 0;
+            else
+                AddressBox.SelectAll();
+
+            // Nedovolíme původnímu MouseDown přesunout caret dovnitř označené URL.
+            // Druhé kliknutí už funguje normálně a uživatel může kurzor umístit ručně.
             e.Handled = true;
+            return;
         }
 
         if (cleared)
