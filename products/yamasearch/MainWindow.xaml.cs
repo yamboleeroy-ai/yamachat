@@ -20,6 +20,10 @@ public partial class MainWindow : Window
     private readonly SettingsStore _settings = new();
     private readonly string? _startupUrl;
     private readonly bool _siteAppMode;
+    private readonly string? _siteAppId;
+    private readonly string? _manageAppId;
+    private SiteAppEntry? _siteAppEntry;
+    private System.Windows.Controls.Primitives.Popup? _siteAppMenuPopup;
     private static readonly HttpClient UpdateClient = new() { Timeout = TimeSpan.FromMinutes(5) };
     private const string UpdateManifestUrl = "https://updates.yamachat.eu/yamasearch/latest.json";
     private BrowserTab? _active;
@@ -54,10 +58,15 @@ public partial class MainWindow : Window
         "collect?v=", "event.gif", "imp.gif"
     ];
 
-    public MainWindow(string? startupUrl = null, bool siteAppMode = false)
+    public MainWindow(string? startupUrl = null, bool siteAppMode = false, string? siteAppId = null, string? manageAppId = null)
     {
         _startupUrl = startupUrl;
         _siteAppMode = siteAppMode;
+        _siteAppId = siteAppId;
+        _manageAppId = manageAppId;
+        _siteAppEntry = !string.IsNullOrWhiteSpace(siteAppId)
+            ? _settings.Data.InstalledApps.FirstOrDefault(x => x.Id == siteAppId)
+            : null;
         InitializeComponent();
         SourceInitialized += (_, _) => InitializeWindowInterop();
         if (!_settings.Data.Theme.Equals("dark", StringComparison.OrdinalIgnoreCase))
@@ -99,6 +108,13 @@ public partial class MainWindow : Window
             _settings.Save();
         }
         await CreateTabAsync(_startupUrl);
+
+        if (!string.IsNullOrWhiteSpace(_manageAppId))
+        {
+            var manager = new AppsWindow(_settings, _manageAppId) { Owner = this };
+            manager.Show();
+        }
+
         if (!_siteAppMode)
             _ = CheckForYamaSearchUpdateAsync();
     }
@@ -1788,6 +1804,16 @@ public partial class MainWindow : Window
 
     private void Menu_Click(object sender, RoutedEventArgs e)
     {
+        if (_siteAppMode && _siteAppEntry != null && sender is Button target)
+        {
+            if (_siteAppMenuPopup != null)
+                _siteAppMenuPopup.IsOpen = false;
+
+            _siteAppMenuPopup = CreateSiteAppMenuPopup(_siteAppEntry, target);
+            _siteAppMenuPopup.IsOpen = true;
+            return;
+        }
+
         bool opening = SidePanel.Visibility != Visibility.Visible;
         SidePanel.Visibility = opening ? Visibility.Visible : Visibility.Collapsed;
         PanelColumn.Width = opening ? new GridLength(390) : new GridLength(0);
@@ -1883,7 +1909,7 @@ public partial class MainWindow : Window
         }
     }
 
-    private void CreateSiteApp_Click(object sender, RoutedEventArgs e)
+    private async void CreateSiteApp_Click(object sender, RoutedEventArgs e)
     {
         if (_active?.View.CoreWebView2 == null
             || !Uri.TryCreate(_active.View.CoreWebView2.Source, UriKind.Absolute, out var uri)
@@ -1893,64 +1919,82 @@ public partial class MainWindow : Window
             return;
         }
 
-        var executable = Environment.ProcessPath;
-        if (string.IsNullOrWhiteSpace(executable) || !File.Exists(executable))
+        var existing = _settings.Data.InstalledApps.FirstOrDefault(x =>
+            Uri.TryCreate(x.Url, UriKind.Absolute, out var installedUri)
+            && string.Equals(installedUri.Host, uri.Host, StringComparison.OrdinalIgnoreCase));
+
+        if (existing != null)
         {
-            MessageBox.Show("YamaSearch nemohl zjistit cestu ke své aplikaci.", "YamaSearch", MessageBoxButton.OK, MessageBoxImage.Error);
+            var manager = new AppsWindow(_settings, existing.Id) { Owner = this };
+            manager.Show();
             return;
         }
 
-        var title = string.IsNullOrWhiteSpace(_active.View.CoreWebView2.DocumentTitle)
-            ? uri.Host
+        var rawTitle = string.IsNullOrWhiteSpace(_active.View.CoreWebView2.DocumentTitle)
+            ? uri.Host.Replace("www.", "", StringComparison.OrdinalIgnoreCase)
             : _active.View.CoreWebView2.DocumentTitle.Trim();
 
-        foreach (var invalid in Path.GetInvalidFileNameChars())
-            title = title.Replace(invalid, '_');
-
+        var title = rawTitle;
+        foreach (var separator in new[] { " | ", " - ", " — " })
+        {
+            var index = title.IndexOf(separator, StringComparison.Ordinal);
+            if (index > 2)
+            {
+                title = title[..index].Trim();
+                break;
+            }
+        }
         if (title.Length > 70) title = title[..70];
-        var desktop = Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory);
-        var shortcutPath = Path.Combine(desktop, $"{title}.lnk");
 
-        static string PsQuote(string value) => value.Replace("'", "''");
-        var workingDirectory = Path.GetDirectoryName(executable) ?? AppContext.BaseDirectory;
-        var command =
-            "$w=New-Object -ComObject WScript.Shell;" +
-            $"$s=$w.CreateShortcut('{PsQuote(shortcutPath)}');" +
-            $"$s.TargetPath='{PsQuote(executable)}';" +
-            $"$s.Arguments='--app=\"{PsQuote(uri.ToString())}\"';" +
-            $"$s.WorkingDirectory='{PsQuote(workingDirectory)}';" +
-            $"$s.IconLocation='{PsQuote(executable)},0';" +
-            "$s.Save();";
+        var previewIcon = TryLoadRemoteOrFallbackIcon(_active.View.CoreWebView2.FaviconUri);
+        var installDialog = new SiteAppInstallWindow(title, uri.Host, previewIcon) { Owner = this };
+        if (installDialog.ShowDialog() != true)
+            return;
+
+        var app = new SiteAppEntry
+        {
+            Id = Guid.NewGuid().ToString("N"),
+            Name = title,
+            Url = uri.ToString(),
+            Host = uri.Host,
+            FaviconUrl = _active.View.CoreWebView2.FaviconUri ?? "",
+            InstalledAt = DateTimeOffset.Now,
+            AddToStartMenu = installDialog.AddToStartMenu,
+            CreateDesktopShortcut = installDialog.CreateDesktopShortcut,
+            StartOnLogin = installDialog.StartOnLogin
+        };
 
         try
         {
-            var start = new ProcessStartInfo("powershell.exe")
+            await SiteAppServices.PrepareIconAsync(app, app.FaviconUrl);
+            SiteAppServices.ApplyShortcuts(app);
+            _settings.Data.InstalledApps.Add(app);
+            _settings.Save();
+
+            var taskbarPinFailed = false;
+            if (installDialog.RequestTaskbarPin && !SiteAppServices.TryPinToTaskbar(app))
             {
-                UseShellExecute = false,
-                CreateNoWindow = true
-            };
-            start.ArgumentList.Add("-NoProfile");
-            start.ArgumentList.Add("-NonInteractive");
-            start.ArgumentList.Add("-WindowStyle");
-            start.ArgumentList.Add("Hidden");
-            start.ArgumentList.Add("-Command");
-            start.ArgumentList.Add(command);
+                taskbarPinFailed = true;
+                SiteAppServices.OpenShortcutLocation(app);
+            }
 
-            using var process = Process.Start(start);
-            process?.WaitForExit(5000);
+            var installedIcon = TryLoadLocalIcon(app.IconPath)
+                ?? new BitmapImage(new Uri("pack://application:,,,/Assets/YamaSearch-symbol-64.png"));
+            var installed = new SiteAppInstalledWindow(app, installedIcon, taskbarPinFailed) { Owner = this };
+            installed.ShowDialog();
 
-            if (!File.Exists(shortcutPath))
-                throw new IOException("Zástupce aplikace se nepodařilo vytvořit.");
-
-            MessageBox.Show(
-                $"Aplikace „{title}“ byla vytvořena na ploše.\n\nPo spuštění se web otevře v samostatném YamaSearch okně.",
-                "YamaSearch",
-                MessageBoxButton.OK,
-                MessageBoxImage.Information);
+            if (installed.SettingsRequested)
+                StartYamaSearchProcess($"--manage-app={app.Id}");
+            else if (installed.OpenRequested)
+                StartYamaSearchProcess($"--app-id={app.Id}");
         }
         catch (Exception error)
         {
-            MessageBox.Show("Aplikaci stránky se nepodařilo vytvořit.\n\n" + error.Message, "YamaSearch", MessageBoxButton.OK, MessageBoxImage.Error);
+            MessageBox.Show(
+                "Aplikaci stránky se nepodařilo nainstalovat.\n\n" + error.Message,
+                "YamaSearch",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
         }
     }
 
@@ -1958,7 +2002,13 @@ public partial class MainWindow : Window
     {
         if (Content is not Grid root || root.RowDefinitions.Count < 5) return;
 
-        Title = "YamaSearch App";
+        Title = _siteAppEntry?.Name ?? "YamaSearch App";
+        if (_siteAppEntry != null)
+        {
+            var icon = TryLoadLocalIcon(_siteAppEntry.IconPath);
+            if (icon != null) Icon = icon;
+        }
+
         TabsScroller.Visibility = Visibility.Collapsed;
         root.RowDefinitions[1].Height = new GridLength(0);
         root.RowDefinitions[2].Height = new GridLength(0);
@@ -1968,10 +2018,175 @@ public partial class MainWindow : Window
         PanelColumn.Width = new GridLength(0);
     }
 
+    private System.Windows.Controls.Primitives.Popup CreateSiteAppMenuPopup(SiteAppEntry app, Button target)
+    {
+        var popup = new System.Windows.Controls.Primitives.Popup
+        {
+            PlacementTarget = target,
+            Placement = System.Windows.Controls.Primitives.PlacementMode.Bottom,
+            StaysOpen = false,
+            AllowsTransparency = true,
+            PopupAnimation = System.Windows.Controls.Primitives.PopupAnimation.Slide
+        };
+
+        var panel = new StackPanel { Margin = new Thickness(5) };
+        void AddAction(string label, Action action, bool danger = false)
+        {
+            var button = new Button
+            {
+                Content = label,
+                HorizontalContentAlignment = HorizontalAlignment.Left,
+                Padding = new Thickness(14, 9, 24, 9),
+                Margin = new Thickness(0, 2, 0, 2),
+                Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString(danger ? "#3A202B" : "#14243A")),
+                Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString(danger ? "#FFB7C5" : "#EAF3FF"))
+            };
+            button.Click += (_, _) =>
+            {
+                popup.IsOpen = false;
+                action();
+            };
+            panel.Children.Add(button);
+        }
+
+        panel.Children.Add(new TextBlock
+        {
+            Text = "Informace o aplikaci",
+            Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#8FA4BE")),
+            FontSize = 11,
+            Margin = new Thickness(10, 6, 10, 4)
+        });
+
+        AddAction($"⚙  Nastavení aplikace {app.Name}", () => StartYamaSearchProcess($"--manage-app={app.Id}"));
+        AddAction(app.AddToStartMenu ? "Odebrat z nabídky Start" : "Přidat do nabídky Start", () => ToggleStartMenu(app));
+        AddAction("Připnout na hlavní panel", () => PinSiteAppToTaskbar(app));
+        AddAction(app.CreateDesktopShortcut ? "Odebrat zástupce z plochy" : "Vytvořit zástupce na ploše", () => ToggleDesktopShortcut(app));
+        AddAction("Otevřít v YamaSearch", () => StartYamaSearchProcess($"--url={app.Url}"));
+
+        panel.Children.Add(new Border
+        {
+            Height = 1,
+            Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#31537D")),
+            Margin = new Thickness(7, 6, 7, 6)
+        });
+        AddAction("Odinstalovat aplikaci", () => UninstallCurrentSiteApp(app), danger: true);
+
+        popup.Child = new Border
+        {
+            Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#101D30")),
+            BorderBrush = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#38D9FF")),
+            BorderThickness = new Thickness(1),
+            CornerRadius = new CornerRadius(10),
+            Child = panel,
+            MinWidth = 280,
+            Padding = new Thickness(3),
+            Effect = new System.Windows.Media.Effects.DropShadowEffect
+            {
+                Color = Colors.Black,
+                Opacity = .55,
+                BlurRadius = 18,
+                ShadowDepth = 6
+            }
+        };
+        return popup;
+    }
+
+    private void ToggleStartMenu(SiteAppEntry app)
+    {
+        app.AddToStartMenu = !app.AddToStartMenu;
+        try
+        {
+            SiteAppServices.ApplyShortcuts(app);
+            _settings.Save();
+        }
+        catch (Exception error)
+        {
+            MessageBox.Show(error.Message, "YamaSearch");
+        }
+    }
+
+    private void ToggleDesktopShortcut(SiteAppEntry app)
+    {
+        app.CreateDesktopShortcut = !app.CreateDesktopShortcut;
+        try
+        {
+            SiteAppServices.ApplyShortcuts(app);
+            _settings.Save();
+        }
+        catch (Exception error)
+        {
+            MessageBox.Show(error.Message, "YamaSearch");
+        }
+    }
+
+    private void PinSiteAppToTaskbar(SiteAppEntry app)
+    {
+        if (SiteAppServices.TryPinToTaskbar(app))
+        {
+            _settings.Save();
+            return;
+        }
+
+        SiteAppServices.OpenShortcutLocation(app);
+        _settings.Save();
+        MessageBox.Show(
+            "Windows nepovolil automatické připnutí na hlavní panel. Otevřel jsem umístění zástupce — klikni na něj pravým tlačítkem a zvol Připnout na hlavní panel.",
+            "YamaSearch",
+            MessageBoxButton.OK,
+            MessageBoxImage.Information);
+    }
+
+    private void UninstallCurrentSiteApp(SiteAppEntry app)
+    {
+        if (MessageBox.Show(
+            $"Odinstalovat aplikaci „{app.Name}“?\n\nPřihlášení a data webu v YamaSearch tím nebudou smazána.",
+            "YamaSearch",
+            MessageBoxButton.YesNo,
+            MessageBoxImage.Warning) != MessageBoxResult.Yes) return;
+
+        SiteAppServices.RemoveAppFiles(app);
+        _settings.Data.InstalledApps.Remove(app);
+        _settings.Save();
+        Close();
+    }
+
+    private static ImageSource TryLoadRemoteOrFallbackIcon(string? faviconUrl)
+    {
+        try
+        {
+            if (Uri.TryCreate(faviconUrl, UriKind.Absolute, out var uri))
+                return new BitmapImage(uri);
+        }
+        catch { }
+
+        return new BitmapImage(new Uri("pack://application:,,,/Assets/YamaSearch-symbol-64.png"));
+    }
+
+    private static BitmapImage? TryLoadLocalIcon(string? path)
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(path) || !File.Exists(path)) return null;
+            var image = new BitmapImage();
+            image.BeginInit();
+            image.CacheOption = BitmapCacheOption.OnLoad;
+            image.UriSource = new Uri(path, UriKind.Absolute);
+            image.EndInit();
+            image.Freeze();
+            return image;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
     private void RestartApplication()
     {
         var current = _active?.View.CoreWebView2?.Source;
-        if (_siteAppMode && !string.IsNullOrWhiteSpace(current))
+        if (_siteAppMode && !string.IsNullOrWhiteSpace(_siteAppId))
+            StartYamaSearchProcess($"--app-id={_siteAppId}");
+        else if (_siteAppMode && !string.IsNullOrWhiteSpace(current))
             StartYamaSearchProcess($"--app={current}");
         else if (!string.IsNullOrWhiteSpace(current))
             StartYamaSearchProcess($"--url={current}");
@@ -3017,7 +3232,21 @@ public static class UrlTools
         var query = Uri.EscapeDataString(input); return engine switch { "Google" => "https://www.google.com/search?q=" + query, "Bing" => "https://www.bing.com/search?q=" + query, "Seznam" => "https://search.seznam.cz/?q=" + query, "Brave Search" => "https://search.brave.com/search?q=" + query, "Ecosia" => "https://www.ecosia.org/search?q=" + query, "Yahoo" => "https://search.yahoo.com/search?p=" + query, "Startpage" => "https://www.startpage.com/sp/search?query=" + query, _ => "https://duckduckgo.com/?q=" + query };
     }
 }
-public sealed class AppData { public string Theme { get; set; } = "dark"; public string HomePage { get; set; } = "yamasearch://newtab"; public string SearchEngine { get; set; } = "DuckDuckGo"; public string CustomSearchEndpoint { get; set; } = ""; public bool OnboardingCompleted { get; set; } = false; public bool FavoritesBarVisible { get; set; } = false; public bool HardwareAccelerationEnabled { get; set; } = true; public BlockMode BlockMode { get; set; } = BlockMode.Standard; public bool EnableYouTubeAdBlock { get; set; } = true; public bool EnableCosmeticBlocking { get; set; } = true; public bool EnableTrackerBlocking { get; set; } = true; public SecurityLevel SecurityLevel { get; set; } = SecurityLevel.Recommended; public bool EnableSmartScreen { get; set; } = true; public bool OfferPasswordSave { get; set; } = true; public List<string> Whitelist { get; set; } = []; public List<string> Bookmarks { get; set; } = []; public List<HistoryEntry> History { get; set; } = []; public List<DownloadEntry> Downloads { get; set; } = []; }
+public sealed class SiteAppEntry
+{
+    public string Id { get; set; } = Guid.NewGuid().ToString("N");
+    public string Name { get; set; } = "Webová aplikace";
+    public string Url { get; set; } = "";
+    public string Host { get; set; } = "";
+    public string FaviconUrl { get; set; } = "";
+    public string IconPath { get; set; } = "";
+    public DateTimeOffset InstalledAt { get; set; } = DateTimeOffset.Now;
+    public bool AddToStartMenu { get; set; } = true;
+    public bool CreateDesktopShortcut { get; set; }
+    public bool StartOnLogin { get; set; }
+}
+
+public sealed class AppData { public string Theme { get; set; } = "dark"; public string HomePage { get; set; } = "yamasearch://newtab"; public string SearchEngine { get; set; } = "DuckDuckGo"; public string CustomSearchEndpoint { get; set; } = ""; public bool OnboardingCompleted { get; set; } = false; public bool FavoritesBarVisible { get; set; } = false; public bool HardwareAccelerationEnabled { get; set; } = true; public BlockMode BlockMode { get; set; } = BlockMode.Standard; public bool EnableYouTubeAdBlock { get; set; } = true; public bool EnableCosmeticBlocking { get; set; } = true; public bool EnableTrackerBlocking { get; set; } = true; public SecurityLevel SecurityLevel { get; set; } = SecurityLevel.Recommended; public bool EnableSmartScreen { get; set; } = true; public bool OfferPasswordSave { get; set; } = true; public List<string> Whitelist { get; set; } = []; public List<string> Bookmarks { get; set; } = []; public List<HistoryEntry> History { get; set; } = []; public List<DownloadEntry> Downloads { get; set; } = []; public List<SiteAppEntry> InstalledApps { get; set; } = []; }
 public sealed class HistoryEntry { public string Url { get; set; } = ""; public string Title { get; set; } = ""; public string FaviconUrl { get; set; } = ""; public DateTimeOffset VisitedAt { get; set; } }
 public sealed class DownloadEntry
 {
