@@ -901,6 +901,15 @@ html body .yc-ss-tab.active{
 }
 html body .yc-ss-main{
   background:linear-gradient(180deg,rgba(8,21,30,.96),rgba(6,15,23,.98))!important;
+  min-height:0!important;
+  overflow:hidden!important;
+}
+html body .yc-ss-body{
+  flex:1 1 auto!important;
+  min-height:0!important;
+  overflow-y:auto!important;
+  overscroll-behavior:contain;
+  -webkit-overflow-scrolling:touch;
 }
 html body .yc-ss-head{
   background:linear-gradient(180deg,rgba(11,28,39,.98),rgba(7,18,27,.96))!important;
