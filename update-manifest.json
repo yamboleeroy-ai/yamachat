@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "publishedAt": "2026-10-08T08:43:10.329Z",
+  "publishedAt": "2026-10-08T08:58:59Z",
   "windows": {
     "latestVersion": "1.0.121",
     "required": true,
@@ -9,11 +9,11 @@
     "installerUrl": "https://updates.yamachat.eu/windows/Yamachat-Setup-1.0.121.exe"
   },
   "android": {
-    "latestVersion": "1.1.0.791",
-    "latestVersionCode": 200791,
+    "latestVersion": "1.1.0.792",
+    "latestVersionCode": 200792,
     "required": true,
-    "apkUrl": "https://updates.yamachat.eu/android/Yamachat-Android-200791.apk",
-    "sha256": "824bb37f28dc21df0e348c4ea0043c13571dc7babef64d0bec792654d3b64fe9",
+    "apkUrl": "https://updates.yamachat.eu/android/Yamachat-Android-200792.apk",
+    "sha256": "0acc2c28d3c7b23e54cc952a71d6b515115e4cfea4b9ea11ac4043a936fba0fe",
     "notes": [
       "Deep stability audit: voice, stream, WebRTC, reconnect a cleanup lifecycle byly zpevněné.",
       "Android zachovává současné mobilní rozložení, Microsoft Natural Voices a interoperabilitu s webem a Windows.",
