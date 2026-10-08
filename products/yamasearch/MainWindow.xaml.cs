@@ -1382,52 +1382,18 @@ public partial class MainWindow : Window
         if (!CanReceiveTransferredTab(payload) || !TabTransferCoordinator.TryBegin(payload.Source, payload.Tab))
             return false;
 
-        BrowserTab? replacement = null;
         try
         {
-            // A WPF WebView2 controller is bound to the native host window and
-            // cannot be reparented safely. Create the destination controller
-            // first; source ownership is released only after it is ready.
-            var address = payload.Tab.IsYamaNewTab
-                ? payload.Source._settings.Data.HomePage
-                : payload.Tab.View.CoreWebView2?.Source;
-            if (string.IsNullOrWhiteSpace(address))
-                address = payload.Source._settings.Data.HomePage;
-
-            replacement = new BrowserTab();
-            insertionIndex = Math.Clamp(insertionIndex, 0, _tabs.Count);
-            _tabs.Insert(insertionIndex, replacement);
-            SelectTab(replacement);
-            var environment = await CreateWebViewEnvironmentAsync();
-            await replacement.View.EnsureCoreWebView2Async(environment);
-            await ConfigureWebViewAsync(replacement);
-            await NavigateAsync(replacement, address);
-
-            // Drop is raised while WPF still owns the native OLE drag loop.
-            // Disposing the source WebView (or closing its window) from this
-            // call stack can tear down the host HWND under that loop and crash
-            // both windows. ContextIdle runs after the completed drag message;
-            // it is an ordering boundary, not a timed retry.
-            await Dispatcher.InvokeAsync(
-                () => payload.Source.CompleteTransferredTab(payload.Tab),
+            // The WPF WebView2 host knows how to re-parent its native controller
+            // when the same control enters a different visual tree. Do it only
+            // after the native OLE drop loop has ended: it preserves the live
+            // page instead of constructing another controller and reloading it.
+            return await Dispatcher.InvokeAsync(
+                () => CompleteLiveTabTransfer(payload.Source, payload.Tab, insertionIndex),
                 System.Windows.Threading.DispatcherPriority.ContextIdle);
-            return true;
         }
         catch
         {
-            if (replacement is not null)
-            {
-                _tabs.Remove(replacement);
-                if (ReferenceEquals(_active, replacement))
-                {
-                    BrowserHost.Children.Clear();
-                    _active = null;
-                }
-                replacement.View.Dispose();
-                RenderTabs();
-                if (_tabs.Count > 0)
-                    SelectTab(_tabs[0]);
-            }
             return false;
         }
         finally
@@ -1446,22 +1412,61 @@ public partial class MainWindow : Window
             && TabWindowRegistry.IsRegistered(_windowId, this)
             && TabWindowRegistry.IsRegistered(payload.Source._windowId, payload.Source);
 
-    private void CompleteTransferredTab(BrowserTab tab)
+    private bool CompleteLiveTabTransfer(MainWindow source, BrowserTab tab, int insertionIndex)
     {
-        if (_isClosing || tab.Owner != this || !_tabs.Remove(tab))
-            return;
-        if (ReferenceEquals(_active, tab))
+        if (_isClosing || source._isClosing || tab.Owner != source)
+            return false;
+
+        var sourceIndex = source._tabs.IndexOf(tab);
+        if (sourceIndex < 0)
+            return false;
+
+        var sourceWasActive = ReferenceEquals(source._active, tab);
+        try
         {
-            BrowserHost.Children.Clear();
-            _active = null;
+            // Remove the host from the old visual tree without disposing it.
+            // Disposing is reserved for normal tab close and must never occur
+            // while a live tab is handed to another browser window.
+            if (sourceWasActive)
+            {
+                source.BrowserHost.Children.Remove(tab.View);
+                source._active = null;
+            }
+
+            source._tabs.RemoveAt(sourceIndex);
+            if (source._tabs.Count > 0)
+                source.SelectTab(source._tabs[Math.Min(sourceIndex, source._tabs.Count - 1)]);
+            else
+                source.RenderTabs();
+
+            insertionIndex = Math.Clamp(insertionIndex, 0, _tabs.Count);
+            _tabs.Insert(insertionIndex, tab);
+            tab.Owner = this;
+            SelectTab(tab);
+
+            // Closing is deliberately last: the target already displays the
+            // original WebView and all its live Chromium state at this point.
+            if (source._tabs.Count == 0 && !source._isClosing)
+                source.Close();
+
+            return true;
         }
-        tab.Owner = null;
-        tab.View.Dispose();
-        RenderTabs();
-        if (_tabs.Count > 0)
-            SelectTab(_tabs[0]);
-        else if (!_isClosing)
-            Close();
+        catch
+        {
+            // A target failure must leave the original working tab in place.
+            _tabs.Remove(tab);
+            if (ReferenceEquals(_active, tab))
+            {
+                BrowserHost.Children.Remove(tab.View);
+                _active = null;
+            }
+            tab.Owner = source;
+            if (!source._tabs.Contains(tab))
+                source._tabs.Insert(Math.Clamp(sourceIndex, 0, source._tabs.Count), tab);
+            source.SelectTab(tab);
+            RenderTabs();
+            return false;
+        }
     }
 
     private void TearOffTab(BrowserTab tab)
