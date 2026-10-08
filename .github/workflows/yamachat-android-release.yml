@@ -1,0 +1,91 @@
+name: Publish Yamachat Android release
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: yamachat-android-production-release
+  cancel-in-progress: false
+
+jobs:
+  build:
+    uses: ./.github/workflows/mobile-android.yml
+    secrets: inherit
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/download-artifact@v4
+        with:
+          name: Yamachat-Android
+          path: release-assets
+      - name: Verify Android artifact
+        run: |
+          set -euo pipefail
+          test -s release-assets/Yamachat-Android.apk
+          node -e "const r=require('./release-assets/android-artifact.json'); if(!r.artifact?.versionCode||!r.artifact?.sha256) process.exit(1)"
+      - name: Publish verified APK to Cloudflare R2
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          set -euo pipefail
+          test -n "${CLOUDFLARE_API_TOKEN:-}"
+          test -n "${CLOUDFLARE_ACCOUNT_ID:-}"
+          W='npx --yes wrangler@latest'
+          $W r2 bucket list | grep -q 'yamachat-releases'
+          ANDROID_CODE="$(node -p "require('./release-assets/android-artifact.json').artifact.versionCode")"
+          $W r2 object put "yamachat-releases/android/Yamachat-Android-$ANDROID_CODE.apk" --file release-assets/Yamachat-Android.apk --content-type application/vnd.android.package-archive --content-disposition 'attachment; filename="Yamachat-Android.apk"' --cache-control 'public, max-age=31536000, immutable' --remote
+          $W r2 object put yamachat-releases/android/Yamachat-Android.apk --file release-assets/Yamachat-Android.apk --content-type application/vnd.android.package-archive --content-disposition 'attachment; filename="Yamachat-Android.apk"' --cache-control 'no-cache, no-store' --remote
+      - name: Verify public APK
+        run: |
+          set -euo pipefail
+          ANDROID_CODE="$(node -p "require('./release-assets/android-artifact.json').artifact.versionCode")"
+          for i in $(seq 1 30); do
+            curl -fsSI --max-time 20 "https://updates.yamachat.eu/android/Yamachat-Android-$ANDROID_CODE.apk" >/dev/null && break
+            test "$i" != 30 || { echo 'Android update did not become ready'; exit 1; }
+            sleep 10
+          done
+          curl -fsSI --max-time 20 https://updates.yamachat.eu/android/Yamachat-Android.apk >/dev/null
+      - name: Publish Android metadata to main
+        run: |
+          set -euo pipefail
+          cp release-assets/android-artifact.json /tmp/android-artifact.json
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git fetch origin main
+          git checkout -B publish-main origin/main
+          python - <<'PY'
+          import json
+          from datetime import datetime, timezone
+          from pathlib import Path
+          artifact=json.loads(Path('/tmp/android-artifact.json').read_text())['artifact']
+          path=Path('update-manifest.json')
+          manifest=json.loads(path.read_text())
+          android=manifest.setdefault('android', {})
+          android.update({
+            'latestVersion': artifact['versionName'],
+            'latestVersionCode': int(artifact['versionCode']),
+            'required': True,
+            'apkUrl': f"https://updates.yamachat.eu/android/Yamachat-Android-{artifact['versionCode']}.apk",
+            'sha256': artifact['sha256'],
+          })
+          manifest['publishedAt']=datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace('+00:00','Z')
+          path.write_text(json.dumps(manifest, ensure_ascii=False, indent=2)+'\n')
+          PY
+          node scripts/build-web.mjs
+          node scripts/check.mjs
+          git add update-manifest.json index.html
+          git diff --cached --quiet || git commit -m 'Release Yamachat Android update [skip ci]'
+          git push origin HEAD:main

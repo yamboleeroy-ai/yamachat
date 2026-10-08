@@ -1493,7 +1493,8 @@ function subscribeMessages(){
   const generation=++ycMessageSubscriptionGeneration,chatKey=ycChatKey(),targetId=currentChannel?.id||currentThread?.id;
   const isCurrent=()=>generation===ycMessageSubscriptionGeneration&&chatKey===ycChatKey();
   messageSub=sb.channel('yc-msg-'+targetId+'-'+generation).on('postgres_changes',{event:'*',schema:'public',table:'messages',filter},()=>{if(isCurrent())ycScheduleMessageRefresh(45)}).subscribe();
-  attachmentSub=sb.channel('yc-att-'+targetId+'-'+generation).on('postgres_changes',{event:'*',schema:'public',table:'attachments'},payload=>{if(!isCurrent())return;const mid=String(payload.new?.message_id||payload.old?.message_id||'');if(mid&&visibleMessageIds.has(mid)){ycChatAttachmentDirty.add(mid);ycScheduleMessageRefresh(60)}else if(!mid){for(const id of visibleMessageIds)ycChatAttachmentDirty.add(String(id));ycScheduleMessageRefresh(80)}}).subscribe();
+  const attachmentFilter=currentChannel?'channel_id=eq.'+currentChannel.id:'direct_thread_id=eq.'+currentThread.id;
+  attachmentSub=sb.channel('yc-att-'+targetId+'-'+generation).on('postgres_changes',{event:'*',schema:'public',table:'attachments',filter:attachmentFilter},payload=>{if(!isCurrent())return;const mid=String(payload.new?.message_id||payload.old?.message_id||'');if(mid&&visibleMessageIds.has(mid)){ycChatAttachmentDirty.add(mid);ycScheduleMessageRefresh(60)}else if(!mid){for(const id of visibleMessageIds)ycChatAttachmentDirty.add(String(id));ycScheduleMessageRefresh(80)}}).subscribe();
 }
 async function loadMessages(scroll=true){
       ycAbortChatMediaLoad();const ycMediaAbort=new AbortController();ycChatMediaAbortController=ycMediaAbort;

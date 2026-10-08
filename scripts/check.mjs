@@ -41,6 +41,10 @@ try{
    "id: 'updates'"
  ]) assert(nativeBridgeSource.includes(marker),`Missing Android update-settings marker: ${marker}`);
  const generatedWeb=fs.readFileSync(path.join(root,'index.html'),'utf8');
+ assert(generatedWeb.includes("table:'attachments',filter:attachmentFilter"),'Generated web must scope attachment Realtime to the active chat');
+ assert(!generatedWeb.includes("table:'attachments'},payload"),'Generated web must not retain the global attachment Realtime subscription');
+ const desktopClient=fs.readFileSync(path.join(root,'desktop/desktop-client.html'),'utf8');
+ assert(desktopClient.includes("table:'attachments',filter:attachmentFilter"),'Windows client must scope attachment Realtime to the active chat');
  assert(generatedWeb.includes('ycServerContextFrame'), 'Generated client is missing connected active-server context visual');
  assert(generatedWeb.includes('function drawFrame()'), 'Generated client is missing the visual-only server context synchronizer');
  assert(generatedWeb.includes('pointer-events:none!important'), 'Server context visual must never block pointer interaction');

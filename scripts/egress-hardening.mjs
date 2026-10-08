@@ -105,6 +105,10 @@ const runtime=`${START}
 ${END}`;
 
 export function withEgressHardening(html){
+  const globalAttachmentSubscription="attachmentSub=sb.channel('yc-att-'+targetId+'-'+generation).on('postgres_changes',{event:'*',schema:'public',table:'attachments'},payload=>{if(!isCurrent())return;const mid=String(payload.new?.message_id||payload.old?.message_id||'');if(mid&&visibleMessageIds.has(mid)){ycChatAttachmentDirty.add(mid);ycScheduleMessageRefresh(60)}else if(!mid){for(const id of visibleMessageIds)ycChatAttachmentDirty.add(String(id));ycScheduleMessageRefresh(80)}}).subscribe();";
+  const scopedAttachmentSubscription="const attachmentFilter=currentChannel?'channel_id=eq.'+currentChannel.id:'direct_thread_id=eq.'+currentThread.id;\n  attachmentSub=sb.channel('yc-att-'+targetId+'-'+generation).on('postgres_changes',{event:'*',schema:'public',table:'attachments',filter:attachmentFilter},payload=>{if(!isCurrent())return;const mid=String(payload.new?.message_id||payload.old?.message_id||'');if(mid&&visibleMessageIds.has(mid)){ycChatAttachmentDirty.add(mid);ycScheduleMessageRefresh(60)}else if(!mid){for(const id of visibleMessageIds)ycChatAttachmentDirty.add(String(id));ycScheduleMessageRefresh(80)}}).subscribe();";
+  if(html.includes(globalAttachmentSubscription)) html=html.replace(globalAttachmentSubscription,scopedAttachmentSubscription);
+  if(!html.includes("table:'attachments',filter:attachmentFilter"))throw Error('Egress hardening could not scope attachment Realtime');
   if(html.includes(START)){
     const start=html.indexOf(START),end=html.indexOf(END,start);
     if(end<start)throw Error('Malformed existing egress hardening block');
