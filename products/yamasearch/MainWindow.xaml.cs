@@ -1654,7 +1654,14 @@ public partial class MainWindow : Window
             await ConfigureWebViewAsync(replacement);
             await NavigateAsync(replacement, address);
 
-            payload.Source.CompleteTransferredTab(payload.Tab);
+            // Drop is raised while WPF still owns the native OLE drag loop.
+            // Disposing the source WebView (or closing its window) from this
+            // call stack can tear down the host HWND under that loop and crash
+            // both windows. ContextIdle runs after the completed drag message;
+            // it is an ordering boundary, not a timed retry.
+            await Dispatcher.InvokeAsync(
+                () => payload.Source.CompleteTransferredTab(payload.Tab),
+                System.Windows.Threading.DispatcherPriority.ContextIdle);
         }
         catch
         {

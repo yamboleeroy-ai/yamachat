@@ -1,7 +1,7 @@
 {
   "product": "YamaSearch",
-  "version": "0.3.12",
-  "notes": "Oprava přetahování karet mezi okny: větší cílová plocha celého pruhu karet, bezpečné dokončení přesunu a automatické zavření zdrojového okna po přesunu poslední karty.",
+  "version": "0.3.13",
+  "notes": "Hotfix stability přetahování karet mezi okny: zdrojová karta a její WebView se nyní uvolní až po ukončení nativní drag události, aby nedošlo k pádu oken.",
   "portableUrl": "https://updates.yamachat.eu/yamasearch/YamaSearch-Portable-latest.zip",
   "installerUrl": "https://updates.yamachat.eu/yamasearch/YamaSearch-Setup-latest.exe"
 }
