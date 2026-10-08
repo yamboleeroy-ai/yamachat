@@ -65,7 +65,10 @@ const heartbeat=html.slice(html.indexOf('function startVoiceHeartbeat()'),html.i
 assert(!heartbeat.includes('refreshVoiceParticipants(')&&!heartbeat.includes("from('voice_participants')"),'Voice heartbeat must not perform a second roster read');
 assert(!html.includes("try{if(voiceChannel?.id)void refreshVoiceParticipants(voiceChannel.id)}catch{}"),'Desktop wake must not perform an extra roster DB read');
 assert(html.includes("event:'INSERT',schema:'public',table:'voice_participants',filter"),'Active room must receive scoped participant INSERT events');
+assert(html.includes("event:'UPDATE',schema:'public',table:'voice_participants',filter},payload=>{ycPatchVoiceParticipant(id,payload.new)}"),'Active room must receive scoped participant UPDATE events for remote mute/deafen state');
 assert(html.includes("event:'DELETE',schema:'public',table:'voice_participants',filter"),'Active room must receive scoped participant DELETE events');
+assert(html.includes("function ycPatchVoiceParticipant(id,row){"),'Realtime participant update must patch one cached row rather than re-querying the roster');
+assert(html.includes("if(status==='SUBSCRIBED'){if(voiceParticipantSub===sub&&voiceParticipantSubChannelId===id&&String(voiceChannel?.id||'')===id)void refreshVoiceParticipants(id);return}"),'Voice roster must take a post-subscribe snapshot to close the join-event race');
 assert(!html.includes("event:'*',schema:'public',table:'voice_participants'"),'Voice participants must not fan out globally to every client');
 assert(html.includes(".in('channel_id',ids).gt('last_seen',cutoff)"),'Visible voice rosters must refresh in one batched query');
 assert(html.includes("void syncVoiceParticipantRow().catch(e=>console.warn('voice participant keepalive',e))"),'Voice heartbeat must renew only the database lease');

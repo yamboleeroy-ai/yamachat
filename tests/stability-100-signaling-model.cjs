@@ -7,7 +7,8 @@ for(const file of ['desktop/desktop-client.html','index.html','mobile/www/index.
   const src=fs.readFileSync(path.join(root,file),'utf8');
   assert(src.includes("event:'INSERT',schema:'public',table:'voice_participants',filter"),file+' room-scoped participant INSERT missing');
   assert(src.includes("event:'DELETE',schema:'public',table:'voice_participants',filter"),file+' room-scoped participant DELETE missing');
-  assert(!src.includes("event:'UPDATE',schema:'public',table:'voice_participants'"),file+' participant heartbeat UPDATE returned to realtime');
+  assert(src.includes("event:'UPDATE',schema:'public',table:'voice_participants',filter},payload=>{ycPatchVoiceParticipant(id,payload.new)}"),file+' scoped participant UPDATE for remote mute/deafen missing');
+  assert(src.includes('function ycPatchVoiceParticipant(id,row){'),file+' participant UPDATE must patch one cached row instead of forcing a roster read');
   assert(src.includes("filter:'to_user=eq.'+uid"),file+' targeted signaling recipient filter missing');
   assert(src.includes(".in('channel_id',ids).gt('last_seen',cutoff)"),file+' batched voice roster query missing');
   assert(src.includes("const delay=voiceChannel?YC_VOICE_HEARTBEAT_MS:YC_VOICE_ROSTER_MS"),file+' single roster scheduler missing');
@@ -42,11 +43,11 @@ for(const u of users)assert.equal(u.peers.size,4,'Five-person room must expose f
 const membershipDeliveries=users.filter(u=>u.community===2).length;
 const participantDeliveries=users.filter(u=>u.room===7&&u.active).length;
 const signalDeliveries=1;
-const heartbeatRealtimeDeliveries=0;
+const heartbeatRealtimeDeliveries=clients*roomSize;
 assert.equal(membershipDeliveries,20);
 assert.equal(participantDeliveries,5);
 assert.equal(signalDeliveries,1);
-assert.equal(heartbeatRealtimeDeliveries,0);
+assert.equal(heartbeatRealtimeDeliveries,500,'A lease update is delivered only to the five listeners in its room');
 
 const directedPeerSignals=users.reduce((n,u)=>n+u.peers.size,0);
 assert.equal(directedPeerSignals,400,'One directed signal per peer endpoint must stay O(room size), not global O(N²)');
@@ -72,7 +73,7 @@ assert.equal(endpointPeerCount(),400);
 for(const u of users){assert.equal(u.peers.size,4);assert(!oldSessions.has(u.session),'Old voice session survived rejoin');}
 
 const leaseWritesPerSecond=clients/45;
-const rosterReadsPerSecond=clients/15;
+const rosterReadsPerSecond=clients/90;
 const metrics={
   type:'SIMULATION_NOT_REAL_CLIENTS',
   virtual_clients:clients,
@@ -85,7 +86,7 @@ const metrics={
   member_event_max_deliveries:membershipDeliveries,
   participant_event_room_deliveries:participantDeliveries,
   targeted_signal_deliveries:signalDeliveries,
-  heartbeat_realtime_deliveries:heartbeatRealtimeDeliveries,
+  heartbeat_realtime_deliveries_per_45_seconds:heartbeatRealtimeDeliveries,
   modeled_voice_lease_writes_per_second:Number(leaseWritesPerSecond.toFixed(4)),
   modeled_batched_roster_reads_per_second:Number(rosterReadsPerSecond.toFixed(4))
 };
