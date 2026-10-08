@@ -1703,7 +1703,10 @@ window.addEventListener('pointerdown',e=>{if(e.button!==0||!e.target.closest?.('
 window.addEventListener('dblclick',e=>{if(e.target.closest?.('.voice-channel[data-voice]')){clearTimeout(ycVoiceGestureTimer);ycVoiceGestureTimer=setTimeout(ycFlushVoiceGesture,0)}},true);
 window.addEventListener('blur',ycFlushVoiceGesture);
 function renderVoiceChannels(chs){voiceChannelDefs=chs||[];const root=$('voiceChannelList');if(!root)return;const activeId=(window.__ycVoiceSwitchBusy&&window.__ycVoiceSwitchTargetId)?String(window.__ycVoiceSwitchTargetId):String(voiceChannel?.id||'');root.innerHTML=voiceChannelDefs.map(c=>{const people=voicePresenceByChannel[c.id]||[];return '<div class="voice-block"><button class="voice-channel '+(activeId===String(c.id)?'active':'')+'" data-voice="'+c.id+'"><span>🔊</span><span>'+esc(c.name)+'</span><span class="voice-count">'+people.length+'</span></button><div class="voice-users">'+people.map(p=>{const mix=voiceMixFor(p.user_id),remote=p.user_id!==user?.id;return '<div class="voice-user '+(p.user_id===user?.id?'me-voice':'')+' '+(((p.user_id===user?.id?voiceSpeaking:voiceRemoteSpeaking.has(p.user_id))&&!p.muted)?'is-speaking':'')+' '+(remote&&mix.muted?'local-muted':'')+'" data-user-id="'+esc(p.user_id)+'" data-user-name="'+esc(p.username||'Uživatel')+'" title="'+(remote?'Pravým tlačítkem: hlasitost / lokální mute':'Ty')+'"><span class="voice-talk-dot"></span><span>'+(p.muted?'🔇':'🎙')+'</span><span>'+esc(p.username||'Uživatel')+'</span><span class="voice-user-icons">'+(remote&&mix.muted?'🔇':remote&&mix.volume!==100?'🔈 '+mix.volume+'%':'')+(p.deafened?' 🎧':'')+'</span></div>'}).join('')+'</div></div>'}).join('')}
-const YC_VOICE_HEARTBEAT_MS=15000,YC_VOICE_TTL_MS=60000,YC_VOICE_ROSTER_MS=20000
+// A participant lease must tolerate a delayed 30-second hardened heartbeat.
+// A short TTL turns a temporary timer/network delay into a false leave, even
+// though the WebRTC call and stream are still connected.
+const YC_VOICE_HEARTBEAT_MS=15000,YC_VOICE_TTL_MS=120000,YC_VOICE_ROSTER_MS=20000
 let voiceRosterRefreshDelay=0,voiceRosterContextKey=''
 function stopVoiceParticipantSubscription(){if(voiceParticipantSub){try{sb.removeChannel(voiceParticipantSub)}catch{}voiceParticipantSub=null}voiceParticipantSubChannelId=''}
 function subscribeVoiceParticipants(){const id=voiceChannel?.id?String(voiceChannel.id):'';if(!id){stopVoiceParticipantSubscription();return}if(voiceParticipantSub&&voiceParticipantSubChannelId===id)return;stopVoiceParticipantSubscription();const filter='channel_id=eq.'+id,sub=sb.channel('yc-voice-participants-'+user.id+'-'+id+'-'+Date.now()).on('postgres_changes',{event:'INSERT',schema:'public',table:'voice_participants',filter},()=>{void refreshVoiceParticipants(id)}).on('postgres_changes',{event:'DELETE',schema:'public',table:'voice_participants',filter},payload=>{const uid=payload.old?.user_id;if(uid&&uid!==user.id)closeVoicePeer(uid);void refreshVoiceParticipants(id)}).subscribe(status=>{if(['CHANNEL_ERROR','TIMED_OUT','CLOSED'].includes(status)&&voiceParticipantSub===sub){try{sb.removeChannel(sub)}catch{}voiceParticipantSub=null;voiceParticipantSubChannelId=''}});voiceParticipantSub=sub;voiceParticipantSubChannelId=id}
@@ -1873,7 +1876,13 @@ async function ycPrepareDesktopProcessAudio(stream){
    for(const track of stream.getAudioTracks())try{stream.removeTrack(track);track.stop()}catch{};
    stream.addTrack(result.track);window.__ycDesktopProcessAudioMode='process';return result;
   }
-  if(result?.mode==='unavailable')toast('Obraz se sdílí bez zvuku: '+(result.detail||result.reason||'zachytávání zvuku není dostupné')+'. U hry ověř stejná oprávnění hry a Yamachatu. Systémový zvuk se jako náhrada nepoužije.',true);
+  if(result?.mode==='unavailable'){
+   const selection=await bridge.selection?.().catch(()=>null),kind=selection?.kind||'';
+   const hint=kind==='screen'
+    ? ' U hry vyber v nabídce přímo okno hry místo celé obrazovky; celoobrazovková systémová cesta se nepoužije, pokud by mohla vrátit zvuk Yamachatu zpět do hovoru.'
+    : ' U hry ověř stejná oprávnění hry a Yamachatu; pokud hra běží jako správce, spusť jako správce i Yamachat.';
+   toast('Obraz se sdílí bez zvuku: '+(result.detail||result.reason||'zachytávání zvuku není dostupné')+'.'+hint,true);
+  }
   window.__ycDesktopProcessAudioMode=result?.mode||'none';return result||{mode:'none'};
  }catch(e){console.warn('desktop process audio start',e);window.__ycDesktopProcessAudioMode='unavailable';return{mode:'unavailable',reason:e?.message||String(e)}}
 }

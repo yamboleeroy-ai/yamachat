@@ -50,7 +50,7 @@ if(!isDesktop){
  const rejectOther=html.indexOf("if(target.communityId&&currentCommunity?.id&&String(target.communityId)!==String(currentCommunity.id))return null;");
  assert(findLive>=0&&rejectOther>findLive,'iOS PWA must prefer the still-live voice channel before rejecting a different browsed community');
 }
-assert(html.includes("const YC_VOICE_HEARTBEAT_MS=15000,YC_VOICE_TTL_MS=60000,YC_VOICE_ROSTER_MS=20000"),'Voice lease timing must be scale-safe');
+assert(html.includes("YC_VOICE_TTL_MS=120000"),'Voice lease must tolerate a delayed hardened heartbeat');
 assert(html.includes("let voiceRosterRefreshDelay=0,voiceRosterContextKey=''"),'Voice roster scheduler state missing');
 assert(html.includes('voiceRosterGeneration=0'),'Voice roster generation guard state missing');
 assert(html.includes("if(generation!==voiceRosterGeneration||String(user?.id||'')!==uid)return"),'Stale voice roster results must be discarded after auth/context changes');

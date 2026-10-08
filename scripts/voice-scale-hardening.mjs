@@ -30,7 +30,10 @@ export function withVoiceScaleHardening(html){
   html=html.replace(participantSyncOld,participantSyncNew);
 
   const participantBlock=`// VOICE SCALE HARDENING 2026-09-28
-const YC_VOICE_HEARTBEAT_MS=15000,YC_VOICE_TTL_MS=60000,YC_VOICE_ROSTER_MS=20000
+// A participant lease must tolerate a delayed 30-second hardened heartbeat.
+// A short TTL turns a temporary timer/network delay into a false leave, even
+// though the WebRTC call and stream are still connected.
+const YC_VOICE_HEARTBEAT_MS=15000,YC_VOICE_TTL_MS=120000,YC_VOICE_ROSTER_MS=20000
 let voiceRosterRefreshDelay=0,voiceRosterContextKey=''
 function stopVoiceParticipantSubscription(){if(voiceParticipantSub){try{sb.removeChannel(voiceParticipantSub)}catch{}voiceParticipantSub=null}voiceParticipantSubChannelId=''}
 function subscribeVoiceParticipants(){const id=voiceChannel?.id?String(voiceChannel.id):'';if(!id){stopVoiceParticipantSubscription();return}if(voiceParticipantSub&&voiceParticipantSubChannelId===id)return;stopVoiceParticipantSubscription();const filter='channel_id=eq.'+id,sub=sb.channel('yc-voice-participants-'+user.id+'-'+id+'-'+Date.now()).on('postgres_changes',{event:'INSERT',schema:'public',table:'voice_participants',filter},()=>{void refreshVoiceParticipants(id)}).on('postgres_changes',{event:'DELETE',schema:'public',table:'voice_participants',filter},payload=>{const uid=payload.old?.user_id;if(uid&&uid!==user.id)closeVoicePeer(uid);void refreshVoiceParticipants(id)}).subscribe(status=>{if(['CHANNEL_ERROR','TIMED_OUT','CLOSED'].includes(status)&&voiceParticipantSub===sub){try{sb.removeChannel(sub)}catch{}voiceParticipantSub=null;voiceParticipantSubChannelId=''}});voiceParticipantSub=sub;voiceParticipantSubChannelId=id}

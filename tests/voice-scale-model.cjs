@@ -27,7 +27,7 @@ assert.equal(meshPairs(10),45);
 assert.equal(meshPairs(100),4950);
 assert.equal(meshPairs(1000),499500);
 
-assert(desktop.includes("const YC_VOICE_HEARTBEAT_MS=15000,YC_VOICE_TTL_MS=60000,YC_VOICE_ROSTER_MS=20000"),'Scale timings missing');
+assert(desktop.includes("YC_VOICE_TTL_MS=120000"),'Voice lease must tolerate a delayed hardened heartbeat');
 assert(desktop.includes("const delay=voiceChannel?YC_VOICE_HEARTBEAT_MS:YC_VOICE_ROSTER_MS"),'Roster scale model must match the 15s active / 20s idle scheduler');
 assert(desktop.includes('voiceRosterGeneration=0'),'Voice roster generation state missing');
 assert(desktop.includes("if(generation!==voiceRosterGeneration||String(user?.id||'')!==uid)return"),'Stale voice roster response guard missing');

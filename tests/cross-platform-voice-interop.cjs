@@ -53,7 +53,7 @@ for(const [name,source] of [['Windows',desktop],['Web/PWA',web],['Android/iOS',m
     "iceCandidatePoolSize:8",
     "bundlePolicy:'max-bundle'",
     "['CHANNEL_ERROR','TIMED_OUT','CLOSED'].includes(status)",
-    "const YC_VOICE_HEARTBEAT_MS=15000,YC_VOICE_TTL_MS=60000,YC_VOICE_ROSTER_MS=20000",
+    "YC_VOICE_TTL_MS=120000",
     "event:'INSERT',schema:'public',table:'voice_participants',filter",
     "event:'DELETE',schema:'public',table:'voice_participants',filter",
     ".in('channel_id',ids).gt('last_seen',cutoff)",

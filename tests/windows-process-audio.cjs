@@ -31,6 +31,8 @@ assert(client.includes('async function ycPrepareDesktopProcessAudio(stream)'), '
 assert(client.includes("window.__ycDesktopProcessAudioMode='process'"),'generated desktop client does not mark process-only audio mode');
 assert(client.includes('stream.addTrack(result.track)'), 'generated desktop client does not attach process-only audio track');
 assert(client.includes('await ycStopDesktopProcessAudio()'), 'generated desktop client does not stop native audio with stream');
+assert(client.includes("const selection=await bridge.selection?.().catch(()=>null),kind=selection?.kind||''"), 'desktop client does not expose the selected capture path when stream audio is unavailable');
+assert(client.includes('vyber v nabídce přímo okno hry místo celé obrazovky'), 'desktop client does not provide a safe game-audio recovery hint');
 
 assert(helper.includes('AUDIOCLIENT_ACTIVATION_TYPE_PROCESS_LOOPBACK'),'native helper is not using process loopback activation');
 assert(helper.includes('PROCESS_LOOPBACK_MODE_INCLUDE_TARGET_PROCESS_TREE'),'native helper is not restricted to target process tree');
