@@ -19,6 +19,8 @@ for(const marker of [
  "async function ycRefreshVisibleFriendPresence()",
  "if(rightMode==='friends')void ycRefreshVisibleFriendPresence()",
  "void ycTouchPresence(true);playVoiceCue('self-join')",
+ "const YC_VOICE_HEARTBEAT_HARDENED_MS=30000",
+ "void ycTouchPresence(true).catch(error=>console.warn('voice social keepalive',error))",
  "typeof ycOwnPresenceState==='function'?ycOwnPresenceState()"
 ]) assert(client.includes(marker),'Presence stability marker missing: '+marker);
 

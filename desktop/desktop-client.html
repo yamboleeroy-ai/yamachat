@@ -6643,7 +6643,10 @@ try{const {data:{session:initial},error:initialSessionError}=await sb.auth.getSe
 // YC EGRESS HARDENING 2026-10-02 START
 ;(()=>{
  const YC_PRESENCE_HEARTBEAT_MS=60000,YC_SOCIAL_PRESENCE_WATCHDOG_MS=60000;
- const YC_VOICE_HEARTBEAT_HARDENED_MS=45000,YC_VOICE_ROSTER_ACTIVE_MS=90000,YC_VOICE_ROSTER_IDLE_MS=120000;
+ // A voice lease is authoritative evidence of an active client. Keep its social
+ // presence lease comfortably inside the 65-second offline cutoff, while still
+ // halving the original 15-second voice write rate.
+ const YC_VOICE_HEARTBEAT_HARDENED_MS=30000,YC_VOICE_ROSTER_ACTIVE_MS=90000,YC_VOICE_ROSTER_IDLE_MS=120000;
  const YC_STREAM_WATCHDOG_MS=120000;
  let ycRealtimeCircuitUntil=0,ycRealtimeCircuitTimer=null,ycRealtimeFailureCount=0;
  const ycRealtimeDetail=value=>{try{return typeof value==='string'?value:JSON.stringify(value,Object.getOwnPropertyNames(value||{}))}catch{return String(value||'')}};
@@ -6704,7 +6707,7 @@ try{const {data:{session:initial},error:initialSessionError}=await sb.auth.getSe
  };
  startVoiceHeartbeat=function(){
    stopVoiceHeartbeat();
-   const beat=()=>{if(!voiceChannel||ycRealtimeCircuitOpen())return;subscribeVoiceParticipants();startVoiceRosterRefresh();void syncVoiceParticipantRow().catch(error=>{ycStopRealtimeForQuota(error);console.warn('voice participant keepalive',error)});if(!voiceSignalSub||!voiceSignalReady)void subscribeVoiceSignals().catch(error=>{ycStopRealtimeForQuota(error);console.warn('voice signal reconnect',error)})};
+   const beat=()=>{if(!voiceChannel||ycRealtimeCircuitOpen())return;subscribeVoiceParticipants();startVoiceRosterRefresh();void syncVoiceParticipantRow().catch(error=>{ycStopRealtimeForQuota(error);console.warn('voice participant keepalive',error)});void ycTouchPresence(true).catch(error=>console.warn('voice social keepalive',error));if(!voiceSignalSub||!voiceSignalReady)void subscribeVoiceSignals().catch(error=>{ycStopRealtimeForQuota(error);console.warn('voice signal reconnect',error)})};
    beat();voiceHeartbeatTimer=setInterval(beat,YC_VOICE_HEARTBEAT_HARDENED_MS);
  };
  startVoiceRosterRefresh=function(){
