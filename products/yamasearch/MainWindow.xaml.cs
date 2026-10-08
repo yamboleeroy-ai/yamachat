@@ -17,6 +17,8 @@ namespace YamaSearch;
 
 public partial class MainWindow : Window
 {
+    internal Guid WindowId => _windowId;
+
     [DllImport("user32.dll")]
     private static extern bool GetCursorPos(out NativePoint point);
 
@@ -40,23 +42,14 @@ public partial class MainWindow : Window
     private bool _downloadUiRefreshQueued;
     private Point? _tabDragOrigin;
     private BrowserTab? _draggedTab;
-    private MainWindow? _tabDragHost;
-    private MainWindow? _detachedTabWindow;
-    private MainWindow? _pendingCrossWindowTarget;
-    private int _pendingCrossWindowInsertionIndex;
-    private bool _tabDragSourceHidden;
-    private bool _tabDragActive;
     private System.Windows.Controls.Primitives.Popup? _tabDragPreview;
-    private readonly HashSet<MainWindow> _emptyWindowsToCloseAfterDrag = [];
     private static readonly HashSet<System.Windows.Controls.Primitives.Popup> ActiveTabDragPreviews = [];
     private readonly bool _startEmpty;
+    private readonly Guid _windowId = Guid.NewGuid();
+    private bool _isClosing;
     private bool _suppressTabClick;
     private Button? _tabDropTarget;
     private bool _tabDropAfter;
-    // A WPF drop can be delivered more than once while the drag loop is
-    // unwinding.  Keep ownership with the source until the target has a ready
-    // WebView, and permit exactly one in-flight transfer for each tab.
-    private readonly HashSet<BrowserTab> _tabsBeingTransferred = [];
     private readonly Dictionary<CoreWebView2DownloadOperation, DownloadEntry> _activeDownloads = [];
     private readonly List<string> _favoriteOverflow = [];
     private bool _customMaximized;
@@ -97,6 +90,9 @@ public partial class MainWindow : Window
             ? _settings.Data.InstalledApps.FirstOrDefault(x => x.Id == siteAppId)
             : null;
         InitializeComponent();
+        Loaded += (_, _) => TabWindowRegistry.Register(_windowId, this);
+        Closing += (_, _) => _isClosing = true;
+        Closed += (_, _) => TabWindowRegistry.Unregister(_windowId);
         if (_isPrivateWindow)
         {
             Title = "YamaSearch · Anonymní okno";
@@ -1084,6 +1080,12 @@ public partial class MainWindow : Window
             button.DragOver += (_, e) =>
             {
                 if (e.Data.GetData(typeof(TabDragPayload)) is not TabDragPayload payload || payload.Tab == tab) return;
+                if (!ReferenceEquals(payload.Source, this) && !CanReceiveTransferredTab(payload))
+                {
+                    e.Effects = DragDropEffects.None;
+                    e.Handled = true;
+                    return;
+                }
                 e.Effects = DragDropEffects.Move;
                 HighlightTabDropTarget(button, e.GetPosition(button).X > button.ActualWidth / 2);
                 e.Handled = true;
@@ -1094,8 +1096,14 @@ public partial class MainWindow : Window
                 var insertAfter = e.GetPosition(button).X > button.ActualWidth / 2;
                 if (ReferenceEquals(payload.Source, this))
                     ReorderTabs(payload.Tab, tab, insertAfter);
-                else
+                else if (CanReceiveTransferredTab(payload))
                     _ = ReceiveDroppedTabAsync(payload, _tabs.IndexOf(tab) + (insertAfter ? 1 : 0));
+                else
+                {
+                    e.Effects = DragDropEffects.None;
+                    e.Handled = true;
+                    return;
+                }
                 e.Effects = DragDropEffects.Move;
                 ResetTabDropTarget();
                 e.Handled = true;
@@ -1132,14 +1140,22 @@ public partial class MainWindow : Window
         GiveFeedbackEventHandler movePreview = (_, _) =>
             MoveTabDragPreview(GetSystemCursorPosition());
         source.GiveFeedback += movePreview;
+        var cancelled = false;
+        QueryContinueDragEventHandler cancellationTracker = (_, args) =>
+        {
+            if (args.EscapePressed || args.Action == DragAction.Cancel)
+                cancelled = true;
+        };
+        source.QueryContinueDrag += cancellationTracker;
         try
         {
             var result = DragDrop.DoDragDrop(source, new DataObject(typeof(TabDragPayload), new TabDragPayload(this, tab)), DragDropEffects.Move);
-            if (result == DragDropEffects.None && IsPointerOutsideTabStrip())
+            if (!cancelled && result == DragDropEffects.None && IsPointerOutsideTabStrip())
                 TearOffTab(tab);
         }
         finally
         {
+            source.QueryContinueDrag -= cancellationTracker;
             source.GiveFeedback -= movePreview;
             CloseTabDragPreview();
             ResetTabDropTarget();
@@ -1153,6 +1169,14 @@ public partial class MainWindow : Window
     {
         if (e.Data.GetData(typeof(TabDragPayload)) is not TabDragPayload)
             return;
+
+        var payload = (TabDragPayload)e.Data.GetData(typeof(TabDragPayload));
+        if (!ReferenceEquals(payload.Source, this) && !CanReceiveTransferredTab(payload))
+        {
+            e.Effects = DragDropEffects.None;
+            e.Handled = true;
+            return;
+        }
 
         // The entire strip is a valid target, not just the visible tab buttons.
         // This mirrors Chromium's forgiving drop area and prevents an accidental
@@ -1169,8 +1193,14 @@ public partial class MainWindow : Window
         var insertionIndex = GetTabInsertionIndex(e.GetPosition(TabsScroller));
         if (ReferenceEquals(payload.Source, this))
             MoveTabWithinWindow(payload.Tab, insertionIndex);
-        else
+        else if (CanReceiveTransferredTab(payload))
             _ = ReceiveDroppedTabAsync(payload, insertionIndex);
+        else
+        {
+            e.Effects = DragDropEffects.None;
+            e.Handled = true;
+            return;
+        }
 
         e.Effects = DragDropEffects.Move;
         ResetTabDropTarget();
@@ -1201,284 +1231,6 @@ public partial class MainWindow : Window
             insertionIndex--;
         _tabs.Insert(Math.Clamp(insertionIndex, 0, _tabs.Count), tab);
         RenderTabs();
-    }
-
-    private void MainWindow_PreviewMouseMove(object sender, MouseEventArgs e)
-    {
-        if (_draggedTab is null || _tabDragOrigin is null || e.LeftButton != MouseButtonState.Pressed)
-            return;
-
-        var current = e.GetPosition(TabsScroller);
-        if (!_tabDragActive && Math.Abs(current.X - _tabDragOrigin.Value.X) < SystemParameters.MinimumHorizontalDragDistance
-            && Math.Abs(current.Y - _tabDragOrigin.Value.Y) < SystemParameters.MinimumVerticalDragDistance)
-            return;
-
-        _suppressTabClick = true;
-        if (!_tabDragActive)
-        {
-            _tabDragActive = true;
-            ShowTabDragPreview(_draggedTab, PointToScreen(e.GetPosition(this)));
-        }
-        _tabDragHost ??= this;
-        Mouse.Capture(this, CaptureMode.SubTree);
-        UpdateLiveTabDrag(PointToScreen(e.GetPosition(this)));
-    }
-
-    private void MainWindow_PreviewMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
-    {
-        if (!_tabDragActive) return;
-        FinishLiveTabDrag();
-        e.Handled = true;
-    }
-
-    private void UpdateLiveTabDrag(Point screenPosition)
-    {
-        if (_draggedTab is null || _tabDragHost is null) return;
-        MoveTabDragPreview(screenPosition);
-
-        var target = FindTabStripAt(screenPosition, out var insertionIndex);
-        if (target is not null)
-        {
-            if (ReferenceEquals(target, _tabDragHost))
-            {
-                _pendingCrossWindowTarget = null;
-                _pendingCrossWindowInsertionIndex = 0;
-                if (_detachedTabWindow is not null)
-                {
-                    _detachedTabWindow.Close();
-                    _detachedTabWindow = null;
-                }
-                MoveTabDuringDrag(_draggedTab, target, insertionIndex);
-            }
-            else
-                EnterOtherWindowDuringDrag(target, insertionIndex);
-            return;
-        }
-
-        if (_tabDragSourceHidden && _tabDragHost is not null)
-        {
-            var source = _tabDragHost;
-            source.Show();
-            _tabDragSourceHidden = false;
-            TransferLiveTabDragControlTo(source);
-            return;
-        }
-
-        if (_detachedTabWindow is null)
-        {
-            var detached = new MainWindow(privateWindow: _isPrivateWindow, startEmpty: true)
-            {
-                Width = Math.Max(960, ActualWidth),
-                Height = Math.Max(650, ActualHeight),
-                Left = screenPosition.X - 140,
-                Top = screenPosition.Y - 22
-            };
-            detached.Show();
-            _detachedTabWindow = detached;
-            EnterOtherWindowDuringDrag(detached, 0);
-        }
-
-        if (_tabDragHost == _detachedTabWindow)
-        {
-            _detachedTabWindow.Left = screenPosition.X - 140;
-            _detachedTabWindow.Top = screenPosition.Y - 22;
-        }
-    }
-
-    private MainWindow? FindTabStripAt(Point screenPosition, out int insertionIndex)
-    {
-        foreach (var window in Application.Current.Windows.OfType<MainWindow>().Where(window => window.IsVisible))
-        {
-            var topLeft = window.TabsScroller.PointToScreen(new Point(0, 0));
-            if (screenPosition.X < topLeft.X || screenPosition.X > topLeft.X + window.TabsScroller.ActualWidth
-                || screenPosition.Y < topLeft.Y || screenPosition.Y > topLeft.Y + window.TabsScroller.ActualHeight)
-                continue;
-
-            var buttons = window.TabsList.Items.OfType<Button>().ToList();
-            insertionIndex = buttons.Count;
-            for (var index = 0; index < buttons.Count; index++)
-            {
-                var buttonLeft = buttons[index].PointToScreen(new Point(0, 0)).X;
-                if (screenPosition.X < buttonLeft + buttons[index].ActualWidth / 2)
-                {
-                    insertionIndex = index;
-                    break;
-                }
-            }
-            return window;
-        }
-
-        insertionIndex = 0;
-        return null;
-    }
-
-    private void MoveTabDuringDrag(BrowserTab tab, MainWindow target, int insertionIndex)
-    {
-        var source = _tabDragHost;
-        if (source is null) return;
-
-        var currentIndex = source._tabs.IndexOf(tab);
-        if (currentIndex < 0) return;
-        if (ReferenceEquals(source, target) && (insertionIndex == currentIndex || insertionIndex == currentIndex + 1)) return;
-
-        source._tabs.RemoveAt(currentIndex);
-        if (ReferenceEquals(source._active, tab))
-        {
-            source.BrowserHost.Children.Clear();
-            source._active = null;
-        }
-        if (ReferenceEquals(source, target) && currentIndex < insertionIndex) insertionIndex--;
-        insertionIndex = Math.Clamp(insertionIndex, 0, target._tabs.Count);
-        target._tabs.Insert(insertionIndex, tab);
-        _emptyWindowsToCloseAfterDrag.Remove(target);
-        target.SelectTab(tab);
-        source.RenderTabs();
-        _tabDragHost = target;
-
-        if (source._tabs.Count > 0 && source._active is null)
-            source.SelectTab(source._tabs[Math.Min(currentIndex, source._tabs.Count - 1)]);
-        else if (source._tabs.Count == 0)
-        {
-            if (source._startEmpty)
-            {
-                // This is the temporary window created by dragging a tab out. It
-                // can disappear immediately: the receiving window takes over the
-                // active drag before the empty window is hidden.
-                TransferLiveTabDragTo(target, source, tab);
-                target._emptyWindowsToCloseAfterDrag.Add(source);
-                source.Hide();
-            }
-            else
-            {
-                // A normal browser window stays available until mouse-up, so a
-                // card can still be returned to it during the same drag.
-                _emptyWindowsToCloseAfterDrag.Add(source);
-            }
-        }
-    }
-
-    private void SetPendingCrossWindowTarget(MainWindow target, int insertionIndex)
-    {
-        _pendingCrossWindowTarget = target;
-        _pendingCrossWindowInsertionIndex = insertionIndex;
-    }
-
-    private void EnterOtherWindowDuringDrag(MainWindow target, int insertionIndex)
-    {
-        SetPendingCrossWindowTarget(target, insertionIndex);
-        if (_tabDragSourceHidden || _tabDragHost is null) return;
-
-        var source = _tabDragHost;
-        _tabDragSourceHidden = true;
-        TransferLiveTabDragControlTo(target);
-        source.Hide();
-    }
-
-    private void TransferLiveTabDragControlTo(MainWindow target)
-    {
-        if (ReferenceEquals(target, this))
-        {
-            Mouse.Capture(target, CaptureMode.SubTree);
-            return;
-        }
-
-        target._draggedTab = _draggedTab;
-        target._tabDragHost = _tabDragHost;
-        target._tabDragActive = _tabDragActive;
-        target._tabDragOrigin = _tabDragOrigin;
-        target._tabDragPreview = _tabDragPreview;
-        target._detachedTabWindow = _detachedTabWindow;
-        target._pendingCrossWindowTarget = _pendingCrossWindowTarget;
-        target._pendingCrossWindowInsertionIndex = _pendingCrossWindowInsertionIndex;
-        target._tabDragSourceHidden = _tabDragSourceHidden;
-
-        _draggedTab = null;
-        _tabDragHost = null;
-        _tabDragActive = false;
-        _tabDragOrigin = null;
-        _tabDragPreview = null;
-        _detachedTabWindow = null;
-        _pendingCrossWindowTarget = null;
-        _pendingCrossWindowInsertionIndex = 0;
-        _tabDragSourceHidden = false;
-        Mouse.Capture(target, CaptureMode.SubTree);
-    }
-
-    private void TransferLiveTabDragTo(MainWindow target, MainWindow source, BrowserTab tab)
-    {
-        target._draggedTab = tab;
-        target._tabDragHost = target;
-        target._tabDragActive = true;
-        target._tabDragOrigin = source._tabDragOrigin;
-        target._tabDragPreview = source._tabDragPreview;
-        source._tabDragPreview = null;
-        target._detachedTabWindow = null;
-        Mouse.Capture(target, CaptureMode.SubTree);
-    }
-
-    private void FinishLiveTabDrag()
-    {
-        if (!_tabDragActive) return;
-        var tab = _draggedTab;
-        var source = _tabDragHost;
-        var target = _pendingCrossWindowTarget;
-        var insertionIndex = _pendingCrossWindowInsertionIndex;
-        _tabDragActive = false;
-        Mouse.Capture(null);
-        CloseTabDragPreview();
-        ResetTabDropTarget();
-        _draggedTab = null;
-        _tabDragHost = null;
-        _detachedTabWindow = null;
-        _tabDragOrigin = null;
-        _pendingCrossWindowTarget = null;
-        _pendingCrossWindowInsertionIndex = 0;
-        _tabDragSourceHidden = false;
-        foreach (var window in _emptyWindowsToCloseAfterDrag.Where(window => window._tabs.Count == 0).ToList())
-            window.Close();
-        _emptyWindowsToCloseAfterDrag.Clear();
-
-        if (tab is not null && source is not null && target is not null && !ReferenceEquals(source, target))
-            _ = MoveTabAcrossWindowsAsync(tab, source, target, insertionIndex);
-    }
-
-    private async Task MoveTabAcrossWindowsAsync(BrowserTab tab, MainWindow source, MainWindow target, int insertionIndex)
-    {
-        var address = tab.IsYamaNewTab ? source._settings.Data.HomePage : tab.View.CoreWebView2?.Source;
-        if (string.IsNullOrWhiteSpace(address)) address = source._settings.Data.HomePage;
-
-        var replacement = new BrowserTab();
-        insertionIndex = Math.Clamp(insertionIndex, 0, target._tabs.Count);
-        target._tabs.Insert(insertionIndex, replacement);
-        target.SelectTab(replacement);
-        try
-        {
-            var environment = await target.CreateWebViewEnvironmentAsync();
-            await replacement.View.EnsureCoreWebView2Async(environment);
-            await target.ConfigureWebViewAsync(replacement);
-            await target.NavigateAsync(replacement, address);
-        }
-        catch
-        {
-            target._tabs.Remove(replacement);
-            replacement.View.Dispose();
-            target.RenderTabs();
-            if (!source.IsVisible) source.Show();
-            return;
-        }
-
-        if (!source._tabs.Remove(tab)) return;
-        if (ReferenceEquals(source._active, tab))
-        {
-            source.BrowserHost.Children.Clear();
-            source._active = null;
-        }
-        tab.View.Dispose();
-        source.RenderTabs();
-        if (source._tabs.Count > 0)
-            source.SelectTab(source._tabs[Math.Min(insertionIndex, source._tabs.Count - 1)]);
-        else
-            source.Close();
     }
 
     private void CloseTabDragPreview()
@@ -1625,17 +1377,14 @@ public partial class MainWindow : Window
         RenderTabs();
     }
 
-    private async Task ReceiveDroppedTabAsync(TabDragPayload payload, int insertionIndex)
+    private async Task<bool> ReceiveDroppedTabAsync(TabDragPayload payload, int insertionIndex)
     {
-        if (!payload.Source.TryBeginTransferredTab(payload.Tab))
-            return;
+        if (!CanReceiveTransferredTab(payload) || !TabTransferCoordinator.TryBegin(payload.Source, payload.Tab))
+            return false;
 
         BrowserTab? replacement = null;
         try
         {
-            if (_isPrivateWindow != payload.Source._isPrivateWindow)
-                return;
-
             // A WPF WebView2 controller is bound to the native host window and
             // cannot be reparented safely. Create the destination controller
             // first; source ownership is released only after it is ready.
@@ -1662,54 +1411,72 @@ public partial class MainWindow : Window
             await Dispatcher.InvokeAsync(
                 () => payload.Source.CompleteTransferredTab(payload.Tab),
                 System.Windows.Threading.DispatcherPriority.ContextIdle);
+            return true;
         }
         catch
         {
             if (replacement is not null)
             {
                 _tabs.Remove(replacement);
+                if (ReferenceEquals(_active, replacement))
+                {
+                    BrowserHost.Children.Clear();
+                    _active = null;
+                }
                 replacement.View.Dispose();
                 RenderTabs();
+                if (_tabs.Count > 0)
+                    SelectTab(_tabs[0]);
             }
+            return false;
         }
         finally
         {
-            payload.Source.CancelTransferredTab(payload.Tab);
+            TabTransferCoordinator.End(payload.Tab);
         }
     }
 
-    private bool TryBeginTransferredTab(BrowserTab tab)
-        => _tabs.Contains(tab) && _tabsBeingTransferred.Add(tab);
-
-    private void CancelTransferredTab(BrowserTab tab)
-        => _tabsBeingTransferred.Remove(tab);
+    private bool CanReceiveTransferredTab(TabDragPayload payload)
+        => !_isClosing
+            && IsLoaded
+            && payload.Source != this
+            && !payload.Source._isClosing
+            && _isPrivateWindow == payload.Source._isPrivateWindow
+            && payload.Tab.Owner == payload.Source
+            && TabWindowRegistry.IsRegistered(_windowId, this)
+            && TabWindowRegistry.IsRegistered(payload.Source._windowId, payload.Source);
 
     private void CompleteTransferredTab(BrowserTab tab)
     {
-        if (!_tabs.Remove(tab))
+        if (_isClosing || tab.Owner != this || !_tabs.Remove(tab))
             return;
         if (ReferenceEquals(_active, tab))
         {
             BrowserHost.Children.Clear();
             _active = null;
         }
+        tab.Owner = null;
         tab.View.Dispose();
         RenderTabs();
         if (_tabs.Count > 0)
             SelectTab(_tabs[0]);
-        else
+        else if (!_isClosing)
             Close();
     }
 
     private void TearOffTab(BrowserTab tab)
     {
+        if (_isClosing || tab.Owner != this || TabTransferCoordinator.IsInProgress(tab))
+            return;
+
         StatusText.Text = "Odděluji kartu do nového okna…";
+        var cursor = GetSystemCursorPosition();
         var detached = new MainWindow(privateWindow: _isPrivateWindow, startEmpty: true)
         {
             Width = Math.Max(960, ActualWidth),
             Height = Math.Max(650, ActualHeight),
-            Left = Left + 48,
-            Top = Top + 48
+            Left = cursor.X - 120,
+            Top = cursor.Y - 24
         };
         detached.Loaded += (_, _) =>
         {
@@ -1720,8 +1487,8 @@ public partial class MainWindow : Window
 
     private async Task MoveTabToNewWindowAsync(BrowserTab tab, MainWindow target)
     {
-        await target.ReceiveDroppedTabAsync(new TabDragPayload(this, tab), 0);
-        if (target._tabs.Count == 0)
+        var moved = await target.ReceiveDroppedTabAsync(new TabDragPayload(this, tab), 0);
+        if (!moved && !target._isClosing && target._tabs.Count == 0)
             target.Close();
     }
 
@@ -4083,8 +3850,40 @@ public partial class MainWindow : Window
     private string SearchEndpoint() => _settings.Data.SearchEngine switch { "Google" => "https://www.google.com/search", "Bing" => "https://www.bing.com/search", "Seznam" => "https://search.seznam.cz/", "Brave Search" => "https://search.brave.com/search", "Ecosia" => "https://www.ecosia.org/search", "Yahoo" => "https://search.yahoo.com/search", "Startpage" => "https://www.startpage.com/sp/search", "Custom" => _settings.Data.CustomSearchEndpoint.Replace("{query}", ""), _ => "https://duckduckgo.com/" };
 }
 
-public sealed class BrowserTab { public WebView2 View { get; } = new() { DefaultBackgroundColor = System.Drawing.Color.FromArgb(0x0B, 0x10, 0x1A) }; public MainWindow? Owner { get; set; } public string Title { get; set; } = "Nová karta"; public ImageSource? Favicon { get; set; } public bool IsYamaNewTab { get; set; } public int BlockedCount { get; set; } public string? YamaBlockScriptId { get; set; } public bool IsPlayingAudio { get; set; } public bool IsMuted { get; set; } }
-public sealed record TabDragPayload(MainWindow Source, BrowserTab Tab);
+public sealed class BrowserTab { public Guid Id { get; } = Guid.NewGuid(); public WebView2 View { get; } = new() { DefaultBackgroundColor = System.Drawing.Color.FromArgb(0x0B, 0x10, 0x1A) }; public MainWindow? Owner { get; set; } public string Title { get; set; } = "Nová karta"; public ImageSource? Favicon { get; set; } public bool IsYamaNewTab { get; set; } public int BlockedCount { get; set; } public string? YamaBlockScriptId { get; set; } public bool IsPlayingAudio { get; set; } public bool IsMuted { get; set; } }
+public sealed record TabDragPayload(MainWindow Source, BrowserTab Tab)
+{
+    public Guid SourceWindowId => Source.WindowId;
+    public Guid TabId => Tab.Id;
+}
+
+internal static class TabWindowRegistry
+{
+    private static readonly Dictionary<Guid, WeakReference<MainWindow>> Windows = [];
+
+    public static void Register(Guid windowId, MainWindow window) => Windows[windowId] = new WeakReference<MainWindow>(window);
+
+    public static void Unregister(Guid windowId) => Windows.Remove(windowId);
+
+    public static bool IsRegistered(Guid windowId, MainWindow window)
+        => Windows.TryGetValue(windowId, out var entry)
+            && entry.TryGetTarget(out var registered)
+            && ReferenceEquals(registered, window);
+}
+
+internal static class TabTransferCoordinator
+{
+    private static readonly HashSet<Guid> TransferringTabIds = [];
+
+    public static bool TryBegin(MainWindow source, BrowserTab tab)
+        => tab.Owner == source
+            && TabWindowRegistry.IsRegistered(source.WindowId, source)
+            && TransferringTabIds.Add(tab.Id);
+
+    public static bool IsInProgress(BrowserTab tab) => TransferringTabIds.Contains(tab.Id);
+
+    public static void End(BrowserTab tab) => TransferringTabIds.Remove(tab.Id);
+}
 public enum BlockMode { Off, Standard, Strict }
 public enum SecurityLevel { Recommended, Strict, Custom }
 public static class BlockModeExtensions { public static string ToLabel(this BlockMode mode) => mode switch { BlockMode.Off => "Vypnuto", BlockMode.Strict => "Přísný", _ => "Standard" }; }
