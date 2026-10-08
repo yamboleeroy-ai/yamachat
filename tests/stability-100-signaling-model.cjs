@@ -71,7 +71,7 @@ assert.equal(pairCount(),200);
 assert.equal(endpointPeerCount(),400);
 for(const u of users){assert.equal(u.peers.size,4);assert(!oldSessions.has(u.session),'Old voice session survived rejoin');}
 
-const leaseWritesPerSecond=clients/15;
+const leaseWritesPerSecond=clients/45;
 const rosterReadsPerSecond=clients/15;
 const metrics={
   type:'SIMULATION_NOT_REAL_CLIENTS',

@@ -72,6 +72,13 @@ async function subscribeVoiceSignals(){if(voiceSignalSub&&voiceSignalReady)retur
   const reconnectFailedNew="setTimeout(()=>{if(voicePeers.get(peerId)===pc&&(pc.connectionState==='failed'||pc.iceConnectionState==='failed'))restartVoicePeer(peerId)},350)";
   const reconnectFailedCount=html.split(reconnectFailedOld).length-1;if(reconnectFailedCount!==2)throw Error('Voice failed reconnect timer boundary missing');
   html=html.split(reconnectFailedOld).join(reconnectFailedNew);
+  // Recover from transient transport loss, but never fan out a retry storm.
+  // Retry ownership stays with the current PeerConnection and is released on
+  // connection or close; delay grows exponentially and is jittered.
+  const restartOld="async function restartVoicePeer(peerId){const pc=voicePeers.get(peerId);if(!pc||!voiceChannel||String(user.id)>=String(peerId))return;try{const offer=await pc.createOffer({iceRestart:true});await pc.setLocalDescription(offer);await sendVoiceSignal(peerId,{signal_type:'offer',sdp:pc.localDescription})}catch{}}";
+  const restartNew="const YC_VOICE_RETRY_MAX_ATTEMPTS=5,YC_VOICE_RETRY_BASE_MS=800,YC_VOICE_RETRY_CAP_MS=12000;const ycVoiceRetryState=new Map();\nfunction ycClearVoiceRetry(peerId){const retry=ycVoiceRetryState.get(peerId);if(retry?.timer)clearTimeout(retry.timer);ycVoiceRetryState.delete(peerId)}\nfunction ycScheduleVoiceRetry(peerId,pc){if(voicePeers.get(peerId)!==pc||!voiceChannel)return;const retry=ycVoiceRetryState.get(peerId)||{attempt:0,timer:null};if(retry.timer||retry.attempt>=YC_VOICE_RETRY_MAX_ATTEMPTS)return;const attempt=retry.attempt++,base=Math.min(YC_VOICE_RETRY_CAP_MS,YC_VOICE_RETRY_BASE_MS*(2**attempt)),delay=Math.round(base*(.8+Math.random()*.4));retry.timer=setTimeout(()=>{retry.timer=null;if(voicePeers.get(peerId)!==pc||!voiceChannel||!['failed','disconnected'].includes(pc.connectionState)){ycClearVoiceRetry(peerId);return}void restartVoicePeer(peerId)},delay);ycVoiceRetryState.set(peerId,retry)}\nasync function restartVoicePeer(peerId){const pc=voicePeers.get(peerId);if(!pc||!voiceChannel||String(user.id)>=String(peerId))return;try{const offer=await pc.createOffer({iceRestart:true});await pc.setLocalDescription(offer);await sendVoiceSignal(peerId,{signal_type:'offer',sdp:pc.localDescription});ycScheduleVoiceRetry(peerId,pc)}catch{ycScheduleVoiceRetry(peerId,pc)}}";
+  if(!html.includes(restartOld))throw Error('Voice retry boundary missing');
+  html=html.replace(restartOld,restartNew);
   const offerRetryOld="setTimeout(()=>{const cur=voicePeers.get(p.user_id),current=(voicePresenceByChannel[voiceChannel?.id]||[]).find(x=>x.user_id===p.user_id);if(cur&&cur.connectionState!=='connected'&&!cur.remoteDescription&&(!expectedSession||current?.session_id===expectedSession)){closeVoicePeer(p.user_id);void syncVoicePeers()}},3200)";
   const offerRetryNew="setTimeout(()=>{const cur=voicePeers.get(p.user_id),current=(voicePresenceByChannel[voiceChannel?.id]||[]).find(x=>x.user_id===p.user_id);if(cur===pc&&cur.connectionState!=='connected'&&!cur.remoteDescription&&(!expectedSession||current?.session_id===expectedSession)){closeVoicePeer(p.user_id);void syncVoicePeers()}},3200)";
   if(!html.includes(offerRetryOld))throw Error('Voice offer retry identity boundary missing');
@@ -116,7 +123,7 @@ attachVoiceAudio=(peerId,stream)=>{if(!voiceChannel||!voicePeers.has(peerId))ret
 
   const closeOld='function closeVoicePeer(peerId){const pc=voicePeers.get(peerId);';
   if(!html.includes(closeOld))throw Error('Voice scale peer cleanup boundary missing');
-  html=html.replace(closeOld,'function closeVoicePeer(peerId){ycStopRemoteVoiceActivityDetector(peerId);voiceMissingSince.delete(peerId);const pc=voicePeers.get(peerId);');
+  html=html.replace(closeOld,'function closeVoicePeer(peerId){try{ycClearVoiceRetry(peerId)}catch{}ycStopRemoteVoiceActivityDetector(peerId);voiceMissingSince.delete(peerId);const pc=voicePeers.get(peerId);');
 
   const presenceLeaveOld="const sid=voiceSessionId,room=voiceRooms.get(old.id);\n        const clearPromise=(async()=>{try{const {error}=await sb.rpc('clear_voice_participant',{p_session_id:sid});if(error)console.warn('clear voice participant',error)}catch(e){console.warn('clear voice participant',e)}})();\n        const untrackPromise=(async()=>{try{const pending=room?.untrack();if(pending&&typeof pending.then==='function')await pending}catch(e){console.warn('voice untrack',e)}})();\n        const cleanupSettled=Promise.allSettled([clearPromise,untrackPromise]);";
   const presenceLeaveNew="const sid=voiceSessionId;\n        const clearPromise=(async()=>{try{const {error}=await sb.rpc('clear_voice_participant',{p_session_id:sid});if(error)console.warn('clear voice participant',error)}catch(e){console.warn('clear voice participant',e)}})();\n        const cleanupSettled=Promise.allSettled([clearPromise]);";
@@ -128,7 +135,7 @@ attachVoiceAudio=(peerId,stream)=>{if(!voiceChannel||!voicePeers.has(peerId))ret
   html=html.replace(leaveOld,"voiceChannel=null;stopVoiceParticipantSubscription();await stopVoiceSignals();voiceRouteMode='checking';renderVoiceControls();");
 
   const leavePeerCleanupOld="for(const [id,pc] of voicePeers){try{pc.close()}catch{}const a=$('voice-audio-'+id);if(a)a.remove()}";
-  const leavePeerCleanupNew="for(const id of [...voiceRemoteVadStops.keys()])ycStopRemoteVoiceActivityDetector(id);for(const [id,pc] of voicePeers){try{pc.close()}catch{}const a=$('voice-audio-'+id);if(a)a.remove()}voiceMissingSince.clear();try{ycStreamWatchEpoch.clear();ycStreamWatchStarts.clear();ycStreamWatchSignals.clear()}catch{}";
+  const leavePeerCleanupNew="for(const id of [...voiceRemoteVadStops.keys()])ycStopRemoteVoiceActivityDetector(id);for(const [id,pc] of voicePeers){ycClearVoiceRetry(id);try{pc.close()}catch{}const a=$('voice-audio-'+id);if(a)a.remove()}voiceMissingSince.clear();try{ycStreamWatchEpoch.clear();ycStreamWatchStarts.clear();ycStreamWatchSignals.clear()}catch{}";
   if(!html.includes(leavePeerCleanupOld))throw Error('Voice leave remote VAD cleanup boundary missing');
   html=html.replace(leavePeerCleanupOld,leavePeerCleanupNew);
 

@@ -13,7 +13,7 @@ const runtime=`${START}
  // A voice lease is authoritative evidence of an active client. Keep its social
  // presence lease comfortably inside the 65-second offline cutoff, while still
  // halving the original 15-second voice write rate.
- const YC_VOICE_HEARTBEAT_HARDENED_MS=30000,YC_VOICE_ROSTER_ACTIVE_MS=90000,YC_VOICE_ROSTER_IDLE_MS=120000;
+ const YC_VOICE_HEARTBEAT_HARDENED_MS=45000,YC_VOICE_ROSTER_ACTIVE_MS=90000,YC_VOICE_ROSTER_IDLE_MS=120000;
  const YC_STREAM_WATCHDOG_MS=120000;
  let ycRealtimeCircuitUntil=0,ycRealtimeCircuitTimer=null,ycRealtimeFailureCount=0;
  const ycRealtimeDetail=value=>{try{return typeof value==='string'?value:JSON.stringify(value,Object.getOwnPropertyNames(value||{}))}catch{return String(value||'')}};

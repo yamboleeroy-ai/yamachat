@@ -19,7 +19,7 @@ for(const marker of [
  "async function ycRefreshVisibleFriendPresence()",
  "if(rightMode==='friends')void ycRefreshVisibleFriendPresence()",
  "void ycTouchPresence(true);playVoiceCue('self-join')",
- "const YC_VOICE_HEARTBEAT_HARDENED_MS=30000",
+ "const YC_VOICE_HEARTBEAT_HARDENED_MS=45000",
  "YC_VOICE_TTL_MS=120000",
  "void ycTouchPresence(true).catch(error=>console.warn('voice social keepalive',error))",
  "typeof ycOwnPresenceState==='function'?ycOwnPresenceState()"
