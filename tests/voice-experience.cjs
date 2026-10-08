@@ -140,7 +140,11 @@ assert(!html.includes("sb.functions.invoke('yamachat-turn',{method:'GET'})"),'Me
 assert(html.includes("const filter='channel_id=eq.'+id"),'Participant realtime must be filtered to the joined voice channel');
 assert(!html.includes("if(pc?.connectionState==='connected'){voiceMissingSince.delete(id);continue}"),'Connected ghost peers must not bypass the participant-lease expiry cleanup');
 assert(html.includes("if(now-since>60000)closeVoicePeer(id)"),'Transient participant metadata loss needs the desktop-proven peer grace period');
-assert(html.includes("function closeVoicePeer(peerId){ycStopRemoteVoiceActivityDetector(peerId);voiceMissingSince.delete(peerId);const pc=voicePeers.get(peerId);"),'Closed ghost peers must release voiceMissingSince state');
+assert(
+ html.includes("function closeVoicePeer(peerId){ycStopRemoteVoiceActivityDetector(peerId);voiceMissingSince.delete(peerId);const pc=voicePeers.get(peerId);")||
+ html.includes("function closeVoicePeer(peerId){try{ycClearVoiceRetry(peerId)}catch{}ycStopRemoteVoiceActivityDetector(peerId);voiceMissingSince.delete(peerId);const pc=voicePeers.get(peerId);"),
+ 'Closed ghost peers must release voiceMissingSince state'
+);
 assert(html.includes("voiceMissingSince.clear();try{ycStreamWatchEpoch.clear();ycStreamWatchStarts.clear();ycStreamWatchSignals.clear()}catch{}"),'Leaving voice must release stream-watch lifecycle maps');
 assert(html.includes("const voiceBelongsHere=!!hadVoice&&!!voiceCommunityId&&voiceCommunityId===cid"),'Secure channel refresh must scope voice validation to the joined voice community');
 assert(html.includes("if(voiceBelongsHere&&!activeVoice){try{await ycRequestVoiceDisconnect()}catch{}}"),'Voice disconnect on channel removal must be gated by the joined voice community');
