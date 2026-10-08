@@ -91,7 +91,7 @@ const patches=[
   {
     "label": "preview-hunk-19",
     "before": "function ycPresenceState(row){if(!row||!row.last_seen_at)return'offline';const age=Date.now()-new Date(row.last_seen_at).getTime(),raw=String(row.state||'online').toLowerCase(),state=raw==='busy'?'dnd':raw==='away'?'afk':raw;if(!Number.isFinite(age)||age>65000||state==='offline'||state==='invisible')return'offline';if(state==='dnd')return'dnd';return state==='afk'?'afk':'online'}",
-    "after": "const YC_PRESENCE_STALE_MS=65000,YC_PRESENCE_ACTIVE_LEASE_MS=45000;\nlet ycPresenceRowsByUser=new Map(),ycVisibleMemberIds=new Set(),ycPresenceRenderedStateByUser=new Map(),ycPresenceRemoteOnlineUntil=0;\nfunction ycPresenceState(row){if(!row||!row.last_seen_at)return'offline';const age=Date.now()-new Date(row.last_seen_at).getTime(),raw=String(row.state||'online').toLowerCase(),state=raw==='busy'?'dnd':raw==='away'?'afk':raw;if(!Number.isFinite(age)||age>YC_PRESENCE_STALE_MS||state==='offline'||state==='invisible')return'offline';if(state==='dnd')return'dnd';return state==='afk'?'afk':'online'}"
+    "after": "// Presence writes are intentionally coalesced to one minute by the egress\n// hardening layer. Retain two bounded missed-heartbeat windows before offline.\nconst YC_PRESENCE_STALE_MS=150000,YC_PRESENCE_ACTIVE_LEASE_MS=120000;\nlet ycPresenceRowsByUser=new Map(),ycVisibleMemberIds=new Set(),ycPresenceRenderedStateByUser=new Map(),ycPresenceRemoteOnlineUntil=0;\nfunction ycPresenceState(row){if(!row||!row.last_seen_at)return'offline';const age=Date.now()-new Date(row.last_seen_at).getTime(),raw=String(row.state||'online').toLowerCase(),state=raw==='busy'?'dnd':raw==='away'?'afk':raw;if(!Number.isFinite(age)||age>YC_PRESENCE_STALE_MS||state==='offline'||state==='invisible')return'offline';if(state==='dnd')return'dnd';return state==='afk'?'afk':'online'}"
   },
   {
     "label": "preview-hunk-20",
@@ -180,6 +180,7 @@ function replaceOnce(html,before,after,label){
 export function withVerifiedDesktopBehaviorSync(html){
  if(html.includes('ycVerifiedDesktopBehaviorSyncStyle'))return html;
  for(const patch of patches)html=replaceOnce(html,patch.before,patch.after,patch.label);
+ html=replaceOnce(html,"if(ms<65000)return'Právě online'","if(ms<YC_PRESENCE_STALE_MS)return'Právě online'",'presence-last-seen-lease');
  const style="<style id=\"ycVerifiedDesktopBehaviorSyncStyle\">\n.yc-media-pending{width:min(650px,100%)}.yc-media-loading{display:grid;place-items:center;min-height:120px;aspect-ratio:16/9;border-radius:10px;border:1px solid #2d4b61;background:linear-gradient(135deg,#0b151d,#102431);color:#7898aa;font-size:11px;font-weight:800}\n</style>";
  if(!html.includes('</head>'))throw Error('Verified desktop behavior head boundary missing');
  return html.replace('</head>',style+'\n</head>');

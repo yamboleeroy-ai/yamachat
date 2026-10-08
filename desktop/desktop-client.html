@@ -2165,7 +2165,11 @@ async function openCommunityBanList(){
   $('closeModal').onclick=closeModal
   document.querySelectorAll('[data-unban]').forEach(b=>b.onclick=async()=>{const {error}=await sb.rpc('unban_community_member',{p_community_id:currentCommunity.id,p_user_id:b.dataset.unban});if(error){toast(error.message,true);return}toast('Uživatel byl odbanován.');await openCommunityBanList()})
 }
-const YC_PRESENCE_STALE_MS=65000,YC_PRESENCE_ACTIVE_LEASE_MS=45000;
+// Presence writes are intentionally coalesced to one minute by the egress
+// hardening layer below. Keep two bounded missed-heartbeat windows before a
+// peer becomes offline, and never let an idle sibling client overwrite a
+// recently active device during that lease.
+const YC_PRESENCE_STALE_MS=150000,YC_PRESENCE_ACTIVE_LEASE_MS=120000;
 let ycPresenceRowsByUser=new Map(),ycVisibleMemberIds=new Set(),ycPresenceRenderedStateByUser=new Map(),ycPresenceRemoteOnlineUntil=0;
 function ycPresenceState(row){if(!row||!row.last_seen_at)return'offline';const age=Date.now()-new Date(row.last_seen_at).getTime(),raw=String(row.state||'online').toLowerCase(),state=raw==='busy'?'dnd':raw==='away'?'afk':raw;if(!Number.isFinite(age)||age>YC_PRESENCE_STALE_MS||state==='offline'||state==='invisible')return'offline';if(state==='dnd')return'dnd';return state==='afk'?'afk':'online'}
 function ycPresenceLabel(s){return s==='online'?'Online':s==='afk'?'Nečinný':s==='dnd'?'Nerušit':s==='invisible'?'Neviditelný':'Offline'}
@@ -2196,7 +2200,7 @@ async function ycRefreshVisibleMemberPresence(){
   for(const uid of ids)ycPatchVisibleMemberPresence(uid,rows.get(String(uid))||null);
  }catch(e){console.warn('member presence refresh',e)}finally{ycMemberPresenceRefreshBusy=false}
 }
-function ycLastSeen(row){if(row?.state==='invisible')return'Offline';if(!row?.last_seen_at)return'Nikdy online';const d=new Date(row.last_seen_at),ms=Date.now()-d.getTime();if(ms<65000)return'Právě online';const min=Math.floor(ms/60000);if(min<60)return'Naposledy online před '+min+' min';const h=Math.floor(min/60);if(h<24)return'Naposledy online před '+h+' h';const days=Math.floor(h/24);if(days<30)return'Naposledy online před '+days+' dny';return'Naposledy online '+d.toLocaleDateString('cs-CZ')}
+function ycLastSeen(row){if(row?.state==='invisible')return'Offline';if(!row?.last_seen_at)return'Nikdy online';const d=new Date(row.last_seen_at),ms=Date.now()-d.getTime();if(ms<YC_PRESENCE_STALE_MS)return'Právě online';const min=Math.floor(ms/60000);if(min<60)return'Naposledy online před '+min+' min';const h=Math.floor(min/60);if(h<24)return'Naposledy online před '+h+' h';const days=Math.floor(h/24);if(days<30)return'Naposledy online před '+days+' dny';return'Naposledy online '+d.toLocaleDateString('cs-CZ')}
 function ycActivityFor(pres,profileRow){const s=ycPresenceState(pres);if(s==='offline')return ycLastSeen(pres);return String(pres?.activity_text||profileRow?.custom_activity||ycPresenceLabel(s))}
 function ycProfileCreated(d){try{return new Date(d).toLocaleDateString('cs-CZ',{day:'numeric',month:'long',year:'numeric'})}catch{return'—'}}
 async function renderRight(){

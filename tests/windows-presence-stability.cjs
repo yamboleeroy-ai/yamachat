@@ -3,7 +3,8 @@ const root=path.resolve(__dirname,'..');
 const client=fs.readFileSync(path.join(root,'desktop/desktop-client.html'),'utf8');
 
 for(const marker of [
- "const YC_PRESENCE_STALE_MS=65000,YC_PRESENCE_ACTIVE_LEASE_MS=45000",
+ "const YC_PRESENCE_STALE_MS=150000,YC_PRESENCE_ACTIVE_LEASE_MS=120000",
+ "if(ms<YC_PRESENCE_STALE_MS)return'Právě online'",
  "function ycOwnPresenceState()",
  "return Date.now()<ycPresenceRemoteOnlineUntil?'online':local",
  "function ycPresenceDisplayRow(uid,row)",

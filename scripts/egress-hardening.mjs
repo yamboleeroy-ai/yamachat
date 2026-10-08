@@ -11,7 +11,7 @@ const runtime=`${START}
 ;(()=>{
  const YC_PRESENCE_HEARTBEAT_MS=60000,YC_SOCIAL_PRESENCE_WATCHDOG_MS=60000;
  // A voice lease is authoritative evidence of an active client. Keep its social
- // presence lease comfortably inside the 65-second offline cutoff, while still
+ // presence lease comfortably inside the bounded 150-second offline cutoff, while still
  // halving the original 15-second voice write rate.
  const YC_VOICE_HEARTBEAT_HARDENED_MS=45000,YC_VOICE_ROSTER_ACTIVE_MS=90000,YC_VOICE_ROSTER_IDLE_MS=120000;
  const YC_STREAM_WATCHDOG_MS=120000;
