@@ -1,7 +1,7 @@
 {
   "product": "YamaSearch",
-  "version": "0.3.3",
-  "notes": "Nové instalované webové aplikace v YamaSearch: instalační dialog, vlastní nastavení aplikací, Start/plocha/autostart, odinstalace a vlastní ikona webu s fallbackem na YamaSearch. Součástí je také oprava adresního pole – první kliknutí označí celou aktuální URL, takže psaní ji okamžitě nahradí.",
+  "version": "0.3.12",
+  "notes": "Oprava přetahování karet mezi okny: větší cílová plocha celého pruhu karet, bezpečné dokončení přesunu a automatické zavření zdrojového okna po přesunu poslední karty.",
   "portableUrl": "https://updates.yamachat.eu/yamasearch/YamaSearch-Portable-latest.zip",
   "installerUrl": "https://updates.yamachat.eu/yamasearch/YamaSearch-Setup-latest.exe"
 }

@@ -6,10 +6,13 @@ public partial class App : Application
 {
     private void Application_Startup(object sender, StartupEventArgs e)
     {
+        // Closing the original window must not terminate other browser windows.
+        ShutdownMode = ShutdownMode.OnLastWindowClose;
         string? startupUrl = null;
         string? siteAppId = null;
         string? manageAppId = null;
         var appMode = false;
+        var privateWindow = false;
 
         foreach (var argument in e.Args)
         {
@@ -31,6 +34,10 @@ public partial class App : Application
             {
                 startupUrl = argument[6..].Trim().Trim('"');
             }
+            else if (string.Equals(argument, "--private", StringComparison.OrdinalIgnoreCase))
+            {
+                privateWindow = true;
+            }
         }
 
         if (!string.IsNullOrWhiteSpace(siteAppId))
@@ -48,7 +55,7 @@ public partial class App : Application
             }
         }
 
-        var window = new MainWindow(startupUrl, appMode, siteAppId, manageAppId);
+        var window = new MainWindow(startupUrl, appMode, siteAppId, manageAppId, privateWindow);
         MainWindow = window;
         window.Show();
     }

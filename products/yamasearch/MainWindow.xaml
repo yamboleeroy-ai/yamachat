@@ -162,18 +162,36 @@
     <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="0" x:Name="PanelColumn"/></Grid.ColumnDefinitions>
     <Grid.RowDefinitions><RowDefinition Height="60"/><RowDefinition Height="64"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="30"/></Grid.RowDefinitions>
     <Grid x:Name="TitleBar" Background="{DynamicResource SurfaceBrush}" PreviewMouseLeftButtonDown="TitleBar_MouseDown">
-      <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="196"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+      <Grid><Grid.ColumnDefinitions><ColumnDefinition x:Name="BrandColumn" Width="196"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
         <Image Source="pack://application:,,,/Assets/YamaSearch-brand.png" Width="180" Height="54" Stretch="Uniform" HorizontalAlignment="Left" VerticalAlignment="Center" Margin="10,0,6,0"/>
-        <ScrollViewer x:Name="TabsScroller" Grid.Column="1" HorizontalScrollBarVisibility="Hidden" VerticalScrollBarVisibility="Disabled" SizeChanged="TabsScroller_SizeChanged"><StackPanel Orientation="Horizontal" VerticalAlignment="Center"><ItemsControl x:Name="TabsList"><ItemsControl.ItemsPanel><ItemsPanelTemplate><StackPanel Orientation="Horizontal"/></ItemsPanelTemplate></ItemsControl.ItemsPanel></ItemsControl><Button Content="＋" ToolTip="Nová karta (Ctrl+T)" Click="NewTab_Click" FontSize="17" Margin="8,8"/></StackPanel></ScrollViewer>
-        <Button Grid.Column="2" Content="☰" ToolTip="Historie, oblíbené a funkce" Click="Menu_Click" Margin="0,4"/>
-        <Button Grid.Column="3" Content="—" ToolTip="Minimalizovat" Click="Minimize_Click" Margin="0,4"/>
-        <Button Grid.Column="4" Content="□" ToolTip="Maximalizovat / obnovit" Click="Maximize_Click" Margin="0,4"/>
-        <Button Grid.Column="5" Content="×" ToolTip="Zavřít" Click="Close_Click" Margin="0,4,8,4"/>
+        <Border x:Name="PrivateModeBadge" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,12,0" Padding="9,5" Background="#18354B" BorderBrush="#38D9FF" BorderThickness="1" CornerRadius="9" Visibility="Collapsed">
+          <TextBlock Text="◉ ANONYMNÍ" Foreground="#9CEEFF" FontSize="11" FontWeight="SemiBold"/>
+        </Border>
+        <ScrollViewer x:Name="TabsScroller" Grid.Column="1" HorizontalScrollBarVisibility="Hidden" VerticalScrollBarVisibility="Disabled" SizeChanged="TabsScroller_SizeChanged" AllowDrop="True" DragOver="TabsScroller_DragOver" Drop="TabsScroller_Drop"><StackPanel Orientation="Horizontal" VerticalAlignment="Center"><ItemsControl x:Name="TabsList"><ItemsControl.ItemsPanel><ItemsPanelTemplate><StackPanel Orientation="Horizontal"/></ItemsPanelTemplate></ItemsControl.ItemsPanel></ItemsControl><Button Content="＋" ToolTip="Nová karta (Ctrl+T)" Click="NewTab_Click" FontSize="17" Margin="8,8"/></StackPanel></ScrollViewer>
+        <Button x:Name="ZoomButton" Grid.Column="2" Content="⌕" FontSize="20" ToolTip="Přiblížení stránky" Click="ZoomButton_Click" Margin="0,4"/>
+        <Button Grid.Column="3" Content="☰" ToolTip="Historie, oblíbené a funkce" Click="Menu_Click" Margin="0,4"/>
+        <Button Grid.Column="4" Content="—" ToolTip="Minimalizovat" Click="Minimize_Click" Margin="0,4"/>
+        <Button Grid.Column="5" Content="□" ToolTip="Maximalizovat / obnovit" Click="Maximize_Click" Margin="0,4"/>
+        <Button Grid.Column="6" Content="×" ToolTip="Zavřít" Click="Close_Click" Margin="0,4,8,4"/>
+
+        <Popup x:Name="ZoomPopup" Placement="Bottom" PlacementTarget="{Binding ElementName=ZoomButton}" StaysOpen="False" AllowsTransparency="True">
+          <Border Background="#101A29" BorderBrush="#31537D" BorderThickness="1" CornerRadius="12" Width="248" Padding="12" Margin="0,6,0,0">
+            <StackPanel>
+              <TextBlock Text="Přiblížení stránky" FontSize="15" FontWeight="SemiBold" Foreground="#EAF3FF" Margin="2,0,2,10"/>
+              <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                <Button Content="−" FontSize="20" Width="48" Height="38" Click="ZoomOut_Click" ToolTip="Oddálit"/>
+                <TextBlock x:Name="ZoomPercentText" Text="100 %" Width="110" TextAlignment="Center" VerticalAlignment="Center" FontSize="18" FontWeight="SemiBold" Foreground="#6EE7FF"/>
+                <Button Content="+" FontSize="20" Width="48" Height="38" Click="ZoomIn_Click" ToolTip="Přiblížit"/>
+              </StackPanel>
+              <Button Content="Obnovit 100 %" Margin="0,10,0,0" Click="ZoomReset_Click" Background="#182A43"/>
+            </StackPanel>
+          </Border>
+        </Popup>
       </Grid>
     </Grid>
     <Border Grid.Row="1" Background="#0E1726" BorderBrush="#253A57" BorderThickness="0,1,0,1" Padding="14,10">
       <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-        <Button Grid.Column="0" Content="←" FontSize="18" Click="Back_Click"/><Button Grid.Column="1" Content="→" FontSize="18" Click="Forward_Click"/><Button x:Name="ReloadButton" Grid.Column="2" Content="↻" FontSize="18" Click="Reload_Click"/>
+        <Button x:Name="BackButton" Grid.Column="0" Content="←" FontSize="18" Click="Back_Click"/><Button x:Name="ForwardButton" Grid.Column="1" Content="→" FontSize="18" Click="Forward_Click"/><Button x:Name="ReloadButton" Grid.Column="2" Content="↻" FontSize="18" Click="Reload_Click"/>
         <Button Grid.Column="3" Style="{StaticResource ToolbarShieldButton}" ToolTip="Domovská stránka" Click="Home_Click">
           <Viewbox Width="22" Height="22">
             <Grid Width="24" Height="24">
@@ -313,6 +331,14 @@
                 <TextBlock Grid.Column="2" Text="Ctrl+N" Foreground="#9EB8D4" VerticalAlignment="Center"/>
               </Grid>
             </Button>
+            <Button Style="{StaticResource SideNavButton}" Click="NewPrivateWindow_Click">
+              <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="32"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                <TextBlock Text="◉" Foreground="#7DE6FF" FontSize="15" VerticalAlignment="Center"/>
+                <TextBlock Grid.Column="1" Text="Nové anonymní okno" VerticalAlignment="Center"/>
+                <TextBlock Grid.Column="2" Text="Ctrl+Shift+N" Foreground="#9EB8D4" VerticalAlignment="Center"/>
+              </Grid>
+            </Button>
+
             <Button Style="{StaticResource SideNavButton}" Click="FindOnPage_Click">
               <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="32"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                 <TextBlock Text="⌕" Foreground="#42D8FF" FontSize="18" VerticalAlignment="Center"/>
@@ -337,6 +363,13 @@
               <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="32"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
                 <TextBlock Text="⊞" Foreground="#42D8FF" FontSize="18" VerticalAlignment="Center"/>
                 <TextBlock Grid.Column="1" Text="Vytvořit aplikaci této stránky" VerticalAlignment="Center"/>
+              </Grid>
+            </Button>
+            <Button Style="{StaticResource SideNavButton}" Click="ManageApps_Click">
+              <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="32"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                <TextBlock Text="▦" Foreground="#42D8FF" FontSize="17" VerticalAlignment="Center"/>
+                <TextBlock Grid.Column="1" Text="Spravovat aplikace" VerticalAlignment="Center"/>
+                <TextBlock Grid.Column="2" Text="›" Foreground="#BBD4EC" FontSize="20" VerticalAlignment="Center"/>
               </Grid>
             </Button>
             <Button Style="{StaticResource SideNavButton}" Click="DownloadsPanel_Click">

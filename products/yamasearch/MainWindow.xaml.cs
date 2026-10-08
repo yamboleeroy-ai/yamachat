@@ -11,17 +11,23 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
+using System.Windows.Media.Animation;
 
 namespace YamaSearch;
 
 public partial class MainWindow : Window
 {
+    [DllImport("user32.dll")]
+    private static extern bool GetCursorPos(out NativePoint point);
+
     private readonly ObservableCollection<BrowserTab> _tabs = [];
     private readonly SettingsStore _settings = new();
     private readonly string? _startupUrl;
     private readonly bool _siteAppMode;
     private readonly string? _siteAppId;
     private readonly string? _manageAppId;
+    private readonly bool _isPrivateWindow;
+    private readonly string? _privateWebDataFolder;
     private SiteAppEntry? _siteAppEntry;
     private System.Windows.Controls.Primitives.Popup? _siteAppMenuPopup;
     private static readonly HttpClient UpdateClient = new() { Timeout = TimeSpan.FromMinutes(5) };
@@ -32,6 +38,25 @@ public partial class MainWindow : Window
     private int _addressSuggestionIndex = -1;
     private string _lastFindQuery = "";
     private bool _downloadUiRefreshQueued;
+    private Point? _tabDragOrigin;
+    private BrowserTab? _draggedTab;
+    private MainWindow? _tabDragHost;
+    private MainWindow? _detachedTabWindow;
+    private MainWindow? _pendingCrossWindowTarget;
+    private int _pendingCrossWindowInsertionIndex;
+    private bool _tabDragSourceHidden;
+    private bool _tabDragActive;
+    private System.Windows.Controls.Primitives.Popup? _tabDragPreview;
+    private readonly HashSet<MainWindow> _emptyWindowsToCloseAfterDrag = [];
+    private static readonly HashSet<System.Windows.Controls.Primitives.Popup> ActiveTabDragPreviews = [];
+    private readonly bool _startEmpty;
+    private bool _suppressTabClick;
+    private Button? _tabDropTarget;
+    private bool _tabDropAfter;
+    // A WPF drop can be delivered more than once while the drag loop is
+    // unwinding.  Keep ownership with the source until the target has a ready
+    // WebView, and permit exactly one in-flight transfer for each tab.
+    private readonly HashSet<BrowserTab> _tabsBeingTransferred = [];
     private readonly Dictionary<CoreWebView2DownloadOperation, DownloadEntry> _activeDownloads = [];
     private readonly List<string> _favoriteOverflow = [];
     private bool _customMaximized;
@@ -58,16 +83,27 @@ public partial class MainWindow : Window
         "collect?v=", "event.gif", "imp.gif"
     ];
 
-    public MainWindow(string? startupUrl = null, bool siteAppMode = false, string? siteAppId = null, string? manageAppId = null)
+    public MainWindow(string? startupUrl = null, bool siteAppMode = false, string? siteAppId = null, string? manageAppId = null, bool privateWindow = false, bool startEmpty = false)
     {
         _startupUrl = startupUrl;
         _siteAppMode = siteAppMode;
         _siteAppId = siteAppId;
         _manageAppId = manageAppId;
+        _isPrivateWindow = privateWindow;
+        _startEmpty = startEmpty;
+        if (_isPrivateWindow)
+            _privateWebDataFolder = Path.Combine(Path.GetTempPath(), "YamaSearch", "Private", Guid.NewGuid().ToString("N"));
         _siteAppEntry = !string.IsNullOrWhiteSpace(siteAppId)
             ? _settings.Data.InstalledApps.FirstOrDefault(x => x.Id == siteAppId)
             : null;
         InitializeComponent();
+        if (_isPrivateWindow)
+        {
+            Title = "YamaSearch · Anonymní okno";
+            BrandColumn.Width = new GridLength(310);
+            PrivateModeBadge.Visibility = Visibility.Visible;
+            Closed += (_, _) => CleanupPrivateWebData();
+        }
         SourceInitialized += (_, _) => InitializeWindowInterop();
         if (!_settings.Data.Theme.Equals("dark", StringComparison.OrdinalIgnoreCase))
         {
@@ -85,6 +121,7 @@ public partial class MainWindow : Window
         if (_siteAppMode)
             ApplySiteAppMode();
         KeyDown += MainWindow_KeyDown;
+        Closed += (_, _) => CloseTabDragPreview();
     }
 
     private void RecoverInterruptedDownloads()
@@ -107,7 +144,8 @@ public partial class MainWindow : Window
             if (welcome.ShowDialog() != true) { Close(); return; }
             _settings.Save();
         }
-        await CreateTabAsync(_startupUrl);
+        if (!_startEmpty)
+            await CreateTabAsync(_startupUrl);
 
         if (!string.IsNullOrWhiteSpace(_manageAppId))
         {
@@ -324,67 +362,89 @@ public partial class MainWindow : Window
 
     private async Task ConfigureWebViewAsync(BrowserTab tab)
     {
+        tab.Owner = this;
         var core = tab.View.CoreWebView2;
         core.Settings.AreDevToolsEnabled = false;
         core.Settings.IsStatusBarEnabled = false;
         core.Settings.IsReputationCheckingRequired = _settings.Data.EnableSmartScreen;
-        core.Settings.IsPasswordAutosaveEnabled = _settings.Data.OfferPasswordSave;
+        core.Settings.IsPasswordAutosaveEnabled = !_isPrivateWindow && _settings.Data.OfferPasswordSave;
         core.Settings.IsGeneralAutofillEnabled = false;
         core.AddWebResourceRequestedFilter("*", CoreWebView2WebResourceContext.All);
-        core.WebResourceRequested += (_, e) => BlockRequest(tab, e);
+        core.WebResourceRequested += (_, e) => tab.Owner?.BlockRequest(tab, e);
         await RefreshYamaBlockBootstrapAsync(tab);
-        core.WebMessageReceived += (_, e) => HandleNewTabMessage(tab, e);
+        core.WebMessageReceived += (_, e) => tab.Owner?.HandleNewTabMessage(tab, e);
         core.NavigationStarting += (_, e) =>
         {
+            var owner = tab.Owner;
+            if (owner is null) return;
             tab.BlockedCount = 0;
-            if (_active == tab) BlockedText.Text = "YamaBlock · 0 blokováno";
+            if (owner._active == tab) owner.BlockedText.Text = "YamaBlock · 0 blokováno";
 
             if (Uri.TryCreate(e.Uri, UriKind.Absolute, out var destination) && destination.Scheme is "http" or "https")
             {
                 tab.IsYamaNewTab = false;
-                if (_active == tab) SetAddressText(e.Uri);
+                if (owner._active == tab) owner.SetAddressText(e.Uri);
             }
-            if (_active == tab) StatusText.Text = "Načítání…";
+            if (owner._active == tab) owner.StatusText.Text = "Načítání…";
+            if (owner._active == tab) owner.UpdateNavigationControls();
         };
         core.NavigationCompleted += async (_, e) =>
         {
-            if (_active == tab) StatusText.Text = e.IsSuccess ? "Hotovo" : "Stránku se nepodařilo načíst";
-            UpdateTabTitle(tab);
+            var owner = tab.Owner;
+            if (owner is null) return;
+            if (owner._active == tab) owner.StatusText.Text = e.IsSuccess ? "Hotovo" : "Stránku se nepodařilo načíst";
+            owner.UpdateTabTitle(tab);
             if (e.IsSuccess && Uri.TryCreate(core.Source, UriKind.Absolute, out var page) && page.Scheme is "http" or "https")
             {
-                AddHistory(core.Source, core.DocumentTitle, core.FaviconUri);
-                await ApplyYamaBlockPageRulesAsync(tab);
+                if (!owner._isPrivateWindow)
+                    owner.AddHistory(core.Source, core.DocumentTitle, core.FaviconUri);
+                await owner.ApplyYamaBlockPageRulesAsync(tab);
             }
+            if (owner._active == tab) owner.UpdateNavigationControls();
         };
-        core.DocumentTitleChanged += (_, _) => UpdateTabTitle(tab);
-        core.FaviconChanged += (_, _) => UpdateFavicon(tab);
+        core.DocumentTitleChanged += (_, _) => tab.Owner?.UpdateTabTitle(tab);
+        core.FaviconChanged += (_, _) => tab.Owner?.UpdateFavicon(tab);
+        tab.View.ZoomFactorChanged += (_, _) => tab.Owner?.Dispatcher.BeginInvoke(() =>
+        {
+            var owner = tab.Owner;
+            if (owner?._active != tab)
+                return;
+
+            owner.UpdateZoomPopup();
+            owner.ZoomPopup.IsOpen = true;
+        });
 
         tab.IsPlayingAudio = core.IsDocumentPlayingAudio;
         tab.IsMuted = core.IsMuted;
 
         core.IsDocumentPlayingAudioChanged += (_, _) =>
         {
-            Dispatcher.Invoke(() =>
+            tab.Owner?.Dispatcher.Invoke(() =>
             {
+                var owner = tab.Owner;
+                if (owner is null) return;
                 tab.IsPlayingAudio = core.IsDocumentPlayingAudio;
-                RenderTabs();
+                owner.RenderTabs();
             });
         };
 
         core.IsMutedChanged += (_, _) =>
         {
-            Dispatcher.Invoke(() =>
+            tab.Owner?.Dispatcher.Invoke(() =>
             {
+                var owner = tab.Owner;
+                if (owner is null) return;
                 tab.IsMuted = core.IsMuted;
-                RenderTabs();
+                owner.RenderTabs();
             });
         };
 
-        core.ContainsFullScreenElementChanged += (_, _) => Dispatcher.Invoke(() => SetVideoFullScreen(core.ContainsFullScreenElement));
-        core.SourceChanged += (_, _) => { UpdateTabTitle(tab); if (_active == tab) SetAddressText(tab.IsYamaNewTab ? "" : core.Source); };
-        core.PermissionRequested += (_, e) => HandlePermissionRequest(e);
-        core.NewWindowRequested += async (_, e) => { e.Handled = true; await CreateTabAsync(e.Uri); };
-        core.DownloadStarting += (_, e) => HandleDownloadStarting(e);
+        core.ContainsFullScreenElementChanged += (_, _) => tab.Owner?.Dispatcher.Invoke(() => tab.Owner?.SetVideoFullScreen(core.ContainsFullScreenElement));
+        core.SourceChanged += (_, _) => { var owner = tab.Owner; owner?.UpdateTabTitle(tab); if (owner?._active == tab) { owner.SetAddressText(tab.IsYamaNewTab ? "" : core.Source); owner.UpdateNavigationControls(); } };
+        core.HistoryChanged += (_, _) => { var owner = tab.Owner; if (owner?._active == tab) owner.Dispatcher.Invoke(owner.UpdateNavigationControls); };
+        core.PermissionRequested += (_, e) => tab.Owner?.HandlePermissionRequest(e);
+        core.NewWindowRequested += async (_, e) => { e.Handled = true; var owner = tab.Owner; if (owner is not null) await owner.CreateTabAsync(e.Uri); };
+        core.DownloadStarting += (_, e) => tab.Owner?.HandleDownloadStarting(e);
     }
     private async Task<CoreWebView2Environment> CreateWebViewEnvironmentAsync()
     {
@@ -394,6 +454,11 @@ public partial class MainWindow : Window
 
         try
         {
+            if (_isPrivateWindow && !string.IsNullOrWhiteSpace(_privateWebDataFolder))
+            {
+                Directory.CreateDirectory(_privateWebDataFolder);
+                return await CoreWebView2Environment.CreateAsync(null, _privateWebDataFolder, options);
+            }
             Directory.CreateDirectory(_webDataFolder);
             return await CoreWebView2Environment.CreateAsync(null, _webDataFolder, options);
         }
@@ -874,7 +939,45 @@ public partial class MainWindow : Window
     {
         _active = tab; BrowserHost.Children.Clear(); BrowserHost.Children.Add(tab.View);
         SetAddressText(tab.IsYamaNewTab ? "" : tab.View.CoreWebView2?.Source ?? "");
-        RenderTabs(); BlockedText.Text = $"YamaBlock · {tab.BlockedCount} blokováno";
+        RenderTabs(); UpdateNavigationControls(); UpdateZoomPopup(); BlockedText.Text = $"YamaBlock · {tab.BlockedCount} blokováno";
+    }
+
+    private void ZoomButton_Click(object sender, RoutedEventArgs e)
+    {
+        UpdateZoomPopup();
+        ZoomPopup.IsOpen = !ZoomPopup.IsOpen;
+    }
+
+    private void ZoomIn_Click(object sender, RoutedEventArgs e) => ChangeActiveZoom(0.1);
+
+    private void ZoomOut_Click(object sender, RoutedEventArgs e) => ChangeActiveZoom(-0.1);
+
+    private void ZoomReset_Click(object sender, RoutedEventArgs e) => SetActiveZoom(1.0);
+
+    private void ChangeActiveZoom(double change)
+    {
+        var view = _active?.View;
+        if (view is null)
+            return;
+
+        SetActiveZoom(view.ZoomFactor + change);
+    }
+
+    private void SetActiveZoom(double zoom)
+    {
+        var view = _active?.View;
+        if (view is null)
+            return;
+
+        view.ZoomFactor = Math.Clamp(zoom, 0.25, 5.0);
+        UpdateZoomPopup();
+        ZoomPopup.IsOpen = true;
+    }
+
+    private void UpdateZoomPopup()
+    {
+        var zoom = _active?.View.ZoomFactor ?? 1.0;
+        ZoomPercentText.Text = $"{Math.Round(zoom * 100):0} %";
     }
     private void RenderTabs()
     {
@@ -965,9 +1068,38 @@ public partial class MainWindow : Window
                     ? new SolidColorBrush((Color)ColorConverter.ConvertFromString("#3B80B8"))
                     : new SolidColorBrush((Color)ColorConverter.ConvertFromString("#21324A")),
                 BorderThickness = new Thickness(1),
-                HorizontalContentAlignment = HorizontalAlignment.Left
+                HorizontalContentAlignment = HorizontalAlignment.Left,
+                AllowDrop = true,
+                Tag = tab
             };
 
+            button.PreviewMouseLeftButtonDown += (_, e) =>
+            {
+                if (e.ChangedButton != MouseButton.Left) return;
+                _draggedTab = tab;
+                _tabDragOrigin = e.GetPosition(TabsScroller);
+                _suppressTabClick = false;
+            };
+            button.PreviewMouseMove += (_, e) => BeginTabDrag(button, tab, e);
+            button.DragOver += (_, e) =>
+            {
+                if (e.Data.GetData(typeof(TabDragPayload)) is not TabDragPayload payload || payload.Tab == tab) return;
+                e.Effects = DragDropEffects.Move;
+                HighlightTabDropTarget(button, e.GetPosition(button).X > button.ActualWidth / 2);
+                e.Handled = true;
+            };
+            button.Drop += (_, e) =>
+            {
+                if (e.Data.GetData(typeof(TabDragPayload)) is not TabDragPayload payload || payload.Tab == tab) return;
+                var insertAfter = e.GetPosition(button).X > button.ActualWidth / 2;
+                if (ReferenceEquals(payload.Source, this))
+                    ReorderTabs(payload.Tab, tab, insertAfter);
+                else
+                    _ = ReceiveDroppedTabAsync(payload, _tabs.IndexOf(tab) + (insertAfter ? 1 : 0));
+                e.Effects = DragDropEffects.Move;
+                ResetTabDropTarget();
+                e.Handled = true;
+            };
             button.PreviewMouseRightButtonDown += (_, e) =>
             {
                 e.Handled = true;
@@ -975,9 +1107,615 @@ public partial class MainWindow : Window
                 _tabActionsPopup = CreateTabActionsPopup(tab, button);
                 _tabActionsPopup.IsOpen = true;
             };
-            button.Click += (_, _) => SelectTab(tab);
+            button.Click += (_, _) =>
+            {
+                if (_suppressTabClick) { _suppressTabClick = false; return; }
+                SelectTab(tab);
+            };
             TabsList.Items.Add(button);
         }
+    }
+
+    private void BeginTabDrag(Button source, BrowserTab tab, MouseEventArgs e)
+    {
+        if (_draggedTab != tab || _tabDragOrigin is null || e.LeftButton != MouseButtonState.Pressed)
+            return;
+
+        var current = e.GetPosition(TabsScroller);
+        if (Math.Abs(current.X - _tabDragOrigin.Value.X) < SystemParameters.MinimumHorizontalDragDistance
+            && Math.Abs(current.Y - _tabDragOrigin.Value.Y) < SystemParameters.MinimumVerticalDragDistance)
+            return;
+
+        _suppressTabClick = true;
+        source.BeginAnimation(UIElement.OpacityProperty, new DoubleAnimation(source.Opacity, .55, TimeSpan.FromMilliseconds(80)));
+        ShowTabDragPreview(tab, GetSystemCursorPosition());
+        GiveFeedbackEventHandler movePreview = (_, _) =>
+            MoveTabDragPreview(GetSystemCursorPosition());
+        source.GiveFeedback += movePreview;
+        try
+        {
+            var result = DragDrop.DoDragDrop(source, new DataObject(typeof(TabDragPayload), new TabDragPayload(this, tab)), DragDropEffects.Move);
+            if (result == DragDropEffects.None && IsPointerOutsideTabStrip())
+                TearOffTab(tab);
+        }
+        finally
+        {
+            source.GiveFeedback -= movePreview;
+            CloseTabDragPreview();
+            ResetTabDropTarget();
+            source.BeginAnimation(UIElement.OpacityProperty, new DoubleAnimation(source.Opacity, 1, TimeSpan.FromMilliseconds(100)));
+            _draggedTab = null;
+            _tabDragOrigin = null;
+        }
+    }
+
+    private void TabsScroller_DragOver(object sender, DragEventArgs e)
+    {
+        if (e.Data.GetData(typeof(TabDragPayload)) is not TabDragPayload)
+            return;
+
+        // The entire strip is a valid target, not just the visible tab buttons.
+        // This mirrors Chromium's forgiving drop area and prevents an accidental
+        // tear-off while aiming at a gap or the empty part of a short tab row.
+        e.Effects = DragDropEffects.Move;
+        e.Handled = true;
+    }
+
+    private void TabsScroller_Drop(object sender, DragEventArgs e)
+    {
+        if (e.Data.GetData(typeof(TabDragPayload)) is not TabDragPayload payload)
+            return;
+
+        var insertionIndex = GetTabInsertionIndex(e.GetPosition(TabsScroller));
+        if (ReferenceEquals(payload.Source, this))
+            MoveTabWithinWindow(payload.Tab, insertionIndex);
+        else
+            _ = ReceiveDroppedTabAsync(payload, insertionIndex);
+
+        e.Effects = DragDropEffects.Move;
+        ResetTabDropTarget();
+        e.Handled = true;
+    }
+
+    private int GetTabInsertionIndex(Point position)
+    {
+        var buttons = TabsList.Items.OfType<Button>().ToList();
+        for (var index = 0; index < buttons.Count; index++)
+        {
+            var buttonPosition = buttons[index].TranslatePoint(new Point(0, 0), TabsScroller);
+            if (position.X < buttonPosition.X + buttons[index].ActualWidth / 2)
+                return index;
+        }
+
+        return _tabs.Count;
+    }
+
+    private void MoveTabWithinWindow(BrowserTab tab, int insertionIndex)
+    {
+        var sourceIndex = _tabs.IndexOf(tab);
+        if (sourceIndex < 0)
+            return;
+
+        _tabs.RemoveAt(sourceIndex);
+        if (sourceIndex < insertionIndex)
+            insertionIndex--;
+        _tabs.Insert(Math.Clamp(insertionIndex, 0, _tabs.Count), tab);
+        RenderTabs();
+    }
+
+    private void MainWindow_PreviewMouseMove(object sender, MouseEventArgs e)
+    {
+        if (_draggedTab is null || _tabDragOrigin is null || e.LeftButton != MouseButtonState.Pressed)
+            return;
+
+        var current = e.GetPosition(TabsScroller);
+        if (!_tabDragActive && Math.Abs(current.X - _tabDragOrigin.Value.X) < SystemParameters.MinimumHorizontalDragDistance
+            && Math.Abs(current.Y - _tabDragOrigin.Value.Y) < SystemParameters.MinimumVerticalDragDistance)
+            return;
+
+        _suppressTabClick = true;
+        if (!_tabDragActive)
+        {
+            _tabDragActive = true;
+            ShowTabDragPreview(_draggedTab, PointToScreen(e.GetPosition(this)));
+        }
+        _tabDragHost ??= this;
+        Mouse.Capture(this, CaptureMode.SubTree);
+        UpdateLiveTabDrag(PointToScreen(e.GetPosition(this)));
+    }
+
+    private void MainWindow_PreviewMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+    {
+        if (!_tabDragActive) return;
+        FinishLiveTabDrag();
+        e.Handled = true;
+    }
+
+    private void UpdateLiveTabDrag(Point screenPosition)
+    {
+        if (_draggedTab is null || _tabDragHost is null) return;
+        MoveTabDragPreview(screenPosition);
+
+        var target = FindTabStripAt(screenPosition, out var insertionIndex);
+        if (target is not null)
+        {
+            if (ReferenceEquals(target, _tabDragHost))
+            {
+                _pendingCrossWindowTarget = null;
+                _pendingCrossWindowInsertionIndex = 0;
+                if (_detachedTabWindow is not null)
+                {
+                    _detachedTabWindow.Close();
+                    _detachedTabWindow = null;
+                }
+                MoveTabDuringDrag(_draggedTab, target, insertionIndex);
+            }
+            else
+                EnterOtherWindowDuringDrag(target, insertionIndex);
+            return;
+        }
+
+        if (_tabDragSourceHidden && _tabDragHost is not null)
+        {
+            var source = _tabDragHost;
+            source.Show();
+            _tabDragSourceHidden = false;
+            TransferLiveTabDragControlTo(source);
+            return;
+        }
+
+        if (_detachedTabWindow is null)
+        {
+            var detached = new MainWindow(privateWindow: _isPrivateWindow, startEmpty: true)
+            {
+                Width = Math.Max(960, ActualWidth),
+                Height = Math.Max(650, ActualHeight),
+                Left = screenPosition.X - 140,
+                Top = screenPosition.Y - 22
+            };
+            detached.Show();
+            _detachedTabWindow = detached;
+            EnterOtherWindowDuringDrag(detached, 0);
+        }
+
+        if (_tabDragHost == _detachedTabWindow)
+        {
+            _detachedTabWindow.Left = screenPosition.X - 140;
+            _detachedTabWindow.Top = screenPosition.Y - 22;
+        }
+    }
+
+    private MainWindow? FindTabStripAt(Point screenPosition, out int insertionIndex)
+    {
+        foreach (var window in Application.Current.Windows.OfType<MainWindow>().Where(window => window.IsVisible))
+        {
+            var topLeft = window.TabsScroller.PointToScreen(new Point(0, 0));
+            if (screenPosition.X < topLeft.X || screenPosition.X > topLeft.X + window.TabsScroller.ActualWidth
+                || screenPosition.Y < topLeft.Y || screenPosition.Y > topLeft.Y + window.TabsScroller.ActualHeight)
+                continue;
+
+            var buttons = window.TabsList.Items.OfType<Button>().ToList();
+            insertionIndex = buttons.Count;
+            for (var index = 0; index < buttons.Count; index++)
+            {
+                var buttonLeft = buttons[index].PointToScreen(new Point(0, 0)).X;
+                if (screenPosition.X < buttonLeft + buttons[index].ActualWidth / 2)
+                {
+                    insertionIndex = index;
+                    break;
+                }
+            }
+            return window;
+        }
+
+        insertionIndex = 0;
+        return null;
+    }
+
+    private void MoveTabDuringDrag(BrowserTab tab, MainWindow target, int insertionIndex)
+    {
+        var source = _tabDragHost;
+        if (source is null) return;
+
+        var currentIndex = source._tabs.IndexOf(tab);
+        if (currentIndex < 0) return;
+        if (ReferenceEquals(source, target) && (insertionIndex == currentIndex || insertionIndex == currentIndex + 1)) return;
+
+        source._tabs.RemoveAt(currentIndex);
+        if (ReferenceEquals(source._active, tab))
+        {
+            source.BrowserHost.Children.Clear();
+            source._active = null;
+        }
+        if (ReferenceEquals(source, target) && currentIndex < insertionIndex) insertionIndex--;
+        insertionIndex = Math.Clamp(insertionIndex, 0, target._tabs.Count);
+        target._tabs.Insert(insertionIndex, tab);
+        _emptyWindowsToCloseAfterDrag.Remove(target);
+        target.SelectTab(tab);
+        source.RenderTabs();
+        _tabDragHost = target;
+
+        if (source._tabs.Count > 0 && source._active is null)
+            source.SelectTab(source._tabs[Math.Min(currentIndex, source._tabs.Count - 1)]);
+        else if (source._tabs.Count == 0)
+        {
+            if (source._startEmpty)
+            {
+                // This is the temporary window created by dragging a tab out. It
+                // can disappear immediately: the receiving window takes over the
+                // active drag before the empty window is hidden.
+                TransferLiveTabDragTo(target, source, tab);
+                target._emptyWindowsToCloseAfterDrag.Add(source);
+                source.Hide();
+            }
+            else
+            {
+                // A normal browser window stays available until mouse-up, so a
+                // card can still be returned to it during the same drag.
+                _emptyWindowsToCloseAfterDrag.Add(source);
+            }
+        }
+    }
+
+    private void SetPendingCrossWindowTarget(MainWindow target, int insertionIndex)
+    {
+        _pendingCrossWindowTarget = target;
+        _pendingCrossWindowInsertionIndex = insertionIndex;
+    }
+
+    private void EnterOtherWindowDuringDrag(MainWindow target, int insertionIndex)
+    {
+        SetPendingCrossWindowTarget(target, insertionIndex);
+        if (_tabDragSourceHidden || _tabDragHost is null) return;
+
+        var source = _tabDragHost;
+        _tabDragSourceHidden = true;
+        TransferLiveTabDragControlTo(target);
+        source.Hide();
+    }
+
+    private void TransferLiveTabDragControlTo(MainWindow target)
+    {
+        if (ReferenceEquals(target, this))
+        {
+            Mouse.Capture(target, CaptureMode.SubTree);
+            return;
+        }
+
+        target._draggedTab = _draggedTab;
+        target._tabDragHost = _tabDragHost;
+        target._tabDragActive = _tabDragActive;
+        target._tabDragOrigin = _tabDragOrigin;
+        target._tabDragPreview = _tabDragPreview;
+        target._detachedTabWindow = _detachedTabWindow;
+        target._pendingCrossWindowTarget = _pendingCrossWindowTarget;
+        target._pendingCrossWindowInsertionIndex = _pendingCrossWindowInsertionIndex;
+        target._tabDragSourceHidden = _tabDragSourceHidden;
+
+        _draggedTab = null;
+        _tabDragHost = null;
+        _tabDragActive = false;
+        _tabDragOrigin = null;
+        _tabDragPreview = null;
+        _detachedTabWindow = null;
+        _pendingCrossWindowTarget = null;
+        _pendingCrossWindowInsertionIndex = 0;
+        _tabDragSourceHidden = false;
+        Mouse.Capture(target, CaptureMode.SubTree);
+    }
+
+    private void TransferLiveTabDragTo(MainWindow target, MainWindow source, BrowserTab tab)
+    {
+        target._draggedTab = tab;
+        target._tabDragHost = target;
+        target._tabDragActive = true;
+        target._tabDragOrigin = source._tabDragOrigin;
+        target._tabDragPreview = source._tabDragPreview;
+        source._tabDragPreview = null;
+        target._detachedTabWindow = null;
+        Mouse.Capture(target, CaptureMode.SubTree);
+    }
+
+    private void FinishLiveTabDrag()
+    {
+        if (!_tabDragActive) return;
+        var tab = _draggedTab;
+        var source = _tabDragHost;
+        var target = _pendingCrossWindowTarget;
+        var insertionIndex = _pendingCrossWindowInsertionIndex;
+        _tabDragActive = false;
+        Mouse.Capture(null);
+        CloseTabDragPreview();
+        ResetTabDropTarget();
+        _draggedTab = null;
+        _tabDragHost = null;
+        _detachedTabWindow = null;
+        _tabDragOrigin = null;
+        _pendingCrossWindowTarget = null;
+        _pendingCrossWindowInsertionIndex = 0;
+        _tabDragSourceHidden = false;
+        foreach (var window in _emptyWindowsToCloseAfterDrag.Where(window => window._tabs.Count == 0).ToList())
+            window.Close();
+        _emptyWindowsToCloseAfterDrag.Clear();
+
+        if (tab is not null && source is not null && target is not null && !ReferenceEquals(source, target))
+            _ = MoveTabAcrossWindowsAsync(tab, source, target, insertionIndex);
+    }
+
+    private async Task MoveTabAcrossWindowsAsync(BrowserTab tab, MainWindow source, MainWindow target, int insertionIndex)
+    {
+        var address = tab.IsYamaNewTab ? source._settings.Data.HomePage : tab.View.CoreWebView2?.Source;
+        if (string.IsNullOrWhiteSpace(address)) address = source._settings.Data.HomePage;
+
+        var replacement = new BrowserTab();
+        insertionIndex = Math.Clamp(insertionIndex, 0, target._tabs.Count);
+        target._tabs.Insert(insertionIndex, replacement);
+        target.SelectTab(replacement);
+        try
+        {
+            var environment = await target.CreateWebViewEnvironmentAsync();
+            await replacement.View.EnsureCoreWebView2Async(environment);
+            await target.ConfigureWebViewAsync(replacement);
+            await target.NavigateAsync(replacement, address);
+        }
+        catch
+        {
+            target._tabs.Remove(replacement);
+            replacement.View.Dispose();
+            target.RenderTabs();
+            if (!source.IsVisible) source.Show();
+            return;
+        }
+
+        if (!source._tabs.Remove(tab)) return;
+        if (ReferenceEquals(source._active, tab))
+        {
+            source.BrowserHost.Children.Clear();
+            source._active = null;
+        }
+        tab.View.Dispose();
+        source.RenderTabs();
+        if (source._tabs.Count > 0)
+            source.SelectTab(source._tabs[Math.Min(insertionIndex, source._tabs.Count - 1)]);
+        else
+            source.Close();
+    }
+
+    private void CloseTabDragPreview()
+    {
+        if (_tabDragPreview is null) return;
+        _tabDragPreview.IsOpen = false;
+        ActiveTabDragPreviews.Remove(_tabDragPreview);
+        _tabDragPreview = null;
+    }
+
+    private void ShowTabDragPreview(BrowserTab tab, Point screenPosition)
+    {
+        // A previous owner can disappear while a tab is being moved to another
+        // window. Always remove any remaining overlay before showing the next one.
+        foreach (var preview in ActiveTabDragPreviews.ToList())
+            preview.IsOpen = false;
+        ActiveTabDragPreviews.Clear();
+
+        var header = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(10, 0, 9, 0) };
+        if (tab.Favicon is not null)
+            header.Children.Add(new Image { Source = tab.Favicon, Width = 18, Height = 18, Margin = new Thickness(0, 0, 8, 0) });
+        else
+            header.Children.Add(new TextBlock { Text = "◈", Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#54D7F8")), FontSize = 16, Margin = new Thickness(0, 0, 8, 0) });
+        header.Children.Add(new TextBlock
+        {
+            Text = tab.Title,
+            Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#EAF7FF")),
+            FontWeight = FontWeights.SemiBold,
+            TextTrimming = TextTrimming.CharacterEllipsis,
+            Width = 148,
+            VerticalAlignment = VerticalAlignment.Center
+        });
+
+        _tabDragPreview = new System.Windows.Controls.Primitives.Popup
+        {
+            AllowsTransparency = true,
+            IsHitTestVisible = false,
+            Placement = System.Windows.Controls.Primitives.PlacementMode.AbsolutePoint,
+            StaysOpen = true,
+            Child = new Border
+            {
+                Width = 205,
+                Height = 42,
+                Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#1B3453")),
+                BorderBrush = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#54D7F8")),
+                BorderThickness = new Thickness(2),
+                CornerRadius = new CornerRadius(8),
+                Opacity = .94,
+                Child = header,
+                Effect = new System.Windows.Media.Effects.DropShadowEffect
+                {
+                    Color = Colors.Black,
+                    Opacity = .7,
+                    BlurRadius = 18,
+                    ShadowDepth = 5
+                }
+            }
+        };
+        MoveTabDragPreview(screenPosition);
+        _tabDragPreview.IsOpen = true;
+        ActiveTabDragPreviews.Add(_tabDragPreview);
+    }
+
+    private void MoveTabDragPreview(Point screenPosition)
+    {
+        if (_tabDragPreview is null) return;
+        _tabDragPreview.HorizontalOffset = screenPosition.X + 14;
+        _tabDragPreview.VerticalOffset = screenPosition.Y + 14;
+    }
+
+    private Point GetSystemCursorPosition()
+    {
+        // During DoDragDrop WPF can keep reporting a location relative to the
+        // source window even after the pointer has crossed into another window.
+        // A Popup with those stale coordinates appears as a duplicate card at
+        // the top-left of the desktop. Read the real screen cursor instead.
+        if (!GetCursorPos(out var cursor))
+            return PointToScreen(Mouse.GetPosition(this));
+
+        var physicalPoint = new Point(cursor.X, cursor.Y);
+        var presentationSource = PresentationSource.FromVisual(this);
+        return presentationSource?.CompositionTarget?.TransformFromDevice.Transform(physicalPoint)
+            ?? physicalPoint;
+    }
+
+    private void HighlightTabDropTarget(Button target, bool insertAfter)
+    {
+        if (_tabDropTarget == target && _tabDropAfter == insertAfter) return;
+        ResetTabDropTarget();
+
+        _tabDropTarget = target;
+        _tabDropAfter = insertAfter;
+        target.BorderBrush = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#54D7F8"));
+        // Keep the border thickness unchanged. Changing it during a drag makes WPF
+        // re-measure the entire strip and is what caused neighbouring tabs to jump.
+        target.BorderThickness = new Thickness(1);
+        AnimateTabMargin(target, insertAfter
+            ? new Thickness(3, 8, 28, 8)
+            : new Thickness(28, 8, 3, 8));
+    }
+
+    private void ResetTabDropTarget()
+    {
+        if (_tabDropTarget == null) return;
+        var target = _tabDropTarget;
+        var targetTab = target.Tag as BrowserTab;
+        target.BorderBrush = targetTab == _active
+            ? new SolidColorBrush((Color)ColorConverter.ConvertFromString("#3B80B8"))
+            : new SolidColorBrush((Color)ColorConverter.ConvertFromString("#21324A"));
+        target.BorderThickness = new Thickness(1);
+        AnimateTabMargin(target, new Thickness(3, 8, 0, 8));
+        _tabDropTarget = null;
+    }
+
+    private static void AnimateTabMargin(FrameworkElement target, Thickness margin)
+    {
+        var previous = target.Margin;
+        target.Margin = margin;
+        target.BeginAnimation(FrameworkElement.MarginProperty, new ThicknessAnimation(previous, margin, TimeSpan.FromMilliseconds(140))
+        {
+            EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseOut }
+        });
+    }
+
+    private bool IsPointerOutsideTabStrip()
+    {
+        var position = Mouse.GetPosition(TabsScroller);
+        // A few pixels outside the strip are common while aiming for the edge of
+        // another tab. Only detach after a deliberate pull out of the tab area.
+        const double detachDistance = 48;
+        return position.X < -detachDistance || position.X > TabsScroller.ActualWidth + detachDistance
+            || position.Y < -detachDistance || position.Y > TabsScroller.ActualHeight + detachDistance;
+    }
+
+    private void ReorderTabs(BrowserTab dragged, BrowserTab target, bool insertAfter)
+    {
+        var sourceIndex = _tabs.IndexOf(dragged);
+        var targetIndex = _tabs.IndexOf(target);
+        if (sourceIndex < 0 || targetIndex < 0) return;
+
+        _tabs.RemoveAt(sourceIndex);
+        if (sourceIndex < targetIndex) targetIndex--;
+        _tabs.Insert(insertAfter ? targetIndex + 1 : targetIndex, dragged);
+        RenderTabs();
+    }
+
+    private async Task ReceiveDroppedTabAsync(TabDragPayload payload, int insertionIndex)
+    {
+        if (!payload.Source.TryBeginTransferredTab(payload.Tab))
+            return;
+
+        BrowserTab? replacement = null;
+        try
+        {
+            if (_isPrivateWindow != payload.Source._isPrivateWindow)
+                return;
+
+            // A WPF WebView2 controller is bound to the native host window and
+            // cannot be reparented safely. Create the destination controller
+            // first; source ownership is released only after it is ready.
+            var address = payload.Tab.IsYamaNewTab
+                ? payload.Source._settings.Data.HomePage
+                : payload.Tab.View.CoreWebView2?.Source;
+            if (string.IsNullOrWhiteSpace(address))
+                address = payload.Source._settings.Data.HomePage;
+
+            replacement = new BrowserTab();
+            insertionIndex = Math.Clamp(insertionIndex, 0, _tabs.Count);
+            _tabs.Insert(insertionIndex, replacement);
+            SelectTab(replacement);
+            var environment = await CreateWebViewEnvironmentAsync();
+            await replacement.View.EnsureCoreWebView2Async(environment);
+            await ConfigureWebViewAsync(replacement);
+            await NavigateAsync(replacement, address);
+
+            payload.Source.CompleteTransferredTab(payload.Tab);
+        }
+        catch
+        {
+            if (replacement is not null)
+            {
+                _tabs.Remove(replacement);
+                replacement.View.Dispose();
+                RenderTabs();
+            }
+        }
+        finally
+        {
+            payload.Source.CancelTransferredTab(payload.Tab);
+        }
+    }
+
+    private bool TryBeginTransferredTab(BrowserTab tab)
+        => _tabs.Contains(tab) && _tabsBeingTransferred.Add(tab);
+
+    private void CancelTransferredTab(BrowserTab tab)
+        => _tabsBeingTransferred.Remove(tab);
+
+    private void CompleteTransferredTab(BrowserTab tab)
+    {
+        if (!_tabs.Remove(tab))
+            return;
+        if (ReferenceEquals(_active, tab))
+        {
+            BrowserHost.Children.Clear();
+            _active = null;
+        }
+        tab.View.Dispose();
+        RenderTabs();
+        if (_tabs.Count > 0)
+            SelectTab(_tabs[0]);
+        else
+            Close();
+    }
+
+    private void TearOffTab(BrowserTab tab)
+    {
+        StatusText.Text = "Odděluji kartu do nového okna…";
+        var detached = new MainWindow(privateWindow: _isPrivateWindow, startEmpty: true)
+        {
+            Width = Math.Max(960, ActualWidth),
+            Height = Math.Max(650, ActualHeight),
+            Left = Left + 48,
+            Top = Top + 48
+        };
+        detached.Loaded += (_, _) =>
+        {
+            _ = MoveTabToNewWindowAsync(tab, detached);
+        };
+        detached.Show();
+    }
+
+    private async Task MoveTabToNewWindowAsync(BrowserTab tab, MainWindow target)
+    {
+        await target.ReceiveDroppedTabAsync(new TabDragPayload(this, tab), 0);
+        if (target._tabs.Count == 0)
+            target.Close();
     }
 
     private void ToggleTabMute(BrowserTab tab)
@@ -1043,6 +1781,14 @@ public partial class MainWindow : Window
     private void Back_Click(object sender, RoutedEventArgs e) { if (_active?.View.CoreWebView2.CanGoBack == true) _active.View.CoreWebView2.GoBack(); }
     private void Forward_Click(object sender, RoutedEventArgs e) { if (_active?.View.CoreWebView2.CanGoForward == true) _active.View.CoreWebView2.GoForward(); }
     private void Reload_Click(object sender, RoutedEventArgs e) => _active?.View.CoreWebView2.Reload();
+
+    private void UpdateNavigationControls()
+    {
+        var core = _active?.View.CoreWebView2;
+        BackButton.Visibility = core?.CanGoBack == true ? Visibility.Visible : Visibility.Collapsed;
+        ForwardButton.Visibility = core?.CanGoForward == true ? Visibility.Visible : Visibility.Collapsed;
+        ReloadButton.Visibility = core != null ? Visibility.Visible : Visibility.Collapsed;
+    }
 
     private void Home_Click(object sender, RoutedEventArgs e)
     {
@@ -1885,6 +2631,9 @@ public partial class MainWindow : Window
     private void NewWindow_Click(object sender, RoutedEventArgs e)
         => StartYamaSearchProcess();
 
+    private void NewPrivateWindow_Click(object sender, RoutedEventArgs e)
+        => StartYamaSearchProcess("--private");
+
     private async void FindOnPage_Click(object sender, RoutedEventArgs e)
     {
         if (_active?.View.CoreWebView2 == null) return;
@@ -1957,7 +2706,8 @@ public partial class MainWindow : Window
         }
         if (title.Length > 70) title = title[..70];
 
-        var previewIcon = TryLoadRemoteOrFallbackIcon(_active.View.CoreWebView2.FaviconUri);
+        var pageIconUrl = ResolveSiteAppIconUrl(uri, _active.View.CoreWebView2.FaviconUri);
+        var previewIcon = _active.Favicon ?? TryLoadRemoteOrFallbackIcon(pageIconUrl);
         var installDialog = new SiteAppInstallWindow(title, uri.Host, previewIcon) { Owner = this };
         if (installDialog.ShowDialog() != true)
             return;
@@ -1968,7 +2718,7 @@ public partial class MainWindow : Window
             Name = title,
             Url = uri.ToString(),
             Host = uri.Host,
-            FaviconUrl = _active.View.CoreWebView2.FaviconUri ?? "",
+            FaviconUrl = pageIconUrl,
             InstalledAt = DateTimeOffset.Now,
             AddToStartMenu = installDialog.AddToStartMenu,
             CreateDesktopShortcut = installDialog.CreateDesktopShortcut,
@@ -2007,6 +2757,12 @@ public partial class MainWindow : Window
                 MessageBoxButton.OK,
                 MessageBoxImage.Error);
         }
+    }
+
+    private void ManageApps_Click(object sender, RoutedEventArgs e)
+    {
+        var manager = new AppsWindow(_settings) { Owner = this };
+        manager.Show();
     }
 
     private void ApplySiteAppMode()
@@ -2072,6 +2828,7 @@ public partial class MainWindow : Window
         AddAction(app.AddToStartMenu ? "Odebrat z nabídky Start" : "Přidat do nabídky Start", () => ToggleStartMenu(app));
         AddAction("Připnout na hlavní panel", () => PinSiteAppToTaskbar(app));
         AddAction(app.CreateDesktopShortcut ? "Odebrat zástupce z plochy" : "Vytvořit zástupce na ploše", () => ToggleDesktopShortcut(app));
+        AddAction(app.StartOnLogin ? "Vypnout automatické spuštění" : "Automaticky spouštět při přihlášení", () => ToggleStartup(app));
         AddAction("Otevřít v YamaSearch", () => StartYamaSearchProcess($"--url={app.Url}"));
 
         panel.Children.Add(new Border
@@ -2130,6 +2887,20 @@ public partial class MainWindow : Window
         }
     }
 
+    private void ToggleStartup(SiteAppEntry app)
+    {
+        app.StartOnLogin = !app.StartOnLogin;
+        try
+        {
+            SiteAppServices.ApplyShortcuts(app);
+            _settings.Save();
+        }
+        catch (Exception error)
+        {
+            MessageBox.Show(error.Message, "YamaSearch");
+        }
+    }
+
     private void PinSiteAppToTaskbar(SiteAppEntry app)
     {
         if (SiteAppServices.TryPinToTaskbar(app))
@@ -2159,6 +2930,15 @@ public partial class MainWindow : Window
         _settings.Data.InstalledApps.Remove(app);
         _settings.Save();
         Close();
+    }
+
+    private static string ResolveSiteAppIconUrl(Uri page, string? faviconUrl)
+    {
+        if (Uri.TryCreate(faviconUrl, UriKind.Absolute, out var favicon)
+            && favicon.Scheme is "http" or "https")
+            return favicon.ToString();
+
+        return page.GetLeftPart(UriPartial.Authority) + "/favicon.ico";
     }
 
     private static ImageSource TryLoadRemoteOrFallbackIcon(string? faviconUrl)
@@ -2581,8 +3361,19 @@ public partial class MainWindow : Window
                 return;
             }
 
-            if (!tab.IsYamaNewTab || !root.TryGetProperty("url", out var urlElement))
+            if (!tab.IsYamaNewTab) return;
+
+            if (string.Equals(action, "reorderFavorites", StringComparison.Ordinal)
+                && root.TryGetProperty("urls", out var urlsElement)
+                && urlsElement.ValueKind == JsonValueKind.Array)
+            {
+                ReorderFavorites(urlsElement.EnumerateArray()
+                    .Where(x => x.ValueKind == JsonValueKind.String)
+                    .Select(x => x.GetString() ?? ""));
                 return;
+            }
+
+            if (!root.TryGetProperty("url", out var urlElement)) return;
 
             var url = urlElement.GetString() ?? "";
 
@@ -2622,6 +3413,26 @@ public partial class MainWindow : Window
         _settings.Data.Bookmarks.RemoveAt(index);
         _settings.Save();
         StatusText.Text = "Odebráno z oblíbených";
+        RefreshFavoriteViews();
+    }
+
+    private void ReorderFavorites(IEnumerable<string> urls)
+    {
+        var remaining = _settings.Data.Bookmarks.ToList();
+        var reordered = new List<string>();
+        foreach (var url in urls)
+        {
+            var index = remaining.FindIndex(existing => SameFavorite(existing, url));
+            if (index < 0) continue;
+            reordered.Add(remaining[index]);
+            remaining.RemoveAt(index);
+        }
+
+        if (reordered.Count == 0) return;
+        reordered.AddRange(remaining);
+        _settings.Data.Bookmarks = reordered;
+        _settings.Save();
+        StatusText.Text = "Pořadí oblíbených bylo uloženo";
         RefreshFavoriteViews();
     }
 
@@ -2666,6 +3477,24 @@ public partial class MainWindow : Window
         if (_settings.Data.History.Count > 500) _settings.Data.History.RemoveRange(500, _settings.Data.History.Count - 500);
         _settings.Save();
         if (HistoryQuickPopup.IsOpen) RenderHistoryQuickPopup();
+    }
+
+    private void CleanupPrivateWebData()
+    {
+        foreach (var tab in _tabs.ToList()) tab.View.Dispose();
+        if (string.IsNullOrWhiteSpace(_privateWebDataFolder)) return;
+        GC.Collect();
+        GC.WaitForPendingFinalizers();
+        for (var attempt = 0; attempt < 8; attempt++)
+        {
+            try
+            {
+                if (Directory.Exists(_privateWebDataFolder)) Directory.Delete(_privateWebDataFolder, true);
+                return;
+            }
+            catch (IOException) { Thread.Sleep(250); }
+            catch (UnauthorizedAccessException) { Thread.Sleep(250); }
+        }
     }
     private async void BlockButton_Click(object sender, RoutedEventArgs e)
     {
@@ -2780,7 +3609,7 @@ public partial class MainWindow : Window
     {
         while (source != null)
         {
-            if (source is Button or TextBox or ScrollViewer) return true;
+            if (source is Button or TextBox) return true;
             source = VisualTreeHelper.GetParent(source);
         }
         return false;
@@ -2971,6 +3800,13 @@ public partial class MainWindow : Window
     private void Close_Click(object sender, RoutedEventArgs e) => Close();
     private void MainWindow_KeyDown(object sender, KeyEventArgs e)
     {
+        if (Keyboard.Modifiers == (ModifierKeys.Control | ModifierKeys.Shift) && e.Key == Key.N)
+        {
+            NewPrivateWindow_Click(sender, e);
+            e.Handled = true;
+            return;
+        }
+
         if (Keyboard.Modifiers != ModifierKeys.Control) return;
 
         if (e.Key == Key.T)
@@ -3154,7 +3990,7 @@ public partial class MainWindow : Window
             var safeLabel = System.Net.WebUtility.HtmlEncode(label);
             var safeHost = System.Net.WebUtility.HtmlEncode(page.Host);
             var safeFavicon = System.Net.WebUtility.HtmlEncode(faviconUrl);
-            return $"<div class='favorite-card' data-url='{safeUrl}' title='{safeHost}'><button class='favorite-remove' type='button' title='Odebrat z oblíbených' onclick='removeFavorite(event,this)'>×</button><a class='favorite-main' href='{safeUrl}'><span class='favorite-icon'><span class='favorite-fallback'>✦</span><img src='{safeFavicon}' alt='' onload=\"this.previousElementSibling.style.display='none'\" onerror=\"this.style.display='none'\"></span><span class='favorite-name'>{safeLabel}</span><span class='favorite-host'>{safeHost}</span></a></div>";
+            return $"<div class='favorite-card' draggable='true' data-url='{safeUrl}' title='{safeHost}'><button class='favorite-remove' type='button' title='Odebrat z oblíbených' onclick='removeFavorite(event,this)'>×</button><a class='favorite-main' draggable='false' href='{safeUrl}'><span class='favorite-icon'><span class='favorite-fallback'>✦</span><img src='{safeFavicon}' alt='' onload=\"this.previousElementSibling.style.display='none'\" onerror=\"this.style.display='none'\"></span><span class='favorite-name'>{safeLabel}</span><span class='favorite-host'>{safeHost}</span></a></div>";
         }).Where(x => !string.IsNullOrWhiteSpace(x)).ToList();
 
         var favoriteContent = favorites.Count > 0
@@ -3189,8 +4025,10 @@ public partial class MainWindow : Window
             .add-panel input{{background:#192437;border:1px solid #31537d;border-radius:9px;padding:10px 12px}}
             .add-panel button{{padding:0 16px}}
             .favorites-grid{{display:grid;grid-template-columns:repeat(auto-fit,minmax(138px,1fr));gap:14px}}
-            .favorite-card{{position:relative;min-height:126px;border-radius:15px;border:1px solid #294465;background:linear-gradient(180deg,#142137,#101a2b);color:#eaf3ff;transition:transform .15s ease,border-color .15s ease,background .15s ease,box-shadow .15s ease;overflow:hidden}}
+            .favorite-card{{position:relative;min-height:126px;border-radius:15px;border:1px solid #294465;background:linear-gradient(180deg,#142137,#101a2b);color:#eaf3ff;transition:transform .15s ease,border-color .15s ease,background .15s ease,box-shadow .15s ease,opacity .12s ease;overflow:hidden;cursor:grab}}
             .favorite-card:hover{{transform:translateY(-2px);border-color:#3b80b8;background:linear-gradient(180deg,#192a44,#122139);box-shadow:0 12px 26px #00000030,0 0 0 1px #23c9f522}}
+            .favorite-card.dragging{{opacity:.46;cursor:grabbing;transform:scale(.98)}}
+            .favorite-card.drag-over{{border-color:#54d7f8;box-shadow:0 0 0 2px #23c9f566}}
             .favorite-main{{min-height:126px;padding:17px 14px 14px;text-decoration:none;color:#eaf3ff;display:flex;flex-direction:column;align-items:center;justify-content:center}}
             .favorite-remove{{position:absolute;z-index:2;right:7px;top:7px;width:25px;height:25px;padding:0;border-radius:8px;background:#3a2030;color:#ffbdc9;border:1px solid #654052;opacity:.72;font-size:16px;line-height:20px}}
             .favorite-card:hover .favorite-remove{{opacity:1}}
@@ -3218,6 +4056,14 @@ public partial class MainWindow : Window
             function toggleAdd(){{const panel=document.getElementById('favoriteAddPanel');panel.classList.toggle('open');if(panel.classList.contains('open'))document.getElementById('favoriteUrl').focus();}}
             function addFavorite(event){{event.preventDefault();const input=document.getElementById('favoriteUrl');const url=input.value.trim();if(!url)return;postFavorite('addFavorite',url);}}
             function removeFavorite(event,button){{event.preventDefault();event.stopPropagation();const card=button.closest('.favorite-card');if(card)postFavorite('removeFavorite',card.dataset.url);}}
+            const favoriteGrid=document.querySelector('.favorites-grid');let draggedCard=null;let suppressOpenUntil=0;
+            if(favoriteGrid){{
+              favoriteGrid.addEventListener('dragstart',event=>{{const card=event.target.closest('.favorite-card');if(!card)return;draggedCard=card;card.classList.add('dragging');event.dataTransfer.effectAllowed='move';event.dataTransfer.setData('text/plain',card.dataset.url);}});
+              favoriteGrid.addEventListener('dragover',event=>{{if(!draggedCard)return;event.preventDefault();const card=event.target.closest('.favorite-card');if(!card||card===draggedCard)return;document.querySelectorAll('.favorite-card.drag-over').forEach(x=>x.classList.remove('drag-over'));card.classList.add('drag-over');const rect=card.getBoundingClientRect();const after=event.clientY>rect.top+rect.height/2||(Math.abs(event.clientY-(rect.top+rect.height/2))<rect.height*.2&&event.clientX>rect.left+rect.width/2);favoriteGrid.insertBefore(draggedCard,after?card.nextSibling:card);}});
+              favoriteGrid.addEventListener('drop',event=>{{if(!draggedCard)return;event.preventDefault();draggedCard.classList.remove('dragging');document.querySelectorAll('.favorite-card.drag-over').forEach(x=>x.classList.remove('drag-over'));const urls=[...favoriteGrid.querySelectorAll('.favorite-card')].map(x=>x.dataset.url);window.chrome.webview.postMessage(JSON.stringify({{action:'reorderFavorites',urls}}));draggedCard=null;suppressOpenUntil=Date.now()+450;}});
+              favoriteGrid.addEventListener('dragend',()=>{{if(draggedCard)draggedCard.classList.remove('dragging');document.querySelectorAll('.favorite-card.drag-over').forEach(x=>x.classList.remove('drag-over'));draggedCard=null;}});
+              favoriteGrid.addEventListener('click',event=>{{if(Date.now()<suppressOpenUntil){{event.preventDefault();event.stopPropagation();}}}},true);
+            }}
             </script>
             </main></body></html>
             """,
@@ -3230,7 +4076,8 @@ public partial class MainWindow : Window
     private string SearchEndpoint() => _settings.Data.SearchEngine switch { "Google" => "https://www.google.com/search", "Bing" => "https://www.bing.com/search", "Seznam" => "https://search.seznam.cz/", "Brave Search" => "https://search.brave.com/search", "Ecosia" => "https://www.ecosia.org/search", "Yahoo" => "https://search.yahoo.com/search", "Startpage" => "https://www.startpage.com/sp/search", "Custom" => _settings.Data.CustomSearchEndpoint.Replace("{query}", ""), _ => "https://duckduckgo.com/" };
 }
 
-public sealed class BrowserTab { public WebView2 View { get; } = new() { DefaultBackgroundColor = System.Drawing.Color.FromArgb(0x0B, 0x10, 0x1A) }; public string Title { get; set; } = "Nová karta"; public ImageSource? Favicon { get; set; } public bool IsYamaNewTab { get; set; } public int BlockedCount { get; set; } public string? YamaBlockScriptId { get; set; } public bool IsPlayingAudio { get; set; } public bool IsMuted { get; set; } }
+public sealed class BrowserTab { public WebView2 View { get; } = new() { DefaultBackgroundColor = System.Drawing.Color.FromArgb(0x0B, 0x10, 0x1A) }; public MainWindow? Owner { get; set; } public string Title { get; set; } = "Nová karta"; public ImageSource? Favicon { get; set; } public bool IsYamaNewTab { get; set; } public int BlockedCount { get; set; } public string? YamaBlockScriptId { get; set; } public bool IsPlayingAudio { get; set; } public bool IsMuted { get; set; } }
+public sealed record TabDragPayload(MainWindow Source, BrowserTab Tab);
 public enum BlockMode { Off, Standard, Strict }
 public enum SecurityLevel { Recommended, Strict, Custom }
 public static class BlockModeExtensions { public static string ToLabel(this BlockMode mode) => mode switch { BlockMode.Off => "Vypnuto", BlockMode.Strict => "Přísný", _ => "Standard" }; }

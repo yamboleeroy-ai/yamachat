@@ -3,7 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
         Title="Najít na stránce"
-        Width="500" Height="230"
+        Width="520" Height="280" MinHeight="270"
         ResizeMode="NoResize" WindowStyle="None"
         WindowStartupLocation="CenterOwner"
         Background="#08111D" Foreground="#EAF3FF"
@@ -13,7 +13,7 @@
   </shell:WindowChrome.WindowChrome>
   <Border BorderBrush="#174B70" BorderThickness="1" CornerRadius="14" Background="#08111D">
     <Grid Margin="20">
-      <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+      <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
       <Grid MouseLeftButtonDown="TitleBar_MouseLeftButtonDown">
         <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
         <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
@@ -25,10 +25,10 @@
         </StackPanel>
         <Button Grid.Column="1" Content="×" Style="{StaticResource YamaCloseButton}" Click="Cancel_Click"/>
       </Grid>
-      <Border Grid.Row="1" Style="{StaticResource YamaDialogCard}" Margin="0,16,0,14">
+      <Border Grid.Row="1" Style="{StaticResource YamaDialogCard}" Margin="0,16,0,18">
         <StackPanel>
           <TextBlock Text="Hledaný text" Style="{StaticResource YamaSubtleText}" Margin="0,0,0,5"/>
-          <TextBox x:Name="QueryBox" Style="{StaticResource YamaTextBox}" KeyDown="QueryBox_KeyDown"/>
+          <TextBox x:Name="QueryBox" Style="{StaticResource YamaTextBox}" MinHeight="42" VerticalContentAlignment="Center" KeyDown="QueryBox_KeyDown"/>
         </StackPanel>
       </Border>
       <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right">
