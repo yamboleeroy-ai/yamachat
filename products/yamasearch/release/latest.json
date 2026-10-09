@@ -1,7 +1,7 @@
 {
   "product": "YamaSearch",
-  "version": "0.3.13",
-  "notes": "Stabilní přetahování karet mezi okny: jednotný bezpečný přenos, zrušení rizikové paralelní logiky, správné zavření prázdného zdrojového okna a ochrana před pádem při dokončení přetažení.",
+  "version": "0.3.14",
+  "notes": "Živý přesun karet mezi okny bez obnovení stránky, oznámení na neaktivních kartách a přehled oprávnění webů podle přesného původu stránky.",
   "portableUrl": "https://updates.yamachat.eu/yamasearch/YamaSearch-Portable-latest.zip",
   "installerUrl": "https://updates.yamachat.eu/yamasearch/YamaSearch-Setup-latest.exe"
 }
