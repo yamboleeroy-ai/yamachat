@@ -369,11 +369,13 @@ public partial class MainWindow : Window
         core.AddWebResourceRequestedFilter("*", CoreWebView2WebResourceContext.All);
         core.WebResourceRequested += (_, e) => tab.Owner?.BlockRequest(tab, e);
         await RefreshYamaBlockBootstrapAsync(tab);
+        await InstallTabTitleWatcherAsync(tab);
         core.WebMessageReceived += (_, e) => tab.Owner?.HandleNewTabMessage(tab, e);
         core.NavigationStarting += (_, e) =>
         {
             var owner = tab.Owner;
             if (owner is null) return;
+            owner.ResetTabPageState(tab);
             tab.BlockedCount = 0;
             if (owner._active == tab) owner.BlockedText.Text = "YamaBlock · 0 blokováno";
 
@@ -443,6 +445,28 @@ public partial class MainWindow : Window
         core.PermissionRequested += (_, e) => tab.Owner?.HandlePermissionRequest(tab, e);
         core.NewWindowRequested += async (_, e) => { e.Handled = true; var owner = tab.Owner; if (owner is not null) await owner.CreateTabAsync(e.Uri); };
         core.DownloadStarting += (_, e) => tab.Owner?.HandleDownloadStarting(e);
+    }
+
+    private static async Task InstallTabTitleWatcherAsync(BrowserTab tab)
+    {
+        // WebView2's DocumentTitleChanged is retained as the native fast path.
+        // This observer covers SPA pages which change <title> from JavaScript while
+        // their WebView is not the visual child of the active browser window.
+        const string script = """
+            (() => {
+              let lastTitle;
+              const publish = () => {
+                const title = document.title || '';
+                if (title === lastTitle) return;
+                lastTitle = title;
+                try { chrome.webview.postMessage(JSON.stringify({ action: 'tabTitleChanged', title })); } catch { }
+              };
+              new MutationObserver(publish).observe(document, { subtree: true, childList: true, characterData: true });
+              publish();
+            })();
+            """;
+
+        await tab.View.CoreWebView2.AddScriptToExecuteOnDocumentCreatedAsync(script);
     }
     private async Task<CoreWebView2Environment> CreateWebViewEnvironmentAsync()
     {
@@ -1553,11 +1577,37 @@ public partial class MainWindow : Window
         return popup;
     }
     private void TabsScroller_SizeChanged(object sender, SizeChangedEventArgs e) => RenderTabs();
-    private void UpdateTabTitle(BrowserTab tab)
+    private void UpdateTabTitle(BrowserTab tab, string? observedTitle = null)
     {
-        tab.Title = tab.IsYamaNewTab ? "YamaSearch" : string.IsNullOrWhiteSpace(tab.View.CoreWebView2.DocumentTitle) ? "Nová karta" : tab.View.CoreWebView2.DocumentTitle;
+        if (!Dispatcher.CheckAccess())
+        {
+            Dispatcher.BeginInvoke(() => UpdateTabTitle(tab, observedTitle));
+            return;
+        }
+
+        if (!_tabs.Contains(tab))
+            return;
+
+        var title = observedTitle ?? tab.View.CoreWebView2?.DocumentTitle;
+        tab.Title = tab.IsYamaNewTab
+            ? "YamaSearch"
+            : string.IsNullOrWhiteSpace(title) ? "Nová karta" : title;
         tab.NotificationCount = TryGetNotificationCount(tab.Title);
-        Dispatcher.BeginInvoke(RenderTabs);
+        RenderTabs();
+    }
+
+    private void ResetTabPageState(BrowserTab tab)
+    {
+        if (!Dispatcher.CheckAccess())
+        {
+            Dispatcher.BeginInvoke(() => ResetTabPageState(tab));
+            return;
+        }
+
+        tab.Title = tab.IsYamaNewTab ? "YamaSearch" : "Načítání…";
+        tab.NotificationCount = null;
+        tab.HasWebNotification = false;
+        RenderTabs();
     }
     private void UpdateFavicon(BrowserTab tab)
     {
@@ -3198,6 +3248,14 @@ public partial class MainWindow : Window
                     : "";
 
                 YamaBlockDiagnostics.Add(status, category, detail);
+                return;
+            }
+
+            if (string.Equals(action, "tabTitleChanged", StringComparison.Ordinal)
+                && root.TryGetProperty("title", out var titleElement)
+                && titleElement.ValueKind == JsonValueKind.String)
+            {
+                UpdateTabTitle(tab, titleElement.GetString());
                 return;
             }
 
