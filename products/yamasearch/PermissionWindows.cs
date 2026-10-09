@@ -2,6 +2,7 @@ using Microsoft.Web.WebView2.Core;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
+using System.Windows.Shell;
 
 namespace YamaSearch;
 
@@ -28,12 +29,17 @@ public sealed class PermissionPromptWindow : Window
     public PermissionPromptWindow(string origin, string permission)
     {
         Title = "YamaSearch – oprávnění webu";
-        Width = 450; Height = 260; ResizeMode = ResizeMode.NoResize;
+        Width = 450; Height = 320; ResizeMode = ResizeMode.NoResize; WindowStyle = WindowStyle.None;
         WindowStartupLocation = WindowStartupLocation.CenterOwner;
         Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#08111D"));
         Foreground = Brushes.White;
+        WindowChrome.SetWindowChrome(this, new WindowChrome { CaptionHeight = 0, ResizeBorderThickness = new Thickness(5), CornerRadius = new CornerRadius(0), GlassFrameThickness = new Thickness(0), UseAeroCaptionButtons = false });
 
-        var panel = new StackPanel { Margin = new Thickness(24) };
+        var root = new Grid();
+        root.RowDefinitions.Add(new RowDefinition { Height = new GridLength(42) });
+        root.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
+        root.Children.Add(PermissionWindowChrome.CreateYamaTitleBar(this));
+        var panel = new StackPanel { Margin = new Thickness(24, 18, 24, 20) };
         panel.Children.Add(new TextBlock { Text = "Oprávnění webu", FontSize = 21, FontWeight = FontWeights.SemiBold, Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#42D8FF")) });
         panel.Children.Add(new TextBlock { Text = origin, FontSize = 15, FontWeight = FontWeights.SemiBold, Margin = new Thickness(0, 20, 0, 5), TextWrapping = TextWrapping.Wrap });
         panel.Children.Add(new TextBlock { Text = $"chce používat {permission}.", Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#B7CAE4")), TextWrapping = TextWrapping.Wrap });
@@ -47,7 +53,8 @@ public sealed class PermissionPromptWindow : Window
         allow.Click += (_, _) => DialogResult = true;
         buttons.Children.Add(deny); buttons.Children.Add(allow);
         panel.Children.Add(buttons);
-        Content = new Border { BorderBrush = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#245A84")), BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(12), Child = panel };
+        Grid.SetRow(panel, 1); root.Children.Add(panel);
+        Content = new Border { BorderBrush = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#245A84")), BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(12), Child = root };
     }
 
     private static Button CreateButton(string text, string background) => new()
@@ -69,9 +76,14 @@ public sealed class PermissionsWindow : Window
     {
         _profile = profile; _origin = origin;
         Title = "YamaSearch – oprávnění webů";
-        Width = 650; Height = 620; MinWidth = 520; MinHeight = 420;
+        Width = 650; Height = 620; MinWidth = 520; MinHeight = 420; WindowStyle = WindowStyle.None;
         WindowStartupLocation = WindowStartupLocation.CenterOwner;
         Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#08111D")); Foreground = Brushes.White;
+        WindowChrome.SetWindowChrome(this, new WindowChrome { CaptionHeight = 0, ResizeBorderThickness = new Thickness(6), CornerRadius = new CornerRadius(0), GlassFrameThickness = new Thickness(0), UseAeroCaptionButtons = false });
+        var root = new Grid();
+        root.RowDefinitions.Add(new RowDefinition { Height = new GridLength(42) });
+        root.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
+        root.Children.Add(PermissionWindowChrome.CreateYamaTitleBar(this));
         var panel = new DockPanel { Margin = new Thickness(22) };
         var close = new Button { Content = "Zavřít", Height = 38, MinWidth = 105, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(0, 14, 0, 0) };
         close.Click += (_, _) => Close();
@@ -87,7 +99,8 @@ public sealed class PermissionsWindow : Window
         DockPanel.SetDock(header, Dock.Top); panel.Children.Add(header);
         var scroll = new ScrollViewer { VerticalScrollBarVisibility = ScrollBarVisibility.Auto, Content = _list };
         panel.Children.Add(scroll);
-        Content = new Border { BorderBrush = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#245A84")), BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(12), Child = panel };
+        Grid.SetRow(panel, 1); root.Children.Add(panel);
+        Content = new Border { BorderBrush = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#245A84")), BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(12), Child = root };
         Loaded += async (_, _) => await LoadAsync();
     }
 
@@ -117,5 +130,22 @@ public sealed class PermissionsWindow : Window
             reset.Click += async (_, _) => { await _profile.SetPermissionStateAsync(setting.PermissionKind, setting.PermissionOrigin, CoreWebView2PermissionState.Default); await LoadAsync(); };
             row.Children.Add(reset); _list.Children.Add(row);
         }
+    }
+
+}
+
+internal static class PermissionWindowChrome
+{
+    public static Grid CreateYamaTitleBar(Window window)
+    {
+        var bar = new Grid { Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#101D30")), Margin = new Thickness(1, 1, 1, 0) };
+        bar.ColumnDefinitions.Add(new ColumnDefinition());
+        bar.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        bar.Children.Add(new TextBlock { Text = "YamaSearch", Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#7DE7FF")), FontWeight = FontWeights.SemiBold, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(16, 0, 0, 0) });
+        var close = new Button { Content = "×", Width = 42, Height = 40, FontSize = 20, Padding = new Thickness(0), Foreground = Brushes.White, Background = Brushes.Transparent, BorderThickness = new Thickness(0), ToolTip = "Zavřít" };
+        close.Click += (_, _) => window.Close();
+        Grid.SetColumn(close, 1); bar.Children.Add(close);
+        bar.MouseLeftButtonDown += (_, e) => { if (e.LeftButton == System.Windows.Input.MouseButtonState.Pressed) window.DragMove(); };
+        return bar;
     }
 }

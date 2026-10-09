@@ -1,7 +1,7 @@
 {
   "product": "YamaSearch",
-  "version": "0.3.14",
-  "notes": "Živý přesun karet mezi okny bez obnovení stránky, oznámení na neaktivních kartách a přehled oprávnění webů podle přesného původu stránky.",
+  "version": "0.3.15",
+  "notes": "Oprava vzhledu dialogů oprávnění: plný tmavý vzhled YamaSearch bez bílé systémové lišty a bez oříznutých ovládacích tlačítek.",
   "portableUrl": "https://updates.yamachat.eu/yamasearch/YamaSearch-Portable-latest.zip",
   "installerUrl": "https://updates.yamachat.eu/yamasearch/YamaSearch-Setup-latest.exe"
 }
