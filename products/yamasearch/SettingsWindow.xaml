@@ -80,6 +80,19 @@
 
           <Border Style="{StaticResource YamaDialogCard}">
             <StackPanel>
+              <TextBlock Text="Oznámení" Style="{StaticResource YamaSectionTitle}"/>
+              <CheckBox x:Name="EnableNativeNotifications" Style="{StaticResource YamaCheckBox}"
+                        Content="Zobrazovat oznámení Windows" Margin="0,14,0,8"/>
+              <CheckBox x:Name="EnableNotificationSound" Style="{StaticResource YamaCheckBox}"
+                        Content="Přehrát zvuk oznámení, pokud jej web požaduje" Margin="0,0,0,8"/>
+              <CheckBox x:Name="EnableTabNotificationIndicators" Style="{StaticResource YamaCheckBox}"
+                        Content="Zobrazovat indikátor nového upozornění na kartě" Margin="0,0,0,8"/>
+              <TextBlock Text="Oznámení respektují režim Nerušit a další nastavení Windows. Po kliknutí se otevře příslušná karta." Style="{StaticResource YamaSubtleText}"/>
+            </StackPanel>
+          </Border>
+
+          <Border Style="{StaticResource YamaDialogCard}">
+            <StackPanel>
               <TextBlock Text="Soukromí a zabezpečení · oprávnění webů" Style="{StaticResource YamaSectionTitle}"/>
               <CheckBox x:Name="BlockNewNotificationRequests" Style="{StaticResource YamaCheckBox}"
                         Content="Globálně blokovat nové žádosti o oznámení" Margin="0,14,0,8"/>

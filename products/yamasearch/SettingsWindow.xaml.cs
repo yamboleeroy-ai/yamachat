@@ -38,6 +38,9 @@ public partial class SettingsWindow : Window
         OfferPasswordSave.IsChecked = settings.Data.OfferPasswordSave;
         HardwareAcceleration.IsChecked = settings.Data.HardwareAccelerationEnabled;
         BlockNewNotificationRequests.IsChecked = settings.Data.BlockNewNotificationRequests;
+        EnableNativeNotifications.IsChecked = settings.Data.EnableNativeNotifications;
+        EnableNotificationSound.IsChecked = settings.Data.EnableNotificationSound;
+        EnableTabNotificationIndicators.IsChecked = settings.Data.EnableTabNotificationIndicators;
     }
 
     private async void DeletePasswords_Click(object sender, RoutedEventArgs e)
@@ -84,6 +87,9 @@ public partial class SettingsWindow : Window
         _settings.Data.OfferPasswordSave = OfferPasswordSave.IsChecked == true;
         _settings.Data.HardwareAccelerationEnabled = HardwareAcceleration.IsChecked == true;
         _settings.Data.BlockNewNotificationRequests = BlockNewNotificationRequests.IsChecked == true;
+        _settings.Data.EnableNativeNotifications = EnableNativeNotifications.IsChecked == true;
+        _settings.Data.EnableNotificationSound = EnableNotificationSound.IsChecked == true;
+        _settings.Data.EnableTabNotificationIndicators = EnableTabNotificationIndicators.IsChecked == true;
         RestartRequired = _settings.Data.HardwareAccelerationEnabled != _originalHardwareAcceleration;
         DialogResult = true;
     }

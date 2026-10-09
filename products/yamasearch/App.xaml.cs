@@ -8,6 +8,7 @@ public partial class App : Application
     {
         // Closing the original window must not terminate other browser windows.
         ShutdownMode = ShutdownMode.OnLastWindowClose;
+        WindowsToastService.TryInitialize();
         string? startupUrl = null;
         string? siteAppId = null;
         string? manageAppId = null;

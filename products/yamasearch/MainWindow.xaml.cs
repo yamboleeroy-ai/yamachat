@@ -1576,11 +1576,34 @@ public partial class MainWindow : Window
 
     private void HandleWebNotification(BrowserTab tab, CoreWebView2NotificationReceivedEventArgs e)
     {
-        // Do not mark the event as handled: WebView2 keeps ownership of its
-        // browser/Windows notification UI, including DND and user settings.
-        // We only reflect the confirmed browser event on the relevant tab.
-        tab.HasWebNotification = true;
-        Dispatcher.BeginInvoke(RenderTabs);
+        if (_settings.Data.EnableTabNotificationIndicators)
+        {
+            tab.HasWebNotification = true;
+            Dispatcher.BeginInvoke(RenderTabs);
+        }
+
+        if (!_settings.Data.EnableNativeNotifications)
+        {
+            e.Handled = true;
+            try { e.Notification.ReportClosed(); } catch { }
+            return;
+        }
+
+        WindowsToastService.TryShow(tab, e, _settings.Data.EnableNotificationSound);
+    }
+
+    internal bool ActivateNotificationTab(Guid tabId)
+    {
+        var tab = _tabs.FirstOrDefault(candidate => candidate.Id == tabId);
+        if (tab is null)
+            return false;
+
+        SelectTab(tab);
+        Show();
+        Activate();
+        tab.HasWebNotification = false;
+        RenderTabs();
+        return true;
     }
     private void CloseTab(BrowserTab tab) { if (_tabs.Count == 1) { _ = NavigateAsync(tab, _settings.Data.HomePage); return; } var index = _tabs.IndexOf(tab); _tabs.Remove(tab); tab.View.Dispose(); SelectTab(_tabs[Math.Max(0, index - 1)]); }
     private void CloseOtherTabs(BrowserTab keep)
@@ -3976,7 +3999,7 @@ public sealed class SiteAppEntry
     public bool StartOnLogin { get; set; }
 }
 
-public sealed class AppData { public string Theme { get; set; } = "dark"; public string HomePage { get; set; } = "yamasearch://newtab"; public string SearchEngine { get; set; } = "DuckDuckGo"; public string CustomSearchEndpoint { get; set; } = ""; public bool OnboardingCompleted { get; set; } = false; public bool FavoritesBarVisible { get; set; } = false; public bool HardwareAccelerationEnabled { get; set; } = true; public BlockMode BlockMode { get; set; } = BlockMode.Standard; public bool EnableYouTubeAdBlock { get; set; } = true; public bool EnableCosmeticBlocking { get; set; } = true; public bool EnableTrackerBlocking { get; set; } = true; public SecurityLevel SecurityLevel { get; set; } = SecurityLevel.Recommended; public bool EnableSmartScreen { get; set; } = true; public bool OfferPasswordSave { get; set; } = true; public bool BlockNewNotificationRequests { get; set; } = false; public List<string> Whitelist { get; set; } = []; public List<string> Bookmarks { get; set; } = []; public List<HistoryEntry> History { get; set; } = []; public List<DownloadEntry> Downloads { get; set; } = []; public List<SiteAppEntry> InstalledApps { get; set; } = []; }
+public sealed class AppData { public string Theme { get; set; } = "dark"; public string HomePage { get; set; } = "yamasearch://newtab"; public string SearchEngine { get; set; } = "DuckDuckGo"; public string CustomSearchEndpoint { get; set; } = ""; public bool OnboardingCompleted { get; set; } = false; public bool FavoritesBarVisible { get; set; } = false; public bool HardwareAccelerationEnabled { get; set; } = true; public BlockMode BlockMode { get; set; } = BlockMode.Standard; public bool EnableYouTubeAdBlock { get; set; } = true; public bool EnableCosmeticBlocking { get; set; } = true; public bool EnableTrackerBlocking { get; set; } = true; public SecurityLevel SecurityLevel { get; set; } = SecurityLevel.Recommended; public bool EnableSmartScreen { get; set; } = true; public bool OfferPasswordSave { get; set; } = true; public bool BlockNewNotificationRequests { get; set; } = false; public bool EnableNativeNotifications { get; set; } = true; public bool EnableNotificationSound { get; set; } = true; public bool EnableTabNotificationIndicators { get; set; } = true; public List<string> Whitelist { get; set; } = []; public List<string> Bookmarks { get; set; } = []; public List<HistoryEntry> History { get; set; } = []; public List<DownloadEntry> Downloads { get; set; } = []; public List<SiteAppEntry> InstalledApps { get; set; } = []; }
 public sealed class HistoryEntry { public string Url { get; set; } = ""; public string Title { get; set; } = ""; public string FaviconUrl { get; set; } = ""; public DateTimeOffset VisitedAt { get; set; } }
 public sealed class DownloadEntry
 {
