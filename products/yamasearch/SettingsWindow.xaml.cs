@@ -37,6 +37,7 @@ public partial class SettingsWindow : Window
 
         OfferPasswordSave.IsChecked = settings.Data.OfferPasswordSave;
         HardwareAcceleration.IsChecked = settings.Data.HardwareAccelerationEnabled;
+        BlockNewNotificationRequests.IsChecked = settings.Data.BlockNewNotificationRequests;
     }
 
     private async void DeletePasswords_Click(object sender, RoutedEventArgs e)
@@ -82,11 +83,22 @@ public partial class SettingsWindow : Window
 
         _settings.Data.OfferPasswordSave = OfferPasswordSave.IsChecked == true;
         _settings.Data.HardwareAccelerationEnabled = HardwareAcceleration.IsChecked == true;
+        _settings.Data.BlockNewNotificationRequests = BlockNewNotificationRequests.IsChecked == true;
         RestartRequired = _settings.Data.HardwareAccelerationEnabled != _originalHardwareAcceleration;
         DialogResult = true;
     }
 
     private void Close_Click(object sender, RoutedEventArgs e) => DialogResult = false;
+
+    private void ManagePermissions_Click(object sender, RoutedEventArgs e)
+    {
+        if (_profile is null)
+        {
+            MessageBox.Show("Webový profil zatím není připraven.", "YamaSearch");
+            return;
+        }
+        new PermissionsWindow(_profile, "", false) { Owner = this }.ShowDialog();
+    }
 
     private void TitleBar_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {

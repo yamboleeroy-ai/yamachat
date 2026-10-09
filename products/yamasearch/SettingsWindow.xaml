@@ -80,6 +80,18 @@
 
           <Border Style="{StaticResource YamaDialogCard}">
             <StackPanel>
+              <TextBlock Text="Soukromí a zabezpečení · oprávnění webů" Style="{StaticResource YamaSectionTitle}"/>
+              <CheckBox x:Name="BlockNewNotificationRequests" Style="{StaticResource YamaCheckBox}"
+                        Content="Globálně blokovat nové žádosti o oznámení" Margin="0,14,0,8"/>
+              <TextBlock Text="Už povolené weby se nemění. Jejich oprávnění lze jednotlivě obnovit v přehledu níže."
+                         Style="{StaticResource YamaSubtleText}"/>
+              <Button Content="Spravovat oprávnění webů" Style="{StaticResource YamaSecondaryButton}"
+                      HorizontalAlignment="Left" Margin="0,14,0,0" Click="ManagePermissions_Click"/>
+            </StackPanel>
+          </Border>
+
+          <Border Style="{StaticResource YamaDialogCard}">
+            <StackPanel>
               <TextBlock Text="Další nástroje" Style="{StaticResource YamaSectionTitle}"/>
               <TextBlock Text="Nová karta, nové okno, tisk, hledání na stránce a vytvoření aplikace z aktuálního webu najdeš v hlavním menu YamaSearch."
                          Style="{StaticResource YamaSubtleText}" Margin="0,10,0,0"/>

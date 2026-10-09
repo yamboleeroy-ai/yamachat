@@ -12,6 +12,7 @@ using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Media.Animation;
+using System.Text.RegularExpressions;
 
 namespace YamaSearch;
 
@@ -400,6 +401,7 @@ public partial class MainWindow : Window
         };
         core.DocumentTitleChanged += (_, _) => tab.Owner?.UpdateTabTitle(tab);
         core.FaviconChanged += (_, _) => tab.Owner?.UpdateFavicon(tab);
+        core.NotificationReceived += (_, e) => tab.Owner?.HandleWebNotification(tab, e);
         tab.View.ZoomFactorChanged += (_, _) => tab.Owner?.Dispatcher.BeginInvoke(() =>
         {
             var owner = tab.Owner;
@@ -438,7 +440,7 @@ public partial class MainWindow : Window
         core.ContainsFullScreenElementChanged += (_, _) => tab.Owner?.Dispatcher.Invoke(() => tab.Owner?.SetVideoFullScreen(core.ContainsFullScreenElement));
         core.SourceChanged += (_, _) => { var owner = tab.Owner; owner?.UpdateTabTitle(tab); if (owner?._active == tab) { owner.SetAddressText(tab.IsYamaNewTab ? "" : core.Source); owner.UpdateNavigationControls(); } };
         core.HistoryChanged += (_, _) => { var owner = tab.Owner; if (owner?._active == tab) owner.Dispatcher.Invoke(owner.UpdateNavigationControls); };
-        core.PermissionRequested += (_, e) => tab.Owner?.HandlePermissionRequest(e);
+        core.PermissionRequested += (_, e) => tab.Owner?.HandlePermissionRequest(tab, e);
         core.NewWindowRequested += async (_, e) => { e.Handled = true; var owner = tab.Owner; if (owner is not null) await owner.CreateTabAsync(e.Uri); };
         core.DownloadStarting += (_, e) => tab.Owner?.HandleDownloadStarting(e);
     }
@@ -996,6 +998,22 @@ public partial class MainWindow : Window
 
             var showAudioButton = !compact && (tab.IsPlayingAudio || tab.IsMuted);
 
+            if (tab.HasWebNotification || tab.NotificationCount is > 0)
+            {
+                header.Children.Add(new Border
+                {
+                    Width = tab.NotificationCount is > 0 ? 20 : 9,
+                    Height = 18,
+                    CornerRadius = new CornerRadius(9),
+                    Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#F05270")),
+                    Margin = new Thickness(iconOnly ? 0 : 0, 0, 5, 0),
+                    Child = tab.NotificationCount is > 0
+                        ? new TextBlock { Text = tab.NotificationCount > 9 ? "9+" : tab.NotificationCount.ToString(), Foreground = Brushes.White, FontSize = 10, FontWeight = FontWeights.Bold, TextAlignment = TextAlignment.Center, VerticalAlignment = VerticalAlignment.Center }
+                        : null,
+                    ToolTip = tab.NotificationCount is > 0 ? "Počet zobrazený samotnou stránkou" : "Nové webové oznámení"
+                });
+            }
+
             if (!iconOnly)
             {
                 header.Children.Add(new TextBlock
@@ -1535,14 +1553,34 @@ public partial class MainWindow : Window
         return popup;
     }
     private void TabsScroller_SizeChanged(object sender, SizeChangedEventArgs e) => RenderTabs();
-    private void UpdateTabTitle(BrowserTab tab) { tab.Title = tab.IsYamaNewTab ? "YamaSearch" : string.IsNullOrWhiteSpace(tab.View.CoreWebView2.DocumentTitle) ? "Nová karta" : tab.View.CoreWebView2.DocumentTitle; if (_active == tab) Dispatcher.Invoke(RenderTabs); }
+    private void UpdateTabTitle(BrowserTab tab)
+    {
+        tab.Title = tab.IsYamaNewTab ? "YamaSearch" : string.IsNullOrWhiteSpace(tab.View.CoreWebView2.DocumentTitle) ? "Nová karta" : tab.View.CoreWebView2.DocumentTitle;
+        tab.NotificationCount = TryGetNotificationCount(tab.Title);
+        Dispatcher.BeginInvoke(RenderTabs);
+    }
     private void UpdateFavicon(BrowserTab tab)
     {
         if (Uri.TryCreate(tab.View.CoreWebView2.FaviconUri, UriKind.Absolute, out var favicon))
         {
             try { tab.Favicon = new BitmapImage(favicon); } catch { tab.Favicon = null; }
         }
-        if (_active == tab) Dispatcher.Invoke(RenderTabs);
+        Dispatcher.BeginInvoke(RenderTabs);
+    }
+
+    private static int? TryGetNotificationCount(string title)
+    {
+        var match = Regex.Match(title, @"(?:^|\s)[\[(]\s*(\d{1,4})\+?\s*[\])]");
+        return match.Success && int.TryParse(match.Groups[1].Value, out var count) ? count : null;
+    }
+
+    private void HandleWebNotification(BrowserTab tab, CoreWebView2NotificationReceivedEventArgs e)
+    {
+        // Do not mark the event as handled: WebView2 keeps ownership of its
+        // browser/Windows notification UI, including DND and user settings.
+        // We only reflect the confirmed browser event on the relevant tab.
+        tab.HasWebNotification = true;
+        Dispatcher.BeginInvoke(RenderTabs);
     }
     private void CloseTab(BrowserTab tab) { if (_tabs.Count == 1) { _ = NavigateAsync(tab, _settings.Data.HomePage); return; } var index = _tabs.IndexOf(tab); _tabs.Remove(tab); tab.View.Dispose(); SelectTab(_tabs[Math.Max(0, index - 1)]); }
     private void CloseOtherTabs(BrowserTab keep)
@@ -3357,13 +3395,36 @@ public partial class MainWindow : Window
             StatusText.Text = $"YamaShield: {(_settings.Data.SecurityLevel == SecurityLevel.Strict ? "Přísná" : _settings.Data.SecurityLevel == SecurityLevel.Custom ? "Vlastní" : "Doporučená")}";
         }
     }
-    private void HandlePermissionRequest(CoreWebView2PermissionRequestedEventArgs e)
+    private void HandlePermissionRequest(BrowserTab tab, CoreWebView2PermissionRequestedEventArgs e)
     {
         var sensitive = e.PermissionKind is CoreWebView2PermissionKind.Camera or CoreWebView2PermissionKind.Microphone or CoreWebView2PermissionKind.Geolocation or CoreWebView2PermissionKind.Notifications or CoreWebView2PermissionKind.ClipboardRead;
         if (!sensitive) { e.State = CoreWebView2PermissionState.Default; return; }
-        var label = e.PermissionKind switch { CoreWebView2PermissionKind.Camera => "kameru", CoreWebView2PermissionKind.Microphone => "mikrofon", CoreWebView2PermissionKind.Geolocation => "polohu", CoreWebView2PermissionKind.Notifications => "notifikace", _ => "schránku" };
-        var answer = MessageBox.Show($"{e.Uri} chce použít {label}.\n\nPovolit pouze pro toto rozhodnutí?", "YamaShield", MessageBoxButton.YesNo, MessageBoxImage.Question);
-        e.State = answer == MessageBoxResult.Yes ? CoreWebView2PermissionState.Allow : CoreWebView2PermissionState.Deny;
+        if (e.PermissionKind == CoreWebView2PermissionKind.Notifications && _settings.Data.BlockNewNotificationRequests)
+        {
+            e.State = CoreWebView2PermissionState.Deny;
+            e.SavesInProfile = false;
+            return;
+        }
+
+        var label = PermissionLabels.For(e.PermissionKind);
+        var origin = PermissionLabels.ToOrigin(e.Uri);
+        var answer = new PermissionPromptWindow(origin, label) { Owner = this }.ShowDialog();
+        e.State = answer == true ? CoreWebView2PermissionState.Allow : CoreWebView2PermissionState.Deny;
+        // WebView2 stores normal-window decisions by exact origin in its profile.
+        // Private windows deliberately keep the decision only for this session.
+        e.SavesInProfile = !_isPrivateWindow;
+    }
+
+    private void SitePermissionsButton_Click(object sender, RoutedEventArgs e)
+    {
+        var profile = _active?.View.CoreWebView2?.Profile;
+        if (profile is null)
+        {
+            StatusText.Text = "Oprávnění budou dostupná po načtení stránky.";
+            return;
+        }
+        var origin = PermissionLabels.ToOrigin(_active?.View.CoreWebView2?.Source);
+        new PermissionsWindow(profile, origin, _isPrivateWindow) { Owner = this }.ShowDialog();
     }
 
     private void TitleBar_MouseDown(object sender, MouseButtonEventArgs e)
@@ -3855,7 +3916,7 @@ public partial class MainWindow : Window
     private string SearchEndpoint() => _settings.Data.SearchEngine switch { "Google" => "https://www.google.com/search", "Bing" => "https://www.bing.com/search", "Seznam" => "https://search.seznam.cz/", "Brave Search" => "https://search.brave.com/search", "Ecosia" => "https://www.ecosia.org/search", "Yahoo" => "https://search.yahoo.com/search", "Startpage" => "https://www.startpage.com/sp/search", "Custom" => _settings.Data.CustomSearchEndpoint.Replace("{query}", ""), _ => "https://duckduckgo.com/" };
 }
 
-public sealed class BrowserTab { public Guid Id { get; } = Guid.NewGuid(); public WebView2 View { get; } = new() { DefaultBackgroundColor = System.Drawing.Color.FromArgb(0x0B, 0x10, 0x1A) }; public MainWindow? Owner { get; set; } public string Title { get; set; } = "Nová karta"; public ImageSource? Favicon { get; set; } public bool IsYamaNewTab { get; set; } public int BlockedCount { get; set; } public string? YamaBlockScriptId { get; set; } public bool IsPlayingAudio { get; set; } public bool IsMuted { get; set; } }
+public sealed class BrowserTab { public Guid Id { get; } = Guid.NewGuid(); public WebView2 View { get; } = new() { DefaultBackgroundColor = System.Drawing.Color.FromArgb(0x0B, 0x10, 0x1A) }; public MainWindow? Owner { get; set; } public string Title { get; set; } = "Nová karta"; public ImageSource? Favicon { get; set; } public bool IsYamaNewTab { get; set; } public int BlockedCount { get; set; } public string? YamaBlockScriptId { get; set; } public bool IsPlayingAudio { get; set; } public bool IsMuted { get; set; } public bool HasWebNotification { get; set; } public int? NotificationCount { get; set; } }
 public sealed record TabDragPayload(MainWindow Source, BrowserTab Tab)
 {
     public Guid SourceWindowId => Source.WindowId;
@@ -3915,7 +3976,7 @@ public sealed class SiteAppEntry
     public bool StartOnLogin { get; set; }
 }
 
-public sealed class AppData { public string Theme { get; set; } = "dark"; public string HomePage { get; set; } = "yamasearch://newtab"; public string SearchEngine { get; set; } = "DuckDuckGo"; public string CustomSearchEndpoint { get; set; } = ""; public bool OnboardingCompleted { get; set; } = false; public bool FavoritesBarVisible { get; set; } = false; public bool HardwareAccelerationEnabled { get; set; } = true; public BlockMode BlockMode { get; set; } = BlockMode.Standard; public bool EnableYouTubeAdBlock { get; set; } = true; public bool EnableCosmeticBlocking { get; set; } = true; public bool EnableTrackerBlocking { get; set; } = true; public SecurityLevel SecurityLevel { get; set; } = SecurityLevel.Recommended; public bool EnableSmartScreen { get; set; } = true; public bool OfferPasswordSave { get; set; } = true; public List<string> Whitelist { get; set; } = []; public List<string> Bookmarks { get; set; } = []; public List<HistoryEntry> History { get; set; } = []; public List<DownloadEntry> Downloads { get; set; } = []; public List<SiteAppEntry> InstalledApps { get; set; } = []; }
+public sealed class AppData { public string Theme { get; set; } = "dark"; public string HomePage { get; set; } = "yamasearch://newtab"; public string SearchEngine { get; set; } = "DuckDuckGo"; public string CustomSearchEndpoint { get; set; } = ""; public bool OnboardingCompleted { get; set; } = false; public bool FavoritesBarVisible { get; set; } = false; public bool HardwareAccelerationEnabled { get; set; } = true; public BlockMode BlockMode { get; set; } = BlockMode.Standard; public bool EnableYouTubeAdBlock { get; set; } = true; public bool EnableCosmeticBlocking { get; set; } = true; public bool EnableTrackerBlocking { get; set; } = true; public SecurityLevel SecurityLevel { get; set; } = SecurityLevel.Recommended; public bool EnableSmartScreen { get; set; } = true; public bool OfferPasswordSave { get; set; } = true; public bool BlockNewNotificationRequests { get; set; } = false; public List<string> Whitelist { get; set; } = []; public List<string> Bookmarks { get; set; } = []; public List<HistoryEntry> History { get; set; } = []; public List<DownloadEntry> Downloads { get; set; } = []; public List<SiteAppEntry> InstalledApps { get; set; } = []; }
 public sealed class HistoryEntry { public string Url { get; set; } = ""; public string Title { get; set; } = ""; public string FaviconUrl { get; set; } = ""; public DateTimeOffset VisitedAt { get; set; } }
 public sealed class DownloadEntry
 {
