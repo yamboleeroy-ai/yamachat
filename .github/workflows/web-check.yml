@@ -114,6 +114,11 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           for attempt in 1 2 3; do
             git fetch origin main
+             # The generated client intentionally changes index.html before this
+             # publishing step.  Reset it before switching to the newest main,
+             # otherwise a concurrent mobile-release manifest update can make
+             # checkout abort before the retry logic has a chance to run.
+             git restore --source=HEAD --staged --worktree index.html
             git checkout -B publish-web origin/main
             cp /tmp/yamachat-generated-index.html index.html
             git add index.html
