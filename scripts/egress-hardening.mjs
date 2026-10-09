@@ -108,6 +108,20 @@ const runtime=`${START}
 ${END}`;
 
 export function withEgressHardening(html){
+  // The core renderer needs a bounded history, not full database rows. These
+  // projections are deliberately repeated here because web/PWA is generated
+  // from the immutable desktop reference, while Windows uses the checked-in
+  // client directly.
+  html=html.replace("let q=sb.from('messages').select('*').order('created_at',{ascending:false}).limit(200);","let q=sb.from('messages').select('id,author_id,body,reply_to,channel_id,direct_thread_id,created_at,edited_at,is_system').order('created_at',{ascending:false}).limit(200);");
+  html=html.replace("authorIds.length?sb.from('profiles').select('*').in('id',authorIds):Promise.resolve({data:[]}),","authorIds.length?sb.from('profiles').select('id,username,display_name,avatar_path,discord_avatar_url,use_discord_avatar').in('id',authorIds):Promise.resolve({data:[]}),");
+  html=html.replace("ycAttachmentFetchIds.length?sb.from('attachments').select('*').in('message_id',ycAttachmentFetchIds).order('created_at'):Promise.resolve({data:[]}),","ycAttachmentFetchIds.length?sb.from('attachments').select('id,message_id,storage_path,file_name,mime_type,size_bytes,created_at').in('message_id',ycAttachmentFetchIds).order('created_at'):Promise.resolve({data:[]}),");
+  for(const marker of ["messages').select('id,author_id,body,reply_to,channel_id,direct_thread_id,created_at,edited_at,is_system')","profiles').select('id,username,display_name,avatar_path,discord_avatar_url,use_discord_avatar')","attachments').select('id,message_id,storage_path,file_name,mime_type,size_bytes,created_at')"]){
+    if(!html.includes(marker))throw Error('Egress hardening could not narrow chat projection: '+marker);
+  }
+  const globalHiddenRoleSubscription=".on('postgres_changes',{event:'*',schema:'public',table:'channel_visible_roles'},()=>{if(current())void ycRefreshChannelsSecure()})";
+  const scopedHiddenRoleSubscription=".on('postgres_changes',{event:'*',schema:'public',table:'channel_visible_roles',filter:'community_id=eq.'+cid},()=>{if(current())void ycRefreshChannelsSecure()})";
+  if(html.includes(globalHiddenRoleSubscription))html=html.replace(globalHiddenRoleSubscription,scopedHiddenRoleSubscription);
+  if(!html.includes(scopedHiddenRoleSubscription))throw Error('Egress hardening could not scope hidden-channel role Realtime');
   const globalAttachmentSubscription="attachmentSub=sb.channel('yc-att-'+targetId+'-'+generation).on('postgres_changes',{event:'*',schema:'public',table:'attachments'},payload=>{if(!isCurrent())return;const mid=String(payload.new?.message_id||payload.old?.message_id||'');if(mid&&visibleMessageIds.has(mid)){ycChatAttachmentDirty.add(mid);ycScheduleMessageRefresh(60)}else if(!mid){for(const id of visibleMessageIds)ycChatAttachmentDirty.add(String(id));ycScheduleMessageRefresh(80)}}).subscribe();";
   const scopedAttachmentSubscription="const attachmentFilter=currentChannel?'channel_id=eq.'+currentChannel.id:'direct_thread_id=eq.'+currentThread.id;\n  attachmentSub=sb.channel('yc-att-'+targetId+'-'+generation).on('postgres_changes',{event:'*',schema:'public',table:'attachments',filter:attachmentFilter},payload=>{if(!isCurrent())return;const mid=String(payload.new?.message_id||payload.old?.message_id||'');if(mid&&visibleMessageIds.has(mid)){ycChatAttachmentDirty.add(mid);ycScheduleMessageRefresh(60)}else if(!mid){for(const id of visibleMessageIds)ycChatAttachmentDirty.add(String(id));ycScheduleMessageRefresh(80)}}).subscribe();";
   if(html.includes(globalAttachmentSubscription)) html=html.replace(globalAttachmentSubscription,scopedAttachmentSubscription);

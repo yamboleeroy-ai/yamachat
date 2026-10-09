@@ -1515,7 +1515,9 @@ async function loadMessages(scroll=true){
       const el=$('messages'),chatKey=ycChatKey(),savedState=scroll?ycChatReadState(chatKey):null;let switching=!!scroll;
       const liveState=ycChatReadState(chatKey),previousSeen=(switching?savedState:liveState)?.seenLastMessageId||(switching?savedState:liveState)?.lastMessageId||ycChatLastRendered.get(chatKey)||'';
       let oldNearBottom=ycChatNearBottom(el),oldAnchor=!switching&&!oldNearBottom?ycChatViewportAnchor(el):null,oldTop=el.scrollTop;
-      let q=sb.from('messages').select('*').order('created_at',{ascending:false}).limit(200);
+      // Keep the 200-message history window, but never transfer moderation,
+      // delivery or other columns that this renderer does not consume.
+      let q=sb.from('messages').select('id,author_id,body,reply_to,channel_id,direct_thread_id,created_at,edited_at,is_system').order('created_at',{ascending:false}).limit(200);
       q=ycLoadChannelId?q.eq('channel_id',ycLoadChannelId):q.eq('direct_thread_id',ycLoadThreadId);q=ycAbortableQuery(q,ycMediaAbort.signal);
       let ycMessageResult;try{ycMessageResult=await q}catch(e){if(ycMediaAbort.signal.aborted)return;throw e}
       const {data,error}=ycMessageResult||{};
@@ -1527,8 +1529,8 @@ async function loadMessages(scroll=true){
       const ycAttachmentFetchIds=idStrings.filter(id=>!ycChatAttachmentKnown.has(id)||ycChatAttachmentDirty.has(id));
       const ycRoleCommunityId=ycLoadChannelId?(currentCommunity?.id||null):null;
       const [{data:profiles},ycAttachmentResult,{data:stats},ycRolePack]=await Promise.all([
-        authorIds.length?sb.from('profiles').select('*').in('id',authorIds):Promise.resolve({data:[]}),
-        ycAttachmentFetchIds.length?sb.from('attachments').select('*').in('message_id',ycAttachmentFetchIds).order('created_at'):Promise.resolve({data:[]}),
+        authorIds.length?sb.from('profiles').select('id,username,display_name,avatar_path,discord_avatar_url,use_discord_avatar').in('id',authorIds):Promise.resolve({data:[]}),
+        ycAttachmentFetchIds.length?sb.from('attachments').select('id,message_id,storage_path,file_name,mime_type,size_bytes,created_at').in('message_id',ycAttachmentFetchIds).order('created_at'):Promise.resolve({data:[]}),
         authorIds.length?sb.from('profile_stats').select('user_id,xp,message_count').in('user_id',authorIds):Promise.resolve({data:[]}),
         ycRoleCommunityId?ycChatGetRolePack(ycRoleCommunityId):Promise.resolve(null)
       ]);
@@ -4958,7 +4960,7 @@ function ycStartHiddenChannelRealtime(communityId){
   const sub=sb.channel('yc-hidden-channels-'+uid+'-'+cid+'-'+Date.now())
     .on('postgres_changes',{event:'UPDATE',schema:'public',table:'channels',filter:'community_id=eq.'+cid},()=>{if(current())void ycRefreshChannelsSecure()})
     .on('postgres_changes',{event:'DELETE',schema:'public',table:'channels'},()=>{if(current())void ycRefreshChannelsSecure()})
-    .on('postgres_changes',{event:'*',schema:'public',table:'channel_visible_roles'},()=>{if(current())void ycRefreshChannelsSecure()})
+    .on('postgres_changes',{event:'*',schema:'public',table:'channel_visible_roles',filter:'community_id=eq.'+cid},()=>{if(current())void ycRefreshChannelsSecure()})
     .on('postgres_changes',{event:'*',schema:'public',table:'community_member_roles',filter:'user_id=eq.'+uid},p=>{const r=p.new||p.old||{};if(String(r.community_id)===cid&&current())void ycRefreshChannelsSecure()})
     .on('postgres_changes',{event:'UPDATE',schema:'public',table:'community_members',filter:'user_id=eq.'+uid},p=>{const r=p.new||p.old||{};if(String(r.community_id)===cid&&current())void ycRefreshChannelsSecure()});
   ycHiddenChannelSub=sub;
