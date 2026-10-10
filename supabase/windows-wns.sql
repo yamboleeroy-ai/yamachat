@@ -1,6 +1,7 @@
 -- Yamachat Windows WNS transport.
--- Microsoft credentials live only in Supabase Vault:
--- yamachat_wns_tenant_id, yamachat_wns_app_id, yamachat_wns_client_secret.
+-- Microsoft credentials are read by the Edge Function from Supabase Secrets:
+-- WNS_TENANT_ID, WNS_CLIENT_ID, WNS_CLIENT_SECRET, WNS_OBJECT_ID.
+-- The legacy Vault-backed runtime config remains as a fallback during migration.
 
 alter table public.push_subscriptions
   drop constraint if exists push_subscriptions_transport_check,
