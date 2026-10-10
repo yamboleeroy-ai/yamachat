@@ -1,7 +1,7 @@
 {
   "product": "YamaSearch",
-  "version": "0.3.16",
-  "notes": "Nativní oznámení Windows: upozornění z podporovaných webů se zobrazí v Centru oznámení, po kliknutí otevřou správnou kartu a lze nastavit zvuk i indikátory na kartách.",
+  "version": "0.3.17",
+  "notes": "Aktuální počty nepřečtených zpráv v kartách: dynamické změny titulku stránky se nyní promítnou i do neaktivních karet bez přepínání či obnovování.",
   "portableUrl": "https://updates.yamachat.eu/yamasearch/YamaSearch-Portable-latest.zip",
   "installerUrl": "https://updates.yamachat.eu/yamasearch/YamaSearch-Setup-latest.exe"
 }
