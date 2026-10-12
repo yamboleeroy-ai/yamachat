@@ -440,7 +440,7 @@ public partial class MainWindow : Window
         };
 
         core.ContainsFullScreenElementChanged += (_, _) => tab.Owner?.Dispatcher.Invoke(() => tab.Owner?.SetVideoFullScreen(core.ContainsFullScreenElement));
-        core.SourceChanged += (_, _) => { var owner = tab.Owner; owner?.UpdateTabTitle(tab); if (owner?._active == tab) { owner.SetAddressText(tab.IsYamaNewTab ? "" : core.Source); owner.UpdateNavigationControls(); } };
+        core.SourceChanged += (_, _) => { var owner = tab.Owner; owner?.UpdateTabTitle(tab); if (owner?._active == tab) { owner.SetAddressText(tab.IsYamaNewTab ? "" : core.Source); owner.UpdateNavigationControls(); owner.UpdateSiteInformationButton(tab); } };
         core.HistoryChanged += (_, _) => { var owner = tab.Owner; if (owner?._active == tab) owner.Dispatcher.Invoke(owner.UpdateNavigationControls); };
         core.PermissionRequested += (_, e) => tab.Owner?.HandlePermissionRequest(tab, e);
         core.NewWindowRequested += async (_, e) => { e.Handled = true; var owner = tab.Owner; if (owner is not null) await owner.CreateTabAsync(e.Uri); };
@@ -959,9 +959,28 @@ public partial class MainWindow : Window
     }
     private void SelectTab(BrowserTab tab)
     {
+        SiteInfoPopup.IsOpen = false;
         _active = tab; BrowserHost.Children.Clear(); BrowserHost.Children.Add(tab.View);
         SetAddressText(tab.IsYamaNewTab ? "" : tab.View.CoreWebView2?.Source ?? "");
+        UpdateSiteInformationButton(tab);
         RenderTabs(); UpdateNavigationControls(); UpdateZoomPopup(); BlockedText.Text = $"YamaBlock · {tab.BlockedCount} blokováno";
+    }
+
+    private void UpdateSiteInformationButton(BrowserTab tab)
+    {
+        var source = tab.View.CoreWebView2?.Source;
+        if (Uri.TryCreate(source, UriKind.Absolute, out var page) && page.Scheme is "http" or "https")
+        {
+            SitePermissionsButton.Content = page.Scheme == Uri.UriSchemeHttps ? "🔒" : "⚠";
+            SitePermissionsButton.ToolTip = page.Scheme == Uri.UriSchemeHttps
+                ? "Zabezpečené připojení a oprávnění webu"
+                : "Nezabezpečené připojení a oprávnění webu";
+        }
+        else
+        {
+            SitePermissionsButton.Content = "ⓘ";
+            SitePermissionsButton.ToolTip = "Informace o aktuální stránce";
+        }
     }
 
     private void ZoomButton_Click(object sender, RoutedEventArgs e)
@@ -3522,16 +3541,40 @@ public partial class MainWindow : Window
         e.SavesInProfile = !_isPrivateWindow;
     }
 
-    private void SitePermissionsButton_Click(object sender, RoutedEventArgs e)
+    private async void SitePermissionsButton_Click(object sender, RoutedEventArgs e)
     {
-        var profile = _active?.View.CoreWebView2?.Profile;
-        if (profile is null)
+        var tab = _active;
+        var core = tab?.View.CoreWebView2;
+        if (tab is null || core is null)
         {
             StatusText.Text = "Oprávnění budou dostupná po načtení stránky.";
             return;
         }
-        var origin = PermissionLabels.ToOrigin(_active?.View.CoreWebView2?.Source);
-        new PermissionsWindow(profile, origin, _isPrivateWindow) { Owner = this }.ShowDialog();
+        SiteInfoPopup.IsOpen = !SiteInfoPopup.IsOpen;
+        if (!SiteInfoPopup.IsOpen) return;
+        var origin = PermissionLabels.ToOrigin(core.Source);
+        var host = GetPageHost(tab);
+        var protectionEnabled = _settings.Data.BlockMode != BlockMode.Off && !string.IsNullOrWhiteSpace(host) && !IsWhitelisted(host);
+        var panel = new SiteInformationPanel(SiteInfoContent, core, origin, _isPrivateWindow, protectionEnabled, tab.BlockedCount,
+            enabled => SetSiteProtectionAsync(tab, host, enabled),
+            () =>
+            {
+                SiteInfoPopup.IsOpen = false;
+                new PermissionsWindow(core.Profile, origin, _isPrivateWindow) { Owner = this }.ShowDialog();
+            });
+        await panel.RenderAsync();
+    }
+
+    private async Task SetSiteProtectionAsync(BrowserTab tab, string host, bool enabled)
+    {
+        if (string.IsNullOrWhiteSpace(host)) return;
+        _settings.Data.Whitelist.RemoveAll(item => string.Equals(item, host, StringComparison.OrdinalIgnoreCase));
+        if (!enabled) _settings.Data.Whitelist.Add(host);
+        _settings.Save();
+        await ApplyYamaBlockToAllTabsAsync();
+        if (_active == tab) BlockedText.Text = enabled ? $"YamaBlock · {tab.BlockedCount} blokováno" : "YamaBlock · výjimka pro tento web";
+        SiteInfoPopup.IsOpen = false;
+        StatusText.Text = enabled ? "YamaBlock je pro tento web zapnutý." : "YamaBlock je pro tento web vypnutý.";
     }
 
     private void TitleBar_MouseDown(object sender, MouseButtonEventArgs e)
