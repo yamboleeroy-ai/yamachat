@@ -145,8 +145,14 @@ internal sealed class SiteInformationPanel
             try
             {
                 await _core.Profile.SetPermissionStateAsync(kind, _origin, target);
-                var nowBlockedByGlobalRule = kind == CoreWebView2PermissionKind.Notifications && target == CoreWebView2PermissionState.Default && _blockNewNotificationRequests;
-                stateText.Text = PermissionLabels.For(kind) + " · " + (nowBlockedByGlobalRule ? "Blokováno globálním pravidlem" : StateLabel(target));
+                // Read the profile back instead of trusting the control value. This is
+                // the same persisted store used after a card/window is reopened.
+                var verified = (await _core.Profile.GetNonDefaultPermissionSettingsAsync())
+                    .FirstOrDefault(x => x.PermissionKind == kind && string.Equals(x.PermissionOrigin, _origin, StringComparison.OrdinalIgnoreCase))
+                    ?.PermissionState ?? CoreWebView2PermissionState.Default;
+                var nowBlockedByGlobalRule = kind == CoreWebView2PermissionKind.Notifications && verified == CoreWebView2PermissionState.Default && _blockNewNotificationRequests;
+                stateText.Text = PermissionLabels.For(kind) + " · " + (nowBlockedByGlobalRule ? "Blokováno globálním pravidlem" : StateLabel(verified));
+                choice.SelectedIndex = verified switch { CoreWebView2PermissionState.Allow => 1, CoreWebView2PermissionState.Deny => 2, _ => 0 };
                 choice.IsEnabled = true;
             }
             catch (Exception error) { choice.IsEnabled = true; MessageBox.Show("Oprávnění se nepodařilo změnit.\n\n" + error.Message, "YamaSearch", MessageBoxButton.OK, MessageBoxImage.Warning); }
