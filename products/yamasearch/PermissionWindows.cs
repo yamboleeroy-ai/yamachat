@@ -37,6 +37,7 @@ internal sealed class SiteInformationPanel
     private readonly CoreWebView2 _core;
     private readonly string _origin;
     private readonly bool _isPrivate;
+    private readonly bool _blockNewNotificationRequests;
     private readonly bool _protectionEnabled;
     private readonly int _blockedCount;
     private readonly Func<bool, Task> _setProtection;
@@ -52,10 +53,11 @@ internal sealed class SiteInformationPanel
         CoreWebView2PermissionKind.PersistentStorage
     ];
 
-    public SiteInformationPanel(StackPanel content, CoreWebView2 core, string origin, bool isPrivate,
+    public SiteInformationPanel(StackPanel content, CoreWebView2 core, string origin, bool isPrivate, bool blockNewNotificationRequests,
         bool protectionEnabled, int blockedCount, Func<bool, Task> setProtection, Action openSettings)
     {
         _content = content; _core = core; _origin = origin; _isPrivate = isPrivate;
+        _blockNewNotificationRequests = blockNewNotificationRequests;
         _protectionEnabled = protectionEnabled; _blockedCount = blockedCount;
         _setProtection = setProtection; _openSettings = openSettings;
     }
@@ -85,9 +87,10 @@ internal sealed class SiteInformationPanel
         foreach (var kind in SupportedPermissions)
         {
             var setting = saved.FirstOrDefault(x => x.PermissionKind == kind && string.Equals(x.PermissionOrigin, _origin, StringComparison.OrdinalIgnoreCase));
-            AddPermissionRow(kind, setting?.PermissionState ?? CoreWebView2PermissionState.Default);
+            AddPermissionRow(kind, setting?.PermissionState ?? CoreWebView2PermissionState.Default,
+                kind == CoreWebView2PermissionKind.Notifications && setting is null && _blockNewNotificationRequests);
         }
-        _content.Children.Add(Text("Oznámení na pozadí: podporována jsou pouze během běhu a otevřené karty WebView2. Po zavření karty YamaSearch nespouští samostatný push proces.", 12, "#9BB5D2"));
+        _content.Children.Add(Text("Web Push na pozadí WebView2 nepodporuje. Běžná webová oznámení fungují jen pro otevřenou kartu během běhu YamaSearch; po zavření karty se nevytváří skrytý proces.", 12, "#9BB5D2"));
 
         Section("Soubory cookie a data");
         try
@@ -124,13 +127,13 @@ internal sealed class SiteInformationPanel
         _content.Children.Add(settings);
     }
 
-    private void AddPermissionRow(CoreWebView2PermissionKind kind, CoreWebView2PermissionState state)
+    private void AddPermissionRow(CoreWebView2PermissionKind kind, CoreWebView2PermissionState state, bool blockedByGlobalRule)
     {
         var row = new Grid { Margin = new Thickness(0, 7, 0, 0) };
         row.ColumnDefinitions.Add(new ColumnDefinition()); row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-        row.Children.Add(Text(PermissionLabels.For(kind) + " · " + StateLabel(state), 12, "#DDEAFF"));
+        row.Children.Add(Text(PermissionLabels.For(kind) + " · " + (blockedByGlobalRule ? "Blokováno globálním pravidlem" : StateLabel(state)), 12, "#DDEAFF"));
         var choice = new ComboBox { Width = 100, Height = 28, SelectedValue = state, ToolTip = "Změní skutečné oprávnění WebView2" };
-        choice.Items.Add(new ComboBoxItem { Content = "Zeptat", Tag = CoreWebView2PermissionState.Default });
+        choice.Items.Add(new ComboBoxItem { Content = blockedByGlobalRule ? "Zeptat (globální blok)" : "Zeptat", Tag = CoreWebView2PermissionState.Default });
         choice.Items.Add(new ComboBoxItem { Content = "Povolit", Tag = CoreWebView2PermissionState.Allow });
         choice.Items.Add(new ComboBoxItem { Content = "Blokovat", Tag = CoreWebView2PermissionState.Deny });
         choice.SelectedIndex = state switch { CoreWebView2PermissionState.Allow => 1, CoreWebView2PermissionState.Deny => 2, _ => 0 };

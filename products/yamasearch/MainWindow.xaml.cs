@@ -3555,7 +3555,7 @@ public partial class MainWindow : Window
         var origin = PermissionLabels.ToOrigin(core.Source);
         var host = GetPageHost(tab);
         var protectionEnabled = _settings.Data.BlockMode != BlockMode.Off && !string.IsNullOrWhiteSpace(host) && !IsWhitelisted(host);
-        var panel = new SiteInformationPanel(SiteInfoContent, core, origin, _isPrivateWindow, protectionEnabled, tab.BlockedCount,
+        var panel = new SiteInformationPanel(SiteInfoContent, core, origin, _isPrivateWindow, _settings.Data.BlockNewNotificationRequests, protectionEnabled, tab.BlockedCount,
             enabled => SetSiteProtectionAsync(tab, host, enabled),
             () =>
             {
