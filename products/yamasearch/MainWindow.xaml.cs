@@ -1655,6 +1655,32 @@ public partial class MainWindow : Window
         RenderTabs();
         return true;
     }
+
+    internal bool ActivateExistingNotificationUrl(string url)
+    {
+        var tab = _tabs.FirstOrDefault(candidate => UrlsMatch(candidate.View.CoreWebView2?.Source, url));
+        if (tab is null)
+            return false;
+
+        SelectTab(tab);
+        Show();
+        Activate();
+        tab.HasWebNotification = false;
+        RenderTabs();
+        return true;
+    }
+
+    internal void OpenNotificationUrl(string url)
+    {
+        Show();
+        Activate();
+        _ = CreateTabAsync(url);
+    }
+
+    private static bool UrlsMatch(string? left, string right)
+        => Uri.TryCreate(left, UriKind.Absolute, out var leftUri)
+           && Uri.TryCreate(right, UriKind.Absolute, out var rightUri)
+           && Uri.Compare(leftUri, rightUri, UriComponents.HttpRequestUrl, UriFormat.SafeUnescaped, StringComparison.OrdinalIgnoreCase) == 0;
     private void CloseTab(BrowserTab tab) { if (_tabs.Count == 1) { _ = NavigateAsync(tab, _settings.Data.HomePage); return; } var index = _tabs.IndexOf(tab); _tabs.Remove(tab); tab.View.Dispose(); SelectTab(_tabs[Math.Max(0, index - 1)]); }
     private void CloseOtherTabs(BrowserTab keep)
     {

@@ -41,6 +41,8 @@ public partial class App : Application
             }
         }
 
+        startupUrl ??= WindowsToastService.TakePendingStartupUrl();
+
         if (!string.IsNullOrWhiteSpace(siteAppId))
         {
             var settings = new SettingsStore();
