@@ -131,8 +131,9 @@ internal sealed class SiteInformationPanel
     {
         var row = new Grid { Margin = new Thickness(0, 7, 0, 0) };
         row.ColumnDefinitions.Add(new ColumnDefinition()); row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-        row.Children.Add(Text(PermissionLabels.For(kind) + " · " + (blockedByGlobalRule ? "Blokováno globálním pravidlem" : StateLabel(state)), 12, "#DDEAFF"));
-        var choice = new ComboBox { Width = 100, Height = 28, SelectedValue = state, ToolTip = "Změní skutečné oprávnění WebView2" };
+        var stateText = Text(PermissionLabels.For(kind) + " · " + (blockedByGlobalRule ? "Blokováno globálním pravidlem" : StateLabel(state)), 12, "#DDEAFF");
+        row.Children.Add(stateText);
+        var choice = new ComboBox { SelectedValue = state, ToolTip = "Změní skutečné oprávnění WebView2", Style = _content.TryFindResource("SitePermissionComboBox") as Style };
         choice.Items.Add(new ComboBoxItem { Content = blockedByGlobalRule ? "Zeptat (globální blok)" : "Zeptat", Tag = CoreWebView2PermissionState.Default });
         choice.Items.Add(new ComboBoxItem { Content = "Povolit", Tag = CoreWebView2PermissionState.Allow });
         choice.Items.Add(new ComboBoxItem { Content = "Blokovat", Tag = CoreWebView2PermissionState.Deny });
@@ -141,7 +142,13 @@ internal sealed class SiteInformationPanel
         {
             if (choice.SelectedItem is not ComboBoxItem item || item.Tag is not CoreWebView2PermissionState target) return;
             choice.IsEnabled = false;
-            try { await _core.Profile.SetPermissionStateAsync(kind, _origin, target); await RenderAsync(); }
+            try
+            {
+                await _core.Profile.SetPermissionStateAsync(kind, _origin, target);
+                var nowBlockedByGlobalRule = kind == CoreWebView2PermissionKind.Notifications && target == CoreWebView2PermissionState.Default && _blockNewNotificationRequests;
+                stateText.Text = PermissionLabels.For(kind) + " · " + (nowBlockedByGlobalRule ? "Blokováno globálním pravidlem" : StateLabel(target));
+                choice.IsEnabled = true;
+            }
             catch (Exception error) { choice.IsEnabled = true; MessageBox.Show("Oprávnění se nepodařilo změnit.\n\n" + error.Message, "YamaSearch", MessageBoxButton.OK, MessageBoxImage.Warning); }
         };
         Grid.SetColumn(choice, 1); row.Children.Add(choice); _content.Children.Add(row);
