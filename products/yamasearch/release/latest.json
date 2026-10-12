@@ -1,7 +1,7 @@
 {
   "product": "YamaSearch",
-  "version": "0.3.18",
-  "notes": "Oprava Windows oznámení: bezpečnější doručení a otevření cílové stránky po kliknutí na upozornění; zpřesněné chování duplicitních oznámení.",
+  "version": "0.3.19",
+  "notes": "Nový panel u zámku: skutečná oprávnění webu, cookies a data aktuální stránky, stav YamaBlocku a nastavení pro konkrétní web.",
   "portableUrl": "https://updates.yamachat.eu/yamasearch/YamaSearch-Portable-latest.zip",
   "installerUrl": "https://updates.yamachat.eu/yamasearch/YamaSearch-Setup-latest.exe"
 }
