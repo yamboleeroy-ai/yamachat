@@ -1,4 +1,4 @@
-# YamaSearch – iPhone/iPad PWA (vývojový náhled)
+# YamaSearch – iPhone/iPad PWA (beta 0.1.0)
 
 Tento samostatný produkt je **instalovatelná PWA startovní stránka** pro iOS/iPadOS. Není to plnohodnotný prohlížeč s vlastním WebKit/Chromium enginem. V iOS PWA nelze obecně vkládat cizí stránky do karet uvnitř aplikace: mnoho webů zakazuje iframe a PWA nemá oprávnění ani API pro vlastní prohlížeč jako nativní aplikace.
 
