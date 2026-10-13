@@ -10,13 +10,27 @@ android {
         applicationId 'eu.yamachat.yamasearch'
         minSdk 29
         targetSdk 35
-        versionCode 1
-        versionName '0.1.0-preview'
+        versionCode (project.findProperty('yamasearchVersionCode') ?: '1').toString().toInteger()
+        versionName (project.findProperty('yamasearchVersionName') ?: '0.1.0-preview').toString()
+    }
+
+    signingConfigs {
+        release {
+            // Signing secrets are injected ONLY by the controlled release workflow.
+            // Never commit a keystore or use the Android debug signature for public updates.
+            def signingPath = System.getenv('YAMASEARCH_KEYSTORE_FILE')
+            if (signingPath) {
+                storeFile file(signingPath)
+                storePassword System.getenv('YAMASEARCH_STORE_PASSWORD')
+                keyAlias System.getenv('YAMASEARCH_KEY_ALIAS')
+                keyPassword System.getenv('YAMASEARCH_KEY_PASSWORD')
+            }
+        }
     }
 
     buildTypes {
         release {
-            // Intentionally unsigned until the owner provides a persistent release key.
+            signingConfig signingConfigs.release
             minifyEnabled false
         }
     }
