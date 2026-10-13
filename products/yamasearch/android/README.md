@@ -33,3 +33,31 @@ Tento projekt je **samostatný nativní Android klient**, nikoliv převlečená 
 - Současný Windows Portable artefakt, manifest a aktualizace zachovat; na webu jej lze později jen přestat zobrazovat.
 
 Žádné automatické merge do `main`, vydání release ani upload na R2 bez výslovného schválení majitele.
+
+## DOKONČENÍ PRVNÍHO VEŘEJNÉHO ANDROID RELEASE (0.1.0 beta)
+
+Release je již připravený v GitHub Actions, ale při pokusu o publikování dne 13. 10. 2026 se zastavil na **chybějícím samostatném podpisovém klíči**. Není dovoleno veřejně použít debug podpis nebo podpis Yamachatu.
+
+Na vlastním počítači vytvoř JKS/PKCS12 klíč (JDK 17+). Neodesílej soubor, heslo ani base64 do chatu nebo veřejného repozitáře. Podepisovací klíč musí zůstat dlouhodobě uchovaný – při jeho ztrátě nepůjde navázat aktualizacemi mimo Google Play.
+
+Příklad ve Windows PowerShellu:
+
+```powershell
+New-Item -ItemType Directory -Force "$HOME\Documents\YamaSearch-signing" | Out-Null
+keytool -genkeypair -v -keystore "$HOME\Documents\YamaSearch-signing\YamaSearch-release.p12" -storetype PKCS12 -alias yamasearch -keyalg RSA -keysize 3072 -validity 10000 -dname "CN=YamaSearch, O=YamaSearch, C=CZ"
+# Zvol silné heslo a uchovej ho bezpečně.
+[Convert]::ToBase64String([IO.File]::ReadAllBytes("$HOME\Documents\YamaSearch-signing\YamaSearch-release.p12")) | Set-Clipboard
+```
+
+V GitHub repozitáři otevři **Settings → Secrets and variables → Actions → New repository secret** a vlož:
+
+- `YAMASEARCH_ANDROID_KEYSTORE_BASE64` – base64 obsah souboru .p12 z clipboardu.
+- `YAMASEARCH_ANDROID_STORE_PASSWORD` – heslo úložiště.
+- `YAMASEARCH_ANDROID_KEY_ALIAS` – přesně `yamasearch`.
+- `YAMASEARCH_ANDROID_KEY_PASSWORD` – heslo soukromého klíče (u PKCS12 obvykle shodné s heslem úložiště).
+
+Pozor: uvedený příkaz vytváří podepisovací identitu; **nevytvářej při každém vydání nový klíč**.
+
+Poté spusť nebo opakuj existující workflow [Publish signed YamaSearch Android (separate app)](../../../.github/workflows/yamasearch-android-release.yml). Zadej verzi `0.1.0` a `versionCode=10000`, pokud to bude první vydání. Workflow sestaví release, ověří podpis a balíček, publikuje na Cloudflare R2, ověří dostupnost veřejného URL a **až potom** aktivuje Android tlačítko na webu.
+
+Testovací debug APK nelze přímo přepsat produkční APK s jiným podpisem; uživatelé debug prototypu musí nejprve odinstalovat debug build (po záloze dat). Nezveřejňuj žádné heslo, .p12 ani base64 keystore v Issues, PR, Actions logs ani diskusích.
