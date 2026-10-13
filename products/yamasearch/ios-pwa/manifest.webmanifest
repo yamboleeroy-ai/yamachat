@@ -1,0 +1,18 @@
+{
+  "id": "./",
+  "name": "YamaSearch",
+  "short_name": "YamaSearch",
+  "description": "YamaSearch – rychlý mobilní přístup k vyhledávání a oblíbeným webům na iOS.",
+  "lang": "cs",
+  "dir": "ltr",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#0b1321",
+  "theme_color": "#0b1321",
+  "icons": [
+    {"src": "./assets/YamaSearch-symbol-256.png", "sizes": "256x256", "type": "image/png", "purpose": "any"},
+    {"src": "./assets/YamaSearch-symbol-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any"}
+  ]
+}

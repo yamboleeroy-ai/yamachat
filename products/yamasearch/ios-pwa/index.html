@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="cs">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#0b1321">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="YamaSearch">
+  <meta name="description" content="Mobilní startovní stránka YamaSearch pro iPhone a iPad. Vyhledávání, oblíbené weby a rychlé odkazy do Safari.">
+  <meta name="referrer" content="no-referrer">
+  <link rel="manifest" href="./manifest.webmanifest">
+  <link rel="apple-touch-icon" href="./assets/YamaSearch-symbol-256.png">
+  <link rel="icon" type="image/png" sizes="256x256" href="./assets/YamaSearch-symbol-256.png">
+  <link rel="stylesheet" href="./app.css">
+  <title>YamaSearch – iPhone a iPad</title>
+  <script src="./app.js" defer></script>
+</head>
+<body>
+  <main class="shell">
+    <header class="brand">
+      <img src="./assets/YamaSearch-symbol-256.png" alt="" width="48" height="48">
+      <div class="brand-text">
+        <strong>YamaSearch</strong>
+        <span>pro iPhone a iPad</span>
+      </div>
+      <span class="edition">PWA</span>
+    </header>
+    <section class="hero" aria-label="Vyhledávání">
+      <p class="eyebrow">TVŮJ MOBILNÍ START</p>
+      <h1>Web po ruce.</h1>
+      <p class="hero-copy">Vyhledej, otevři nebo si ulož oblíbenou stránku. Weby se otevírají v Safari.</p>
+      <form id="search-form" autocomplete="off">
+        <label for="search-input" class="visually-hidden">Webová adresa nebo hledaný výraz</label>
+        <input id="search-input" name="q" type="search" enterkeyhint="go" placeholder="Adresa nebo hledat na webu" autocapitalize="off" autocomplete="off" spellcheck="false" required>
+        <button class="primary" type="submit">Otevřít <span aria-hidden="true">↗</span></button>
+      </form>
+      <div class="engine">
+        <label for="search-engine">Vyhledávač</label>
+        <select id="search-engine">
+          <option value="duckduckgo">DuckDuckGo</option>
+          <option value="google">Google</option>
+          <option value="bing">Bing</option>
+        </select>
+      </div>
+    </section>
+    <div id="message" class="message" role="status" aria-live="polite"></div>
+    <section class="panel" aria-labelledby="favorites-title">
+      <div class="section-head">
+        <div><p class="eyebrow">ULOŽENÉ WEBY</p><h2 id="favorites-title">Oblíbené stránky</h2></div>
+        <button id="show-add" type="button" class="secondary">+ Přidat</button>
+      </div>
+      <form id="add-form" class="add-form" hidden>
+        <label for="bookmark-name">Název</label>
+        <input id="bookmark-name" type="text" placeholder="Moje stránka" maxlength="80" required>
+        <label for="bookmark-url">HTTPS odkaz</label>
+        <input id="bookmark-url" type="url" inputmode="url" autocomplete="url" placeholder="https://example.com" maxlength="2048" required>
+        <div class="add-actions"><button type="button" id="cancel-add" class="secondary">Zrušit</button><button type="submit" class="primary">Uložit</button></div>
+      </form>
+      <div id="favorites" class="link-list"></div>
+      <p id="favorites-empty" class="empty">Zatím žádné oblíbené stránky. Přidej si první odkaz.</p>
+    </section>
+    <section class="panel" aria-labelledby="recent-title">
+      <div class="section-head">
+        <div><p class="eyebrow">POUZE ODKAZY OTEVŘENÉ ODTUD</p><h2 id="recent-title">Nedávno otevřené</h2></div>
+        <button id="clear-history" class="secondary" type="button">Vymazat</button>
+      </div>
+      <div id="recents" class="link-list"></div>
+      <p id="recents-empty" class="empty">Zatím žádné odkazy. Historii Safari tato aplikace nečte.</p>
+      <label class="switch-row"><input id="save-history" type="checkbox"><span>Ukládat odkazy otevřené z YamaSearch na tomto zařízení</span></label>
+    </section>
+    <section id="install" class="panel instructions" aria-labelledby="install-title">
+      <p class="eyebrow">BEZ APP STORU A BEZ ÚČTU APPLE DEVELOPER</p>
+      <h2 id="install-title">Přidat na plochu iPhonu</h2>
+      <ol>
+        <li>Otevři tuto stránku v <strong>Safari</strong> na iPhonu nebo iPadu.</li>
+        <li>Klepni na <strong>Sdílet</strong> <span aria-hidden="true">□↑</span> v Safari.</li>
+        <li>Zvol <strong>Přidat na plochu</strong> a potvrď <strong>Přidat</strong>.</li>
+      </ol>
+      <p class="notice">YamaSearch se spouští z plochy jako samostatná PWA. Ostatní weby se kvůli omezením iOS otevírají v Safari – nejde o samostatný prohlížeč s vlastním vykreslovacím jádrem.</p>
+    </section>
+    <footer>YamaSearch pro iOS · 0.1.0 beta <span aria-hidden="true">·</span> Data oblíbených odkazů a volitelná historie se ukládají jen lokálně v této PWA.</footer>
+  </main>
+</body>
+</html>

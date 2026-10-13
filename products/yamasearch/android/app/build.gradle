@@ -1,0 +1,59 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'eu.yamachat.yamasearch'
+    compileSdk 35
+
+    defaultConfig {
+        applicationId 'eu.yamachat.yamasearch'
+        minSdk 29
+        targetSdk 35
+        versionCode = Integer.parseInt((findProperty('yamasearchVersionCode') ?: '1').toString())
+        versionName = (findProperty('yamasearchVersionName') ?: '0.1.0-preview').toString()
+    }
+
+    signingConfigs {
+        release {
+            // Signing secrets are injected ONLY by the controlled release workflow.
+            // Never commit a keystore or use the Android debug signature for public updates.
+            def signingPath = System.getenv('YAMASEARCH_KEYSTORE_FILE')
+            if (signingPath) {
+                storeFile file(signingPath)
+                storePassword System.getenv('YAMASEARCH_STORE_PASSWORD')
+                keyAlias System.getenv('YAMASEARCH_KEY_ALIAS')
+                keyPassword System.getenv('YAMASEARCH_KEY_PASSWORD')
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            signingConfig signingConfigs.release
+            minifyEnabled false
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    sourceSets {
+        main {
+            res.srcDirs += ["$buildDir/generated/yamasearch-res"]
+            assets.srcDirs += ["../../Assets"]
+        }
+    }
+}
+
+// Reuse the REAL desktop YamaSearch emblem without copying or replacing binary assets.
+tasks.register('prepareYamaSearchIcon', Copy) {
+    from(file('../../Assets/YamaSearch-symbol-256.png'))
+    into(layout.buildDirectory.dir('generated/yamasearch-res/drawable-nodpi'))
+    rename { 'yamasearch_logo.png' }
+}
+tasks.named('preBuild').configure {
+    dependsOn('prepareYamaSearchIcon')
+}

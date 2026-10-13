@@ -1,0 +1,7 @@
+{
+  "product": "YamaSearch Android",
+  "version": "0.1.0",
+  "versionCode": 10000,
+  "packageId": "eu.yamachat.yamasearch",
+  "channel": "beta"
+}

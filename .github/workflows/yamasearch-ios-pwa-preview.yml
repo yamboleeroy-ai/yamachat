@@ -1,0 +1,38 @@
+name: YamaSearch iPhone PWA preview (no release)
+
+on:
+  pull_request:
+    paths:
+      - 'products/yamasearch/ios-pwa/**'
+      - 'products/yamasearch/Assets/YamaSearch-symbol-256.png'
+      - 'products/yamasearch/Assets/YamaSearch-symbol-512.png'
+      - '.github/workflows/yamasearch-ios-pwa-preview.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  preview:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validate JS
+        run: |
+          node --check products/yamasearch/ios-pwa/app.js
+          node --check products/yamasearch/ios-pwa/sw.js
+          node --check products/yamasearch/ios-pwa/build.mjs
+      - name: Assemble static PWA
+        run: node products/yamasearch/ios-pwa/build.mjs
+      - name: Verify manifest, icons and safety contract
+        run: node products/yamasearch/ios-pwa/test.mjs
+      - uses: actions/upload-artifact@v4
+        with:
+          name: YamaSearch-iOS-PWA-PREVIEW
+          path: products/yamasearch/ios-pwa/dist/
+          if-no-files-found: error
+          retention-days: 14
