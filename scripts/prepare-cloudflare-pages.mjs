@@ -31,7 +31,9 @@ for(const dir of ['icons','audio','vendor','build','download']) copy(dir);
 // This only copies isolated static files; existing Yamachat root stays untouched.
 const iosPwa=path.join(root,'products/yamasearch/ios-pwa');
 for(const file of ['index.html','app.css','app.js','sw.js','manifest.webmanifest','assets/YamaSearch-symbol-256.png','assets/YamaSearch-symbol-512.png']){
-  const from=path.join(iosPwa,'dist',file);
+  const from=file.startsWith('assets/')
+    ? path.join(root,'products/yamasearch/Assets',path.basename(file))
+    : path.join(iosPwa,file);
   if(!fs.existsSync(from))throw Error('Missing YamaSearch iOS PWA release asset: '+file);
   const to=path.join(dist,'yamasearch',file);
   fs.mkdirSync(path.dirname(to),{recursive:true});
