@@ -27,6 +27,18 @@ for(const file of [
 
 for(const dir of ['icons','audio','vendor','build','download']) copy(dir);
 
+// Package the independent YamaSearch iPhone/iPad PWA at /yamasearch/.
+// This only copies isolated static files; existing Yamachat root stays untouched.
+const iosPwa=path.join(root,'products/yamasearch/ios-pwa');
+for(const file of ['index.html','app.css','app.js','sw.js','manifest.webmanifest','assets/YamaSearch-symbol-256.png','assets/YamaSearch-symbol-512.png']){
+  const from=path.join(iosPwa,'dist',file);
+  if(!fs.existsSync(from))throw Error('Missing YamaSearch iOS PWA release asset: '+file);
+  const to=path.join(dist,'yamasearch',file);
+  fs.mkdirSync(path.dirname(to),{recursive:true});
+  fs.copyFileSync(from,to);
+}
+
+
 for(const file of [
   'LICENSE',
   'TERMS_OF_USE.md',
@@ -46,6 +58,12 @@ fs.writeFileSync(path.join(dist,'_headers'),[
   '/reset-password.html',
   '  Cache-Control: no-cache, must-revalidate',
   '/update-manifest.json',
+  '  Cache-Control: no-cache, must-revalidate',
+  '/yamasearch/index.html',
+  '  Cache-Control: no-cache, must-revalidate',
+  '/yamasearch/sw.js',
+  '  Cache-Control: no-cache, must-revalidate',
+  '/yamasearch/manifest.webmanifest',
   '  Cache-Control: no-cache, must-revalidate',
   ''
 ].join('\n'));
