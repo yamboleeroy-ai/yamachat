@@ -1,0 +1,125 @@
+name: Publish signed YamaSearch Android (separate app)
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Android app version (e.g. 0.1.0)'
+        required: true
+        type: string
+      versionCode:
+        description: 'Monotonically increasing Android versionCode (e.g. 10000)'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: yamasearch-android-production
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    defaults:
+      run:
+        working-directory: products/yamasearch/android
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+      - name: Provision Android SDK
+        run: |
+          set -euo pipefail
+          SDKMANAGER=$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager -print -quit)
+          test -x "$SDKMANAGER"
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" --install 'platforms;android-35' 'build-tools;35.0.0'
+      - name: Validate version and release signing availability
+        env:
+          VERSION: ${{ inputs.version }}
+          VERSION_CODE: ${{ inputs.versionCode }}
+          KEYSTORE: ${{ secrets.YAMASEARCH_ANDROID_KEYSTORE_BASE64 }}
+          STORE_PASSWORD: ${{ secrets.YAMASEARCH_ANDROID_STORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.YAMASEARCH_ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.YAMASEARCH_ANDROID_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "Invalid version"; exit 1; }
+          [[ "$VERSION_CODE" =~ ^[1-9][0-9]*$ ]] || { echo "Invalid versionCode"; exit 1; }
+          test "${#KEYSTORE}" -gt 100 || { echo "Missing YamaSearch-specific signing keystore secret"; exit 1; }
+          test -n "$STORE_PASSWORD" && test -n "$KEY_ALIAS" && test -n "$KEY_PASSWORD" || { echo "Missing YamaSearch signing secret"; exit 1; }
+          umask 077
+          printf '%s' "$KEYSTORE" | base64 -d > "$RUNNER_TEMP/yamasearch-release.jks"
+          keytool -list -keystore "$RUNNER_TEMP/yamasearch-release.jks" -storepass "$STORE_PASSWORD" -alias "$KEY_ALIAS" >/dev/null
+          echo "YAMASEARCH_KEYSTORE_FILE=$RUNNER_TEMP/yamasearch-release.jks" >> "$GITHUB_ENV"
+      - name: Build SIGNED release APK
+        env:
+          YAMASEARCH_STORE_PASSWORD: ${{ secrets.YAMASEARCH_ANDROID_STORE_PASSWORD }}
+          YAMASEARCH_KEY_ALIAS: ${{ secrets.YAMASEARCH_ANDROID_KEY_ALIAS }}
+          YAMASEARCH_KEY_PASSWORD: ${{ secrets.YAMASEARCH_ANDROID_KEY_PASSWORD }}
+          VERSION: ${{ inputs.version }}
+          VERSION_CODE: ${{ inputs.versionCode }}
+        run: |
+          set -euo pipefail
+          gradle --no-daemon :app:assembleRelease -PyamasearchVersionName="$VERSION" -PyamasearchVersionCode="$VERSION_CODE"
+          APK=app/build/outputs/apk/release/app-release.apk
+          test -s "$APK"
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose "$APK"
+          BADGING=$("$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK")
+          printf '%s\n' "$BADGING" | grep -F "package: name='eu.yamachat.yamasearch'"
+          printf '%s\n' "$BADGING" | grep -F "versionCode='$VERSION_CODE'"
+          printf '%s\n' "$BADGING" | grep -F "versionName='$VERSION'"
+          mkdir -p release
+          cp "$APK" "release/YamaSearch-Android-$VERSION.apk"
+          sha256sum "release/YamaSearch-Android-$VERSION.apk" | tee release/SHA256SUMS.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: YamaSearch-Android-SIGNED-${{ inputs.version }}
+          path: products/yamasearch/android/release/
+          if-no-files-found: error
+          retention-days: 30
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/download-artifact@v4
+        with:
+          name: YamaSearch-Android-SIGNED-${{ inputs.version }}
+          path: release-assets
+      - name: Publish signed APK in isolated R2 namespace
+        env:
+          VERSION: ${{ inputs.version }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          set -euo pipefail
+          test -n "${CLOUDFLARE_API_TOKEN:-}" && test -n "${CLOUDFLARE_ACCOUNT_ID:-}"
+          FILE="release-assets/YamaSearch-Android-$VERSION.apk"
+          test -s "$FILE"
+          (cd release-assets && sha256sum -c SHA256SUMS.txt)
+          npx --yes wrangler@latest r2 object put "yamachat-releases/yamasearch/YamaSearch-Android-$VERSION.apk" --file "$FILE" --content-type application/vnd.android.package-archive --content-disposition "attachment; filename=YamaSearch-Android-$VERSION.apk" --cache-control 'public, max-age=31536000, immutable' --remote
+          npx --yes wrangler@latest r2 object put 'yamachat-releases/yamasearch/YamaSearch-Android-latest.apk' --file "$FILE" --content-type application/vnd.android.package-archive --content-disposition 'attachment; filename=YamaSearch-Android-latest.apk' --cache-control 'no-cache, no-store' --remote
+      - name: Verify public download availability
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          for n in $(seq 1 20); do
+            curl -fsSI --max-time 15 "https://updates.yamachat.eu/yamasearch/YamaSearch-Android-$VERSION.apk" >/dev/null && break
+            test "$n" != 20 || { echo "Public versioned YamaSearch APK unavailable"; exit 1; }
+            sleep 10
+          done
+          curl -fsSI --max-time 20 'https://updates.yamachat.eu/yamasearch/YamaSearch-Android-latest.apk' >/dev/null
