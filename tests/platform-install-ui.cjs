@@ -55,7 +55,7 @@ function inside(b,w,h){return b&&b.width>0&&b.height>0&&b.x>=-1&&b.y>=-1&&b.x+b.
    assert.equal(await yamaSearch.locator('a').nth(1).getAttribute('href'),'https://updates.yamachat.eu/yamasearch/YamaSearch-Setup-latest.exe');
    assert.match(await yamaSearch.locator('a').nth(2).textContent(),/YamaSearch iPhone \/ iPad/);
    assert.equal(await yamaSearch.locator('a').nth(2).getAttribute('href'),'https://yamachat.eu/yamasearch/');
-   assert.match(await yamaSearch.locator('a').nth(2).textContent(),/Přidat na plochu iPhonu/);
+   assert.match(await yamaSearch.locator('a').nth(2).textContent(),/přidat na plochu iPhonu/i);
    assert.match(await yamaSearch.textContent(),/Windows, Android a iPhone\/iPad/i);
 
    const expected={
