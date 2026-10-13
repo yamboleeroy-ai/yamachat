@@ -4,7 +4,7 @@ on:
   push:
     branches: [main]
     paths:
-      - 'products/yamasearch/release/android-mobile.json'
+      - 'products/yamasearch/release/android-release-request.json'
   workflow_dispatch:
     inputs:
       version:
@@ -55,7 +55,7 @@ jobs:
           INPUT_CODE: ${{ inputs.versionCode }}
         run: |
           set -euo pipefail
-          VERSION="${INPUT_VERSION:-$(node -p "require('../release/android-mobile.json').version")}"
+          VERSION="${INPUT_VERSION:-$(node -p "require('../release/android-release-request.json').version")}"
           VERSION_CODE="${INPUT_CODE:-$(node -p "require('../release/android-mobile.json').versionCode")}"
           echo "VERSION=$VERSION" >> "$GITHUB_ENV"
           echo "VERSION_CODE=$VERSION_CODE" >> "$GITHUB_ENV"
@@ -105,7 +105,12 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     timeout-minutes: 25
+    permissions:
+      contents: write
     steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
@@ -137,3 +142,25 @@ jobs:
             sleep 10
           done
           curl -fsSI --max-time 20 'https://updates.yamachat.eu/yamasearch/YamaSearch-Android-latest.apk' >/dev/null
+      - name: Activate public Android download on official site
+        env:
+          VERSION: ${{ needs.build.outputs.version }}
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git fetch origin main
+          git checkout -B release-yamasearch-android origin/main
+          node - <<'NODE'
+          const fs = require('fs');
+          const file = 'products/yamasearch/release/android-mobile.json';
+          const state = JSON.parse(fs.readFileSync(file, 'utf8'));
+          if (state.version !== process.env.VERSION) throw Error('Release state diverged from verified signed APK');
+          state.published = true;
+          fs.writeFileSync(file, JSON.stringify(state, null, 2) + '\n');
+          NODE
+          node scripts/build-web.mjs
+          node scripts/check.mjs
+          git add products/yamasearch/release/android-mobile.json index.html
+          git diff --cached --quiet || git commit -m "Activate verified YamaSearch Android $VERSION download"
+          git push origin HEAD:main
