@@ -1,0 +1,86 @@
+name: Release YamaSearch iOS PWA to existing Cloudflare Pages site
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'products/yamasearch/ios-pwa/**'
+      - 'scripts/prepare-cloudflare-pages.mjs'
+      - 'scripts/build-web.mjs'
+      - '.github/workflows/yamasearch-ios-pwa-release.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: yamasearch-ios-pages-release
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify YamaSearch iOS PWA static bundle
+        run: |
+          set -euo pipefail
+          node --check products/yamasearch/ios-pwa/app.js
+          node --check products/yamasearch/ios-pwa/sw.js
+          node products/yamasearch/ios-pwa/build.mjs
+          node products/yamasearch/ios-pwa/test.mjs
+      - name: Verify unchanged Yamachat client and package COMPLETE Cloudflare Pages site
+        run: |
+          set -euo pipefail
+          node scripts/build-web.mjs
+          node scripts/check.mjs
+          node scripts/prepare-cloudflare-pages.mjs
+          test -s web-dist/index.html
+          test -s web-dist/yamasearch/index.html
+          test -s web-dist/yamasearch/manifest.webmanifest
+          test -s web-dist/yamasearch/sw.js
+      - name: Find EXISTING Cloudflare Pages project for yamachat.eu (never guess)
+        id: project
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          set -euo pipefail
+          test -n "${CLOUDFLARE_API_TOKEN:-}" && test -n "${CLOUDFLARE_ACCOUNT_ID:-}"
+          curl -fsS --max-time 30 \
+            -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+            "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/pages/projects?per_page=100" \
+            -o /tmp/yamasearch-pages-projects.json
+          jq -e '.success == true' /tmp/yamasearch-pages-projects.json >/dev/null
+          COUNT=$(jq '[.result[] | select(any(.domains[]?; . == "yamachat.eu"))] | length' /tmp/yamasearch-pages-projects.json)
+          test "$COUNT" = 1 || { echo "Unable to uniquely identify existing Cloudflare Pages project for yamachat.eu ($COUNT); NO DEPLOY"; exit 1; }
+          NAME=$(jq -r '.result[] | select(any(.domains[]?; . == "yamachat.eu")) | .name' /tmp/yamasearch-pages-projects.json)
+          test -n "$NAME" && test "$NAME" != null
+          echo "name=$NAME" >> "$GITHUB_OUTPUT"
+      - name: Deploy verified full web bundle with independent YamaSearch PWA
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          PAGES_PROJECT: ${{ steps.project.outputs.name }}
+        run: |
+          set -euo pipefail
+          npx --yes wrangler@latest pages deploy web-dist --project-name "$PAGES_PROJECT" --branch main --commit-hash "$GITHUB_SHA"
+      - name: Verify PUBLIC installed iPhone PWA on custom domain
+        run: |
+          set -euo pipefail
+          BASE='https://yamachat.eu/yamasearch'
+          for i in $(seq 1 24); do
+            if curl -fsSL --max-time 15 -H 'Cache-Control: no-cache' "$BASE/?release=$GITHUB_SHA" -o /tmp/yamasearch-ios.html \
+                && grep -q '<title>YamaSearch – iPhone a iPad</title>' /tmp/yamasearch-ios.html \
+                && curl -fsSL --max-time 15 "$BASE/manifest.webmanifest" | grep -q '"name": "YamaSearch"'; then
+              echo "YamaSearch iOS PWA verified: $BASE/"
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "Cloudflare deployment is NOT verified at custom domain. Do not claim released." >&2
+          exit 1
