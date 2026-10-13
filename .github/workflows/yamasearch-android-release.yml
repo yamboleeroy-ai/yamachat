@@ -1,6 +1,10 @@
 name: Publish signed YamaSearch Android (separate app)
 
 on:
+  push:
+    branches: [main]
+    paths:
+      - 'products/yamasearch/release/android-mobile.json'
   workflow_dispatch:
     inputs:
       version:
@@ -22,6 +26,8 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.metadata.outputs.version }}
     timeout-minutes: 35
     defaults:
       run:
@@ -42,10 +48,20 @@ jobs:
           test -x "$SDKMANAGER"
           yes | "$SDKMANAGER" --licenses >/dev/null || true
           "$SDKMANAGER" --install 'platforms;android-35' 'build-tools;35.0.0'
+      - name: Resolve intended release version
+        id: metadata
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
+          INPUT_CODE: ${{ inputs.versionCode }}
+        run: |
+          set -euo pipefail
+          VERSION="${INPUT_VERSION:-$(node -p "require('../release/android-mobile.json').version")}"
+          VERSION_CODE="${INPUT_CODE:-$(node -p "require('../release/android-mobile.json').versionCode")}"
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+          echo "VERSION_CODE=$VERSION_CODE" >> "$GITHUB_ENV"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
       - name: Validate version and release signing availability
         env:
-          VERSION: ${{ inputs.version }}
-          VERSION_CODE: ${{ inputs.versionCode }}
           KEYSTORE: ${{ secrets.YAMASEARCH_ANDROID_KEYSTORE_BASE64 }}
           STORE_PASSWORD: ${{ secrets.YAMASEARCH_ANDROID_STORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.YAMASEARCH_ANDROID_KEY_ALIAS }}
@@ -65,8 +81,6 @@ jobs:
           YAMASEARCH_STORE_PASSWORD: ${{ secrets.YAMASEARCH_ANDROID_STORE_PASSWORD }}
           YAMASEARCH_KEY_ALIAS: ${{ secrets.YAMASEARCH_ANDROID_KEY_ALIAS }}
           YAMASEARCH_KEY_PASSWORD: ${{ secrets.YAMASEARCH_ANDROID_KEY_PASSWORD }}
-          VERSION: ${{ inputs.version }}
-          VERSION_CODE: ${{ inputs.versionCode }}
         run: |
           set -euo pipefail
           gradle --no-daemon :app:assembleRelease -PyamasearchVersionName="$VERSION" -PyamasearchVersionCode="$VERSION_CODE"
@@ -82,7 +96,7 @@ jobs:
           (cd release && sha256sum "YamaSearch-Android-$VERSION.apk" | tee SHA256SUMS.txt)
       - uses: actions/upload-artifact@v4
         with:
-          name: YamaSearch-Android-SIGNED-${{ inputs.version }}
+          name: YamaSearch-Android-SIGNED-${{ steps.metadata.outputs.version }}
           path: products/yamasearch/android/release/
           if-no-files-found: error
           retention-days: 30
@@ -97,11 +111,11 @@ jobs:
           node-version: '22'
       - uses: actions/download-artifact@v4
         with:
-          name: YamaSearch-Android-SIGNED-${{ inputs.version }}
+          name: YamaSearch-Android-SIGNED-${{ needs.build.outputs.version }}
           path: release-assets
       - name: Publish signed APK in isolated R2 namespace
         env:
-          VERSION: ${{ inputs.version }}
+          VERSION: ${{ needs.build.outputs.version }}
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: |
@@ -114,7 +128,7 @@ jobs:
           npx --yes wrangler@latest r2 object put 'yamachat-releases/yamasearch/YamaSearch-Android-latest.apk' --file "$FILE" --content-type application/vnd.android.package-archive --content-disposition 'attachment; filename=YamaSearch-Android-latest.apk' --cache-control 'no-cache, no-store' --remote
       - name: Verify public download availability
         env:
-          VERSION: ${{ inputs.version }}
+          VERSION: ${{ needs.build.outputs.version }}
         run: |
           set -euo pipefail
           for n in $(seq 1 20); do
