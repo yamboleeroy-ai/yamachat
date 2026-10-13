@@ -182,7 +182,7 @@ html=withVoiceHotPathCleanup(html);
 // YamaSearch download card in the generated client after that callback so both
 // products share the exact same login-card styling and layout.
 // Android stays visibly pending until an approved, signed APK exists at this URL.
-const yamaSearchAndroidPublished=process.env.YAMASEARCH_ANDROID_PUBLISHED==='1';
+const yamaSearchAndroidPublished=JSON.parse(read('products/yamasearch/release/android-mobile.json')).published===true;
 const yamaSearchAndroidHref='https://updates.yamachat.eu/yamasearch/YamaSearch-Android-latest.apk';
 const yamaSearchAndroidLink=yamaSearchAndroidPublished
   ? 'href="'+yamaSearchAndroidHref+'" download'
