@@ -223,7 +223,7 @@ public class BrowserActivity extends Activity {
         if (input.startsWith("http://") || input.startsWith("https://")) return input;
         if (input.startsWith("about:blank")) return HOME;
         if (!input.contains(" ") && input.contains(".") && !input.startsWith(".")) return "https://" + input;
-        return "https://www.google.com/search?q=" + URLEncoder.encode(input, StandardCharsets.UTF_8);
+        return "https://www.google.com/search?q=" + Uri.encode(input);
     }
 
     private void navigate(String text) {
@@ -303,7 +303,7 @@ public class BrowserActivity extends Activity {
         });
         web.setWebChromeClient(new WebChromeClient() {
             @Override public void onReceivedTitle(WebView view, String title) {
-                tab.title = title == null || title.isBlank() ? "Nová karta" : title;
+                tab.title = title == null || title.trim().isEmpty() ? "Nová karta" : title;
                 if (selected == tab) refreshToolbar();
             }
             @Override public void onProgressChanged(WebView view, int value) {
