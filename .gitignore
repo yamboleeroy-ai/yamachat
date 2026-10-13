@@ -11,3 +11,8 @@ tests/ui-results.json
 test-results/
 web-dist/
 release-assets/
+
+# Local Android toolchain and never-committed YamaSearch signing material.
+.android-sdk/
+.build-tools/
+products/yamasearch/preview/
