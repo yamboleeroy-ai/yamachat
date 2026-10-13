@@ -79,7 +79,7 @@ jobs:
           printf '%s\n' "$BADGING" | grep -F "versionName='$VERSION'"
           mkdir -p release
           cp "$APK" "release/YamaSearch-Android-$VERSION.apk"
-          sha256sum "release/YamaSearch-Android-$VERSION.apk" | tee release/SHA256SUMS.txt
+          (cd release && sha256sum "YamaSearch-Android-$VERSION.apk" | tee SHA256SUMS.txt)
       - uses: actions/upload-artifact@v4
         with:
           name: YamaSearch-Android-SIGNED-${{ inputs.version }}
