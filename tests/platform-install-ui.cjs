@@ -29,7 +29,7 @@ function inside(b,w,h){return b&&b.width>0&&b.height>0&&b.x>=-1&&b.y>=-1&&b.x+b.
  try{
   for(const [w,h,mobile] of [[1440,900,false],[390,844,true],[844,390,true],[320,568,true]]){
    const {page,errors}=await boot(browser,w,h,mobile);
-   const forgot=page.locator('#ycForgotPassword'),row=page.locator('.yc-platform-login'),yamaHelp=page.locator('.yc-yamahelp-login[aria-label="YamaHelp pro Windows"]'),yamaSearch=page.locator('.yc-yamasearch-login[aria-label="YamaSearch pro Windows"]'),legal=page.locator('.yc-auth-legal-links');
+   const forgot=page.locator('#ycForgotPassword'),row=page.locator('.yc-platform-login'),yamaHelp=page.locator('.yc-yamahelp-login[aria-label="YamaHelp pro Windows"]'),yamaSearch=page.locator('.yc-yamasearch-login[aria-label="YamaSearch ke stažení"]'),legal=page.locator('.yc-auth-legal-links');
    await row.waitFor({state:'visible'});
    await row.scrollIntoViewIfNeeded();
    const fb=await forgot.boundingBox(),rb=await row.boundingBox(),lb=await legal.boundingBox();
@@ -48,10 +48,12 @@ function inside(b,w,h){return b&&b.width>0&&b.height>0&&b.x>=-1&&b.y>=-1&&b.x+b.
    assert.equal(await yamaHelp.locator('a').nth(0).getAttribute('href'),'https://updates.yamachat.eu/yamahelp/YamaHelp-Portable-latest.zip');
    assert.equal(await yamaHelp.locator('a').nth(1).getAttribute('href'),'https://updates.yamachat.eu/yamahelp/YamaHelp-Setup-latest.exe');
    assert.match(await yamaHelp.textContent(),/Soubor(?:y)? jsou určen[ée] pro Windows PC/i);
-   assert.equal(await yamaSearch.locator('a').count(),2,'YamaSearch must provide Portable and Installer downloads');
-   assert.equal(await yamaSearch.locator('a').nth(0).getAttribute('href'),'https://updates.yamachat.eu/yamasearch/YamaSearch-Portable-latest.zip');
+   assert.equal(await yamaSearch.locator('a').count(),2,'YamaSearch must show Android and Windows Installer cards');
+   assert.match(await yamaSearch.locator('a').nth(0).textContent(),/YamaSearch Android/);
+   assert.equal(await yamaSearch.locator('a').nth(0).getAttribute('href'),null,'Unreleased Android APK must not be linked');
+   assert.equal(await yamaSearch.locator('a').nth(0).getAttribute('aria-disabled'),'true');
    assert.equal(await yamaSearch.locator('a').nth(1).getAttribute('href'),'https://updates.yamachat.eu/yamasearch/YamaSearch-Setup-latest.exe');
-   assert.match(await yamaSearch.textContent(),/Soubor(?:y)? jsou určen[ée] pro Windows PC/i);
+   assert.match(await yamaSearch.textContent(),/Android a Windows/i);
 
    const expected={
     windows:String(manifest.windows.installerUrl),
