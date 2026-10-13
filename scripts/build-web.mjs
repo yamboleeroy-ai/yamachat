@@ -190,7 +190,16 @@ const yamaSearchAndroidLink=yamaSearchAndroidPublished
 const yamaSearchAndroidCaption=yamaSearchAndroidPublished
   ? 'Stáhnout aplikaci pro Android (.apk).'
   : 'Android APK se připravuje a testuje.';
-const yamaSearchLoginDownloads=`<script id="ycYamaSearchLoginDownloads">(()=>{const add=()=>{const legal=document.querySelector('.yc-auth-legal-links');if(!legal||document.querySelector('.yc-yamasearch-login'))return;legal.insertAdjacentHTML('beforebegin','<section class="yc-yamahelp-login yc-yamasearch-login" aria-label="YamaSearch ke stažení"><div class="yc-yamahelp-login-title">YamaSearch ke stažení</div><p class="yc-yamahelp-login-copy">Soukromější prohlížení s YamaBlock a YamaShield.</p><div class="yc-yamahelp-login-grid"><a class="yc-yamahelp-login-btn" ${yamaSearchAndroidLink}><strong>YamaSearch Android</strong><small>${yamaSearchAndroidCaption}</small></a><a class="yc-yamahelp-login-btn" href="https://updates.yamachat.eu/yamasearch/YamaSearch-Setup-latest.exe" download><strong>YamaSearch Installer</strong><small>Instalační verze pro Windows.</small></a></div><p class="yc-yamahelp-login-note">YamaSearch pro Android a Windows. Android je dostupný až po ověřeném vydání.</p></section>')};document.readyState==='loading'?document.addEventListener('DOMContentLoaded',add,{once:true}):add()})();</script>`;
+// iOS launch page is enabled only after the Cloudflare HTTPS path is deployed and verified.
+const yamaSearchIosPublished=process.env.YAMASEARCH_IOS_PWA_PUBLISHED==='1';
+const yamaSearchIosUrl='https://yamachat.eu/yamasearch/';
+const yamaSearchIosLink=yamaSearchIosPublished
+  ? 'href="'+yamaSearchIosUrl+'" target="_blank" rel="noopener noreferrer"'
+  : 'aria-disabled="true" tabindex="-1" style="opacity:.68;cursor:not-allowed"';
+const yamaSearchIosCaption=yamaSearchIosPublished
+  ? 'Otevřít a přidat na plochu iPhonu.'
+  : 'PWA pro iPhone/iPad se připravuje a testuje.';
+const yamaSearchLoginDownloads=`<script id="ycYamaSearchLoginDownloads">(()=>{const add=()=>{const legal=document.querySelector('.yc-auth-legal-links');if(!legal||document.querySelector('.yc-yamasearch-login'))return;legal.insertAdjacentHTML('beforebegin','<section class="yc-yamahelp-login yc-yamasearch-login" aria-label="YamaSearch ke stažení"><div class="yc-yamahelp-login-title">YamaSearch ke stažení</div><p class="yc-yamahelp-login-copy">Soukromější prohlížení s YamaBlock a YamaShield.</p><div class="yc-yamahelp-login-grid"><a class="yc-yamahelp-login-btn" ${yamaSearchAndroidLink}><strong>YamaSearch Android</strong><small>${yamaSearchAndroidCaption}</small></a><a class="yc-yamahelp-login-btn" href="https://updates.yamachat.eu/yamasearch/YamaSearch-Setup-latest.exe" download><strong>YamaSearch Installer</strong><small>Instalační verze pro Windows.</small></a><a class="yc-yamahelp-login-btn" ${yamaSearchIosLink}><strong>YamaSearch iPhone / iPad</strong><small>${yamaSearchIosCaption}</small></a></div><p class="yc-yamahelp-login-note">YamaSearch pro Windows, Android a iPhone/iPad. Mobilní verze se zveřejní až po ověření.</p></section>')};document.readyState==='loading'?document.addEventListener('DOMContentLoaded',add,{once:true}):add()})();</script>`;
 if(!html.includes('ycYamaSearchLoginDownloads')) html=html.replace('</body>',yamaSearchLoginDownloads+'\n</body>');
 fs.writeFileSync(path.join(root,'index.html'),html);
 console.log('Web generated from verified desktop 1.0.78 reference; desktop files were not modified.');
