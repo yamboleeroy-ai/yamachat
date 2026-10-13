@@ -95,11 +95,19 @@ jobs:
           YC_CLIENT: desktop/desktop-client.html
       - name: Windows Microsoft Natural voice integration
         run: node tests/windows-natural-voices.cjs
+      - name: Assemble YamaSearch iPhone PWA for Cloudflare Pages
+        run: |
+          node products/yamasearch/ios-pwa/build.mjs
+          node products/yamasearch/ios-pwa/test.mjs
       - name: Prepare web deployment
         run: |
           mkdir -p web-dist web-dist/legal
           cp index.html reset-password.html sw.js boot-guard.js favicon.ico manifest.webmanifest offline.html CNAME .nojekyll web-dist/
           cp -r icons audio vendor build download web-dist/
+          mkdir -p web-dist/yamasearch
+          cp -a products/yamasearch/ios-pwa/dist/. web-dist/yamasearch/
+          test -s web-dist/yamasearch/index.html
+          test -s web-dist/yamasearch/manifest.webmanifest
           cp LICENSE TERMS_OF_USE.md PRIVACY_POLICY.md BRAND-NOTICE.md PROVENANCE.md THIRD_PARTY_NOTICES.md LEGAL-BASELINE.md ASSET-MANIFEST.md web-dist/legal/
       - uses: actions/upload-artifact@v4
         with:
