@@ -5,5 +5,5 @@
   "channel": "beta",
   "packageId": "eu.yamachat.yamasearch",
   "notes": "První veřejná beta YamaSearch pro Android. Nativní Android WebView prohlížeč; ověřte známá omezení v README.",
-  "published": false
+  "published": true
 }
