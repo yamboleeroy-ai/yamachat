@@ -48,12 +48,15 @@ function inside(b,w,h){return b&&b.width>0&&b.height>0&&b.x>=-1&&b.y>=-1&&b.x+b.
    assert.equal(await yamaHelp.locator('a').nth(0).getAttribute('href'),'https://updates.yamachat.eu/yamahelp/YamaHelp-Portable-latest.zip');
    assert.equal(await yamaHelp.locator('a').nth(1).getAttribute('href'),'https://updates.yamachat.eu/yamahelp/YamaHelp-Setup-latest.exe');
    assert.match(await yamaHelp.textContent(),/Soubor(?:y)? jsou určen[ée] pro Windows PC/i);
-   assert.equal(await yamaSearch.locator('a').count(),2,'YamaSearch must show Android and Windows Installer cards');
+   assert.equal(await yamaSearch.locator('a').count(),3,'YamaSearch must show Android, Windows Installer and iPhone PWA cards');
    assert.match(await yamaSearch.locator('a').nth(0).textContent(),/YamaSearch Android/);
    assert.equal(await yamaSearch.locator('a').nth(0).getAttribute('href'),null,'Unreleased Android APK must not be linked');
    assert.equal(await yamaSearch.locator('a').nth(0).getAttribute('aria-disabled'),'true');
    assert.equal(await yamaSearch.locator('a').nth(1).getAttribute('href'),'https://updates.yamachat.eu/yamasearch/YamaSearch-Setup-latest.exe');
-   assert.match(await yamaSearch.textContent(),/Android a Windows/i);
+   assert.match(await yamaSearch.locator('a').nth(2).textContent(),/YamaSearch iPhone \/ iPad/);
+   assert.equal(await yamaSearch.locator('a').nth(2).getAttribute('href'),null,'Unpublished iPhone PWA must not be linked');
+   assert.equal(await yamaSearch.locator('a').nth(2).getAttribute('aria-disabled'),'true');
+   assert.match(await yamaSearch.textContent(),/Windows, Android a iPhone\/iPad/i);
 
    const expected={
     windows:String(manifest.windows.installerUrl),
