@@ -1,0 +1,48 @@
+name: Build YamaSearch Android preview (no release)
+
+on:
+  pull_request:
+    paths:
+      - 'products/yamasearch/android/**'
+      - 'products/yamasearch/Assets/YamaSearch-symbol-256.png'
+      - '.github/workflows/yamasearch-android-preview.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    defaults:
+      run:
+        working-directory: products/yamasearch/android
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+      - name: Install Android SDK
+        run: sdkmanager --install 'platforms;android-35' 'build-tools;35.0.0'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+      - name: Build debug APK
+        run: gradle --no-daemon :app:assembleDebug
+      - name: Verify debug APK is Android YamaSearch
+        run: |
+          set -euo pipefail
+          APK=app/build/outputs/apk/debug/app-debug.apk
+          test -s "$APK"
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep -q "package: name='eu.yamachat.yamasearch'"
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify "$APK"
+          sha256sum "$APK"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: YamaSearch-Android-DEBUG-preview
+          path: products/yamasearch/android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 14
