@@ -1,7 +1,7 @@
 {
   "product": "YamaSearch",
-  "version": "0.3.19",
-  "notes": "Nový panel u zámku: skutečná oprávnění webu, cookies a data aktuální stránky, stav YamaBlocku a nastavení pro konkrétní web.",
+  "version": "0.3.20",
+  "notes": "Oprava oprávnění webů: dialogy mikrofonu a kamery reagují na skutečný požadavek stránky, uložená rozhodnutí se správně načítají a panel u zámku živě ukazuje právě používaná oprávnění.",
   "portableUrl": "https://updates.yamachat.eu/yamasearch/YamaSearch-Portable-latest.zip",
   "installerUrl": "https://updates.yamachat.eu/yamasearch/YamaSearch-Setup-latest.exe"
 }

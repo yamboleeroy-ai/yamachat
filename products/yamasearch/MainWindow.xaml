@@ -217,7 +217,37 @@
             </Grid>
           </Viewbox>
         </Button>
-        <Grid Grid.Column="4" Margin="8,0"><Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><Button x:Name="SitePermissionsButton" Grid.Column="0" Content="🔒" ToolTip="Informace a oprávnění aktuální stránky" Click="SitePermissionsButton_Click" Padding="8,0" Margin="0,0,5,0"/><TextBox x:Name="AddressBox" Grid.Column="1" VerticalContentAlignment="Center" PreviewKeyDown="AddressBox_PreviewKeyDown" KeyDown="AddressBox_KeyDown" TextChanged="AddressBox_TextChanged" GotKeyboardFocus="AddressBox_GotKeyboardFocus" PreviewMouseLeftButtonDown="AddressBox_PreviewMouseLeftButtonDown" PreviewMouseLeftButtonUp="AddressBox_PreviewMouseLeftButtonUp" ToolTip="Zadejte adresu nebo vyhledávání"/><Popup x:Name="AddressSuggestions" Placement="Custom" CustomPopupPlacementCallback="AddressSuggestions_CustomPopupPlacement" PlacementTarget="{Binding ElementName=AddressBox}" StaysOpen="False" AllowsTransparency="True"><Border x:Name="AddressSuggestionsBorder" Background="#16243A" BorderBrush="#31537D" BorderThickness="1" CornerRadius="0,0,10,10" MinWidth="360" Padding="6"><StackPanel x:Name="AddressSuggestionList"/></Border></Popup><Popup x:Name="SiteInfoPopup" Placement="Bottom" PlacementTarget="{Binding ElementName=SitePermissionsButton}" StaysOpen="False" AllowsTransparency="True"><Border Background="#0B1624" BorderBrush="#315F8B" BorderThickness="1" CornerRadius="12" Width="410" MaxHeight="620" Padding="14" Margin="0,7,0,0"><ScrollViewer VerticalScrollBarVisibility="Auto"><ScrollViewer.Resources><Style TargetType="ScrollBar" BasedOn="{StaticResource SitePanelScrollBar}"/></ScrollViewer.Resources><StackPanel x:Name="SiteInfoContent"/></ScrollViewer></Border></Popup></Grid>
+        <Grid Grid.Column="4" Margin="8,0">
+          <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+          <Button x:Name="SitePermissionsButton" Grid.Column="0" Content="🔒" ToolTip="Informace a oprávnění aktuální stránky" Click="SitePermissionsButton_Click" Padding="8,0" Margin="0,0,5,0"/>
+          <TextBox x:Name="AddressBox" Grid.Column="1" VerticalContentAlignment="Center" PreviewKeyDown="AddressBox_PreviewKeyDown" KeyDown="AddressBox_KeyDown" TextChanged="AddressBox_TextChanged" GotKeyboardFocus="AddressBox_GotKeyboardFocus" PreviewMouseLeftButtonDown="AddressBox_PreviewMouseLeftButtonDown" PreviewMouseLeftButtonUp="AddressBox_PreviewMouseLeftButtonUp" ToolTip="Zadejte adresu nebo vyhledávání"/>
+          <Popup x:Name="AddressSuggestions" Placement="Custom" CustomPopupPlacementCallback="AddressSuggestions_CustomPopupPlacement" PlacementTarget="{Binding ElementName=AddressBox}" StaysOpen="False" AllowsTransparency="True">
+            <Border x:Name="AddressSuggestionsBorder" Background="#16243A" BorderBrush="#31537D" BorderThickness="1" CornerRadius="0,0,10,10" MinWidth="360" Padding="6"><StackPanel x:Name="AddressSuggestionList"/></Border>
+          </Popup>
+          <Popup x:Name="SiteInfoPopup" Placement="Bottom" PlacementTarget="{Binding ElementName=SitePermissionsButton}" StaysOpen="False" AllowsTransparency="True">
+            <Border Background="#0B1624" BorderBrush="#315F8B" BorderThickness="1" CornerRadius="12" Width="410" MaxHeight="620" Padding="14" Margin="0,7,0,0">
+              <ScrollViewer VerticalScrollBarVisibility="Auto"><ScrollViewer.Resources><Style TargetType="ScrollBar" BasedOn="{StaticResource SitePanelScrollBar}"/></ScrollViewer.Resources><StackPanel x:Name="SiteInfoContent"/></ScrollViewer>
+            </Border>
+          </Popup>
+          <Popup x:Name="SitePermissionPromptPopup" Placement="Bottom" PlacementTarget="{Binding ElementName=SitePermissionsButton}" StaysOpen="True" AllowsTransparency="True" PopupAnimation="Fade">
+            <Border Background="#0B1624" BorderBrush="#38D9FF" BorderThickness="1" CornerRadius="12" Width="410" Padding="16" Margin="0,7,0,0">
+              <StackPanel>
+                <DockPanel LastChildFill="False">
+                  <TextBlock Text="Oprávnění webu" FontSize="16" FontWeight="SemiBold" Foreground="#7DE7FF"/>
+                  <Button Content="×" DockPanel.Dock="Right" Width="30" Height="28" Padding="0" Background="Transparent" BorderThickness="0" Foreground="#BBD2EA" ToolTip="Rozhodnout později" Click="PermissionPromptDismiss_Click"/>
+                </DockPanel>
+                <TextBlock x:Name="PermissionPromptOriginText" Margin="0,14,0,3" FontSize="14" FontWeight="SemiBold" Foreground="#EAF3FF" TextWrapping="Wrap"/>
+                <TextBlock x:Name="PermissionPromptRequestText" Foreground="#C8D9ED" TextWrapping="Wrap"/>
+                <TextBlock x:Name="PermissionPromptHintText" Margin="0,9,0,16" FontSize="12" Foreground="#8FAEC9" TextWrapping="Wrap"/>
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                  <Button Content="Později" Height="34" Padding="12,0" Background="#182A43" BorderBrush="#315F8B" Click="PermissionPromptDismiss_Click"/>
+                  <Button Content="Blokovat" Height="34" Padding="12,0" Margin="8,0,0,0" Background="#3A202B" BorderBrush="#8C4660" Click="PermissionPromptDeny_Click"/>
+                  <Button Content="Povolit" Height="34" Padding="12,0" Margin="8,0,0,0" Background="#12648A" BorderBrush="#3B9FCC" Click="PermissionPromptAllow_Click"/>
+                </StackPanel>
+              </StackPanel>
+            </Border>
+          </Popup>
+        </Grid>
         <Button Grid.Column="5" Content="Přejít" Click="Go_Click"/>
         <Button x:Name="FavoritesButton" Grid.Column="6" Content="☆" FontSize="18" ToolTip="Oblíbené" Click="FavoritesButton_Click"/>
 

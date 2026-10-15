@@ -30,7 +30,9 @@ public partial class MainWindow : Window
     private readonly string? _siteAppId;
     private readonly string? _manageAppId;
     private readonly bool _isPrivateWindow;
-    private readonly string? _privateWebDataFolder;
+    // A private WebView profile belongs to its live tabs, not to one window.
+    // Moving a tab must never make its profile eligible for deletion.
+    private PrivateWebSession? _privateWebSession;
     private SiteAppEntry? _siteAppEntry;
     private System.Windows.Controls.Primitives.Popup? _siteAppMenuPopup;
     private static readonly HttpClient UpdateClient = new() { Timeout = TimeSpan.FromMinutes(5) };
@@ -57,9 +59,14 @@ public partial class MainWindow : Window
     private bool _videoFullScreen;
     private bool _wasMaximizedBeforeVideo;
     private bool _sidePanelWasVisibleBeforeVideo;
+    private int _siteInfoRenderVersion;
+    private PendingSitePermissionRequest? _pendingSitePermissionRequest;
     private Rect _restoreWindowBounds;
     private Rect _videoRestoreBounds;
     private readonly string _webDataFolder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "YamaSearch", "WebView");
+    private readonly SemaphoreSlim _permissionPromptGate = new(1, 1);
+    private static readonly object WebViewEnvironmentLock = new();
+    private static Task<CoreWebView2Environment>? _normalWebViewEnvironmentTask;
     private readonly HashSet<string> _adHosts = new(StringComparer.OrdinalIgnoreCase)
     {
         "doubleclick.net", "googlesyndication.com", "googleadservices.com", "adservice.google.com",
@@ -86,13 +93,17 @@ public partial class MainWindow : Window
         _isPrivateWindow = privateWindow;
         _startEmpty = startEmpty;
         if (_isPrivateWindow)
-            _privateWebDataFolder = Path.Combine(Path.GetTempPath(), "YamaSearch", "Private", Guid.NewGuid().ToString("N"));
+            _privateWebSession = new PrivateWebSession();
         _siteAppEntry = !string.IsNullOrWhiteSpace(siteAppId)
             ? _settings.Data.InstalledApps.FirstOrDefault(x => x.Id == siteAppId)
             : null;
         InitializeComponent();
         Loaded += (_, _) => TabWindowRegistry.Register(_windowId, this);
-        Closing += (_, _) => _isClosing = true;
+        Closing += (_, _) =>
+        {
+            _isClosing = true;
+            foreach (var tab in _tabs.ToArray()) CancelPendingSitePermissionRequest(tab);
+        };
         Closed += (_, _) => TabWindowRegistry.Unregister(_windowId);
         if (_isPrivateWindow)
         {
@@ -328,26 +339,83 @@ public partial class MainWindow : Window
 
     private async Task CreateTabAsync(string? address = null)
     {
+        if (_isClosing) return;
         var tab = new BrowserTab();
+        if (_isPrivateWindow)
+        {
+            tab.PrivateSession = GetPrivateWebSessionForNewTab();
+            tab.PrivateSession.RetainTab();
+        }
+        CoreWebView2Environment? environment = null;
         _tabs.Add(tab);
-        SelectTab(tab);
-        StatusText.Text = "Spouštím webový engine…";
         try
         {
-            var environment = await CreateWebViewEnvironmentAsync();
-            var initializeTask = tab.View.EnsureCoreWebView2Async(environment);
+            if (!IsTabCreationStillCurrent(tab)) return;
+            SelectTab(tab);
+            StatusText.Text = "Spouštím webový engine…";
+            environment = await GetWebViewEnvironmentAsync(tab);
+            if (!IsTabCreationStillCurrent(tab)) return;
+            // A private session distinguishes an environment that was created but
+            // never received a controller from a real Chromium process. This lets
+            // a rapid window close clean the former immediately, while the latter
+            // waits for BrowserProcessExited before its profile is removed.
+            var privateSession = tab.PrivateSession;
+            PrivateWebSession.ControllerInitialization? controllerInitialization = null;
+            if (privateSession is not null)
+            {
+                controllerInitialization = privateSession.BeginControllerInitialization(environment);
+                tab.PrivateInitialization = controllerInitialization;
+            }
+            Task initializeTask;
+            try
+            {
+                initializeTask = tab.View.EnsureCoreWebView2Async(environment);
+                if (privateSession is not null && controllerInitialization is not null)
+                {
+                    _ = initializeTask.ContinueWith(
+                        completed =>
+                        {
+                            if (ReferenceEquals(tab.PrivateInitialization, controllerInitialization))
+                                tab.PrivateInitialization = null;
+                            privateSession.CompleteControllerInitialization(
+                                controllerInitialization,
+                                completed.IsCompletedSuccessfully || HasLiveWebViewProcess(environment));
+                        },
+                        CancellationToken.None,
+                        TaskContinuationOptions.None,
+                        TaskScheduler.FromCurrentSynchronizationContext());
+                }
+            }
+            catch
+            {
+                if (privateSession is not null && controllerInitialization is not null)
+                {
+                    if (ReferenceEquals(tab.PrivateInitialization, controllerInitialization))
+                        tab.PrivateInitialization = null;
+                    privateSession.CompleteControllerInitialization(controllerInitialization, HasLiveWebViewProcess(environment));
+                }
+                throw;
+            }
             if (await Task.WhenAny(initializeTask, Task.Delay(TimeSpan.FromSeconds(12))) != initializeTask)
                 throw new TimeoutException("WebView2 Runtime se nespustil během 12 sekund.");
             await initializeTask;
+            if (!IsTabCreationStillCurrent(tab)) return;
             await ConfigureWebViewAsync(tab);
+            if (!IsTabCreationStillCurrent(tab)) return;
             SelectTab(tab);
             _ = Dispatcher.BeginInvoke(() => TabsScroller.ScrollToRightEnd());
             await NavigateAsync(tab, address ?? _settings.Data.HomePage);
         }
         catch (Exception exception)
         {
-            _tabs.Remove(tab);
-            tab.View.Dispose();
+            // A failed navigation or tab configuration does not mean the shared
+            // environment is unhealthy. Invalidating it here could create a second
+            // browser process over the same normal profile while other windows are
+            // still using the first one. Creation failures and BrowserProcessExited
+            // already clear the cached environment in their dedicated paths.
+            var wasTracked = _tabs.Remove(tab);
+            if (wasTracked) DisposeBrowserTab(tab);
+            if (_isClosing || !wasTracked) return;
             StatusText.Text = "Novou kartu se nepodařilo otevřít: " + exception.Message;
             MessageBox.Show(
                 "YamaSearch nemohl otevřít novou kartu.\n\n" + exception.Message,
@@ -355,6 +423,18 @@ public partial class MainWindow : Window
                 MessageBoxButton.OK,
                 MessageBoxImage.Error);
         }
+    }
+
+    private bool IsTabCreationStillCurrent(BrowserTab tab)
+        => !_isClosing && _tabs.Contains(tab);
+
+    private static bool HasLiveWebViewProcess(CoreWebView2Environment environment)
+    {
+        try { return environment.GetProcessInfos().Any(); }
+        // A failed process query is not proof that Chromium has already stopped.
+        // The session will wait for BrowserProcessExited rather than delete a live
+        // profile concurrently with a process that could still hold it.
+        catch { return true; }
     }
 
     private async Task ConfigureWebViewAsync(BrowserTab tab)
@@ -370,12 +450,15 @@ public partial class MainWindow : Window
         core.WebResourceRequested += (_, e) => tab.Owner?.BlockRequest(tab, e);
         await RefreshYamaBlockBootstrapAsync(tab);
         await InstallTabTitleWatcherAsync(tab);
+        await InstallMediaUsageWatcherAsync(tab);
         core.WebMessageReceived += (_, e) => tab.Owner?.HandleNewTabMessage(tab, e);
         core.NavigationStarting += (_, e) =>
         {
             var owner = tab.Owner;
             if (owner is null) return;
             owner.ResetTabPageState(tab);
+            owner.CancelPendingSitePermissionRequest(tab);
+            tab.NavigationGeneration++;
             tab.BlockedCount = 0;
             if (owner._active == tab) owner.BlockedText.Text = "YamaBlock · 0 blokováno";
 
@@ -385,7 +468,12 @@ public partial class MainWindow : Window
                 if (owner._active == tab) owner.SetAddressText(e.Uri);
             }
             if (owner._active == tab) owner.StatusText.Text = "Načítání…";
-            if (owner._active == tab) owner.UpdateNavigationControls();
+            if (owner._active == tab)
+            {
+                owner.UpdateNavigationControls();
+                owner.UpdateSiteInformationButton(tab);
+                owner.RefreshOpenSiteInformation(tab);
+            }
         };
         core.NavigationCompleted += async (_, e) =>
         {
@@ -398,6 +486,7 @@ public partial class MainWindow : Window
                 if (!owner._isPrivateWindow)
                     owner.AddHistory(core.Source, core.DocumentTitle, core.FaviconUri);
                 await owner.ApplyYamaBlockPageRulesAsync(tab);
+                await owner.SyncPermissionActivitiesFromProfileAsync(tab);
             }
             if (owner._active == tab) owner.UpdateNavigationControls();
         };
@@ -440,7 +529,21 @@ public partial class MainWindow : Window
         };
 
         core.ContainsFullScreenElementChanged += (_, _) => tab.Owner?.Dispatcher.Invoke(() => tab.Owner?.SetVideoFullScreen(core.ContainsFullScreenElement));
-        core.SourceChanged += (_, _) => { var owner = tab.Owner; owner?.UpdateTabTitle(tab); if (owner?._active == tab) { owner.SetAddressText(tab.IsYamaNewTab ? "" : core.Source); owner.UpdateNavigationControls(); owner.UpdateSiteInformationButton(tab); } };
+        core.SourceChanged += (_, e) =>
+        {
+            var owner = tab.Owner;
+            if (e.IsNewDocument) tab.PermissionActivities.Clear();
+            owner?.UpdateTabTitle(tab);
+            if (owner is not null)
+                _ = owner.SyncPermissionActivitiesFromProfileAsync(tab);
+            if (owner?._active == tab)
+            {
+                owner.SetAddressText(tab.IsYamaNewTab ? "" : core.Source);
+                owner.UpdateNavigationControls();
+                owner.UpdateSiteInformationButton(tab);
+                owner.RefreshOpenSiteInformation(tab);
+            }
+        };
         core.HistoryChanged += (_, _) => { var owner = tab.Owner; if (owner?._active == tab) owner.Dispatcher.Invoke(owner.UpdateNavigationControls); };
         core.PermissionRequested += (_, e) => tab.Owner?.HandlePermissionRequest(tab, e);
         core.NewWindowRequested += async (_, e) => { e.Handled = true; var owner = tab.Owner; if (owner is not null) await owner.CreateTabAsync(e.Uri); };
@@ -468,31 +571,197 @@ public partial class MainWindow : Window
 
         await tab.View.CoreWebView2.AddScriptToExecuteOnDocumentCreatedAsync(script);
     }
-    private async Task<CoreWebView2Environment> CreateWebViewEnvironmentAsync()
+
+    private static async Task InstallMediaUsageWatcherAsync(BrowserTab tab)
+    {
+        // WebView2 exposes permission decisions, but not whether a granted camera
+        // or microphone stream is currently alive. Observe getUserMedia without
+        // changing its result so the lock panel can show Edge-like live usage.
+        const string scriptTemplate = """
+            (() => {
+              if (window.__yamaSearchMediaObserverV1) return;
+              window.__yamaSearchMediaObserverV1 = true;
+
+              const bridgeToken = __YAMA_BRIDGE_TOKEN__;
+              const marker = '__yamaSearchMediaUsageV1';
+              const sendToHost = payload => {
+                try {
+                  payload.action = 'siteMediaUsage';
+                  payload.bridgeToken = bridgeToken;
+                  payload.origin = location.origin || '';
+                  if (window === window.top) {
+                    payload.topOrigin = location.origin || '';
+                    chrome.webview.postMessage(JSON.stringify(payload));
+                  } else {
+                    window.top.postMessage({ marker, bridgeToken, payload }, '*');
+                  }
+                } catch { }
+              };
+
+              if (window === window.top) {
+                window.addEventListener('message', event => {
+                  try {
+                    const value = event.data;
+                    if (!value || value.marker !== marker || value.bridgeToken !== bridgeToken || !value.payload) return;
+                    value.payload.topOrigin = location.origin || '';
+                    chrome.webview.postMessage(JSON.stringify(value.payload));
+                  } catch { }
+                });
+              }
+
+              const mediaDevices = navigator.mediaDevices;
+              if (!mediaDevices || typeof mediaDevices.getUserMedia !== 'function') return;
+              const originalGetUserMedia = mediaDevices.getUserMedia.bind(mediaDevices);
+              mediaDevices.getUserMedia = async function(constraints) {
+                const requestedKinds = [];
+                if (constraints && constraints.audio) requestedKinds.push('microphone');
+                if (constraints && constraints.video) requestedKinds.push('camera');
+                const requestId = (crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`);
+                for (const mediaKind of requestedKinds)
+                  sendToHost({ phase: 'request', requestId, mediaKind });
+                try {
+                  const stream = await originalGetUserMedia(constraints);
+                  const tracks = typeof stream.getTracks === 'function' ? stream.getTracks() : [];
+                  for (const track of tracks) {
+                    const mediaKind = track.kind === 'audio' ? 'microphone' : track.kind === 'video' ? 'camera' : '';
+                    if (!mediaKind) continue;
+                    const trackId = `${requestId}:${track.id || Math.random()}`;
+                    sendToHost({ phase: 'active', requestId, trackId, mediaKind });
+                    let endedSent = false;
+                    const ended = () => {
+                      if (endedSent) return;
+                      endedSent = true;
+                      sendToHost({ phase: 'ended', requestId, trackId, mediaKind });
+                    };
+                    if (track.readyState === 'ended') ended();
+                    else {
+                      track.addEventListener('ended', ended, { once: true });
+                      try {
+                        const originalStop = track.stop.bind(track);
+                        track.stop = function() {
+                          try { return originalStop(); }
+                          finally { ended(); }
+                        };
+                      } catch { }
+                    }
+                  }
+                  return stream;
+                } catch (error) {
+                  const errorName = error && typeof error.name === 'string' ? error.name : 'Error';
+                  for (const mediaKind of requestedKinds)
+                    sendToHost({ phase: 'error', requestId, mediaKind, errorName });
+                  throw error;
+                }
+              };
+            })();
+            """;
+
+        var bridgeToken = JsonSerializer.Serialize(tab.MediaUsageBridgeToken);
+        await tab.View.CoreWebView2.AddScriptToExecuteOnDocumentCreatedAsync(
+            scriptTemplate.Replace("__YAMA_BRIDGE_TOKEN__", bridgeToken, StringComparison.Ordinal));
+    }
+    private PrivateWebSession GetPrivateWebSessionForNewTab()
+    {
+        if (_privateWebSession is null || !_privateWebSession.CanCreateTabs)
+            _privateWebSession = new PrivateWebSession();
+        return _privateWebSession;
+    }
+
+    private void ReconcilePrivateSessionForLocalTabs()
+    {
+        if (!_isPrivateWindow) return;
+        if (_privateWebSession is not null
+            && _tabs.Any(tab => ReferenceEquals(tab.PrivateSession, _privateWebSession)))
+            return;
+
+        _privateWebSession = _tabs
+            .Select(tab => tab.PrivateSession)
+            .FirstOrDefault(session => session is not null)
+            ?? new PrivateWebSession();
+    }
+
+    private Task<CoreWebView2Environment> GetWebViewEnvironmentAsync(BrowserTab tab)
+    {
+        if (_isPrivateWindow)
+        {
+            var session = tab.PrivateSession ?? throw new InvalidOperationException("K anonymní kartě chybí její relace.");
+            var environmentTask = session.GetOrCreateEnvironmentTask(() => CreateWebViewEnvironmentAsync(session));
+            return AwaitWebViewEnvironmentAsync(environmentTask, session);
+        }
+
+        Task<CoreWebView2Environment> normalEnvironmentTask;
+        lock (WebViewEnvironmentLock)
+            normalEnvironmentTask = _normalWebViewEnvironmentTask ??= CreateWebViewEnvironmentAsync();
+        return AwaitWebViewEnvironmentAsync(normalEnvironmentTask);
+    }
+
+    private async Task<CoreWebView2Environment> AwaitWebViewEnvironmentAsync(
+        Task<CoreWebView2Environment> environmentTask,
+        PrivateWebSession? privateSession = null)
+    {
+        try { return await environmentTask; }
+        catch
+        {
+            if (privateSession is not null)
+                privateSession.InvalidateEnvironmentTask(environmentTask);
+            else
+            {
+                lock (WebViewEnvironmentLock)
+                {
+                    if (ReferenceEquals(_normalWebViewEnvironmentTask, environmentTask))
+                        _normalWebViewEnvironmentTask = null;
+                }
+            }
+            throw;
+        }
+    }
+
+    private async Task<CoreWebView2Environment> CreateWebViewEnvironmentAsync(PrivateWebSession? privateSession = null)
     {
         var options = new CoreWebView2EnvironmentOptions();
         if (!_settings.Data.HardwareAccelerationEnabled)
             options.AdditionalBrowserArguments = "--disable-gpu --disable-gpu-compositing";
 
+        var dataFolder = privateSession?.DataFolder ?? _webDataFolder;
+        if (string.IsNullOrWhiteSpace(dataFolder))
+            throw new InvalidOperationException("Pro webový engine se nepodařilo připravit profil.");
+
         try
         {
-            if (_isPrivateWindow && !string.IsNullOrWhiteSpace(_privateWebDataFolder))
-            {
-                Directory.CreateDirectory(_privateWebDataFolder);
-                return await CoreWebView2Environment.CreateAsync(null, _privateWebDataFolder, options);
-            }
-            Directory.CreateDirectory(_webDataFolder);
-            return await CoreWebView2Environment.CreateAsync(null, _webDataFolder, options);
+            Directory.CreateDirectory(dataFolder);
+            var environment = await CoreWebView2Environment.CreateAsync(null, dataFolder, options);
+            TrackWebViewEnvironmentLifetime(environment, privateSession);
+            return environment;
         }
-        catch (Exception exception) when (exception is ArgumentException or System.Runtime.InteropServices.COMException)
+        catch (Exception exception) when (exception is ArgumentException or System.Runtime.InteropServices.COMException or IOException or UnauthorizedAccessException)
         {
-            // A second development build can keep the normal profile in use. This fallback remains isolated.
-            var fallback = Path.Combine(Path.GetTempPath(), "YamaSearch-WebView-" + Environment.ProcessId);
-            Directory.CreateDirectory(fallback);
-            StatusText.Text = "Používám izolovaný profil webového enginu…";
-            return await CoreWebView2Environment.CreateAsync(null, fallback, options);
+            var profileName = privateSession is not null ? "anonymní profil" : "trvalý profil YamaSearch";
+            throw new InvalidOperationException($"Nepodařilo se otevřít {profileName}. Pro ochranu vašich dat nebyl použit dočasný náhradní profil.", exception);
         }
     }
+
+    private static void TrackWebViewEnvironmentLifetime(CoreWebView2Environment environment, PrivateWebSession? privateSession)
+    {
+        if (privateSession is not null)
+        {
+            environment.BrowserProcessExited += (_, _) => privateSession.BrowserProcessExited(environment);
+            return;
+        }
+
+        environment.BrowserProcessExited += NormalWebViewEnvironment_BrowserProcessExited;
+    }
+
+    private static void NormalWebViewEnvironment_BrowserProcessExited(object? sender, CoreWebView2BrowserProcessExitedEventArgs e)
+    {
+        if (sender is not CoreWebView2Environment environment) return;
+        lock (WebViewEnvironmentLock)
+        {
+            if (_normalWebViewEnvironmentTask is { IsCompletedSuccessfully: true }
+                && ReferenceEquals(_normalWebViewEnvironmentTask.Result, environment))
+                _normalWebViewEnvironmentTask = null;
+        }
+    }
+
 
     private void BlockRequest(BrowserTab tab, CoreWebView2WebResourceRequestedEventArgs e)
     {
@@ -959,22 +1228,65 @@ public partial class MainWindow : Window
     }
     private void SelectTab(BrowserTab tab)
     {
+        // The address-bar prompt is deliberately tied to the tab that caused it.
+        // Letting it survive a tab switch would make it appear next to another
+        // page's lock and could lead the user to allow a permission for the wrong
+        // web. The pending WebView2 deferral is completed without persistence.
+        if (!ReferenceEquals(_active, tab) && _active is not null)
+            CancelPendingSitePermissionRequest(_active);
+        _siteInfoRenderVersion++;
         SiteInfoPopup.IsOpen = false;
         _active = tab; BrowserHost.Children.Clear(); BrowserHost.Children.Add(tab.View);
         SetAddressText(tab.IsYamaNewTab ? "" : tab.View.CoreWebView2?.Source ?? "");
         UpdateSiteInformationButton(tab);
+        _ = SyncPermissionActivitiesFromProfileAsync(tab);
         RenderTabs(); UpdateNavigationControls(); UpdateZoomPopup(); BlockedText.Text = $"YamaBlock · {tab.BlockedCount} blokováno";
     }
 
     private void UpdateSiteInformationButton(BrowserTab tab)
     {
         var source = tab.View.CoreWebView2?.Source;
+        var pending = tab.PermissionActivities
+            .Where(activity => activity.IsPending || activity.IsMediaRequestPending)
+            .OrderByDescending(activity => activity.UpdatedAt)
+            .FirstOrDefault();
+        var activeMedia = tab.PermissionActivities
+            .Where(activity => activity.IsMediaInUse)
+            .OrderByDescending(activity => activity.UpdatedAt)
+            .FirstOrDefault();
+        var decision = tab.PermissionActivities
+            .Where(activity => !activity.IsPending
+                && (activity.State is CoreWebView2PermissionState.Allow or CoreWebView2PermissionState.Deny))
+            .OrderByDescending(activity => activity.UpdatedAt)
+            .FirstOrDefault();
         if (Uri.TryCreate(source, UriKind.Absolute, out var page) && page.Scheme is "http" or "https")
         {
-            SitePermissionsButton.Content = page.Scheme == Uri.UriSchemeHttps ? "🔒" : "⚠";
-            SitePermissionsButton.ToolTip = page.Scheme == Uri.UriSchemeHttps
+            var baseIcon = page.Scheme == Uri.UriSchemeHttps ? "🔒" : "⚠";
+            if (pending is not null)
+            {
+                SitePermissionsButton.Content = baseIcon + " •";
+                SitePermissionsButton.ToolTip = $"{PermissionLabels.For(pending.Kind)} čeká na vaše rozhodnutí";
+            }
+            else if (activeMedia is not null)
+            {
+                var mediaIcon = activeMedia.Kind == CoreWebView2PermissionKind.Microphone ? " 🎙" : " 📷";
+                SitePermissionsButton.Content = baseIcon + mediaIcon;
+                SitePermissionsButton.ToolTip = $"Web právě používá {PermissionLabels.For(activeMedia.Kind)}";
+            }
+            else if (decision is not null)
+            {
+                SitePermissionsButton.Content = baseIcon + (decision.State == CoreWebView2PermissionState.Allow ? " ✓" : " ×");
+                var state = decision.State == CoreWebView2PermissionState.Allow ? "povoleno" : "blokováno";
+                var scope = decision.IsSessionOnly ? " v tomto anonymním okně" : " pro tento web";
+                SitePermissionsButton.ToolTip = $"{PermissionLabels.For(decision.Kind)} je {state}{scope}";
+            }
+            else
+            {
+                SitePermissionsButton.Content = baseIcon;
+                SitePermissionsButton.ToolTip = page.Scheme == Uri.UriSchemeHttps
                 ? "Zabezpečené připojení a oprávnění webu"
                 : "Nezabezpečené připojení a oprávnění webu";
+            }
         }
         else
         {
@@ -1469,6 +1781,7 @@ public partial class MainWindow : Window
             && payload.Source != this
             && !payload.Source._isClosing
             && _isPrivateWindow == payload.Source._isPrivateWindow
+            && (!_isPrivateWindow || payload.Tab.PrivateSession is not null)
             && payload.Tab.Owner == payload.Source
             && TabWindowRegistry.IsRegistered(_windowId, this)
             && TabWindowRegistry.IsRegistered(payload.Source._windowId, payload.Source);
@@ -1482,9 +1795,15 @@ public partial class MainWindow : Window
         if (sourceIndex < 0)
             return false;
 
+        var targetWasEmpty = _tabs.Count == 0;
+        var targetPreviouslyActive = _active;
+        var sourcePreviousPrivateSession = source._privateWebSession;
         var sourceWasActive = ReferenceEquals(source._active, tab);
         try
         {
+            // An outstanding request belongs to the source window's address-bar
+            // prompt. Resolve it as "later" before this live WebView is reparented.
+            source.CancelPendingSitePermissionRequest(tab);
             // Remove the host from the old visual tree without disposing it.
             // Disposing is reserved for normal tab close and must never occur
             // while a live tab is handed to another browser window.
@@ -1499,18 +1818,20 @@ public partial class MainWindow : Window
                 source.SelectTab(source._tabs[Math.Min(sourceIndex, source._tabs.Count - 1)]);
             else
                 source.RenderTabs();
+            source.ReconcilePrivateSessionForLocalTabs();
 
             insertionIndex = Math.Clamp(insertionIndex, 0, _tabs.Count);
             _tabs.Insert(insertionIndex, tab);
             tab.Owner = this;
             SelectTab(tab);
 
-            // Closing is deliberately last: the target already displays the
-            // original WebView and all its live Chromium state at this point.
-            if (source._tabs.Count == 0 && !source._isClosing)
-                source.Close();
+            // An empty private target becomes part of the moved tab's existing
+            // session. This keeps later tabs in a torn-off window on the same
+            // ephemeral profile. A populated target deliberately keeps its own
+            // session: merging two live Chromium profiles would lose state.
+            if (_isPrivateWindow && targetWasEmpty && tab.PrivateSession is not null)
+                _privateWebSession = tab.PrivateSession;
 
-            return true;
         }
         catch
         {
@@ -1524,10 +1845,34 @@ public partial class MainWindow : Window
             tab.Owner = source;
             if (!source._tabs.Contains(tab))
                 source._tabs.Insert(Math.Clamp(sourceIndex, 0, source._tabs.Count), tab);
+            if (source._isPrivateWindow)
+                source._privateWebSession = sourcePreviousPrivateSession;
             source.SelectTab(tab);
-            RenderTabs();
+
+            // SelectTab clears the target host before it re-parents the moving
+            // WebView. Restore the tab which had been visible in the target if
+            // that re-parenting fails, otherwise the target would remain blank.
+            if (targetPreviouslyActive is not null && _tabs.Contains(targetPreviouslyActive))
+                SelectTab(targetPreviouslyActive);
+            else
+            {
+                _active = null;
+                BrowserHost.Children.Clear();
+                RenderTabs();
+            }
             return false;
         }
+
+        // Closing is deliberately outside the transfer transaction. The target
+        // already owns and displays the original WebView; a window-close handler
+        // must not be able to roll that successful transfer back.
+        if (source._tabs.Count == 0 && !source._isClosing)
+        {
+            try { source.Close(); }
+            catch { source.StatusText.Text = "Karta byla přesunuta, zdrojové okno nelze nyní zavřít."; }
+        }
+
+        return true;
     }
 
     private void TearOffTab(BrowserTab tab)
@@ -1700,16 +2045,39 @@ public partial class MainWindow : Window
         => Uri.TryCreate(left, UriKind.Absolute, out var leftUri)
            && Uri.TryCreate(right, UriKind.Absolute, out var rightUri)
            && Uri.Compare(leftUri, rightUri, UriComponents.HttpRequestUrl, UriFormat.SafeUnescaped, StringComparison.OrdinalIgnoreCase) == 0;
-    private void CloseTab(BrowserTab tab) { if (_tabs.Count == 1) { _ = NavigateAsync(tab, _settings.Data.HomePage); return; } var index = _tabs.IndexOf(tab); _tabs.Remove(tab); tab.View.Dispose(); SelectTab(_tabs[Math.Max(0, index - 1)]); }
+    private void DisposeBrowserTab(BrowserTab tab)
+    {
+        CancelPendingSitePermissionRequest(tab);
+        tab.PermissionActivities.Clear();
+        var session = tab.PrivateSession;
+        var initialization = tab.PrivateInitialization;
+        try { tab.View.Dispose(); }
+        finally
+        {
+            if (initialization is not null)
+            {
+                tab.PrivateInitialization = null;
+                // Dispose releases every COM resource held by this WPF WebView2
+                // control. Query only afterwards, on the UI thread, so a pending
+                // Ensure task cannot leave the private profile blocked when the
+                // application dispatcher is shutting down.
+                session?.CancelControllerInitialization(initialization, HasLiveWebViewProcess(initialization.Environment));
+            }
+            tab.PrivateSession = null;
+            session?.ReleaseTab();
+        }
+    }
+
+    private void CloseTab(BrowserTab tab) { if (_tabs.Count == 1) { _ = NavigateAsync(tab, _settings.Data.HomePage); return; } var index = _tabs.IndexOf(tab); _tabs.Remove(tab); DisposeBrowserTab(tab); SelectTab(_tabs[Math.Max(0, index - 1)]); }
     private void CloseOtherTabs(BrowserTab keep)
     {
-        foreach (var tab in _tabs.Where(tab => tab != keep).ToList()) { _tabs.Remove(tab); tab.View.Dispose(); }
+        foreach (var tab in _tabs.Where(tab => tab != keep).ToList()) { _tabs.Remove(tab); DisposeBrowserTab(tab); }
         SelectTab(keep);
     }
     private void CloseTabsToRight(BrowserTab keep)
     {
         var index = _tabs.IndexOf(keep);
-        foreach (var tab in _tabs.Skip(index + 1).ToList()) { _tabs.Remove(tab); tab.View.Dispose(); }
+        foreach (var tab in _tabs.Skip(index + 1).ToList()) { _tabs.Remove(tab); DisposeBrowserTab(tab); }
         SelectTab(keep);
     }
     private void NewTab_Click(object sender, RoutedEventArgs e) => _ = CreateTabAsync();
@@ -3296,6 +3664,12 @@ public partial class MainWindow : Window
                 return;
             }
 
+            if (string.Equals(action, "siteMediaUsage", StringComparison.Ordinal))
+            {
+                HandleMediaUsageMessage(tab, root);
+                return;
+            }
+
             if (string.Equals(action, "tabTitleChanged", StringComparison.Ordinal)
                 && root.TryGetProperty("title", out var titleElement)
                 && titleElement.ValueKind == JsonValueKind.String)
@@ -3424,19 +3798,10 @@ public partial class MainWindow : Window
 
     private void CleanupPrivateWebData()
     {
-        foreach (var tab in _tabs.ToList()) tab.View.Dispose();
-        if (string.IsNullOrWhiteSpace(_privateWebDataFolder)) return;
-        GC.Collect();
-        GC.WaitForPendingFinalizers();
-        for (var attempt = 0; attempt < 8; attempt++)
+        foreach (var tab in _tabs.ToList())
         {
-            try
-            {
-                if (Directory.Exists(_privateWebDataFolder)) Directory.Delete(_privateWebDataFolder, true);
-                return;
-            }
-            catch (IOException) { Thread.Sleep(250); }
-            catch (UnauthorizedAccessException) { Thread.Sleep(250); }
+            _tabs.Remove(tab);
+            DisposeBrowserTab(tab);
         }
     }
     private async void BlockButton_Click(object sender, RoutedEventArgs e)
@@ -3521,25 +3886,440 @@ public partial class MainWindow : Window
             StatusText.Text = $"YamaShield: {(_settings.Data.SecurityLevel == SecurityLevel.Strict ? "Přísná" : _settings.Data.SecurityLevel == SecurityLevel.Custom ? "Vlastní" : "Doporučená")}";
         }
     }
-    private void HandlePermissionRequest(BrowserTab tab, CoreWebView2PermissionRequestedEventArgs e)
+
+    private void HandleMediaUsageMessage(BrowserTab tab, JsonElement root)
     {
-        var sensitive = e.PermissionKind is CoreWebView2PermissionKind.Camera or CoreWebView2PermissionKind.Microphone or CoreWebView2PermissionKind.Geolocation or CoreWebView2PermissionKind.Notifications or CoreWebView2PermissionKind.ClipboardRead;
-        if (!sensitive) { e.State = CoreWebView2PermissionState.Default; return; }
-        if (e.PermissionKind == CoreWebView2PermissionKind.Notifications && _settings.Data.BlockNewNotificationRequests)
+        if (!ReferenceEquals(tab.Owner, this) || !_tabs.Contains(tab)) return;
+        if (!root.TryGetProperty("bridgeToken", out var tokenElement)
+            || tokenElement.ValueKind != JsonValueKind.String
+            || !string.Equals(tokenElement.GetString(), tab.MediaUsageBridgeToken, StringComparison.Ordinal)) return;
+
+        var core = tab.View.CoreWebView2;
+        if (core is null
+            || !root.TryGetProperty("topOrigin", out var topOriginElement)
+            || topOriginElement.ValueKind != JsonValueKind.String
+            || !PermissionLabels.SameOrigin(topOriginElement.GetString(), core.Source)) return;
+
+        if (!root.TryGetProperty("origin", out var originElement)
+            || originElement.ValueKind != JsonValueKind.String
+            || !PermissionLabels.TryGetOrigin(originElement.GetString(), out var origin)) return;
+        if (!root.TryGetProperty("mediaKind", out var mediaKindElement)
+            || mediaKindElement.ValueKind != JsonValueKind.String) return;
+
+        var kind = mediaKindElement.GetString() switch
         {
-            e.State = CoreWebView2PermissionState.Deny;
-            e.SavesInProfile = false;
+            "microphone" => CoreWebView2PermissionKind.Microphone,
+            "camera" => CoreWebView2PermissionKind.Camera,
+            _ => (CoreWebView2PermissionKind?)null
+        };
+        if (kind is null) return;
+
+        var phase = root.TryGetProperty("phase", out var phaseElement) && phaseElement.ValueKind == JsonValueKind.String
+            ? phaseElement.GetString() ?? string.Empty
+            : string.Empty;
+        var requestId = root.TryGetProperty("requestId", out var requestElement) && requestElement.ValueKind == JsonValueKind.String
+            ? requestElement.GetString() ?? string.Empty
+            : string.Empty;
+        var trackId = root.TryGetProperty("trackId", out var trackElement) && trackElement.ValueKind == JsonValueKind.String
+            ? trackElement.GetString() ?? string.Empty
+            : string.Empty;
+
+        var activity = tab.PermissionActivities.FirstOrDefault(entry => entry.Kind == kind.Value
+            && PermissionLabels.SameOrigin(entry.Origin, origin));
+        if (activity is null)
+        {
+            // A request message is always posted before its active/error result.
+            // Ignoring orphaned results prevents a just-destroyed same-origin
+            // document from recreating stale media state after navigation.
+            if (!string.Equals(phase, "request", StringComparison.Ordinal)) return;
+            activity = new SitePermissionActivity(kind.Value, origin);
+            tab.PermissionActivities.Add(activity);
+        }
+
+        switch (phase)
+        {
+            case "request":
+                if (!string.IsNullOrWhiteSpace(requestId)) activity.PendingMediaRequestIds.Add(requestId);
+                activity.MediaErrorName = null;
+                break;
+            case "active":
+                if (!string.IsNullOrWhiteSpace(requestId)) activity.PendingMediaRequestIds.Remove(requestId);
+                if (!string.IsNullOrWhiteSpace(trackId)) activity.ActiveMediaTrackIds.Add(trackId);
+                activity.WasMediaUsed = true;
+                activity.MediaErrorName = null;
+                _ = SyncPermissionActivitiesFromProfileAsync(tab);
+                break;
+            case "error":
+                if (!string.IsNullOrWhiteSpace(requestId)) activity.PendingMediaRequestIds.Remove(requestId);
+                activity.MediaErrorName = root.TryGetProperty("errorName", out var errorElement)
+                    && errorElement.ValueKind == JsonValueKind.String
+                    ? errorElement.GetString()
+                    : "Error";
+                break;
+            case "ended":
+                if (!string.IsNullOrWhiteSpace(requestId)) activity.PendingMediaRequestIds.Remove(requestId);
+                if (!string.IsNullOrWhiteSpace(trackId)) activity.ActiveMediaTrackIds.Remove(trackId);
+                activity.WasMediaUsed = true;
+                break;
+            default:
+                return;
+        }
+
+        activity.UpdatedAt = DateTimeOffset.Now;
+        RefreshPermissionPresentation(tab);
+    }
+
+    private async Task SyncPermissionActivitiesFromProfileAsync(BrowserTab tab)
+    {
+        var core = tab.View.CoreWebView2;
+        if (core is null || !PermissionLabels.TryGetOrigin(core.Source, out var currentOrigin)) return;
+
+        var navigationGeneration = tab.NavigationGeneration;
+        var syncVersion = ++tab.PermissionSyncVersion;
+        IReadOnlyList<CoreWebView2PermissionSetting> settings;
+        try { settings = await core.Profile.GetNonDefaultPermissionSettingsAsync(); }
+        catch (Exception error)
+        {
+            Debug.WriteLine("Nepodařilo se načíst uložená oprávnění webu: " + error.Message);
             return;
         }
 
-        var label = PermissionLabels.For(e.PermissionKind);
-        var origin = PermissionLabels.ToOrigin(e.Uri);
-        var answer = new PermissionPromptWindow(origin, label) { Owner = this }.ShowDialog();
-        e.State = answer == true ? CoreWebView2PermissionState.Allow : CoreWebView2PermissionState.Deny;
-        // WebView2 stores normal-window decisions by exact origin in its profile.
-        // Private windows deliberately keep the decision only for this session.
-        e.SavesInProfile = !_isPrivateWindow;
+        if (!ReferenceEquals(tab.Owner, this)
+            || !_tabs.Contains(tab)
+            || !ReferenceEquals(tab.View.CoreWebView2, core)
+            || tab.NavigationGeneration != navigationGeneration
+            || tab.PermissionSyncVersion != syncVersion
+            || !PermissionLabels.SameOrigin(core.Source, currentOrigin)) return;
+
+        var relatedOrigins = tab.PermissionActivities
+            .Select(activity => PermissionLabels.NormalizeOrigin(activity.Origin))
+            .Append(currentOrigin)
+            .Where(origin => !string.IsNullOrWhiteSpace(origin))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+        var relevantSettings = settings
+            .Where(setting => relatedOrigins.Any(origin => PermissionLabels.SameOrigin(origin, setting.PermissionOrigin)))
+            .ToArray();
+
+        foreach (var activity in tab.PermissionActivities.Where(activity => !activity.IsPending))
+        {
+            var stored = relevantSettings.FirstOrDefault(setting => setting.PermissionKind == activity.Kind
+                && PermissionLabels.SameOrigin(setting.PermissionOrigin, activity.Origin));
+            if (stored is not null)
+            {
+                activity.State = stored.PermissionState;
+                activity.IsSessionOnly = _isPrivateWindow;
+                activity.BlockedByGlobalRule = false;
+            }
+            else if (!activity.BlockedByGlobalRule
+                && activity.State is CoreWebView2PermissionState.Allow or CoreWebView2PermissionState.Deny)
+            {
+                activity.State = CoreWebView2PermissionState.Default;
+                activity.IsSessionOnly = false;
+            }
+        }
+
+        foreach (var setting in relevantSettings)
+        {
+            UpdatePermissionActivity(tab, setting.PermissionKind, PermissionLabels.NormalizeOrigin(setting.PermissionOrigin),
+                setting.PermissionState, isPending: false, isSessionOnly: _isPrivateWindow, blockedByGlobalRule: false);
+        }
+
+        if (ReferenceEquals(_active, tab)) UpdateSiteInformationButton(tab);
     }
+
+    private async void HandlePermissionRequest(BrowserTab tab, CoreWebView2PermissionRequestedEventArgs e)
+    {
+        var deferral = e.GetDeferral();
+        var promptGate = _permissionPromptGate;
+        PermissionRequestCoordinator.Lease? sharedRequest = null;
+        try
+        {
+            var core = tab.View.CoreWebView2;
+            if (core is null)
+            {
+                e.State = CoreWebView2PermissionState.Deny;
+                e.SavesInProfile = false;
+                return;
+            }
+            var navigationGeneration = tab.NavigationGeneration;
+
+            await promptGate.WaitAsync();
+            try
+            {
+                // WebView2 can raise another request while a deferral is pending. Read
+                // the profile only after this request reaches the serialized decision
+                // point, otherwise two dialogs can race or stack on top of one another.
+                if (!IsPermissionRequestStillCurrent(tab, core, navigationGeneration))
+                {
+                    e.State = CoreWebView2PermissionState.Default;
+                    e.SavesInProfile = false;
+                    return;
+                }
+
+                if (!PermissionLabels.TryGetOrigin(e.Uri, out var origin))
+                {
+                    // WebView2 profile settings accept only real web origins. Do not
+                    // try to persist a decision for an internal/data URL.
+                    e.State = CoreWebView2PermissionState.Default;
+                    e.SavesInProfile = false;
+                    return;
+                }
+                // The requesting origin can be an embedded chat/call component rather
+                // than the top-level page. Keep that exact origin with the tab so the
+                // lock panel never edits a different site's permission by accident.
+                var activity = UpdatePermissionActivity(tab, e.PermissionKind, origin,
+                    CoreWebView2PermissionState.Default, isPending: false, isSessionOnly: false, blockedByGlobalRule: false);
+                var existing = await PermissionMutationCoordinator.RunAsync(core.Profile, origin, async () =>
+                    (await core.Profile.GetNonDefaultPermissionSettingsAsync())
+                        .FirstOrDefault(setting => setting.PermissionKind == e.PermissionKind
+                            && PermissionLabels.SameOrigin(setting.PermissionOrigin, origin))
+                        ?.PermissionState);
+
+                // A direct decision from the site panel is authoritative. In particular,
+                // the global notification guard must not silently override an explicit Allow.
+                if (existing is CoreWebView2PermissionState.Allow or CoreWebView2PermissionState.Deny)
+                {
+                    e.State = existing.Value;
+                    e.SavesInProfile = false;
+                    UpdatePermissionActivity(tab, e.PermissionKind, origin, existing.Value,
+                        isPending: false, isSessionOnly: _isPrivateWindow, blockedByGlobalRule: false, activity);
+                    RefreshPermissionPresentation(tab);
+                    return;
+                }
+
+                var sensitive = e.PermissionKind is CoreWebView2PermissionKind.Camera
+                    or CoreWebView2PermissionKind.Microphone
+                    or CoreWebView2PermissionKind.Geolocation
+                    or CoreWebView2PermissionKind.Notifications
+                    or CoreWebView2PermissionKind.ClipboardRead;
+                if (!sensitive)
+                {
+                    e.State = CoreWebView2PermissionState.Default;
+                    e.SavesInProfile = false;
+                    RefreshPermissionPresentation(tab);
+                    return;
+                }
+
+                if (e.PermissionKind == CoreWebView2PermissionKind.Notifications && _settings.Data.BlockNewNotificationRequests)
+                {
+                    e.State = CoreWebView2PermissionState.Deny;
+                    e.SavesInProfile = false;
+                    UpdatePermissionActivity(tab, e.PermissionKind, origin, CoreWebView2PermissionState.Deny,
+                        isPending: false, isSessionOnly: false, blockedByGlobalRule: true, activity);
+                    RefreshPermissionPresentation(tab);
+                    return;
+                }
+
+                // Never let a hidden/background tab become the shared prompt
+                // leader for another visible window. It can ask again after the
+                // user returns to that tab and repeats the protected action.
+                if (!ReferenceEquals(_active, tab))
+                {
+                    e.State = CoreWebView2PermissionState.Default;
+                    e.SavesInProfile = false;
+                    RefreshPermissionPresentation(tab);
+                    return;
+                }
+
+                if (!IsPermissionRequestStillCurrent(tab, core, navigationGeneration))
+                {
+                    e.State = CoreWebView2PermissionState.Default;
+                    e.SavesInProfile = false;
+                    return;
+                }
+
+                sharedRequest = PermissionRequestCoordinator.Join(core.Profile, origin, e.PermissionKind);
+                UpdatePermissionActivity(tab, e.PermissionKind, origin, CoreWebView2PermissionState.Default,
+                    isPending: true, isSessionOnly: false, blockedByGlobalRule: false, activity);
+                RefreshPermissionPresentation(tab);
+                CoreWebView2PermissionState requestedState;
+                if (sharedRequest.IsLeader)
+                {
+                    requestedState = await RequestSitePermissionDecisionAsync(tab, core, navigationGeneration, activity);
+                    if (!IsPermissionRequestStillCurrent(tab, core, navigationGeneration))
+                    {
+                        sharedRequest.Complete(CoreWebView2PermissionState.Default);
+                        e.State = CoreWebView2PermissionState.Default;
+                        e.SavesInProfile = false;
+                        return;
+                    }
+                    sharedRequest.Complete(requestedState);
+                }
+                else
+                {
+                    var localCancellation = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+                    tab.SharedPermissionWaitCancellations.Add(localCancellation);
+                    try
+                    {
+                        var completed = await Task.WhenAny(sharedRequest.Decision, localCancellation.Task);
+                        if (!ReferenceEquals(completed, sharedRequest.Decision))
+                        {
+                            e.State = CoreWebView2PermissionState.Default;
+                            e.SavesInProfile = false;
+                            UpdatePermissionActivity(tab, e.PermissionKind, origin, CoreWebView2PermissionState.Default,
+                                isPending: false, isSessionOnly: false, blockedByGlobalRule: false, activity);
+                            RefreshPermissionPresentation(tab);
+                            return;
+                        }
+                        requestedState = await sharedRequest.Decision;
+                    }
+                    finally
+                    {
+                        tab.SharedPermissionWaitCancellations.Remove(localCancellation);
+                    }
+                }
+
+                if (!IsPermissionRequestStillCurrent(tab, core, navigationGeneration))
+                {
+                    e.State = CoreWebView2PermissionState.Default;
+                    e.SavesInProfile = false;
+                    return;
+                }
+
+                e.State = requestedState;
+                // WebView2 owns the persistent decision for a live request. Updating
+                // the profile from inside its own permission callback can race the
+                // request, which made previous selections appear to do nothing.
+                // An anonymous window uses its own disposable WebView2 profile, so
+                // persisting Allow/Deny there keeps the choice for that anonymous
+                // session without ever writing it into the normal profile.
+                // Every still-current participant may persist the same shared
+                // answer. This is idempotent and avoids losing the choice if the
+                // leader's tab closes immediately after the user clicks a button.
+                e.SavesInProfile = requestedState is CoreWebView2PermissionState.Allow or CoreWebView2PermissionState.Deny;
+                UpdatePermissionActivity(tab, e.PermissionKind, origin, requestedState,
+                    isPending: false,
+                    isSessionOnly: _isPrivateWindow && (requestedState is CoreWebView2PermissionState.Allow or CoreWebView2PermissionState.Deny),
+                    blockedByGlobalRule: false,
+                    activity);
+                RefreshPermissionPresentation(tab);
+            }
+            finally
+            {
+                promptGate.Release();
+            }
+        }
+        catch (Exception error)
+        {
+            sharedRequest?.Complete(CoreWebView2PermissionState.Deny);
+            Debug.WriteLine("Nepodařilo se zpracovat žádost o oprávnění: " + error);
+            if (ReferenceEquals(tab.Owner, this) && PermissionLabels.TryGetOrigin(e.Uri, out var failedOrigin))
+            {
+                UpdatePermissionActivity(tab, e.PermissionKind, failedOrigin, CoreWebView2PermissionState.Default,
+                    isPending: false, isSessionOnly: false, blockedByGlobalRule: false,
+                    error: "Výzvu se nepodařilo zobrazit. Zkuste akci na webu znovu.");
+                if (ReferenceEquals(_active, tab))
+                    StatusText.Text = "Oprávnění se nepodařilo zobrazit. Zkuste akci na stránce znovu.";
+                RefreshPermissionPresentation(tab);
+            }
+            e.State = CoreWebView2PermissionState.Deny;
+            e.SavesInProfile = false;
+        }
+        finally
+        {
+            try { deferral.Complete(); }
+            catch (Exception error) { Debug.WriteLine("Dokončení žádosti o oprávnění selhalo: " + error.Message); }
+            finally { sharedRequest?.Dispose(); }
+        }
+    }
+
+    private SitePermissionActivity UpdatePermissionActivity(BrowserTab tab, CoreWebView2PermissionKind kind, string origin,
+        CoreWebView2PermissionState state, bool isPending, bool isSessionOnly, bool blockedByGlobalRule,
+        SitePermissionActivity? existing = null, string? error = null)
+    {
+        origin = PermissionLabels.NormalizeOrigin(origin);
+        var activity = existing ?? tab.PermissionActivities.FirstOrDefault(entry => entry.Kind == kind
+            && PermissionLabels.SameOrigin(entry.Origin, origin));
+        if (activity is null)
+        {
+            activity = new SitePermissionActivity(kind, origin);
+            tab.PermissionActivities.Add(activity);
+        }
+        activity.State = state;
+        activity.IsPending = isPending;
+        if (isPending) activity.MediaErrorName = null;
+        activity.IsSessionOnly = isSessionOnly;
+        activity.BlockedByGlobalRule = blockedByGlobalRule;
+        activity.LastError = error;
+        activity.UpdatedAt = DateTimeOffset.Now;
+        return activity;
+    }
+
+    private void RefreshPermissionPresentation(BrowserTab tab)
+    {
+        if (!Dispatcher.CheckAccess())
+        {
+            _ = Dispatcher.BeginInvoke(() => RefreshPermissionPresentation(tab));
+            return;
+        }
+        if (!ReferenceEquals(_active, tab)) return;
+        UpdateSiteInformationButton(tab);
+        RefreshOpenSiteInformation(tab);
+    }
+
+    private Task<CoreWebView2PermissionState> RequestSitePermissionDecisionAsync(BrowserTab tab, CoreWebView2 core,
+        long navigationGeneration, SitePermissionActivity activity)
+    {
+        if (!Dispatcher.CheckAccess())
+            return Dispatcher.InvokeAsync(() => RequestSitePermissionDecisionAsync(tab, core, navigationGeneration, activity)).Task.Unwrap();
+
+        if (!IsPermissionRequestStillCurrent(tab, core, navigationGeneration))
+            return Task.FromResult(CoreWebView2PermissionState.Default);
+
+        // A background tab must never attach its prompt to the visible page's
+        // lock. It can request again when the user returns to it and performs the
+        // relevant action, just like a cancelled browser permission prompt.
+        if (!ReferenceEquals(_active, tab))
+            return Task.FromResult(CoreWebView2PermissionState.Default);
+
+        CompletePendingSitePermissionRequest(CoreWebView2PermissionState.Default);
+        var request = new PendingSitePermissionRequest(tab, core, navigationGeneration, activity);
+        _pendingSitePermissionRequest = request;
+        SiteInfoPopup.IsOpen = false;
+        _siteInfoRenderVersion++;
+        PermissionPromptOriginText.Text = activity.Origin;
+        PermissionPromptRequestText.Text = $"chce používat {PermissionLabels.For(activity.Kind)}.";
+        PermissionPromptHintText.Text = _isPrivateWindow
+            ? "Volba platí pro tuto anonymní relaci a po jejím zavření se smaže."
+            : "Vaše volba se uloží pro tento přesný původ webu. Web může požádat znovu po změně nastavení.";
+        SitePermissionPromptPopup.IsOpen = true;
+        UpdateSiteInformationButton(tab);
+        return request.Decision.Task;
+    }
+
+    private void CompletePendingSitePermissionRequest(CoreWebView2PermissionState state)
+    {
+        var request = _pendingSitePermissionRequest;
+        if (request is null) return;
+        _pendingSitePermissionRequest = null;
+        SitePermissionPromptPopup.IsOpen = false;
+        request.Activity.State = state;
+        request.Activity.IsPending = false;
+        request.Activity.IsSessionOnly = _isPrivateWindow
+            && (state is CoreWebView2PermissionState.Allow or CoreWebView2PermissionState.Deny);
+        request.Activity.UpdatedAt = DateTimeOffset.Now;
+        RefreshPermissionPresentation(request.Tab);
+        request.Decision.TrySetResult(state);
+    }
+
+    private void CancelPendingSitePermissionRequest(BrowserTab tab)
+    {
+        foreach (var cancellation in tab.SharedPermissionWaitCancellations.ToArray())
+            cancellation.TrySetResult(true);
+        tab.SharedPermissionWaitCancellations.Clear();
+        if (ReferenceEquals(_pendingSitePermissionRequest?.Tab, tab))
+            CompletePendingSitePermissionRequest(CoreWebView2PermissionState.Default);
+    }
+
+    private void PermissionPromptAllow_Click(object sender, RoutedEventArgs e)
+        => CompletePendingSitePermissionRequest(CoreWebView2PermissionState.Allow);
+
+    private void PermissionPromptDeny_Click(object sender, RoutedEventArgs e)
+        => CompletePendingSitePermissionRequest(CoreWebView2PermissionState.Deny);
+
+    private void PermissionPromptDismiss_Click(object sender, RoutedEventArgs e)
+        => CompletePendingSitePermissionRequest(CoreWebView2PermissionState.Default);
 
     private async void SitePermissionsButton_Click(object sender, RoutedEventArgs e)
     {
@@ -3550,18 +4330,77 @@ public partial class MainWindow : Window
             StatusText.Text = "Oprávnění budou dostupná po načtení stránky.";
             return;
         }
+        if (ReferenceEquals(_pendingSitePermissionRequest?.Tab, tab))
+        {
+            // Keep the live request visible and avoid stacking the information
+            // panel directly over the Allow/Block prompt.
+            SiteInfoPopup.IsOpen = false;
+            SitePermissionPromptPopup.IsOpen = true;
+            return;
+        }
         SiteInfoPopup.IsOpen = !SiteInfoPopup.IsOpen;
-        if (!SiteInfoPopup.IsOpen) return;
+        if (!SiteInfoPopup.IsOpen)
+        {
+            _siteInfoRenderVersion++;
+            return;
+        }
+        await RenderSiteInformationAsync(tab);
+    }
+
+    private void RefreshOpenSiteInformation(BrowserTab tab)
+    {
+        if (SiteInfoPopup.IsOpen && ReferenceEquals(_active, tab))
+            _ = RenderSiteInformationAsync(tab);
+    }
+
+    private async Task RenderSiteInformationAsync(BrowserTab tab)
+    {
+        var core = tab.View.CoreWebView2;
+        if (core is null || !SiteInfoPopup.IsOpen || !ReferenceEquals(_active, tab)) return;
+
+        await SyncPermissionActivitiesFromProfileAsync(tab);
+        if (core is null || !SiteInfoPopup.IsOpen || !ReferenceEquals(_active, tab)) return;
+
         var origin = PermissionLabels.ToOrigin(core.Source);
         var host = GetPageHost(tab);
         var protectionEnabled = _settings.Data.BlockMode != BlockMode.Off && !string.IsNullOrWhiteSpace(host) && !IsWhitelisted(host);
-        var panel = new SiteInformationPanel(SiteInfoContent, core, origin, _isPrivateWindow, _settings.Data.BlockNewNotificationRequests, protectionEnabled, tab.BlockedCount,
+        var renderVersion = ++_siteInfoRenderVersion;
+        var permissionActivities = tab.PermissionActivities.ToArray();
+        var permissionOrigins = permissionActivities.Select(activity => activity.Origin)
+            .Append(origin)
+            .Select(PermissionLabels.NormalizeOrigin)
+            .Where(candidate => PermissionLabels.TryGetOrigin(candidate, out _))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+        var panel = new SiteInformationPanel(SiteInfoContent, core, origin, _isPrivateWindow, protectionEnabled, tab.BlockedCount,
             enabled => SetSiteProtectionAsync(tab, host, enabled),
             () =>
             {
+                _siteInfoRenderVersion++;
                 SiteInfoPopup.IsOpen = false;
-                new PermissionsWindow(core.Profile, origin, _isPrivateWindow) { Owner = this }.ShowDialog();
-            });
+                new PermissionsWindow(core.Profile, origin, _isPrivateWindow, permissionOrigins,
+                    (setting, state) =>
+                    {
+                        if (!ReferenceEquals(tab.Owner, this) || !_tabs.Contains(tab)) return;
+                        var updatedActivity = UpdatePermissionActivity(tab, setting.PermissionKind, setting.PermissionOrigin, state,
+                            isPending: false,
+                            isSessionOnly: _isPrivateWindow && (state is CoreWebView2PermissionState.Allow or CoreWebView2PermissionState.Deny),
+                            blockedByGlobalRule: false);
+                        updatedActivity.MediaErrorName = null;
+                        RefreshPermissionPresentation(tab);
+                    }) { Owner = this }.ShowDialog();
+            },
+            permissionActivities,
+            () =>
+            {
+                if (ReferenceEquals(_active, tab))
+                    UpdateSiteInformationButton(tab);
+            },
+            () => renderVersion == _siteInfoRenderVersion
+                && ReferenceEquals(_active, tab)
+                && SiteInfoPopup.IsOpen
+                && ReferenceEquals(tab.View.CoreWebView2, core)
+                && string.Equals(PermissionLabels.ToOrigin(core.Source), origin, StringComparison.OrdinalIgnoreCase));
         await panel.RenderAsync();
     }
 
@@ -3573,9 +4412,17 @@ public partial class MainWindow : Window
         _settings.Save();
         await ApplyYamaBlockToAllTabsAsync();
         if (_active == tab) BlockedText.Text = enabled ? $"YamaBlock · {tab.BlockedCount} blokováno" : "YamaBlock · výjimka pro tento web";
+        _siteInfoRenderVersion++;
         SiteInfoPopup.IsOpen = false;
         StatusText.Text = enabled ? "YamaBlock je pro tento web zapnutý." : "YamaBlock je pro tento web vypnutý.";
     }
+
+    private bool IsPermissionRequestStillCurrent(BrowserTab tab, CoreWebView2 core, long navigationGeneration)
+        => !_isClosing
+            && ReferenceEquals(tab.Owner, this)
+            && _tabs.Contains(tab)
+            && ReferenceEquals(tab.View.CoreWebView2, core)
+            && tab.NavigationGeneration == navigationGeneration;
 
     private void TitleBar_MouseDown(object sender, MouseButtonEventArgs e)
     {
@@ -4066,7 +4913,283 @@ public partial class MainWindow : Window
     private string SearchEndpoint() => _settings.Data.SearchEngine switch { "Google" => "https://www.google.com/search", "Bing" => "https://www.bing.com/search", "Seznam" => "https://search.seznam.cz/", "Brave Search" => "https://search.brave.com/search", "Ecosia" => "https://www.ecosia.org/search", "Yahoo" => "https://search.yahoo.com/search", "Startpage" => "https://www.startpage.com/sp/search", "Custom" => _settings.Data.CustomSearchEndpoint.Replace("{query}", ""), _ => "https://duckduckgo.com/" };
 }
 
-public sealed class BrowserTab { public Guid Id { get; } = Guid.NewGuid(); public WebView2 View { get; } = new() { DefaultBackgroundColor = System.Drawing.Color.FromArgb(0x0B, 0x10, 0x1A) }; public MainWindow? Owner { get; set; } public string Title { get; set; } = "Nová karta"; public ImageSource? Favicon { get; set; } public bool IsYamaNewTab { get; set; } public int BlockedCount { get; set; } public string? YamaBlockScriptId { get; set; } public bool IsPlayingAudio { get; set; } public bool IsMuted { get; set; } public bool HasWebNotification { get; set; } public int? NotificationCount { get; set; } }
+internal sealed class PrivateWebSession
+{
+    internal sealed class ControllerInitialization
+    {
+        public ControllerInitialization(CoreWebView2Environment environment) => Environment = environment;
+        public CoreWebView2Environment Environment { get; }
+    }
+
+    private readonly object _sync = new();
+    private Task<CoreWebView2Environment>? _environmentTask;
+    private int _liveTabLeases;
+    private readonly HashSet<ControllerInitialization> _pendingControllerInitializations = [];
+    private bool _awaitingBrowserProcessExit;
+    private bool _cleanupRequested;
+    private bool _profileDeletionRunning;
+    private bool _profileDeleted;
+
+    public string DataFolder { get; } = Path.Combine(Path.GetTempPath(), "YamaSearch", "Private", Guid.NewGuid().ToString("N"));
+
+    public bool CanCreateTabs
+    {
+        get
+        {
+            lock (_sync)
+                return !_cleanupRequested && !_profileDeletionRunning && !_profileDeleted;
+        }
+    }
+
+    public void RetainTab()
+    {
+        lock (_sync)
+        {
+            if (_cleanupRequested || _profileDeletionRunning || _profileDeleted)
+                throw new InvalidOperationException("Anonymní relace už byla ukončena.");
+            _liveTabLeases++;
+        }
+    }
+
+    public void ReleaseTab()
+    {
+        var deleteNow = false;
+        lock (_sync)
+        {
+            if (_liveTabLeases == 0) return;
+            _liveTabLeases--;
+            if (_liveTabLeases == 0)
+            {
+                _cleanupRequested = true;
+                deleteNow = IsProfileDeletionEligibleLocked();
+            }
+        }
+        if (deleteNow) DeleteProfileIfEligible();
+    }
+
+    public ControllerInitialization BeginControllerInitialization(CoreWebView2Environment environment)
+    {
+        lock (_sync)
+        {
+            if (_cleanupRequested || _profileDeletionRunning || _profileDeleted || !IsCurrentEnvironmentLocked(environment))
+                throw new InvalidOperationException("Anonymní relace už byla ukončena.");
+            var initialization = new ControllerInitialization(environment);
+            _pendingControllerInitializations.Add(initialization);
+            return initialization;
+        }
+    }
+
+    public void CompleteControllerInitialization(ControllerInitialization initialization, bool browserProcessMayBeRunning)
+        => FinishControllerInitialization(initialization, browserProcessMayBeRunning);
+
+    public void CancelControllerInitialization(ControllerInitialization initialization, bool browserProcessMayBeRunning)
+        => FinishControllerInitialization(initialization, browserProcessMayBeRunning);
+
+    private void FinishControllerInitialization(ControllerInitialization initialization, bool browserProcessMayBeRunning)
+    {
+        var deleteNow = false;
+        lock (_sync)
+        {
+            if (!_pendingControllerInitializations.Remove(initialization)) return;
+            // Even a failed controller initialization can have started Chromium.
+            // Only a direct process snapshot (or BrowserProcessExited) decides
+            // whether the profile may be deleted; task failure is not enough.
+            if (browserProcessMayBeRunning && IsCurrentEnvironmentLocked(initialization.Environment))
+                _awaitingBrowserProcessExit = true;
+            deleteNow = IsProfileDeletionEligibleLocked();
+        }
+        if (deleteNow) DeleteProfileIfEligible();
+    }
+
+    public Task<CoreWebView2Environment> GetOrCreateEnvironmentTask(Func<Task<CoreWebView2Environment>> createEnvironment)
+    {
+        lock (_sync)
+        {
+            if (_cleanupRequested || _profileDeletionRunning || _profileDeleted)
+                throw new InvalidOperationException("Anonymní relace už byla ukončena.");
+            if (_environmentTask is not null) return _environmentTask;
+
+            var environmentTask = createEnvironment();
+            _environmentTask = environmentTask;
+            _ = environmentTask.ContinueWith(
+                completed =>
+                {
+                    if (completed.IsCompletedSuccessfully)
+                    {
+                        // An empty private window can close before its first
+                        // controller is requested. Re-checking here starts cleanup
+                        // only in that controller-free case; a real controller is
+                        // tracked separately and waits for BrowserProcessExited.
+                        DeleteProfileIfEligible();
+                    }
+                    else
+                    {
+                        InvalidateEnvironmentTask(completed);
+                    }
+                },
+                CancellationToken.None,
+                TaskContinuationOptions.ExecuteSynchronously,
+                TaskScheduler.Default);
+            return environmentTask;
+        }
+    }
+
+    public void InvalidateEnvironmentTask(Task<CoreWebView2Environment> environmentTask)
+    {
+        var deleteNow = false;
+        lock (_sync)
+        {
+            if (!ReferenceEquals(_environmentTask, environmentTask)) return;
+            _environmentTask = null;
+            _awaitingBrowserProcessExit = false;
+            deleteNow = IsProfileDeletionEligibleLocked();
+        }
+        if (deleteNow) DeleteProfileIfEligible();
+    }
+
+    public void BrowserProcessExited(CoreWebView2Environment environment)
+    {
+        var deleteNow = false;
+        lock (_sync)
+        {
+            // A process exit is terminal for every in-flight controller creation
+            // tied to this environment. Their continuations can arrive later, so
+            // remove the exact tokens now and let those later calls become no-ops.
+            _pendingControllerInitializations.RemoveWhere(initialization => ReferenceEquals(initialization.Environment, environment));
+            if (IsCurrentEnvironmentLocked(environment))
+            {
+                _environmentTask = null;
+                _awaitingBrowserProcessExit = false;
+            }
+            deleteNow = IsProfileDeletionEligibleLocked();
+        }
+        if (deleteNow) DeleteProfileIfEligible();
+    }
+
+    private void DeleteProfileIfEligible()
+    {
+        lock (_sync)
+        {
+            if (_profileDeleted || _profileDeletionRunning || !IsProfileDeletionEligibleLocked()) return;
+            _profileDeletionRunning = true;
+        }
+
+        _ = DeleteProfileAfterBrowserExitAsync();
+    }
+
+    private bool IsProfileDeletionEligibleLocked()
+        => _cleanupRequested
+            && _liveTabLeases == 0
+            && _pendingControllerInitializations.Count == 0
+            && !_awaitingBrowserProcessExit
+            && (_environmentTask is null || _environmentTask.IsCompleted);
+
+    private bool IsCurrentEnvironmentLocked(CoreWebView2Environment environment)
+        => _environmentTask is { IsCompletedSuccessfully: true }
+            && ReferenceEquals(_environmentTask.Result, environment);
+
+    private async Task DeleteProfileAfterBrowserExitAsync()
+    {
+        var deleted = false;
+        try
+        {
+            // BrowserProcessExited is the lifecycle boundary. A few short,
+            // non-UI filesystem retries only account for Windows releasing the
+            // final profile handle; they never keep or force-close a window.
+            for (var attempt = 0; attempt < 4; attempt++)
+            {
+                try
+                {
+                    if (Directory.Exists(DataFolder)) Directory.Delete(DataFolder, true);
+                    deleted = true;
+                    break;
+                }
+                catch (IOException) when (attempt < 3)
+                {
+                    await Task.Delay(125).ConfigureAwait(false);
+                }
+                catch (UnauthorizedAccessException) when (attempt < 3)
+                {
+                    await Task.Delay(125).ConfigureAwait(false);
+                }
+                catch (IOException) { }
+                catch (UnauthorizedAccessException) { }
+            }
+        }
+        finally
+        {
+            lock (_sync)
+            {
+                _profileDeletionRunning = false;
+                _profileDeleted = deleted;
+            }
+        }
+    }
+}
+
+internal sealed class SitePermissionActivity
+{
+    public SitePermissionActivity(CoreWebView2PermissionKind kind, string origin)
+    {
+        Kind = kind;
+        Origin = origin;
+    }
+
+    public CoreWebView2PermissionKind Kind { get; }
+    public string Origin { get; }
+    public CoreWebView2PermissionState State { get; set; } = CoreWebView2PermissionState.Default;
+    public bool IsPending { get; set; }
+    public bool IsSessionOnly { get; set; }
+    public bool BlockedByGlobalRule { get; set; }
+    public string? LastError { get; set; }
+    public string? MediaErrorName { get; set; }
+    public HashSet<string> PendingMediaRequestIds { get; } = new(StringComparer.Ordinal);
+    public HashSet<string> ActiveMediaTrackIds { get; } = new(StringComparer.Ordinal);
+    public bool IsMediaRequestPending => PendingMediaRequestIds.Count > 0;
+    public bool IsMediaInUse => ActiveMediaTrackIds.Count > 0;
+    public bool WasMediaUsed { get; set; }
+    public DateTimeOffset UpdatedAt { get; set; } = DateTimeOffset.Now;
+}
+
+internal sealed class PendingSitePermissionRequest
+{
+    public PendingSitePermissionRequest(BrowserTab tab, CoreWebView2 core, long navigationGeneration, SitePermissionActivity activity)
+    {
+        Tab = tab;
+        Core = core;
+        NavigationGeneration = navigationGeneration;
+        Activity = activity;
+    }
+
+    public BrowserTab Tab { get; }
+    public CoreWebView2 Core { get; }
+    public long NavigationGeneration { get; }
+    public SitePermissionActivity Activity { get; }
+    public TaskCompletionSource<CoreWebView2PermissionState> Decision { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+}
+
+public sealed class BrowserTab
+{
+    public Guid Id { get; } = Guid.NewGuid();
+    internal string MediaUsageBridgeToken { get; } = Guid.NewGuid().ToString("N");
+    public WebView2 View { get; } = new() { DefaultBackgroundColor = System.Drawing.Color.FromArgb(0x0B, 0x10, 0x1A) };
+    public MainWindow? Owner { get; set; }
+    internal PrivateWebSession? PrivateSession { get; set; }
+    internal PrivateWebSession.ControllerInitialization? PrivateInitialization { get; set; }
+    internal List<SitePermissionActivity> PermissionActivities { get; } = [];
+    internal HashSet<TaskCompletionSource<bool>> SharedPermissionWaitCancellations { get; } = [];
+    public string Title { get; set; } = "Nová karta";
+    public ImageSource? Favicon { get; set; }
+    public bool IsYamaNewTab { get; set; }
+    public long NavigationGeneration { get; set; }
+    internal int PermissionSyncVersion { get; set; }
+    public int BlockedCount { get; set; }
+    public string? YamaBlockScriptId { get; set; }
+    public bool IsPlayingAudio { get; set; }
+    public bool IsMuted { get; set; }
+    public bool HasWebNotification { get; set; }
+    public int? NotificationCount { get; set; }
+}
 public sealed record TabDragPayload(MainWindow Source, BrowserTab Tab)
 {
     public Guid SourceWindowId => Source.WindowId;
