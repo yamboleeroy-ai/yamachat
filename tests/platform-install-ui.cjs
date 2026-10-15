@@ -3,6 +3,7 @@ const {chromium}=require('playwright');
 const root=path.resolve(__dirname,'..');
 const mock=fs.readFileSync(path.join(__dirname,'supabase-fixture.js'),'utf8');
 const manifest=JSON.parse(fs.readFileSync(path.join(root,'update-manifest.json'),'utf8'));
+const yamaSearchAndroid=JSON.parse(fs.readFileSync(path.join(root,'products/yamasearch/release/android-mobile.json'),'utf8'));
 
 async function boot(browser,width,height,mobile=false){
   const page=await browser.newPage({viewport:{width,height},serviceWorkers:'block',hasTouch:mobile,isMobile:mobile});
@@ -50,8 +51,13 @@ function inside(b,w,h){return b&&b.width>0&&b.height>0&&b.x>=-1&&b.y>=-1&&b.x+b.
    assert.match(await yamaHelp.textContent(),/Soubor(?:y)? jsou určen[ée] pro Windows PC/i);
    assert.equal(await yamaSearch.locator('a').count(),3,'YamaSearch must show Android, Windows Installer and iPhone PWA cards');
    assert.match(await yamaSearch.locator('a').nth(0).textContent(),/YamaSearch Android/);
-   assert.equal(await yamaSearch.locator('a').nth(0).getAttribute('href'),null,'Unreleased Android APK must not be linked');
-   assert.equal(await yamaSearch.locator('a').nth(0).getAttribute('aria-disabled'),'true');
+   if(yamaSearchAndroid.published===true){
+    assert.equal(await yamaSearch.locator('a').nth(0).getAttribute('href'),'https://updates.yamachat.eu/yamasearch/YamaSearch-Android-latest.apk','Published Android APK must use the official latest URL');
+    assert.equal(await yamaSearch.locator('a').nth(0).getAttribute('aria-disabled'),null);
+   }else{
+    assert.equal(await yamaSearch.locator('a').nth(0).getAttribute('href'),null,'Unreleased Android APK must not be linked');
+    assert.equal(await yamaSearch.locator('a').nth(0).getAttribute('aria-disabled'),'true');
+   }
    assert.equal(await yamaSearch.locator('a').nth(1).getAttribute('href'),'https://updates.yamachat.eu/yamasearch/YamaSearch-Setup-latest.exe');
    assert.match(await yamaSearch.locator('a').nth(2).textContent(),/YamaSearch iPhone \/ iPad/);
    assert.equal(await yamaSearch.locator('a').nth(2).getAttribute('href'),'https://yamachat.eu/yamasearch/');

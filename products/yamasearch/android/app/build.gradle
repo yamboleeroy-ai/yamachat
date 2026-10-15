@@ -8,10 +8,13 @@ android {
 
     defaultConfig {
         applicationId 'eu.yamachat.yamasearch'
-        minSdk 29
+        // WebView.setDataDirectorySuffix(), used by the isolated private process,
+        // is available from API 28. Keep Android 9 as the real minimum instead
+        // of rejecting it one version higher than necessary.
+        minSdk 28
         targetSdk 35
         versionCode = Integer.parseInt((findProperty('yamasearchVersionCode') ?: '1').toString())
-        versionName = (findProperty('yamasearchVersionName') ?: '0.1.0-preview').toString()
+        versionName = (findProperty('yamasearchVersionName') ?: '0.1.1-preview').toString()
     }
 
     signingConfigs {
@@ -29,6 +32,12 @@ android {
     }
 
     buildTypes {
+        debug {
+            // Preview builds must coexist with the permanently signed public app.
+            // Sharing the release applicationId made Android reject a later public
+            // install because the debug and release certificates are different.
+            applicationIdSuffix '.preview'
+        }
         release {
             signingConfig signingConfigs.release
             minifyEnabled false
