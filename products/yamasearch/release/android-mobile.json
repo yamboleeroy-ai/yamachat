@@ -1,9 +1,9 @@
 {
   "product": "YamaSearch Android",
-  "version": "0.1.0",
-  "versionCode": 10000,
+  "version": "0.1.1",
+  "versionCode": 10001,
   "channel": "beta",
-  "packageId": "eu.yamachat.yamasearch",
-  "notes": "První veřejná beta YamaSearch pro Android. Nativní Android WebView prohlížeč; ověřte známá omezení v README.",
+  "packageId": "eu.yamachat.yamasearch.mobile",
+  "notes": "Opravy oprávnění webů, oblíbených položek a kompatibility instalace; Android 9+ a nová trvalá identita aplikace odstraňují konflikt se starým podpisem 0.1.0.",
   "published": true
 }
