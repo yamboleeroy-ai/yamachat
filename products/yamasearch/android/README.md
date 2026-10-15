@@ -7,9 +7,9 @@ Tento projekt je **samostatný nativní Android klient**, nikoliv převlečená 
 - Android Studio / Android SDK s platformou Android 35 a build-tools 35.0.0.
 - JDK 17 a Gradle 8.9 (Gradle není v repozitáři zabalen ve wrapperu).
 - Z adresáře `products/yamasearch/android` spusť `gradle :app:assembleDebug`.
-- Výsledek: `app/build/outputs/apk/debug/app-debug.apk`; je určen výhradně pro testování a používá oddělený balíček `eu.yamachat.yamasearch.preview`, takže může být nainstalovaný vedle veřejné aplikace.
+- Výsledek: `app/build/outputs/apk/debug/app-debug.apk`; je určen výhradně pro testování a používá oddělený balíček `eu.yamachat.yamasearch.mobile.preview`, takže může být nainstalovaný vedle veřejné aplikace.
 - GitHub Actions workflow `yamasearch-android-preview.yml` sestaví debug APK a ověří identifikátor balíčku. Automaticky nic **nepublikuje** na Cloudflare ani na web.
-- Veřejný balíček používá `eu.yamachat.yamasearch`, Android 9+ (`minSdk=28`) a dlouhodobý produkční podpis. Debug preview má vlastní příponu `.preview` a nesmí se publikovat jako aktualizace.
+- Veřejný balíček od verze 0.1.1 používá `eu.yamachat.yamasearch.mobile`, Android 9+ (`minSdk=28`) a nový dlouhodobý produkční podpis. Debug preview má vlastní příponu `.preview` a nesmí se publikovat jako aktualizace.
 
 ## Funkce aktuálního prototypu
 
@@ -28,7 +28,7 @@ Tento projekt je **samostatný nativní Android klient**, nikoliv převlečená 
 - Notifikace uzavřených stránek / Web Push nejsou implementované a nelze je vydávat za funkční.
 - Blob URL a některé chráněné streamy nepodporuje standardní Android DownloadManager.
 - U přesměrování přístupu ke kameře, mikrofonu, přihlašování, videu, souborům a fullscreen je potřeba skutečné testování napříč weby a zařízeními.
-- Testovací debug APK je podepsaná standardním **debug** klíčem a používá jiné ID balíčku. Veřejné APK musí vždy zachovat stejný produkční certifikát; release workflow jeho SHA-256 kontroluje proti první veřejné verzi.
+- Testovací debug APK je podepsaná standardním **debug** klíčem a používá jiné ID balíčku. Veřejné APK od 0.1.1 musí vždy zachovat nový produkční certifikát; release workflow jeho SHA-256 kontroluje a dovolí pouze jednorázový přechod ze staré identity 0.1.0.
 - Před uvedením na web musí fungovat veřejná HTTPS adresa, test instalace a aktualizace bez ztráty dat. **Nesmí se nahradit Portable odkaz, dokud APK neexistuje a není ověřena.**
 - Současný Windows Portable artefakt, manifest a aktualizace zachovat; na webu jej lze později jen přestat zobrazovat.
 
@@ -36,7 +36,7 @@ Tento projekt je **samostatný nativní Android klient**, nikoliv převlečená 
 
 ## Produkční Android release
 
-První veřejná beta 0.1.0 byla podepsána samostatným dlouhodobým YamaSearch klíčem. Každá další verze musí použít tentýž klíč, vyšší `versionCode` a projít kontrolou proti právě zveřejněnému APK. Není dovoleno veřejně použít debug podpis nebo podpis Yamachatu.
+První veřejná beta 0.1.0 používala balíček `eu.yamachat.yamasearch`, ale heslo jejího podpisového klíče se nedochovalo. Android proto neumožňuje vytvořit kompatibilní aktualizaci. Verze 0.1.1 přechází jednorázově na novou trvalou identitu `eu.yamachat.yamasearch.mobile` a nový dlouhodobý klíč. Nainstaluje se vedle 0.1.0; data staré aplikace se automaticky nepřenášejí. Každá verze po 0.1.1 musí zachovat tuto novou identitu i certifikát a použít vyšší `versionCode`.
 
 Na vlastním počítači vytvoř JKS/PKCS12 klíč (JDK 17+). Neodesílej soubor, heslo ani base64 do chatu nebo veřejného repozitáře. Podepisovací klíč musí zůstat dlouhodobě uchovaný – při jeho ztrátě nepůjde navázat aktualizacemi mimo Google Play.
 
@@ -53,11 +53,11 @@ V GitHub repozitáři otevři **Settings → Secrets and variables → Actions �
 
 - `YAMASEARCH_ANDROID_KEYSTORE_BASE64` – base64 obsah souboru .p12 z clipboardu.
 - `YAMASEARCH_ANDROID_STORE_PASSWORD` – heslo úložiště.
-- `YAMASEARCH_ANDROID_KEY_ALIAS` – přesně `yamasearch`.
+- `YAMASEARCH_ANDROID_KEY_ALIAS` – přesně alias dlouhodobého klíče (`yamasearch-mobile` pro identitu od 0.1.1).
 - `YAMASEARCH_ANDROID_KEY_PASSWORD` – heslo soukromého klíče (u PKCS12 obvykle shodné s heslem úložiště).
 
 Pozor: uvedený příkaz vytváří podepisovací identitu; **nevytvářej při každém vydání nový klíč**.
 
 Poté spusť existující workflow [Publish signed YamaSearch Android (separate app)](../../../.github/workflows/yamasearch-android-release.yml) s novou verzí a vždy vyšším `versionCode`. Workflow sestaví release, ověří podpis i návaznost na veřejné APK, publikuje na Cloudflare R2, ověří dostupnost veřejného URL a **až potom** aktivuje Android tlačítko na webu.
 
-Staré preview sestavení, které ještě používalo produkční ID `eu.yamachat.yamasearch`, nelze přímo přepsat veřejnou APK s jiným podpisem; musí se jednorázově odinstalovat (po záloze jeho lokálních dat). Nové preview používá `.preview` a tento konflikt už nevytváří. Nezveřejňuj žádné heslo, .p12 ani base64 keystore v Issues, PR, Actions logs ani diskusích.
+Stará veřejná 0.1.0 i staré preview s ID `eu.yamachat.yamasearch` zůstávají samostatnou aplikací. Po případné ruční záloze je lze odinstalovat; 0.1.1 se díky novému ID nainstaluje bez podpisového konfliktu. Nové preview používá `.mobile.preview`. Nezveřejňuj žádné heslo, .p12 ani base64 keystore v Issues, PR, Actions logs ani diskusích.

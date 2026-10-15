@@ -58,8 +58,11 @@ jobs:
           set -euo pipefail
           VERSION="${INPUT_VERSION:-$(node -p "require('../release/android-release-request.json').version")}"
           VERSION_CODE="${INPUT_CODE:-$(node -p "require('../release/android-release-request.json').versionCode")}"
+          PACKAGE_ID=$(node -p "require('../release/android-release-request.json').packageId")
+          test "$PACKAGE_ID" = 'eu.yamachat.yamasearch.mobile' || { echo "Unexpected release package ID"; exit 1; }
           echo "VERSION=$VERSION" >> "$GITHUB_ENV"
           echo "VERSION_CODE=$VERSION_CODE" >> "$GITHUB_ENV"
+          echo "PACKAGE_ID=$PACKAGE_ID" >> "$GITHUB_ENV"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "version_code=$VERSION_CODE" >> "$GITHUB_OUTPUT"
       - name: Validate version and release signing availability
@@ -83,7 +86,9 @@ jobs:
           YAMASEARCH_STORE_PASSWORD: ${{ secrets.YAMASEARCH_ANDROID_STORE_PASSWORD }}
           YAMASEARCH_KEY_ALIAS: ${{ secrets.YAMASEARCH_ANDROID_KEY_ALIAS }}
           YAMASEARCH_KEY_PASSWORD: ${{ secrets.YAMASEARCH_ANDROID_KEY_PASSWORD }}
-          EXPECTED_SIGNING_CERT_SHA256: 1ba716dadb2d572f84c4aca501a659f813f57c2e98652921e4438ba84590585d
+          EXPECTED_SIGNING_CERT_SHA256: a6ae7f09a6c808cb8394fba6271e59baf47d58d8ed37b43282193dd2799df75d
+          LEGACY_PACKAGE_ID: eu.yamachat.yamasearch
+          LEGACY_SIGNING_CERT_SHA256: 1ba716dadb2d572f84c4aca501a659f813f57c2e98652921e4438ba84590585d
         run: |
           set -euo pipefail
           gradle --no-daemon :app:assembleRelease -PyamasearchVersionName="$VERSION" -PyamasearchVersionCode="$VERSION_CODE"
@@ -94,7 +99,7 @@ jobs:
           ACTUAL_CERT=$(printf '%s\n' "$SIGNER_OUTPUT" | sed -n -E 's/^(V[0-9.]+ )?Signer( #[0-9]+)?:? certificate SHA-256 digest: ([0-9a-fA-F:]+)$/\3/p' | head -n 1 | tr -d ':' | tr 'A-F' 'a-f')
           test "$ACTUAL_CERT" = "$EXPECTED_SIGNING_CERT_SHA256" || { echo "Unexpected YamaSearch signing certificate: $ACTUAL_CERT"; exit 1; }
           BADGING=$("$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK")
-          printf '%s\n' "$BADGING" | grep -F "package: name='eu.yamachat.yamasearch'"
+          printf '%s\n' "$BADGING" | grep -F "package: name='$PACKAGE_ID'"
           printf '%s\n' "$BADGING" | grep -F "versionCode='$VERSION_CODE'"
           printf '%s\n' "$BADGING" | grep -F "versionName='$VERSION'"
           printf '%s\n' "$BADGING" | grep -F "sdkVersion:'28'"
@@ -103,11 +108,23 @@ jobs:
           PREVIOUS="$RUNNER_TEMP/YamaSearch-Android-previous.apk"
           curl --fail --location --silent --show-error --retry 3 --retry-all-errors \
             'https://updates.yamachat.eu/yamasearch/YamaSearch-Android-latest.apk' -o "$PREVIOUS"
+          PREVIOUS_BADGING=$("$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$PREVIOUS")
+          PREVIOUS_PACKAGE=$(printf '%s\n' "$PREVIOUS_BADGING" | sed -n -E "s/^package: name='([^']+)'.*/\1/p" | head -n 1)
           PREVIOUS_SIGNER_OUTPUT=$("$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs "$PREVIOUS")
           PREVIOUS_CERT=$(printf '%s\n' "$PREVIOUS_SIGNER_OUTPUT" | sed -n -E 's/^(V[0-9.]+ )?Signer( #[0-9]+)?:? certificate SHA-256 digest: ([0-9a-fA-F:]+)$/\3/p' | head -n 1 | tr -d ':' | tr 'A-F' 'a-f')
-          test "$PREVIOUS_CERT" = "$EXPECTED_SIGNING_CERT_SHA256" || { echo "Published APK uses an unexpected certificate: $PREVIOUS_CERT"; exit 1; }
-          PREVIOUS_BADGING=$("$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$PREVIOUS")
-          printf '%s\n' "$PREVIOUS_BADGING" | grep -F "package: name='eu.yamachat.yamasearch'"
+          if test "$PREVIOUS_PACKAGE" = "$PACKAGE_ID"; then
+            test "$PREVIOUS_CERT" = "$EXPECTED_SIGNING_CERT_SHA256" \
+              || { echo "Published APK uses an unexpected current certificate: $PREVIOUS_CERT"; exit 1; }
+          elif test "$PREVIOUS_PACKAGE" = "$LEGACY_PACKAGE_ID"; then
+            test "$VERSION" = '0.1.1' && test "$VERSION_CODE" = '10001' \
+              || { echo "Legacy package migration is allowed only for 0.1.1 (10001)"; exit 1; }
+            test "$PREVIOUS_CERT" = "$LEGACY_SIGNING_CERT_SHA256" \
+              || { echo "Published legacy APK uses an unexpected certificate: $PREVIOUS_CERT"; exit 1; }
+            echo "Verified one-time migration from the legacy Android package identity."
+          else
+            echo "Published APK uses an unexpected package: $PREVIOUS_PACKAGE"
+            exit 1
+          fi
           PREVIOUS_CODE=$(printf '%s\n' "$PREVIOUS_BADGING" | sed -n -E "s/^package: .*versionCode='([0-9]+)'.*/\1/p" | head -n 1)
           PREVIOUS_VERSION=$(printf '%s\n' "$PREVIOUS_BADGING" | sed -n -E "s/^package: .*versionName='([^']+)'.*/\1/p" | head -n 1)
           test "$VERSION_CODE" -ge "$PREVIOUS_CODE" || { echo "versionCode must not go below published $PREVIOUS_CODE"; exit 1; }
@@ -234,8 +251,11 @@ jobs:
           const request = JSON.parse(fs.readFileSync('products/yamasearch/release/android-release-request.json', 'utf8'));
           const versionCode = Number(process.env.VERSION_CODE);
           if (!Number.isSafeInteger(versionCode) || versionCode < 1) throw Error('Invalid released versionCode');
+          const expectedPackageId = 'eu.yamachat.yamasearch.mobile';
+          if (request.packageId !== expectedPackageId) throw Error('Unexpected release package ID');
           state.version = process.env.VERSION;
           state.versionCode = versionCode;
+          state.packageId = expectedPackageId;
           if (request.version === state.version && Number(request.versionCode) === versionCode && request.notes) {
             state.notes = request.notes;
           }

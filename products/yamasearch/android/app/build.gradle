@@ -7,7 +7,10 @@ android {
     compileSdk 35
 
     defaultConfig {
-        applicationId 'eu.yamachat.yamasearch'
+        // The original public 0.1.0 signing password was irrecoverably lost.
+        // Use a new, permanent application identity so Android can install this
+        // build alongside that legacy package instead of rejecting the signature.
+        applicationId 'eu.yamachat.yamasearch.mobile'
         // WebView.setDataDirectorySuffix(), used by the isolated private process,
         // is available from API 28. Keep Android 9 as the real minimum instead
         // of rejecting it one version higher than necessary.
