@@ -1,8 +1,8 @@
 {
   "product": "YamaSearch Android",
-  "version": "0.1.1",
-  "versionCode": 10001,
+  "version": "0.1.2",
+  "versionCode": 10002,
   "packageId": "eu.yamachat.yamasearch.mobile",
   "channel": "beta",
-  "notes": "Opravy oprávnění webů, oblíbených položek a kompatibility instalace; Android 9+ a nová trvalá identita aplikace odstraňují konflikt se starým podpisem 0.1.0."
+  "notes": "Mobilní domovská stránka, historie a návrhy hledání, oblíbené a místní profil; oprava YamaBlocku při prvním načtení YouTube."
 }
