@@ -19,6 +19,7 @@ Tento projekt je **samostatný nativní Android klient**, nikoliv převlečená 
 - Základ YamaBlocku: blokování části reklamních domén (standard) a trackerů (přísný). NENÍ plně ekvivalentní desktopovému YamaBlocku.
 - HTTPS stránky mohou požádat o mikrofon a kameru; používá se potvrzení webu a systémové oprávnění Androidu.
 - Nahrávání souborů z výběru systému, stahování běžných HTTP(S) souborů do Android Downloads.
+- Automatická kontrola podepsaných vydání při návratu aplikace do popředí a ruční volba „Zkontrolovat aktualizace“. Veřejný manifest i neměnný odkaz na APK se přísně ověřují; stahování probíhá přes systémový DownloadManager a dokončený soubor musí před nabídkou instalace souhlasit velikostí, SHA-256, ID balíčku, verzí i produkčním podpisem.
 - Soukromý proces s odděleným WebView profilem a vypnutými cookies, bez ukládání historie; smazání cookies/WebStorage při vytvoření/ukončení. Stažené soubory však zůstávají na zařízení.
 
 ## Známá omezení / nevydávat bez dořešení
@@ -58,6 +59,8 @@ V GitHub repozitáři otevři **Settings → Secrets and variables → Actions �
 
 Pozor: uvedený příkaz vytváří podepisovací identitu; **nevytvářej při každém vydání nový klíč**.
 
-Poté spusť existující workflow [Publish signed YamaSearch Android (separate app)](../../../.github/workflows/yamasearch-android-release.yml) s novou verzí a vždy vyšším `versionCode`. Workflow sestaví release, ověří podpis i návaznost na veřejné APK, publikuje na Cloudflare R2, ověří dostupnost veřejného URL a **až potom** aktivuje Android tlačítko na webu.
+Poté spusť existující workflow [Publish signed YamaSearch Android (separate app)](../../../.github/workflows/yamasearch-android-release.yml) s novou verzí a vždy vyšším `versionCode`. Workflow sestaví release, ověří podpis i návaznost na veřejné APK, publikuje na Cloudflare R2, ověří dostupnost veřejného URL, zveřejní strojově čitelný Android update manifest a **až potom** aktivuje Android tlačítko na webu.
+
+Verze 0.1.3 je první sestavení obsahující vlastní kontrolu aktualizací. Instalace 0.1.2 a starší ji proto nemohou zjistit samy a musí být na 0.1.3 jednorázově aktualizované ručním stažením z oficiálního webu. Od následující verze už aplikace nové vydání oznámí automaticky.
 
 Stará veřejná 0.1.0 i staré preview s ID `eu.yamachat.yamasearch` zůstávají samostatnou aplikací. Po případné ruční záloze je lze odinstalovat; 0.1.1 se díky novému ID nainstaluje bez podpisového konfliktu. Nové preview používá `.mobile.preview`. Nezveřejňuj žádné heslo, .p12 ani base64 keystore v Issues, PR, Actions logs ani diskusích.

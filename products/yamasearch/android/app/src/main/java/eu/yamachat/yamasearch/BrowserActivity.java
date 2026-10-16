@@ -6,8 +6,12 @@ import android.app.Activity;
 import android.app.AlertDialog;
 import android.app.DownloadManager;
 import android.content.ActivityNotFoundException;
+import android.content.BroadcastReceiver;
 import android.content.Intent;
+import android.content.IntentFilter;
+import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
+import android.database.Cursor;
 import android.graphics.Bitmap;
 import android.graphics.Color;
 import android.graphics.BitmapFactory;
@@ -51,17 +55,27 @@ import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
 import android.graphics.drawable.GradientDrawable;
+import androidx.core.content.FileProvider;
 import org.json.JSONObject;
 import java.io.ByteArrayInputStream;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.lang.ref.WeakReference;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 public class BrowserActivity extends Activity {
     private static final int INK = Color.rgb(12, 18, 31);
@@ -72,6 +86,18 @@ public class BrowserActivity extends Activity {
     private static final int SITE_PERMISSION = 351;
     private static final int SITE_LOCATION_PERMISSION = 352;
     private static final int DOWNLOAD_STORAGE_PERMISSION = 353;
+    private static final String ANDROID_APK_MIME = "application/vnd.android.package-archive";
+    private static final String DOWNLOAD_COMPLETION_PERMISSION =
+        "android.permission.SEND_DOWNLOAD_COMPLETED_INTENTS";
+    private static final String UPDATE_DOWNLOAD_PREFS = "yamasearch_android_update_download";
+    private static final String UPDATE_DOWNLOAD_ID = "downloadId";
+    private static final String UPDATE_DOWNLOAD_MANIFEST = "manifestJson";
+    private static final String VERIFIED_UPDATE_DIRECTORY = "verified-updates";
+    private static final Object UPDATE_DOWNLOAD_STATE_LOCK = new Object();
+    private static final Object UPDATE_COPY_LOCK = new Object();
+    private static final Map<Long, Object> UPDATE_DOWNLOAD_VERIFICATION_OWNERS = new HashMap<>();
+    private static final Set<WeakReference<BrowserActivity>> UPDATE_ACTIVITIES = new HashSet<>();
+    private static boolean staleUpdatePartialsCleaned;
     private static final String HOME = MobileNavigation.HOME;
     private static final String SITE_CAMERA = "camera";
     private static final String SITE_MICROPHONE = "microphone";
@@ -175,6 +201,18 @@ public class BrowserActivity extends Activity {
         }
     }
 
+    private static final class UpdateDownloadOutcome {
+        final boolean success;
+        final String version;
+        final Uri downloadedUri;
+
+        UpdateDownloadOutcome(boolean success, String version, Uri downloadedUri) {
+            this.success = success;
+            this.version = version;
+            this.downloadedUri = downloadedUri;
+        }
+    }
+
     private final List<Tab> tabs = new ArrayList<>();
     private Tab selected;
     private BrowserStore store;
@@ -192,6 +230,20 @@ public class BrowserActivity extends Activity {
     private PendingMediaPermission pendingMediaPermission;
     private PendingLocationPermission pendingLocationPermission;
     private PendingDownload pendingDownload;
+    private AndroidUpdateController updateController;
+    private BroadcastReceiver updateDownloadReceiver;
+    private ExecutorService updateDownloadVerificationExecutor;
+    private AlertDialog updateDownloadDialog;
+    private AndroidUpdateManifest pendingAppUpdate;
+    private UpdateDownloadOutcome deferredUpdateDownloadOutcome;
+    private UpdateDownloadOutcome pendingInstallerOutcome;
+    private long updateDownloadId = -1L;
+    private long updateDownloadVerificationId = -1L;
+    private Object updateDownloadVerificationToken;
+    private boolean updateDownloadVerificationRunning;
+    private boolean updateDownloadVerified;
+    private Uri verifiedUpdateDownloadUri;
+    private boolean activityResumed;
     private final Map<String, String> privateSitePermissionStates = new HashMap<>();
     private View customView;
     private WebChromeClient.CustomViewCallback customViewCallback;
@@ -212,6 +264,16 @@ public class BrowserActivity extends Activity {
         }
     }
 
+    private long appVersionCode() {
+        try {
+            return getPackageManager().getPackageInfo(getPackageName(), 0).getLongVersionCode();
+        } catch (PackageManager.NameNotFoundException ignored) {
+            // The running package must exist; keep the updater disabled rather
+            // than comparing a guessed version if Android reports otherwise.
+            return -1L;
+        }
+    }
+
     private GradientDrawable shape(int fill, int border, int radius) {
         GradientDrawable d = new GradientDrawable();
         d.setColor(fill);
@@ -229,6 +291,15 @@ public class BrowserActivity extends Activity {
         getWindow().setSoftInputMode(android.view.WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE);
         WebView.setWebContentsDebuggingEnabled(false);
         buildUi();
+        if (!privateSession() && AndroidUpdateManifest.PACKAGE_ID.equals(getPackageName())) {
+            long installedVersionCode = appVersionCode();
+            if (installedVersionCode > 0L) {
+                registerUpdateActivity();
+                restorePendingUpdateDownload(installedVersionCode);
+                updateController = new AndroidUpdateController(
+                    this, installedVersionCode, this::downloadAppUpdate);
+            }
+        }
         String launch = getIntent().getDataString();
         MobileNavigation.Destination launchDestination = MobileNavigation.resolve(launch);
         String initialUrl = launch != null && !launchDestination.search && !launchDestination.isHome()
@@ -1171,7 +1242,7 @@ public class BrowserActivity extends Activity {
         String[] options = {
             "Nová karta", "Soukromé okno", "Oblíbené stránky", "Historie", "Profil prohlížeče",
             "Oprávnění tohoto webu", "Stažené soubory",
-            "YamaBlock: " + blockerModeLabel(blockerMode()), "O aplikaci"
+            "YamaBlock: " + blockerModeLabel(blockerMode()), "Zkontrolovat aktualizace", "O aplikaci"
         };
         new AlertDialog.Builder(this).setTitle("YamaSearch").setItems(options, (dialog, which) -> {
             switch (which) {
@@ -1187,8 +1258,12 @@ public class BrowserActivity extends Activity {
                         catch (ActivityNotFoundException e) { Toast.makeText(this, "Správce stahování není dostupný.", Toast.LENGTH_SHORT).show(); }
                         break;
                 case 7: openYamaBlockPanel(); break;
-                case 8: new AlertDialog.Builder(this).setTitle("YamaSearch pro Android")
-                    .setMessage("Verze " + appVersionName() + ". Mobilní domovská stránka, místní profil, oblíbené, historie hledání, soukromé karty a YamaBlock.")
+                case 8:
+                    if (updateController != null) updateController.checkManually();
+                    else Toast.makeText(this, "Aktualizace kontrolujte v běžném okně YamaSearch.", Toast.LENGTH_LONG).show();
+                    break;
+                case 9: new AlertDialog.Builder(this).setTitle("YamaSearch pro Android")
+                    .setMessage("Verze " + appVersionName() + ". Mobilní domovská stránka, místní profil, oblíbené, historie hledání, soukromé karty, YamaBlock a automatická upozornění na aktualizace.")
                     .setPositiveButton("OK", null).show(); break;
                 default: break;
             }
@@ -1334,6 +1409,639 @@ public class BrowserActivity extends Activity {
             Toast.makeText(this, "Stahování zahájeno: " + name, Toast.LENGTH_SHORT).show();
         } catch (Exception e) {
             Toast.makeText(this, "Stahování se nepodařilo spustit.", Toast.LENGTH_LONG).show();
+        }
+    }
+
+    private SharedPreferences updateDownloadPreferences() {
+        return getSharedPreferences(UPDATE_DOWNLOAD_PREFS, Context.MODE_PRIVATE);
+    }
+
+    private void registerUpdateActivity() {
+        synchronized (UPDATE_DOWNLOAD_STATE_LOCK) {
+            Iterator<WeakReference<BrowserActivity>> iterator = UPDATE_ACTIVITIES.iterator();
+            while (iterator.hasNext()) {
+                BrowserActivity activity = iterator.next().get();
+                if (activity == null || activity == this) iterator.remove();
+            }
+            UPDATE_ACTIVITIES.add(new WeakReference<>(this));
+        }
+    }
+
+    private void unregisterUpdateActivity() {
+        synchronized (UPDATE_DOWNLOAD_STATE_LOCK) {
+            Iterator<WeakReference<BrowserActivity>> iterator = UPDATE_ACTIVITIES.iterator();
+            while (iterator.hasNext()) {
+                BrowserActivity activity = iterator.next().get();
+                if (activity == null || activity == this) iterator.remove();
+            }
+        }
+    }
+
+    private void notifyUpdateVerificationReleased(long id) {
+        List<BrowserActivity> activities = new ArrayList<>();
+        synchronized (UPDATE_DOWNLOAD_STATE_LOCK) {
+            Iterator<WeakReference<BrowserActivity>> iterator = UPDATE_ACTIVITIES.iterator();
+            while (iterator.hasNext()) {
+                BrowserActivity activity = iterator.next().get();
+                if (activity == null) iterator.remove();
+                else activities.add(activity);
+            }
+        }
+        for (BrowserActivity activity : activities) {
+            activity.runOnUiThread(() -> {
+                if (!activity.isFinishing() && !activity.isDestroyed()
+                    && activity.activityResumed && activity.hasWindowFocus()
+                    && activity.updateDownloadId == id) activity.checkPendingUpdateDownload();
+            });
+        }
+    }
+
+    private boolean persistPendingUpdateDownload(long id, AndroidUpdateManifest update) {
+        try {
+            AndroidUpdateDownloadRecord record = AndroidUpdateDownloadRecord.create(id, update);
+            return updateDownloadPreferences().edit().clear()
+                .putLong(UPDATE_DOWNLOAD_ID, record.getDownloadId())
+                .putString(UPDATE_DOWNLOAD_MANIFEST, record.getManifestJson())
+                .commit();
+        } catch (Exception error) {
+            return false;
+        }
+    }
+
+    @SuppressLint("ApplySharedPref")
+    private void clearPersistedUpdateDownload(long expectedId) {
+        SharedPreferences preferences = updateDownloadPreferences();
+        try {
+            long savedId = preferences.getLong(UPDATE_DOWNLOAD_ID, -1L);
+            if (expectedId <= 0L || savedId == expectedId) preferences.edit().clear().commit();
+        } catch (ClassCastException corruptState) {
+            preferences.edit().clear().commit();
+        }
+    }
+
+    private void removeUpdateDownload(long id) {
+        if (id <= 0L) return;
+        try { ((DownloadManager) getSystemService(DOWNLOAD_SERVICE)).remove(id); }
+        catch (Exception ignored) { }
+    }
+
+    private File verifiedUpdateDirectory() {
+        return new File(getFilesDir(), VERIFIED_UPDATE_DIRECTORY);
+    }
+
+    private File verifiedUpdateFile(AndroidUpdateManifest update) {
+        return new File(verifiedUpdateDirectory(), "YamaSearch-Android-"
+            + update.getVersionCode() + "-" + update.getSha256().substring(0, 12) + ".apk");
+    }
+
+    private void cleanupStaleUpdatePartialsLocked() {
+        if (staleUpdatePartialsCleaned) return;
+        File[] files = verifiedUpdateDirectory().listFiles();
+        if (files != null) for (File file : files) {
+            if (file.isFile() && file.getName().startsWith(".partial-")) {
+                try { file.delete(); } catch (Exception ignored) { }
+            }
+        }
+        staleUpdatePartialsCleaned = true;
+    }
+
+    private AndroidUpdateManifest persistedUpdateToKeep() {
+        SharedPreferences preferences = updateDownloadPreferences();
+        try {
+            long id = preferences.getLong(UPDATE_DOWNLOAD_ID, -1L);
+            String json = preferences.getString(UPDATE_DOWNLOAD_MANIFEST, null);
+            return AndroidUpdateDownloadRecord.restore(id, json, appVersionCode()).getManifest();
+        } catch (Exception absentInvalidOrStaleState) {
+            return null;
+        }
+    }
+
+    private void scheduleVerifiedUpdateFileCleanup() {
+        startUpdateVerificationExecutor();
+        try {
+            updateDownloadVerificationExecutor.execute(() -> {
+                synchronized (UPDATE_COPY_LOCK) {
+                    cleanupStaleUpdatePartialsLocked();
+                    AndroidUpdateManifest keep = persistedUpdateToKeep();
+                    File keepFile = keep == null ? null : verifiedUpdateFile(keep);
+                    File[] files = verifiedUpdateDirectory().listFiles();
+                    if (files == null) return;
+                    for (File file : files) {
+                        // A partial belongs either to the current copy (which must
+                        // never be removed) or was handled by the one-time cleanup.
+                        if (!file.isFile() || file.getName().startsWith(".partial-")) continue;
+                        if (keepFile == null || !file.equals(keepFile)) {
+                            try { file.delete(); } catch (Exception ignored) { }
+                        }
+                    }
+                }
+            });
+        } catch (RuntimeException ignored) { }
+    }
+
+    private void clearUpdateDownloadMemory() {
+        unregisterUpdateDownloadReceiver();
+        updateDownloadVerificationRunning = false;
+        updateDownloadVerified = false;
+        verifiedUpdateDownloadUri = null;
+        pendingAppUpdate = null;
+        pendingInstallerOutcome = null;
+        updateDownloadId = -1L;
+    }
+
+    private void discardTrackedUpdateDownload(long expectedId, boolean removeFile) {
+        if (removeFile) removeUpdateDownload(expectedId);
+        clearPersistedUpdateDownload(expectedId);
+        scheduleVerifiedUpdateFileCleanup();
+        if (expectedId == updateDownloadId) clearUpdateDownloadMemory();
+    }
+
+    private void restorePendingUpdateDownload(long installedVersionCode) {
+        SharedPreferences preferences = updateDownloadPreferences();
+        if (!preferences.contains(UPDATE_DOWNLOAD_ID)
+            && !preferences.contains(UPDATE_DOWNLOAD_MANIFEST)) {
+            scheduleVerifiedUpdateFileCleanup();
+            return;
+        }
+
+        long savedId = -1L;
+        String manifestJson = null;
+        try {
+            savedId = preferences.getLong(UPDATE_DOWNLOAD_ID, -1L);
+            manifestJson = preferences.getString(UPDATE_DOWNLOAD_MANIFEST, null);
+            AndroidUpdateDownloadRecord record = AndroidUpdateDownloadRecord.restore(
+                savedId, manifestJson, installedVersionCode);
+            updateDownloadId = record.getDownloadId();
+            pendingAppUpdate = record.getManifest();
+            scheduleVerifiedUpdateFileCleanup();
+            updateDownloadVerified = false;
+            verifiedUpdateDownloadUri = null;
+            ensureUpdateDownloadReceiver();
+            checkPendingUpdateDownload();
+        } catch (Exception invalidOrStaleState) {
+            removeUpdateDownload(savedId);
+            clearPersistedUpdateDownload(-1L);
+            scheduleVerifiedUpdateFileCleanup();
+            clearUpdateDownloadMemory();
+        }
+    }
+
+    private void downloadAppUpdate(AndroidUpdateManifest update) {
+        if (update == null || isFinishing() || isDestroyed()
+            || !AndroidUpdateManifest.PACKAGE_ID.equals(getPackageName())) return;
+        long installedVersionCode = appVersionCode();
+        if (installedVersionCode <= 0L || !update.isNewerThan(installedVersionCode)) return;
+        synchronized (UPDATE_DOWNLOAD_STATE_LOCK) {
+            // Another BrowserActivity may already own the shared DownloadManager
+            // job. Re-read the committed record before creating anything new.
+            if (updateDownloadId <= 0L) restorePendingUpdateDownload(installedVersionCode);
+            if (updateDownloadId > 0L) {
+                checkPendingUpdateDownload();
+                if (updateDownloadVerified && verifiedUpdateDownloadUri != null) {
+                    reportUpdateDownloadOutcome(new UpdateDownloadOutcome(
+                        true, pendingAppUpdate.getVersion(), verifiedUpdateDownloadUri));
+                } else {
+                    Toast.makeText(this, "Stažení aktualizace už probíhá.", Toast.LENGTH_LONG).show();
+                }
+                return;
+            }
+
+            long enqueuedId = -1L;
+            try {
+                ensureUpdateDownloadReceiver();
+                String name = "YamaSearch-Android-" + update.getVersion() + ".apk";
+                String destination = "yamasearch-updates/YamaSearch-Android-" + update.getVersion()
+                    + "-" + System.currentTimeMillis() + ".apk";
+                DownloadManager.Request request = new DownloadManager.Request(Uri.parse(update.getApkUrl()));
+                request.setTitle(name);
+                request.setDescription("Aktualizace YamaSearch pro Android");
+                request.setMimeType(ANDROID_APK_MIME);
+                // A completed APK must not be actionable from DownloadManager before
+                // YamaSearch has verified its hash and signed package identity.
+                request.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE);
+                request.setDestinationInExternalFilesDir(this, Environment.DIRECTORY_DOWNLOADS, destination);
+                DownloadManager manager = (DownloadManager) getSystemService(DOWNLOAD_SERVICE);
+                enqueuedId = manager.enqueue(request);
+                pendingAppUpdate = update;
+                updateDownloadId = enqueuedId;
+                updateDownloadVerified = false;
+                verifiedUpdateDownloadUri = null;
+                if (!persistPendingUpdateDownload(enqueuedId, update)) {
+                    discardTrackedUpdateDownload(enqueuedId, true);
+                    Toast.makeText(this,
+                        "Stažení aktualizace se nepodařilo bezpečně uložit.", Toast.LENGTH_LONG).show();
+                    return;
+                }
+                // Repairs the small race where DownloadManager finishes before the
+                // completion broadcast can observe the newly assigned ID.
+                checkPendingUpdateDownload();
+                Toast.makeText(this,
+                    "Aktualizace se stahuje. Před instalací ověříme soubor i podpis.",
+                    Toast.LENGTH_LONG).show();
+            } catch (Exception error) {
+                if (enqueuedId > 0L) {
+                    discardTrackedUpdateDownload(enqueuedId, true);
+                } else {
+                    unregisterUpdateDownloadReceiver();
+                }
+                Toast.makeText(this, "Stažení aktualizace se nepodařilo spustit.", Toast.LENGTH_LONG).show();
+            }
+        }
+    }
+
+    @SuppressLint("UnspecifiedRegisterReceiverFlag")
+    private void ensureUpdateDownloadReceiver() {
+        if (updateDownloadReceiver != null) return;
+        updateDownloadReceiver = new BroadcastReceiver() {
+            @Override public void onReceive(Context context, Intent intent) {
+                if (!DownloadManager.ACTION_DOWNLOAD_COMPLETE.equals(intent.getAction())) return;
+                long id = intent.getLongExtra(DownloadManager.EXTRA_DOWNLOAD_ID, -1L);
+                if (id == updateDownloadId) checkPendingUpdateDownload();
+            }
+        };
+        IntentFilter filter = new IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE);
+        // The API 33 overload requires an explicit exported flag for this
+        // protected system broadcast. Older Android versions expose only the
+        // permission-gated overload below.
+        if (Build.VERSION.SDK_INT >= 33) {
+            registerReceiver(updateDownloadReceiver, filter, DOWNLOAD_COMPLETION_PERMISSION,
+                null, Context.RECEIVER_EXPORTED);
+        } else {
+            registerReceiver(updateDownloadReceiver, filter, DOWNLOAD_COMPLETION_PERMISSION, null);
+        }
+    }
+
+    private void unregisterUpdateDownloadReceiver() {
+        BroadcastReceiver receiver = updateDownloadReceiver;
+        updateDownloadReceiver = null;
+        if (receiver != null) try { unregisterReceiver(receiver); } catch (Exception ignored) { }
+    }
+
+    private void checkPendingUpdateDownload() {
+        long id = updateDownloadId;
+        AndroidUpdateManifest update = pendingAppUpdate;
+        if (id <= 0L || update == null || updateDownloadVerificationRunning
+            || updateDownloadVerified) return;
+        synchronized (UPDATE_DOWNLOAD_STATE_LOCK) {
+            // A different live window owns verification. Its token release
+            // event will wake the focused waiting window without polling.
+            if (UPDATE_DOWNLOAD_VERIFICATION_OWNERS.containsKey(id)) return;
+        }
+
+        File internalCopy = verifiedUpdateFile(update);
+        if (internalCopy.isFile()) {
+            verifyInternalUpdateCopy(id, update, internalCopy);
+            return;
+        }
+
+        DownloadManager manager = (DownloadManager) getSystemService(DOWNLOAD_SERVICE);
+        String localUriText;
+        try (Cursor cursor = manager.query(new DownloadManager.Query().setFilterById(id))) {
+            if (cursor == null || !cursor.moveToFirst()) {
+                finishFailedUpdateDownload(id, update);
+                return;
+            }
+            int status = cursor.getInt(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_STATUS));
+            if (status == DownloadManager.STATUS_PENDING || status == DownloadManager.STATUS_RUNNING
+                || status == DownloadManager.STATUS_PAUSED) return;
+            if (status != DownloadManager.STATUS_SUCCESSFUL) {
+                finishFailedUpdateDownload(id, update);
+                return;
+            }
+            long downloaded = cursor.getLong(cursor.getColumnIndexOrThrow(
+                DownloadManager.COLUMN_BYTES_DOWNLOADED_SO_FAR));
+            long total = cursor.getLong(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_TOTAL_SIZE_BYTES));
+            if ((downloaded > 0L && downloaded != update.getSize())
+                || (total > 0L && total != update.getSize())) {
+                finishFailedUpdateDownload(id, update);
+                return;
+            }
+            localUriText = cursor.getString(cursor.getColumnIndexOrThrow(
+                DownloadManager.COLUMN_LOCAL_URI));
+        } catch (Exception error) {
+            finishFailedUpdateDownload(id, update);
+            return;
+        }
+        File downloadedFile;
+        try {
+            downloadedFile = resolveOwnedUpdateFile(localUriText);
+        } catch (IOException unsafePath) {
+            finishFailedUpdateDownload(id, update);
+            return;
+        }
+        if (downloadedFile == null) {
+            finishFailedUpdateDownload(id, update);
+            return;
+        }
+        startUpdateVerificationExecutor();
+        Object verificationToken = claimUpdateDownloadVerification(id);
+        if (verificationToken == null) return;
+        try {
+            updateDownloadVerificationExecutor.execute(() -> {
+                File verifiedFile = null;
+                try {
+                    verifiedFile = createVerifiedInternalUpdateCopy(id, downloadedFile, update);
+                } catch (Exception ignored) { }
+                postVerifiedInternalUpdate(id, verificationToken, update, verifiedFile);
+            });
+        } catch (RuntimeException rejected) {
+            try {
+                finishUpdateDownload(id, update, false);
+            } finally {
+                releaseUpdateDownloadVerification(id, verificationToken);
+            }
+        }
+    }
+
+    private void finishFailedUpdateDownload(long id, AndroidUpdateManifest update) {
+        startUpdateVerificationExecutor();
+        Object verificationToken = claimUpdateDownloadVerification(id);
+        if (verificationToken == null) return;
+        try {
+            updateDownloadVerificationExecutor.execute(() -> {
+                File verifiedFile = null;
+                synchronized (UPDATE_COPY_LOCK) {
+                    cleanupStaleUpdatePartialsLocked();
+                    File internalCopy = verifiedUpdateFile(update);
+                    if (internalCopy.isFile()) {
+                        try {
+                            verifyPrivateUpdateFile(internalCopy, update);
+                            verifiedFile = internalCopy;
+                        } catch (Exception ignored) { }
+                    }
+                }
+                postVerifiedInternalUpdate(id, verificationToken, update, verifiedFile);
+            });
+        } catch (RuntimeException rejected) {
+            try {
+                finishUpdateDownload(id, update, false);
+            } finally {
+                releaseUpdateDownloadVerification(id, verificationToken);
+            }
+        }
+    }
+
+    private void startUpdateVerificationExecutor() {
+        if (updateDownloadVerificationExecutor == null) {
+            updateDownloadVerificationExecutor = Executors.newSingleThreadExecutor(runnable -> {
+                Thread thread = new Thread(runnable, "YamaSearch-update-verify");
+                thread.setDaemon(true);
+                return thread;
+            });
+        }
+    }
+
+    private Object claimUpdateDownloadVerification(long id) {
+        synchronized (UPDATE_DOWNLOAD_STATE_LOCK) {
+            if (UPDATE_DOWNLOAD_VERIFICATION_OWNERS.containsKey(id)) return null;
+            Object token = new Object();
+            UPDATE_DOWNLOAD_VERIFICATION_OWNERS.put(id, token);
+            updateDownloadVerificationId = id;
+            updateDownloadVerificationToken = token;
+            updateDownloadVerificationRunning = true;
+            return token;
+        }
+    }
+
+    private void releaseUpdateDownloadVerification(long id, Object token) {
+        boolean released = false;
+        synchronized (UPDATE_DOWNLOAD_STATE_LOCK) {
+            if (token != null && UPDATE_DOWNLOAD_VERIFICATION_OWNERS.get(id) == token) {
+                UPDATE_DOWNLOAD_VERIFICATION_OWNERS.remove(id);
+                released = true;
+            }
+            if (updateDownloadVerificationToken == token) {
+                updateDownloadVerificationId = -1L;
+                updateDownloadVerificationToken = null;
+                updateDownloadVerificationRunning = false;
+            }
+        }
+        if (released) notifyUpdateVerificationReleased(id);
+    }
+
+    private void postVerifiedInternalUpdate(long id, Object verificationToken,
+                                            AndroidUpdateManifest update, File file) {
+        try {
+            runOnUiThread(() -> {
+                try {
+                    finishVerifiedInternalUpdate(id, update, file);
+                } finally {
+                    releaseUpdateDownloadVerification(id, verificationToken);
+                }
+            });
+        } catch (RuntimeException activityUnavailable) {
+            releaseUpdateDownloadVerification(id, verificationToken);
+        }
+    }
+
+    private void verifyInternalUpdateCopy(long id, AndroidUpdateManifest update, File file) {
+        startUpdateVerificationExecutor();
+        Object verificationToken = claimUpdateDownloadVerification(id);
+        if (verificationToken == null) return;
+        try {
+            updateDownloadVerificationExecutor.execute(() -> {
+                boolean verified = false;
+                synchronized (UPDATE_COPY_LOCK) {
+                    cleanupStaleUpdatePartialsLocked();
+                    try {
+                        verifyPrivateUpdateFile(file, update);
+                        verified = true;
+                    } catch (Exception ignored) { }
+                }
+                postVerifiedInternalUpdate(id, verificationToken, update, verified ? file : null);
+            });
+        } catch (RuntimeException rejected) {
+            try {
+                finishUpdateDownload(id, update, false);
+            } finally {
+                releaseUpdateDownloadVerification(id, verificationToken);
+            }
+        }
+    }
+
+    private File createVerifiedInternalUpdateCopy(long id, File source,
+                                                  AndroidUpdateManifest update) throws IOException {
+        synchronized (UPDATE_COPY_LOCK) {
+            cleanupStaleUpdatePartialsLocked();
+            File directory = verifiedUpdateDirectory();
+            if ((!directory.isDirectory() && !directory.mkdirs()) || !directory.isDirectory())
+                throw new IOException("Cannot create private update directory");
+
+            File target = verifiedUpdateFile(update);
+            if (target.isFile()) {
+                verifyPrivateUpdateFile(target, update);
+                return target;
+            }
+
+            File temporary = new File(directory, ".partial-" + id + "-"
+                + update.getVersionCode() + "-" + UUID.randomUUID() + ".apk");
+            try {
+                long total = 0L;
+                byte[] buffer = new byte[16 * 1024];
+                try (InputStream input = new FileInputStream(source);
+                     FileOutputStream output = new FileOutputStream(temporary, false)) {
+                    int count;
+                    while ((count = input.read(buffer)) != -1) {
+                        if (Thread.currentThread().isInterrupted())
+                            throw new IOException("Update copy interrupted");
+                        total += count;
+                        if (total > update.getSize()) throw new IOException("Update copy is too large");
+                        output.write(buffer, 0, count);
+                    }
+                    if (total != update.getSize()) throw new IOException("Update copy size mismatch");
+                    output.flush();
+                    output.getFD().sync();
+                }
+
+                verifyPrivateUpdateFile(temporary, update);
+                if (target.exists() && !target.delete())
+                    throw new IOException("Cannot replace verified update file");
+                if (!temporary.renameTo(target))
+                    throw new IOException("Cannot finalize verified update file");
+                return target;
+            } finally {
+                if (temporary.exists()) try { temporary.delete(); } catch (Exception ignored) { }
+            }
+        }
+    }
+
+    private void verifyPrivateUpdateFile(File file, AndroidUpdateManifest update) throws IOException {
+        try (InputStream input = new FileInputStream(file)) {
+            AndroidUpdateDownloadVerifier.verify(input, update.getSize(), update.getSha256());
+        }
+        AndroidUpdatePackageVerifier.verify(getPackageManager(), file, update);
+    }
+
+    private void finishVerifiedInternalUpdate(long id, AndroidUpdateManifest update, File file) {
+        Uri uri = null;
+        if (file != null) {
+            try {
+                uri = FileProvider.getUriForFile(this, getPackageName() + ".updates", file);
+            } catch (Exception ignored) { }
+        }
+        finishUpdateDownload(id, update, uri != null, uri);
+    }
+
+    private File resolveOwnedUpdateFile(String localUriText) throws IOException {
+        if (localUriText == null) return null;
+        Uri localUri = Uri.parse(localUriText);
+        if (!"file".equalsIgnoreCase(localUri.getScheme()) || localUri.getPath() == null) return null;
+        File root = getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS);
+        if (root == null) return null;
+        File canonicalRoot = root.getCanonicalFile();
+        File canonicalFile = new File(localUri.getPath()).getCanonicalFile();
+        String allowedPrefix = canonicalRoot.getPath() + File.separator;
+        return canonicalFile.getPath().startsWith(allowedPrefix) ? canonicalFile : null;
+    }
+
+    private void finishUpdateDownload(long id, AndroidUpdateManifest update, boolean success) {
+        finishUpdateDownload(id, update, success, null);
+    }
+
+    private void finishUpdateDownload(long id, AndroidUpdateManifest update, boolean success,
+                                      Uri downloadedUri) {
+        if (id != updateDownloadId || pendingAppUpdate == null
+            || update.getVersionCode() != pendingAppUpdate.getVersionCode()
+            || !update.getSha256().equals(pendingAppUpdate.getSha256())) return;
+        success = success && downloadedUri != null;
+        updateDownloadVerificationRunning = false;
+        if (!success) {
+            discardTrackedUpdateDownload(id, true);
+        } else {
+            updateDownloadVerified = true;
+            verifiedUpdateDownloadUri = downloadedUri;
+            unregisterUpdateDownloadReceiver();
+            // Installation uses the verified private copy, so the mutable
+            // external DownloadManager source is no longer needed.
+            removeUpdateDownload(id);
+        }
+        reportUpdateDownloadOutcome(new UpdateDownloadOutcome(
+            success, update.getVersion(), downloadedUri));
+    }
+
+    private void reportUpdateDownloadOutcome(UpdateDownloadOutcome outcome) {
+        if (!activityResumed || !hasWindowFocus()) {
+            deferredUpdateDownloadOutcome = outcome;
+            return;
+        }
+        showUpdateDownloadOutcome(outcome);
+    }
+
+    private void deliverDeferredUpdateUiIfVisible() {
+        if (!activityResumed || !hasWindowFocus()) return;
+        if (deferredUpdateDownloadOutcome != null) {
+            UpdateDownloadOutcome outcome = deferredUpdateDownloadOutcome;
+            deferredUpdateDownloadOutcome = null;
+            showUpdateDownloadOutcome(outcome);
+        }
+        if (pendingInstallerOutcome != null) {
+            UpdateDownloadOutcome outcome = pendingInstallerOutcome;
+            pendingInstallerOutcome = null;
+            if (getPackageManager().canRequestPackageInstalls()) {
+                continueVerifiedUpdateInstallation(outcome);
+            } else {
+                // The user returned without granting the Android installer
+                // permission. Keep the verified APK and offer the choice again
+                // instead of silently abandoning the handoff.
+                showUpdateDownloadOutcome(outcome);
+            }
+        }
+    }
+
+    private void showUpdateDownloadOutcome(UpdateDownloadOutcome outcome) {
+        if (isFinishing() || isDestroyed()) return;
+        if (updateDownloadDialog != null) updateDownloadDialog.dismiss();
+        AlertDialog.Builder builder = new AlertDialog.Builder(this)
+            .setTitle(outcome.success ? "Aktualizace je stažená" : "Stažení aktualizace selhalo")
+            .setMessage(outcome.success
+                ? "Verze " + outcome.version + " byla stažena. YamaSearch ověřil velikost, SHA-256, "
+                    + "balíček, verzi i produkční podpis. Pokračujte do systémového instalátoru."
+                : "Soubor aktualizace nebyl stažen nebo neprošel ověřením. Nebyl ponechán k instalaci; zkuste stažení znovu.")
+            .setNegativeButton(outcome.success ? "Později" : "Zavřít", null);
+        if (outcome.success) builder.setPositiveButton("Nainstalovat", (dialog, which) ->
+            continueVerifiedUpdateInstallation(outcome));
+        AlertDialog dialog = builder.create();
+        updateDownloadDialog = dialog;
+        dialog.setOnDismissListener(ignored -> {
+            if (updateDownloadDialog == dialog) updateDownloadDialog = null;
+        });
+        dialog.show();
+    }
+
+    private void continueVerifiedUpdateInstallation(UpdateDownloadOutcome outcome) {
+        if (outcome == null || !outcome.success || outcome.downloadedUri == null
+            || !updateDownloadVerified || verifiedUpdateDownloadUri == null
+            || !verifiedUpdateDownloadUri.equals(outcome.downloadedUri)) return;
+        if (!getPackageManager().canRequestPackageInstalls()) {
+            pendingInstallerOutcome = outcome;
+            try {
+                Intent settings = new Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
+                    Uri.parse("package:" + getPackageName()));
+                startActivity(settings);
+                Toast.makeText(this,
+                    "Povolte instalaci z YamaSearch a potom se instalace otevře automaticky.",
+                    Toast.LENGTH_LONG).show();
+            } catch (ActivityNotFoundException | SecurityException error) {
+                pendingInstallerOutcome = null;
+                Toast.makeText(this,
+                    "Nastavení instalace není dostupné. Aktualizaci lze nainstalovat z oficiálního webu.",
+                    Toast.LENGTH_LONG).show();
+            }
+            return;
+        }
+        pendingInstallerOutcome = null;
+        try {
+            Intent install = new Intent(Intent.ACTION_INSTALL_PACKAGE);
+            install.setDataAndType(outcome.downloadedUri, ANDROID_APK_MIME);
+            install.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            startActivity(install);
+            // Keep the record until the newly installed version starts. If the
+            // user cancels or Android rejects installation, a later check can
+            // offer this already verified download again.
+        } catch (ActivityNotFoundException | SecurityException error) {
+            Toast.makeText(this,
+                "Instalátor se nepodařilo otevřít. Aktualizaci lze nainstalovat z oficiálního webu.",
+                Toast.LENGTH_LONG).show();
         }
     }
 
@@ -1732,17 +2440,61 @@ public class BrowserActivity extends Activity {
     }
 
     @Override protected void onPause() {
+        activityResumed = false;
         if (searchPanel != null) searchPanel.hide();
+        if (updateController != null) updateController.onPause();
         if (selected != null) selected.web.onPause();
         super.onPause();
     }
 
     @Override protected void onResume() {
         super.onResume();
+        activityResumed = true;
         if (selected != null) selected.web.onResume();
+        checkPendingUpdateDownload();
+        deliverDeferredUpdateUiIfVisible();
+        if (updateController != null && hasWindowFocus()) updateController.onResume();
+    }
+
+    @Override public void onWindowFocusChanged(boolean hasFocus) {
+        super.onWindowFocusChanged(hasFocus);
+        if (!activityResumed) return;
+        if (hasFocus) {
+            checkPendingUpdateDownload();
+            deliverDeferredUpdateUiIfVisible();
+            if (updateController != null) updateController.onResume();
+        } else if (updateController != null) {
+            updateController.onPause();
+        }
     }
 
     @Override protected void onDestroy() {
+        activityResumed = false;
+        unregisterUpdateDownloadReceiver();
+        unregisterUpdateActivity();
+        Object verificationToken = updateDownloadVerificationToken;
+        long verificationId = updateDownloadVerificationId;
+        if (verificationToken != null && verificationId > 0L)
+            releaseUpdateDownloadVerification(verificationId, verificationToken);
+        if (updateDownloadVerificationExecutor != null) {
+            updateDownloadVerificationExecutor.shutdownNow();
+            updateDownloadVerificationExecutor = null;
+        }
+        if (updateDownloadDialog != null) {
+            updateDownloadDialog.dismiss();
+            updateDownloadDialog = null;
+        }
+        pendingAppUpdate = null;
+        deferredUpdateDownloadOutcome = null;
+        pendingInstallerOutcome = null;
+        updateDownloadId = -1L;
+        updateDownloadVerificationRunning = false;
+        updateDownloadVerified = false;
+        verifiedUpdateDownloadUri = null;
+        if (updateController != null) {
+            updateController.close();
+            updateController = null;
+        }
         hideCustomView();
         cancelMediaPermission(pendingMediaPermission, true);
         cancelLocationPermission(pendingLocationPermission, true);

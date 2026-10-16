@@ -8,6 +8,7 @@ on:
       - 'tests/yamasearch-android-mobile-browser.cjs'
       - 'tests/yamasearch-android-yamablock.cjs'
       - '.github/workflows/yamasearch-android-preview.yml'
+      - '.github/workflows/yamasearch-android-release.yml'
   workflow_dispatch:
 
 permissions:
@@ -37,6 +38,21 @@ jobs:
             app/src/main/java/eu/yamachat/yamasearch/MobileNavigation.java \
             tests/MobileNavigationTest.java
           java -cp build/navigation-test eu.yamachat.yamasearch.MobileNavigationTest
+          mkdir -p build/update-test
+          javac -encoding UTF-8 -d build/update-test \
+            app/src/main/java/eu/yamachat/yamasearch/AndroidUpdateManifest.java \
+            app/src/main/java/eu/yamachat/yamasearch/AndroidUpdateDownloadRecord.java \
+            app/src/main/java/eu/yamachat/yamasearch/AndroidUpdateChecker.java \
+            app/src/main/java/eu/yamachat/yamasearch/AndroidUpdateDownloadVerifier.java \
+            tests/AndroidUpdateManifestTest.java \
+            tests/AndroidUpdateManifestFileTest.java \
+            tests/AndroidUpdateDownloadRecordTest.java \
+            tests/AndroidUpdateCheckerTest.java \
+            tests/AndroidUpdateDownloadVerifierTest.java
+          java -cp build/update-test eu.yamachat.yamasearch.AndroidUpdateManifestTest
+          java -cp build/update-test eu.yamachat.yamasearch.AndroidUpdateDownloadRecordTest
+          java -cp build/update-test eu.yamachat.yamasearch.AndroidUpdateCheckerTest
+          java -cp build/update-test eu.yamachat.yamasearch.AndroidUpdateDownloadVerifierTest
       - name: Prepare Android SDK on GitHub runner
         run: |
           echo "ANDROID_HOME=$ANDROID_HOME"

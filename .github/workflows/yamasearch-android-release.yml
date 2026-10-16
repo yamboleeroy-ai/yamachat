@@ -53,6 +53,21 @@ jobs:
             app/src/main/java/eu/yamachat/yamasearch/MobileNavigation.java \
             tests/MobileNavigationTest.java
           java -cp build/navigation-test eu.yamachat.yamasearch.MobileNavigationTest
+          mkdir -p build/update-test
+          javac -encoding UTF-8 -d build/update-test \
+            app/src/main/java/eu/yamachat/yamasearch/AndroidUpdateManifest.java \
+            app/src/main/java/eu/yamachat/yamasearch/AndroidUpdateDownloadRecord.java \
+            app/src/main/java/eu/yamachat/yamasearch/AndroidUpdateChecker.java \
+            app/src/main/java/eu/yamachat/yamasearch/AndroidUpdateDownloadVerifier.java \
+            tests/AndroidUpdateManifestTest.java \
+            tests/AndroidUpdateManifestFileTest.java \
+            tests/AndroidUpdateDownloadRecordTest.java \
+            tests/AndroidUpdateCheckerTest.java \
+            tests/AndroidUpdateDownloadVerifierTest.java
+          java -cp build/update-test eu.yamachat.yamasearch.AndroidUpdateManifestTest
+          java -cp build/update-test eu.yamachat.yamasearch.AndroidUpdateDownloadRecordTest
+          java -cp build/update-test eu.yamachat.yamasearch.AndroidUpdateCheckerTest
+          java -cp build/update-test eu.yamachat.yamasearch.AndroidUpdateDownloadVerifierTest
       - name: Provision Android SDK
         run: |
           set -euo pipefail
@@ -169,6 +184,10 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
       - uses: actions/download-artifact@v4
         with:
           name: YamaSearch-Android-SIGNED-${{ needs.build.outputs.version }}
@@ -186,7 +205,7 @@ jobs:
           (cd release-assets && sha256sum -c SHA256SUMS.txt)
           EXPECTED=$(awk 'NR==1 {print $1}' release-assets/SHA256SUMS.txt)
           EXISTING="$RUNNER_TEMP/YamaSearch-Android-$VERSION-existing.apk"
-          STATUS=$(curl --location --silent --show-error --max-time 30 \
+          STATUS=$(curl --silent --show-error --max-time 30 \
             --output "$EXISTING" --write-out '%{http_code}' \
             "https://updates.yamachat.eu/yamasearch/YamaSearch-Android-$VERSION.apk?preflight=$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" || true)
           if test "$STATUS" = 200; then
@@ -209,7 +228,7 @@ jobs:
           test "${#EXPECTED}" = 64
           PUBLIC="$RUNNER_TEMP/YamaSearch-Android-$VERSION.apk"
           for n in $(seq 1 20); do
-            if curl --fail --location --silent --show-error --max-time 30 \
+            if curl --fail --silent --show-error --max-time 30 \
               "https://updates.yamachat.eu/yamasearch/YamaSearch-Android-$VERSION.apk?verify=$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT-$n" -o "$PUBLIC" \
               && test "$(sha256sum "$PUBLIC" | awk '{print $1}')" = "$EXPECTED"; then
               break
@@ -245,6 +264,102 @@ jobs:
             test "$n" != 20 || { echo "Public latest YamaSearch APK checksum mismatch"; exit 1; }
             sleep 10
           done
+
+      - name: Publish verified Android update manifest
+        env:
+          VERSION: ${{ needs.build.outputs.version }}
+          VERSION_CODE: ${{ needs.build.outputs.version_code }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          set -euo pipefail
+          test -n "${CLOUDFLARE_API_TOKEN:-}" && test -n "${CLOUDFLARE_ACCOUNT_ID:-}"
+          export APK_SHA256=$(awk 'NR==1 {print $1}' release-assets/SHA256SUMS.txt)
+          export APK_SIZE=$(wc -c < "release-assets/YamaSearch-Android-$VERSION.apk" | tr -d ' ')
+          export UPDATE_MANIFEST="$RUNNER_TEMP/YamaSearch-Android-update.json"
+          node - <<'NODE'
+          const fs = require('fs');
+          const request = JSON.parse(fs.readFileSync('products/yamasearch/release/android-release-request.json', 'utf8'));
+          const version = process.env.VERSION;
+          const versionCode = Number(process.env.VERSION_CODE);
+          const size = Number(process.env.APK_SIZE);
+          const sha256 = process.env.APK_SHA256;
+          if (!/^\d+\.\d+\.\d+$/.test(version)) throw Error('Invalid Android update version');
+          if (!Number.isSafeInteger(versionCode) || versionCode < 1) throw Error('Invalid Android update versionCode');
+          if (versionCode > 2100000000) throw Error('Android update versionCode is out of range');
+          if (!Number.isSafeInteger(size) || size < 1) throw Error('Invalid Android update APK size');
+          if (size > 512 * 1024 * 1024) throw Error('Android update APK is too large');
+          if (!/^[0-9a-f]{64}$/.test(sha256)) throw Error('Invalid Android update APK checksum');
+          const requestedNotes = request.version === version && Number(request.versionCode) === versionCode
+            ? String(request.notes || '').trim()
+            : '';
+          const notes = requestedNotes || `Aktualizace YamaSearch Android ${version}.`;
+          if (notes.length > 2000) throw Error('Android update notes are too long');
+          const channel = request.version === version && Number(request.versionCode) === versionCode
+            ? String(request.channel || 'beta').trim()
+            : 'beta';
+          if (channel !== 'beta' && channel !== 'stable') throw Error('Invalid Android update channel');
+          const manifest = {
+            schemaVersion: 1,
+            product: 'YamaSearch Android',
+            packageId: 'eu.yamachat.yamasearch.mobile',
+            version,
+            versionCode,
+            channel,
+            notes,
+            apkUrl: `https://updates.yamachat.eu/yamasearch/YamaSearch-Android-${version}.apk`,
+            sha256,
+            size,
+            publishedAtUtc: new Date().toISOString()
+          };
+          fs.writeFileSync(process.env.UPDATE_MANIFEST, JSON.stringify(manifest, null, 2) + '\n');
+          NODE
+          node -e "const m=require(process.env.UPDATE_MANIFEST);if(m.version!==process.env.VERSION||String(m.versionCode)!==process.env.VERSION_CODE)process.exit(1)"
+          mkdir -p "$RUNNER_TEMP/android-update-manifest-test"
+          javac -encoding UTF-8 -d "$RUNNER_TEMP/android-update-manifest-test" \
+            products/yamasearch/android/app/src/main/java/eu/yamachat/yamasearch/AndroidUpdateManifest.java \
+            products/yamasearch/android/tests/AndroidUpdateManifestFileTest.java
+          java -cp "$RUNNER_TEMP/android-update-manifest-test" \
+            eu.yamachat.yamasearch.AndroidUpdateManifestFileTest "$UPDATE_MANIFEST"
+          npx --yes wrangler@latest r2 object put 'yamachat-releases/yamasearch/YamaSearch-Android-update.json' --file "$UPDATE_MANIFEST" --content-type 'application/json; charset=utf-8' --cache-control 'no-cache, no-store' --remote
+
+      - name: Verify public Android update manifest
+        env:
+          VERSION: ${{ needs.build.outputs.version }}
+          VERSION_CODE: ${{ needs.build.outputs.version_code }}
+        run: |
+          set -euo pipefail
+          EXPECTED=$(sha256sum "$RUNNER_TEMP/YamaSearch-Android-update.json" | awk '{print $1}')
+          PUBLIC="$RUNNER_TEMP/YamaSearch-Android-update-public.json"
+          HEADERS="$RUNNER_TEMP/YamaSearch-Android-update-public.headers"
+          for n in $(seq 1 20); do
+            if curl --fail --silent --show-error --max-time 30 \
+              -H 'Cache-Control: no-cache' \
+              --dump-header "$HEADERS" \
+              "https://updates.yamachat.eu/yamasearch/YamaSearch-Android-update.json?verify=$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT-$n" -o "$PUBLIC" \
+              && test "$(sha256sum "$PUBLIC" | awk '{print $1}')" = "$EXPECTED" \
+              && grep -qiE '^content-type:[[:space:]]*application/json([;[:space:]]|$)' "$HEADERS"; then
+              break
+            fi
+            test "$n" != 20 || { echo "Public YamaSearch Android update manifest mismatch"; exit 1; }
+            sleep 10
+          done
+          node - <<'NODE'
+          const fs = require('fs');
+          const manifest = JSON.parse(fs.readFileSync(process.env.RUNNER_TEMP + '/YamaSearch-Android-update-public.json', 'utf8'));
+          if (manifest.schemaVersion !== 1 || manifest.product !== 'YamaSearch Android') throw Error('Unexpected Android update manifest schema');
+          if (manifest.packageId !== 'eu.yamachat.yamasearch.mobile') throw Error('Unexpected Android package ID');
+          if (manifest.version !== process.env.VERSION || String(manifest.versionCode) !== process.env.VERSION_CODE) throw Error('Unexpected Android version metadata');
+          if (manifest.channel !== 'beta' && manifest.channel !== 'stable') throw Error('Unexpected Android release channel');
+          if (typeof manifest.notes !== 'string' || !manifest.notes || manifest.notes.length > 2000) throw Error('Unexpected Android release notes');
+          if (manifest.apkUrl !== `https://updates.yamachat.eu/yamasearch/YamaSearch-Android-${process.env.VERSION}.apk`) throw Error('Unexpected Android APK URL');
+          if (!/^[0-9a-f]{64}$/.test(manifest.sha256)) throw Error('Unexpected Android APK checksum');
+          if (!Number.isSafeInteger(manifest.size) || manifest.size < 1 || manifest.size > 512 * 1024 * 1024) throw Error('Unexpected Android APK size');
+          if (typeof manifest.publishedAtUtc !== 'string' || !manifest.publishedAtUtc.endsWith('Z') || !Number.isFinite(Date.parse(manifest.publishedAtUtc))) throw Error('Unexpected Android publication time');
+          NODE
+          java -cp "$RUNNER_TEMP/android-update-manifest-test" \
+            eu.yamachat.yamasearch.AndroidUpdateManifestFileTest "$PUBLIC"
+
       - name: Activate public Android download on official site
         env:
           VERSION: ${{ needs.build.outputs.version }}
@@ -267,6 +382,7 @@ jobs:
           state.version = process.env.VERSION;
           state.versionCode = versionCode;
           state.packageId = expectedPackageId;
+          state.updateManifestUrl = 'https://updates.yamachat.eu/yamasearch/YamaSearch-Android-update.json';
           if (request.version === state.version && Number(request.versionCode) === versionCode && request.notes) {
             state.notes = request.notes;
           }
