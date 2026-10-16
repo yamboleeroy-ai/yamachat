@@ -1,6 +1,7 @@
 package eu.yamachat.yamasearch;
 
 import android.Manifest;
+import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.app.DownloadManager;
@@ -16,8 +17,11 @@ import android.os.Bundle;
 import android.os.Environment;
 import android.os.Message;
 import android.provider.Settings;
+import android.text.Editable;
+import android.text.TextWatcher;
 import android.view.Gravity;
 import android.view.KeyEvent;
+import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.WindowInsets;
@@ -47,9 +51,8 @@ import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
 import android.graphics.drawable.GradientDrawable;
+import org.json.JSONObject;
 import java.io.ByteArrayInputStream;
-import java.net.URLEncoder;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -58,6 +61,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 
 public class BrowserActivity extends Activity {
     private static final int INK = Color.rgb(12, 18, 31);
@@ -68,7 +72,7 @@ public class BrowserActivity extends Activity {
     private static final int SITE_PERMISSION = 351;
     private static final int SITE_LOCATION_PERMISSION = 352;
     private static final int DOWNLOAD_STORAGE_PERMISSION = 353;
-    private static final String HOME = "about:blank";
+    private static final String HOME = MobileNavigation.HOME;
     private static final String SITE_CAMERA = "camera";
     private static final String SITE_MICROPHONE = "microphone";
     private static final String SITE_LOCATION = "location";
@@ -92,8 +96,13 @@ public class BrowserActivity extends Activity {
 
     private static final class Tab {
         WebView web;
+        YamaBlockPageFilter yamaBlockPageFilter;
+        final String homeDocumentUrl = MobileHomePage.HOME_BASE + UUID.randomUUID() + "/";
         String title = "Nová karta";
         String favicon = "";
+        boolean isHome;
+        boolean homeNavigationPending;
+        boolean homeContentDirty;
         // shouldInterceptRequest runs on a WebView worker thread. Keep the
         // top-level host here instead of asking WebView#getUrl from that thread.
         volatile String topLevelHost = "";
@@ -171,8 +180,10 @@ public class BrowserActivity extends Activity {
     private BrowserStore store;
     private FrameLayout activityRoot;
     private LinearLayout root;
+    private FrameLayout contentStack;
     private FrameLayout webHost;
     private EditText address;
+    private MobileSearchPanel searchPanel;
     private TextView tabCounter;
     private ProgressBar progress;
     private TextView bookmarkButton;
@@ -219,7 +230,9 @@ public class BrowserActivity extends Activity {
         WebView.setWebContentsDebuggingEnabled(false);
         buildUi();
         String launch = getIntent().getDataString();
-        String initialUrl = launch != null && (launch.startsWith("https://") || launch.startsWith("http://")) ? launch : HOME;
+        MobileNavigation.Destination launchDestination = MobileNavigation.resolve(launch);
+        String initialUrl = launch != null && !launchDestination.search && !launchDestination.isHome()
+            ? launchDestination.url : HOME;
         prepareInitialWebData(() -> {
             if (!isFinishing() && !isDestroyed()) createTab(initialUrl, true);
         });
@@ -267,6 +280,10 @@ public class BrowserActivity extends Activity {
         brandRow.addView(brand, brandParams);
         TextView menu = action("⋮", () -> openMenu());
         brandRow.addView(menu);
+        brandRow.setClickable(true);
+        brandRow.setFocusable(true);
+        brandRow.setContentDescription("Domovská stránka YamaSearch");
+        brandRow.setOnClickListener(view -> navigateHome());
         root.addView(brandRow, new LinearLayout.LayoutParams(-1, dp(47)));
 
         LinearLayout inputRow = new LinearLayout(this);
@@ -294,6 +311,18 @@ public class BrowserActivity extends Activity {
             return false;
         });
         inputRow.addView(address, new LinearLayout.LayoutParams(0, dp(43), 1));
+        TextView suggestions = action("⌄", () -> {
+            if (searchPanel == null) return;
+            if (searchPanel.isVisible()) searchPanel.hide();
+            else searchPanel.show(address.getText().toString());
+        });
+        suggestions.setTextSize(18);
+        suggestions.setContentDescription("Zobrazit návrhy hledání");
+        suggestions.setTooltipText("Návrhy hledání");
+        suggestions.setBackground(shape(PANEL, Color.rgb(49, 70, 91), 12));
+        LinearLayout.LayoutParams suggestionParams = new LinearLayout.LayoutParams(dp(43), dp(43));
+        suggestionParams.leftMargin = dp(7);
+        inputRow.addView(suggestions, suggestionParams);
         root.addView(inputRow);
 
         progress = new ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal);
@@ -301,16 +330,46 @@ public class BrowserActivity extends Activity {
         progress.setProgressTintList(android.content.res.ColorStateList.valueOf(CYAN));
         root.addView(progress, new LinearLayout.LayoutParams(-1, dp(2)));
 
+        contentStack = new FrameLayout(this);
+        contentStack.setBackgroundColor(INK);
         webHost = new FrameLayout(this);
         webHost.setBackgroundColor(INK);
-        root.addView(webHost, new LinearLayout.LayoutParams(-1, 0, 1));
+        contentStack.addView(webHost, new FrameLayout.LayoutParams(-1, -1));
+        searchPanel = new MobileSearchPanel(this, store, privateSession(), new MobileSearchPanel.Listener() {
+            @Override public void navigate(String input) { BrowserActivity.this.navigate(input); }
+            @Override public void storedSearchesChanged() { refreshHomeTabs(); }
+        });
+        FrameLayout.LayoutParams searchParams = new FrameLayout.LayoutParams(-1, dp(360), Gravity.TOP);
+        searchParams.leftMargin = dp(9);
+        searchParams.rightMargin = dp(9);
+        searchParams.topMargin = dp(5);
+        contentStack.addView(searchPanel.view(), searchParams);
+        root.addView(contentStack, new LinearLayout.LayoutParams(-1, 0, 1));
+
+        address.addTextChangedListener(new TextWatcher() {
+            @Override public void beforeTextChanged(CharSequence value, int start, int count, int after) { }
+            @Override public void onTextChanged(CharSequence value, int start, int before, int count) {
+                if (address.hasFocus() && searchPanel != null) searchPanel.show(value == null ? "" : value.toString());
+            }
+            @Override public void afterTextChanged(Editable value) { }
+        });
+        address.setOnFocusChangeListener((view, focused) -> {
+            if (focused && searchPanel != null) searchPanel.show(address.getText().toString());
+        });
 
         LinearLayout nav = new LinearLayout(this);
         nav.setBackgroundColor(PANEL);
         nav.setGravity(Gravity.CENTER);
-        addNav(nav, "←", () -> { if (selected != null && selected.web.canGoBack()) selected.web.goBack(); });
+        addNav(nav, "←", () -> {
+            if (searchPanel != null && searchPanel.isVisible()) searchPanel.hide();
+            else if (selected != null && selected.web.canGoBack()) selected.web.goBack();
+        });
         addNav(nav, "→", () -> { if (selected != null && selected.web.canGoForward()) selected.web.goForward(); });
-        addNav(nav, "⟳", () -> { if (selected != null) selected.web.reload(); });
+        addNav(nav, "⟳", () -> {
+            if (selected == null) return;
+            if (selected.isHome) refreshHomeInPlace(selected);
+            else selected.web.reload();
+        });
         bookmarkButton = action("☆", this::toggleBookmark);
         nav.addView(bookmarkButton, new LinearLayout.LayoutParams(0, dp(52), 1));
         blockerButton = action("⬢", this::openYamaBlockPanel);
@@ -335,17 +394,36 @@ public class BrowserActivity extends Activity {
         row.addView(action(label, action), new LinearLayout.LayoutParams(0, dp(52), 1));
     }
 
-    private String normalize(String raw) {
-        String input = raw == null ? "" : raw.trim();
-        if (input.isEmpty()) return HOME;
-        if (input.startsWith("http://") || input.startsWith("https://")) return input;
-        if (input.startsWith("about:blank")) return HOME;
-        if (!input.contains(" ") && input.contains(".") && !input.startsWith(".")) return "https://" + input;
-        return "https://www.google.com/search?q=" + Uri.encode(input);
+    private void navigate(String text) {
+        if (selected == null) return;
+        MobileNavigation.Destination destination = MobileNavigation.resolve(text);
+        if (searchPanel != null) searchPanel.hide();
+        address.clearFocus();
+        if (destination.isHome()) {
+            navigateHome();
+            return;
+        }
+        selected.homeNavigationPending = false;
+        selected.isHome = false;
+        if (!privateSession() && destination.search) {
+            BrowserStore.ProfileSettings profile = store.profileSettings();
+            if (profile.rememberSearches) {
+                store.recordSearch(destination.input);
+                refreshHomeTabs();
+            }
+        }
+        prepareYamaBlockForNavigation(selected, destination.url);
+        selected.web.loadUrl(destination.url);
     }
 
-    private void navigate(String text) {
-        if (selected != null) selected.web.loadUrl(normalize(text));
+    private void navigateHome() {
+        if (selected == null) return;
+        if (searchPanel != null) searchPanel.hide();
+        address.clearFocus();
+        if (selected.isHome && selected.homeDocumentUrl.equals(selected.web.getUrl()))
+            refreshHomeInPlace(selected);
+        else
+            loadHome(selected);
     }
 
     private boolean hostMatches(String host, String[] entries) {
@@ -371,6 +449,7 @@ public class BrowserActivity extends Activity {
         if (!"off".equals(mode) && !"standard".equals(mode) && !"strict".equals(mode)) return;
         if (privateSession()) privateBlockerMode = mode;
         else store.setBlockerMode(mode);
+        refreshYamaBlockPageFilters();
     }
 
     private boolean isBlockerDisabledForHost(String host) {
@@ -391,6 +470,35 @@ public class BrowserActivity extends Activity {
         } else {
             store.setBlockerDisabledForHost(safeHost, disabled);
         }
+        refreshYamaBlockPageFilters();
+    }
+
+    private void refreshYamaBlockPageFilters() {
+        for (Tab tab : tabs) {
+            if (tab.yamaBlockPageFilter == null) continue;
+            String url = tab.web.getUrl();
+            boolean changed = tab.yamaBlockPageFilter.update(yamaBlockEnabledForUrl(url));
+            // The page hook is deliberately closure-only: it exposes no writable
+            // switch to web content. Reloading an already open YouTube document
+            // is therefore the clean way to apply an off/exception change and to
+            // restore the untouched native page APIs when blocking is disabled.
+            if (changed && isYouTubeHost(hostForUrl(url))) tab.web.reload();
+        }
+    }
+
+    private boolean yamaBlockEnabledForUrl(String url) {
+        if ("off".equals(blockerMode())) return false;
+        String host = hostForUrl(url);
+        return !isYouTubeHost(host) || !isBlockerDisabledForHost(host);
+    }
+
+    private boolean isYouTubeHost(String host) {
+        return "youtube.com".equals(host) || (host != null && host.endsWith(".youtube.com"));
+    }
+
+    private void prepareYamaBlockForNavigation(Tab tab, String url) {
+        if (tab != null && tab.yamaBlockPageFilter != null)
+            tab.yamaBlockPageFilter.update(yamaBlockEnabledForUrl(url));
     }
 
     private String hostForUrl(String url) {
@@ -431,8 +539,115 @@ public class BrowserActivity extends Activity {
         });
     }
 
+    private boolean handleInternalNavigation(Tab tab, WebView view, WebResourceRequest request) {
+        Uri uri = request.getUrl();
+        if (!"yamasearch".equalsIgnoreCase(uri.getScheme())) return false;
+        // Only the selected, locally rendered home page may invoke native actions.
+        // A normal web page or a hidden/background tab must never be able to
+        // navigate a different tab, persist a search, or open privileged UI.
+        if (!request.isForMainFrame() || tab != selected || view != tab.web
+            || !tab.isHome || !tab.homeDocumentUrl.equals(view.getUrl())) return true;
+        String action = uri.getHost() == null ? "" : uri.getHost().toLowerCase(Locale.ROOT);
+        switch (action) {
+            case "search":
+                navigate(uri.getQueryParameter("q"));
+                break;
+            case "profile":
+                showProfilePanel();
+                break;
+            case "favorites":
+                showBookmarks();
+                break;
+            case "history":
+                if (!privateSession()) showEntries("Historie", store.history(), true);
+                break;
+            default:
+                break;
+        }
+        return true;
+    }
+
+    private String renderHomeHtml(Tab tab) {
+        if (tab == null || tab.web == null) return "";
+        String html;
+        if (privateSession()) {
+            html = MobileHomePage.render(true, "Soukromé okno",
+                Collections.emptyList(), Collections.emptyList(), 0, false, false);
+            tab.title = "Soukromá karta";
+        } else {
+            BrowserStore.ProfileSettings profile = store.profileSettings();
+            List<BrowserStore.Entry> favorites = store.bookmarks();
+            List<BrowserStore.SearchEntry> searches = profile.showRecentSearches
+                ? store.recentSearches(6) : Collections.emptyList();
+            html = MobileHomePage.render(false, profile.displayName, favorites, searches,
+                store.history().size(), profile.showFavoritesOnHome, profile.showRecentSearches);
+            tab.title = "Domů";
+        }
+        tab.topLevelHost = "";
+        tab.favicon = "";
+        synchronized (tab) { tab.blockedCount = 0; }
+        return html;
+    }
+
+    private void loadHome(Tab tab) {
+        if (tab == null || tab.web == null) return;
+        String html = renderHomeHtml(tab);
+        tab.homeContentDirty = false;
+        tab.homeNavigationPending = true;
+        // Trust is granted only to this tab's unguessable synthetic document URL.
+        // The marker also survives a legitimate Back/Forward history restore.
+        tab.isHome = true;
+        prepareYamaBlockForNavigation(tab, tab.homeDocumentUrl);
+        tab.web.loadDataWithBaseURL(tab.homeDocumentUrl, html, "text/html", "UTF-8", null);
+    }
+
+    private void refreshHomeInPlace(Tab tab) {
+        if (tab == null || tab.web == null || !tab.isHome
+            || !tab.homeDocumentUrl.equals(tab.web.getUrl())) return;
+        String html = renderHomeHtml(tab);
+        tab.homeContentDirty = false;
+        try {
+            // Replacing the trusted local document in place keeps WebView's back
+            // list unchanged, unlike another loadDataWithBaseURL navigation.
+            tab.web.evaluateJavascript("document.open();document.write("
+                + JSONObject.quote(html) + ");document.close();", null);
+        } catch (IllegalStateException ignored) {
+            tab.homeContentDirty = true;
+        }
+        if (selected == tab) refreshToolbar();
+    }
+
+    private void refreshHomeTabs() {
+        if (privateSession()) return;
+        for (Tab tab : new ArrayList<>(tabs)) {
+            if (!tab.isHome) continue;
+            tab.homeContentDirty = true;
+            // Keep hidden renderers asleep; they refresh when selected.
+            if (tab == selected) refreshHomeInPlace(tab);
+        }
+        if (address != null && address.hasFocus() && searchPanel != null && searchPanel.isVisible())
+            searchPanel.show(address.getText().toString());
+    }
+
+    private void showProfilePanel() {
+        MobileProfileDialog.show(this, store, privateSession(), this::refreshHomeTabs);
+    }
+
+    @SuppressLint({"SetJavaScriptEnabled", "ClickableViewAccessibility"})
     private void createTab(String firstUrl, boolean activate) {
+        createTab(firstUrl, activate, false);
+    }
+
+    @SuppressLint({"SetJavaScriptEnabled", "ClickableViewAccessibility"})
+    private Tab createTab(String firstUrl, boolean activate, boolean deferInitialNavigation) {
         WebView web = new WebView(this);
+        web.setOnTouchListener((view, event) -> {
+            if (event.getActionMasked() == MotionEvent.ACTION_DOWN && searchPanel != null && searchPanel.isVisible()) {
+                searchPanel.hide();
+                address.clearFocus();
+            }
+            return false;
+        });
         Tab tab = new Tab(web);
         tab.topLevelHost = hostForUrl(firstUrl);
         tabs.add(tab);
@@ -457,11 +672,23 @@ public class BrowserActivity extends Activity {
             CookieManager.getInstance().setAcceptCookie(true);
             CookieManager.getInstance().setAcceptThirdPartyCookies(web, false);
         }
+        // Register before the first loadUrl(). Unlike onPageStarted(), this lets
+        // YamaBlock see YouTube's initial inline player response deterministically.
+        tab.yamaBlockPageFilter = new YamaBlockPageFilter(
+            this, web, !deferInitialNavigation && yamaBlockEnabledForUrl(firstUrl));
         web.setWebViewClient(new WebViewClient() {
             @Override public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
+                if (handleInternalNavigation(tab, view, request)) return true;
                 Uri uri = request.getUrl();
                 String scheme = uri.getScheme();
-                if ("http".equals(scheme) || "https".equals(scheme) || "about".equals(scheme)) return false;
+                if ("http".equals(scheme) || "https".equals(scheme) || "about".equals(scheme)) {
+                    if (request.isForMainFrame()) {
+                        tab.homeNavigationPending = false;
+                        tab.isHome = false;
+                        prepareYamaBlockForNavigation(tab, uri.toString());
+                    }
+                    return false;
+                }
                 if ("tel".equals(scheme) || "mailto".equals(scheme) || "geo".equals(scheme)) {
                     try { startActivity(new Intent(Intent.ACTION_VIEW, uri)); }
                     catch (ActivityNotFoundException ignored) { }
@@ -478,18 +705,45 @@ public class BrowserActivity extends Activity {
             }
 
             @Override public void onPageStarted(WebView view, String url, Bitmap favicon) {
+                // The per-tab unguessable .invalid URL survives Back/Forward and
+                // renderer restores, while a web page cannot manufacture trust by
+                // navigating to a public or static address.
+                boolean trustedHome = tab.homeDocumentUrl.equals(url);
+                tab.homeNavigationPending = false;
+                tab.isHome = trustedHome;
+                if (trustedHome) tab.homeContentDirty = false;
+
+                if (tab.yamaBlockPageFilter != null) {
+                    boolean filterChanged = tab.yamaBlockPageFilter.update(yamaBlockEnabledForUrl(url));
+                    if (filterChanged && isYouTubeHost(hostForUrl(url))) {
+                        // A redirect may bypass shouldOverrideUrlLoading. Restart
+                        // once with the correct document-start registration.
+                        view.stopLoading();
+                        view.post(view::reload);
+                        return;
+                    }
+                    tab.yamaBlockPageFilter.onPageStarted();
+                }
                 // Do not accidentally assign the preceding page's icon to a new bookmark
                 // while its own favicon is still being loaded.
                 cancelSitePermissionsForTab(tab);
                 tab.navigationGeneration++;
-                tab.topLevelHost = hostForUrl(url);
+                tab.topLevelHost = tab.isHome ? "" : hostForUrl(url);
                 tab.favicon = "";
                 synchronized (tab) { tab.blockedCount = 0; }
                 if (selected == tab) refreshToolbar();
             }
 
             @Override public void onPageFinished(WebView view, String url) {
-                if (!privateSession() && url != null && url.startsWith("http")) store.addHistory(url, tab.title);
+                String currentUrl = view.getUrl();
+                if (url == null || currentUrl == null || !url.equals(currentUrl)) return;
+                tab.isHome = tab.homeDocumentUrl.equals(url);
+                if (tab.isHome) {
+                    tab.homeNavigationPending = false;
+                    tab.homeContentDirty = false;
+                }
+                if (!privateSession() && !tab.isHome && MobileNavigation.isWebUrl(url))
+                    store.addHistory(url, tab.title);
                 if (selected == tab) refreshToolbar();
             }
 
@@ -502,7 +756,7 @@ public class BrowserActivity extends Activity {
         web.setWebChromeClient(new WebChromeClient() {
             @Override public void onReceivedTitle(WebView view, String title) {
                 tab.title = title == null || title.trim().isEmpty() ? "Nová karta" : title;
-                if (!privateSession()) {
+                if (!privateSession() && !tab.isHome && !tab.homeNavigationPending) {
                     String url = view.getUrl();
                     if (url != null) store.updateBookmarkMetadata(url, tab.title, tab.favicon);
                 }
@@ -510,7 +764,7 @@ public class BrowserActivity extends Activity {
             }
             @Override public void onReceivedIcon(WebView view, Bitmap icon) {
                 tab.favicon = BrowserStore.encodeFavicon(icon);
-                if (!privateSession()) {
+                if (!privateSession() && !tab.isHome) {
                     String url = view.getUrl();
                     if (url != null) store.updateBookmarkMetadata(url, tab.title, tab.favicon);
                 }
@@ -523,11 +777,19 @@ public class BrowserActivity extends Activity {
             }
             @Override public boolean onCreateWindow(WebView view, boolean dialog, boolean userGesture, Message result) {
                 if (!userGesture) return false;
-                createTab(HOME, true);
+                // WebViewTransport requires a fresh WebView. Loading our home
+                // document first can break or crash target=_blank/OAuth popups.
+                Tab popup = createTab(HOME, true, true);
                 WebView.WebViewTransport transport = (WebView.WebViewTransport) result.obj;
-                transport.setWebView(selected.web);
+                transport.setWebView(popup.web);
                 result.sendToTarget();
                 return true;
+            }
+            @Override public void onCloseWindow(WebView window) {
+                if (window != web) return;
+                runOnUiThread(() -> {
+                    if (!isFinishing() && !isDestroyed()) closeTab(tab);
+                });
             }
             @Override public boolean onShowFileChooser(WebView view,
                 android.webkit.ValueCallback<Uri[]> callback, FileChooserParams params) {
@@ -575,15 +837,22 @@ public class BrowserActivity extends Activity {
         web.setDownloadListener((url, userAgent, disposition, mime, size) ->
             download(url, userAgent, disposition, mime));
         if (activate) showTab(tab);
-        if (HOME.equals(firstUrl)) {
-            web.loadDataWithBaseURL(null, "<!doctype html><html><meta name='viewport' content='width=device-width,initial-scale=1'><body style='background:#0c121f;color:#d5e4f3;font-family:sans-serif;text-align:center;padding:12vh 20px'><h1 style='color:#40d4f5'>YamaSearch</h1><p>Soukromější prohlížení na mobilu</p><p>Zadejte adresu nebo hledaný výraz nahoře.</p></body></html>", "text/html", "UTF-8", null);
-        } else {
-            web.loadUrl(firstUrl);
+        if (!deferInitialNavigation) {
+            if (HOME.equals(firstUrl)) {
+                loadHome(tab);
+            } else {
+                tab.isHome = false;
+                prepareYamaBlockForNavigation(tab, firstUrl);
+                web.loadUrl(firstUrl);
+            }
         }
         refreshToolbar();
+        return tab;
     }
 
     private void showTab(Tab tab) {
+        if (searchPanel != null) searchPanel.hide();
+        if (address != null) address.clearFocus();
         if (selected != null) {
             cancelSitePermissionsForTab(selected);
             selected.web.onPause();
@@ -594,15 +863,18 @@ public class BrowserActivity extends Activity {
             ((ViewGroup) tab.web.getParent()).removeView(tab.web);
         webHost.addView(tab.web, new FrameLayout.LayoutParams(-1, -1));
         tab.web.onResume();
+        if (tab.isHome && tab.homeContentDirty) refreshHomeInPlace(tab);
         refreshToolbar();
     }
 
     private void refreshToolbar() {
         if (selected == null || address == null) return;
         String url = selected.web.getUrl();
-        if (!address.hasFocus()) address.setText(url == null || url.startsWith("about:") || url.startsWith("data:") ? "" : url);
+        if (!address.hasFocus()) address.setText(selected.isHome || url == null
+            || url.startsWith("about:") || url.startsWith("data:") ? "" : url);
         tabCounter.setText(tabs.size() + " ▢");
-        bookmarkButton.setText(!privateSession() && url != null && store.isBookmarked(url) ? "★" : "☆");
+        bookmarkButton.setText(!privateSession() && !selected.isHome && url != null
+            && store.isBookmarked(url) ? "★" : "☆");
         refreshBlockerButton();
     }
 
@@ -630,9 +902,10 @@ public class BrowserActivity extends Activity {
             return;
         }
         String url = selected.web.getUrl();
-        if (url == null || !(url.startsWith("http://") || url.startsWith("https://"))) return;
+        if (selected.isHome || !MobileNavigation.isWebUrl(url)) return;
         store.toggleBookmark(url, selected.title, selected.favicon);
         refreshToolbar();
+        refreshHomeTabs();
     }
 
     private void chooseTab() {
@@ -649,17 +922,26 @@ public class BrowserActivity extends Activity {
     }
 
     private void closeTab() {
-        if (selected == null) return;
-        Tab old = selected;
+        closeTab(selected);
+    }
+
+    private void closeTab(Tab old) {
+        if (old == null || !tabs.contains(old)) return;
         cancelSitePermissionsForTab(old);
         int index = tabs.indexOf(old);
+        boolean wasSelected = old == selected;
         tabs.remove(old);
         webHost.removeView(old.web);
-        selected = null;
+        if (wasSelected) selected = null;
         old.web.stopLoading();
+        if (old.yamaBlockPageFilter != null) old.yamaBlockPageFilter.destroy();
         old.web.destroy();
-        if (tabs.isEmpty()) createTab(HOME, true);
-        else showTab(tabs.get(Math.min(index, tabs.size() - 1)));
+        if (wasSelected) {
+            if (tabs.isEmpty()) createTab(HOME, true);
+            else showTab(tabs.get(Math.min(index, tabs.size() - 1)));
+        } else {
+            refreshToolbar();
+        }
     }
 
     private void showEntries(String title, List<BrowserStore.Entry> entries, boolean history) {
@@ -672,7 +954,10 @@ public class BrowserActivity extends Activity {
         if (history) builder.setNeutralButton("Vymazat historii", (d, w) ->
             new AlertDialog.Builder(this).setMessage("Opravdu smazat historii YamaSearch?")
                 .setNegativeButton("Zrušit", null)
-                .setPositiveButton("Smazat", (a, b) -> store.clearHistory()).show());
+                .setPositiveButton("Smazat", (a, b) -> {
+                    store.clearHistory();
+                    refreshHomeTabs();
+                }).show());
         builder.setNegativeButton("Zavřít", null).show();
     }
 
@@ -782,6 +1067,7 @@ public class BrowserActivity extends Activity {
             up.setAlpha(index > 0 ? 1f : .35f);
             up.setOnClickListener(view -> {
                 store.moveBookmark(index, index - 1);
+                refreshHomeTabs();
                 render();
             });
             TextView down = bookmarkControl("↓", "Posunout níž", CYAN);
@@ -789,6 +1075,7 @@ public class BrowserActivity extends Activity {
             down.setAlpha(index < count - 1 ? 1f : .35f);
             down.setOnClickListener(view -> {
                 store.moveBookmark(index, index + 1);
+                refreshHomeTabs();
                 render();
             });
             TextView remove = bookmarkControl("×", "Odstranit z oblíbených", Color.rgb(232, 103, 117));
@@ -844,6 +1131,7 @@ public class BrowserActivity extends Activity {
             dialog.getButton(AlertDialog.BUTTON_NEUTRAL).setVisibility(View.VISIBLE);
             Toast.makeText(BrowserActivity.this, "Stránka byla odstraněna. Můžete ji vrátit.", Toast.LENGTH_SHORT).show();
             refreshToolbar();
+            refreshHomeTabs();
             render();
         }
 
@@ -854,6 +1142,7 @@ public class BrowserActivity extends Activity {
             undoIndex = -1;
             dialog.getButton(AlertDialog.BUTTON_NEUTRAL).setVisibility(View.GONE);
             refreshToolbar();
+            refreshHomeTabs();
             render();
         }
     }
@@ -880,7 +1169,7 @@ public class BrowserActivity extends Activity {
 
     private void openMenu() {
         String[] options = {
-            "Nová karta", "Soukromé okno", "Oblíbené stránky", "Historie",
+            "Nová karta", "Soukromé okno", "Oblíbené stránky", "Historie", "Profil prohlížeče",
             "Oprávnění tohoto webu", "Stažené soubory",
             "YamaBlock: " + blockerModeLabel(blockerMode()), "O aplikaci"
         };
@@ -892,13 +1181,14 @@ public class BrowserActivity extends Activity {
                 // A private activity runs in another process and must not even read
                 // the normal profile's persisted history before deciding to hide it.
                 case 3: if (!privateSession()) showEntries("Historie", store.history(), true); break;
-                case 4: openSitePermissionsPanel(); break;
-                case 5: try { startActivity(new Intent(DownloadManager.ACTION_VIEW_DOWNLOADS)); }
+                case 4: showProfilePanel(); break;
+                case 5: openSitePermissionsPanel(); break;
+                case 6: try { startActivity(new Intent(DownloadManager.ACTION_VIEW_DOWNLOADS)); }
                         catch (ActivityNotFoundException e) { Toast.makeText(this, "Správce stahování není dostupný.", Toast.LENGTH_SHORT).show(); }
                         break;
-                case 6: openYamaBlockPanel(); break;
-                case 7: new AlertDialog.Builder(this).setTitle("YamaSearch pro Android")
-                    .setMessage("Verze " + appVersionName() + ". Android System WebView, vlastní karty a základní YamaBlock. Desktopové funkce zatím nejsou všechny přeneseny.")
+                case 7: openYamaBlockPanel(); break;
+                case 8: new AlertDialog.Builder(this).setTitle("YamaSearch pro Android")
+                    .setMessage("Verze " + appVersionName() + ". Mobilní domovská stránka, místní profil, oblíbené, historie hledání, soukromé karty a YamaBlock.")
                     .setPositiveButton("OK", null).show(); break;
                 default: break;
             }
@@ -1433,11 +1723,16 @@ public class BrowserActivity extends Activity {
 
     @Override public void onBackPressed() {
         if (customView != null) hideCustomView();
+        else if (searchPanel != null && searchPanel.isVisible()) {
+            searchPanel.hide();
+            address.clearFocus();
+        }
         else if (selected != null && selected.web.canGoBack()) selected.web.goBack();
         else super.onBackPressed();
     }
 
     @Override protected void onPause() {
+        if (searchPanel != null) searchPanel.hide();
         if (selected != null) selected.web.onPause();
         super.onPause();
     }
@@ -1456,6 +1751,7 @@ public class BrowserActivity extends Activity {
         selected = null;
         for (Tab tab : tabs) {
             tab.web.stopLoading();
+            if (tab.yamaBlockPageFilter != null) tab.yamaBlockPageFilter.destroy();
             if (tab.web.getParent() instanceof ViewGroup) ((ViewGroup) tab.web.getParent()).removeView(tab.web);
             if (privateSession()) {
                 tab.web.clearHistory();

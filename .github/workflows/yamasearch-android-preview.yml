@@ -5,6 +5,8 @@ on:
     paths:
       - 'products/yamasearch/android/**'
       - 'products/yamasearch/Assets/YamaSearch-symbol-256.png'
+      - 'tests/yamasearch-android-mobile-browser.cjs'
+      - 'tests/yamasearch-android-yamablock.cjs'
       - '.github/workflows/yamasearch-android-preview.yml'
   workflow_dispatch:
 
@@ -24,6 +26,17 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
+      - name: Test mobile browser and YamaBlock logic
+        run: |
+          set -euo pipefail
+          node ../../../tests/yamasearch-android-mobile-browser.cjs
+          node ../../../tests/yamasearch-android-yamablock.cjs
+          node --check app/src/main/assets/yamablock-youtube.js
+          mkdir -p build/navigation-test
+          javac -encoding UTF-8 -d build/navigation-test \
+            app/src/main/java/eu/yamachat/yamasearch/MobileNavigation.java \
+            tests/MobileNavigationTest.java
+          java -cp build/navigation-test eu.yamachat.yamasearch.MobileNavigationTest
       - name: Prepare Android SDK on GitHub runner
         run: |
           echo "ANDROID_HOME=$ANDROID_HOME"

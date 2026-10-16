@@ -2,6 +2,12 @@ plugins {
     id 'com.android.application'
 }
 
+dependencies {
+    // Runs YamaBlock's YouTube response filter at document start, before the
+    // page can consume the first embedded player response.
+    implementation 'androidx.webkit:webkit:1.12.1'
+}
+
 android {
     namespace 'eu.yamachat.yamasearch'
     compileSdk 35
@@ -16,8 +22,8 @@ android {
         // of rejecting it one version higher than necessary.
         minSdk 28
         targetSdk 35
-        versionCode = Integer.parseInt((findProperty('yamasearchVersionCode') ?: '1').toString())
-        versionName = (findProperty('yamasearchVersionName') ?: '0.1.1-preview').toString()
+        versionCode = Integer.parseInt((findProperty('yamasearchVersionCode') ?: '10002').toString())
+        versionName = (findProperty('yamasearchVersionName') ?: '0.1.2-preview').toString()
     }
 
     signingConfigs {

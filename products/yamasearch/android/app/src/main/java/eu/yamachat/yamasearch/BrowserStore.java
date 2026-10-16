@@ -9,14 +9,32 @@ import org.json.JSONArray;
 import org.json.JSONObject;
 import java.io.ByteArrayOutputStream;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 
 final class BrowserStore {
     private static final int FAVICON_EDGE = 48;
     private static final int MAX_FAVICON_BYTES = 16 * 1024;
     private static final int MAX_FAVICON_BASE64_CHARS = 24 * 1024;
+    private static final int MAX_STORED_URL_CHARS = 4096;
+    private static final int MAX_TITLE_CODE_POINTS = 256;
+    private static final int MAX_SEARCHES = 100;
+    private static final int MAX_QUERY_CODE_POINTS = 256;
+    private static final int MAX_DISPLAY_NAME_CODE_POINTS = 48;
+    private static final String SEARCH_HISTORY_KEY = "searchHistoryV1";
+    private static final String PROFILE_SETTINGS_KEY = "profileSettingsV1";
+    private static final String DEFAULT_PROFILE_NAME = "Můj profil";
+
+    /**
+     * SharedPreferences makes an individual edit atomic, but a read-modify-write
+     * sequence is not atomic. One process can own more than one BrowserActivity,
+     * so all BrowserStore instances in that process use the same lock.
+     */
+    private static final Object STORE_LOCK = new Object();
 
     static final class Entry {
         final String url;
@@ -31,97 +49,151 @@ final class BrowserStore {
         }
     }
 
+    static final class SearchEntry {
+        final String query;
+        final long lastUsedAt;
+        final int useCount;
+
+        SearchEntry(String query, long lastUsedAt, int useCount) {
+            this.query = query;
+            this.lastUsedAt = Math.max(0L, lastUsedAt);
+            this.useCount = Math.max(1, useCount);
+        }
+    }
+
+    static final class ProfileSettings {
+        final String displayName;
+        final boolean rememberSearches;
+        final boolean showFavoritesOnHome;
+        final boolean showRecentSearches;
+
+        ProfileSettings(String displayName, boolean rememberSearches,
+                        boolean showFavoritesOnHome, boolean showRecentSearches) {
+            this.displayName = safeDisplayName(displayName);
+            this.rememberSearches = rememberSearches;
+            this.showFavoritesOnHome = showFavoritesOnHome;
+            this.showRecentSearches = showRecentSearches;
+        }
+    }
+
     private final SharedPreferences prefs;
     BrowserStore(Context context) {
         prefs = context.getSharedPreferences("yamasearch_browser", Context.MODE_PRIVATE);
     }
 
     private List<Entry> read(String key) {
-        List<Entry> list = new ArrayList<>();
-        try {
-            JSONArray array = new JSONArray(prefs.getString(key, "[]"));
-            for (int i = 0; i < array.length(); i++) {
-                JSONObject object = array.getJSONObject(i);
-                String url = object.optString("url");
-                if (url.startsWith("https://") || url.startsWith("http://"))
-                    list.add(new Entry(url, object.optString("title", url),
-                        safeFavicon(object.optString("favicon", ""))));
-            }
-        } catch (Exception ignored) { }
-        return list;
+        synchronized (STORE_LOCK) {
+            List<Entry> list = new ArrayList<>();
+            try {
+                JSONArray array = new JSONArray(prefs.getString(key, "[]"));
+                for (int i = 0; i < array.length(); i++) {
+                    // One malformed item must not hide every otherwise valid
+                    // bookmark or history entry already stored by older builds.
+                    JSONObject object = array.optJSONObject(i);
+                    if (object == null) continue;
+                    String url = safeStoredUrl(object.optString("url"));
+                    if (!url.isEmpty())
+                        list.add(new Entry(url, safeStoredTitle(object.optString("title", url), url),
+                            safeFavicon(object.optString("favicon", ""))));
+                }
+            } catch (Exception ignored) { }
+            return list;
+        }
     }
 
     private void write(String key, List<Entry> list) {
-        JSONArray array = new JSONArray();
-        try {
-            for (Entry entry : list) {
-                JSONObject item = new JSONObject();
-                item.put("url", entry.url);
-                item.put("title", entry.title);
-                if (!entry.favicon.isEmpty()) item.put("favicon", entry.favicon);
-                array.put(item);
-            }
-        } catch (Exception ignored) { }
-        prefs.edit().putString(key, array.toString()).apply();
+        synchronized (STORE_LOCK) {
+            JSONArray array = new JSONArray();
+            try {
+                for (Entry entry : list) {
+                    String url = safeStoredUrl(entry.url);
+                    if (url.isEmpty()) continue;
+                    JSONObject item = new JSONObject();
+                    item.put("url", url);
+                    item.put("title", safeStoredTitle(entry.title, url));
+                    if (!entry.favicon.isEmpty()) item.put("favicon", entry.favicon);
+                    array.put(item);
+                }
+            } catch (Exception ignored) { }
+            prefs.edit().putString(key, array.toString()).apply();
+        }
     }
 
     List<Entry> bookmarks() { return read("bookmarks"); }
     List<Entry> history() { return read("history"); }
 
     boolean isBookmarked(String url) {
-        for (Entry entry : bookmarks()) if (entry.url.equals(url)) return true;
-        return false;
+        synchronized (STORE_LOCK) {
+            for (Entry entry : bookmarks()) if (entry.url.equals(url)) return true;
+            return false;
+        }
     }
 
     void toggleBookmark(String url, String title, String favicon) {
-        List<Entry> list = bookmarks();
-        if (!list.removeIf(entry -> entry.url.equals(url))) {
-            list.add(0, new Entry(url, title, safeFavicon(favicon)));
+        String safeUrl = safeStoredUrl(url);
+        if (safeUrl.isEmpty()) return;
+        String safeTitle = safeStoredTitle(title, safeUrl);
+        synchronized (STORE_LOCK) {
+            List<Entry> list = bookmarks();
+            if (!list.removeIf(entry -> entry.url.equals(safeUrl))) {
+                list.add(0, new Entry(safeUrl, safeTitle, safeFavicon(favicon)));
+            }
+            write("bookmarks", list);
         }
-        write("bookmarks", list);
     }
 
     boolean removeBookmark(String url) {
-        List<Entry> list = bookmarks();
-        boolean changed = list.removeIf(entry -> entry.url.equals(url));
-        if (changed) write("bookmarks", list);
-        return changed;
+        synchronized (STORE_LOCK) {
+            List<Entry> list = bookmarks();
+            boolean changed = list.removeIf(entry -> entry.url.equals(url));
+            if (changed) write("bookmarks", list);
+            return changed;
+        }
     }
 
     void restoreBookmark(Entry entry, int index) {
-        if (entry == null || !isWebUrl(entry.url)) return;
-        List<Entry> list = bookmarks();
-        list.removeIf(existing -> existing.url.equals(entry.url));
-        list.add(Math.max(0, Math.min(index, list.size())),
-            new Entry(entry.url, entry.title, safeFavicon(entry.favicon)));
-        write("bookmarks", list);
+        if (entry == null) return;
+        String safeUrl = safeStoredUrl(entry.url);
+        if (safeUrl.isEmpty()) return;
+        synchronized (STORE_LOCK) {
+            List<Entry> list = bookmarks();
+            list.removeIf(existing -> existing.url.equals(safeUrl));
+            list.add(Math.max(0, Math.min(index, list.size())),
+                new Entry(safeUrl, safeStoredTitle(entry.title, safeUrl), safeFavicon(entry.favicon)));
+            write("bookmarks", list);
+        }
     }
 
     void moveBookmark(int from, int to) {
-        List<Entry> list = bookmarks();
-        if (from < 0 || to < 0 || from >= list.size() || to >= list.size() || from == to) return;
-        Entry moved = list.remove(from);
-        list.add(to, moved);
-        write("bookmarks", list);
+        synchronized (STORE_LOCK) {
+            List<Entry> list = bookmarks();
+            if (from < 0 || to < 0 || from >= list.size() || to >= list.size() || from == to) return;
+            Entry moved = list.remove(from);
+            list.add(to, moved);
+            write("bookmarks", list);
+        }
     }
 
     void updateBookmarkMetadata(String url, String title, String favicon) {
-        if (!isWebUrl(url)) return;
-        List<Entry> list = bookmarks();
-        boolean changed = false;
-        String safeTitle = title == null || title.trim().isEmpty() ? url : title.trim();
-        String safeIcon = safeFavicon(favicon);
-        for (int index = 0; index < list.size(); index++) {
-            Entry entry = list.get(index);
-            if (!entry.url.equals(url)) continue;
-            String nextIcon = safeIcon.isEmpty() ? entry.favicon : safeIcon;
-            if (!safeTitle.equals(entry.title) || !nextIcon.equals(entry.favicon)) {
-                list.set(index, new Entry(entry.url, safeTitle, nextIcon));
-                changed = true;
+        String safeUrl = safeStoredUrl(url);
+        if (safeUrl.isEmpty()) return;
+        synchronized (STORE_LOCK) {
+            List<Entry> list = bookmarks();
+            boolean changed = false;
+            String safeTitle = safeStoredTitle(title, safeUrl);
+            String safeIcon = safeFavicon(favicon);
+            for (int index = 0; index < list.size(); index++) {
+                Entry entry = list.get(index);
+                if (!entry.url.equals(safeUrl)) continue;
+                String nextIcon = safeIcon.isEmpty() ? entry.favicon : safeIcon;
+                if (!safeTitle.equals(entry.title) || !nextIcon.equals(entry.favicon)) {
+                    list.set(index, new Entry(entry.url, safeTitle, nextIcon));
+                    changed = true;
+                }
+                break;
             }
-            break;
+            if (changed) write("bookmarks", list);
         }
-        if (changed) write("bookmarks", list);
     }
 
     static String encodeFavicon(Bitmap icon) {
@@ -163,8 +235,15 @@ final class BrowserStore {
         }
     }
 
-    private static boolean isWebUrl(String url) {
-        return url != null && (url.startsWith("https://") || url.startsWith("http://"));
+    private static String safeStoredUrl(String url) {
+        if (url == null) return "";
+        String value = url.trim();
+        return value.length() <= MAX_STORED_URL_CHARS && MobileNavigation.isWebUrl(value) ? value : "";
+    }
+
+    private static String safeStoredTitle(String title, String fallbackUrl) {
+        String fallback = compactAndLimit(fallbackUrl, MAX_TITLE_CODE_POINTS, "Stránka");
+        return compactAndLimit(title, MAX_TITLE_CODE_POINTS, fallback);
     }
 
     private static String safeFavicon(String favicon) {
@@ -172,48 +251,218 @@ final class BrowserStore {
     }
 
     void addHistory(String url, String title) {
-        if (!url.startsWith("http://") && !url.startsWith("https://")) return;
-        List<Entry> list = history();
-        list.removeIf(entry -> entry.url.equals(url));
-        list.add(0, new Entry(url, title));
-        if (list.size() > 500) list = new ArrayList<>(list.subList(0, 500));
-        write("history", list);
+        String safeUrl = safeStoredUrl(url);
+        if (safeUrl.isEmpty()) return;
+        String safeTitle = safeStoredTitle(title, safeUrl);
+        synchronized (STORE_LOCK) {
+            List<Entry> list = history();
+            list.removeIf(entry -> entry.url.equals(safeUrl));
+            list.add(0, new Entry(safeUrl, safeTitle));
+            if (list.size() > 500) list = new ArrayList<>(list.subList(0, 500));
+            write("history", list);
+        }
     }
 
-    void clearHistory() { prefs.edit().remove("history").apply(); }
+    void clearHistory() {
+        synchronized (STORE_LOCK) { prefs.edit().remove("history").apply(); }
+    }
 
-    String blockerMode() { return prefs.getString("blockerMode", "strict"); }
+    List<SearchEntry> recentSearches(int limit) {
+        if (limit <= 0) return Collections.emptyList();
+        synchronized (STORE_LOCK) {
+            List<SearchEntry> entries = readSearchesLocked();
+            entries.sort(Comparator.comparingLong((SearchEntry entry) -> entry.lastUsedAt).reversed());
+            if (entries.size() > limit)
+                return new ArrayList<>(entries.subList(0, limit));
+            return entries;
+        }
+    }
+
+    void recordSearch(String query) {
+        String safeQuery = safeQuery(query);
+        if (safeQuery.isEmpty()) return;
+        synchronized (STORE_LOCK) {
+            List<SearchEntry> entries = readSearchesLocked();
+            int useCount = 1;
+            String identity = queryIdentity(safeQuery);
+            for (int index = entries.size() - 1; index >= 0; index--) {
+                SearchEntry existing = entries.get(index);
+                if (!queryIdentity(existing.query).equals(identity)) continue;
+                useCount = existing.useCount == Integer.MAX_VALUE
+                    ? Integer.MAX_VALUE : existing.useCount + 1;
+                entries.remove(index);
+            }
+            entries.add(0, new SearchEntry(safeQuery, System.currentTimeMillis(), useCount));
+            if (entries.size() > MAX_SEARCHES)
+                entries = new ArrayList<>(entries.subList(0, MAX_SEARCHES));
+            writeSearchesLocked(entries);
+        }
+    }
+
+    boolean removeSearch(String query) {
+        String identity = queryIdentity(safeQuery(query));
+        if (identity.isEmpty()) return false;
+        synchronized (STORE_LOCK) {
+            List<SearchEntry> entries = readSearchesLocked();
+            boolean changed = entries.removeIf(entry -> queryIdentity(entry.query).equals(identity));
+            if (changed) writeSearchesLocked(entries);
+            return changed;
+        }
+    }
+
+    void clearSearches() {
+        synchronized (STORE_LOCK) { prefs.edit().remove(SEARCH_HISTORY_KEY).apply(); }
+    }
+
+    ProfileSettings profileSettings() {
+        synchronized (STORE_LOCK) {
+            try {
+                JSONObject value = new JSONObject(prefs.getString(PROFILE_SETTINGS_KEY, "{}"));
+                return new ProfileSettings(
+                    value.optString("displayName", DEFAULT_PROFILE_NAME),
+                    tolerantBoolean(value, "rememberSearches", true),
+                    tolerantBoolean(value, "showFavoritesOnHome", true),
+                    tolerantBoolean(value, "showRecentSearches", true));
+            } catch (Exception ignored) {
+                return defaultProfileSettings();
+            }
+        }
+    }
+
+    void updateProfileSettings(ProfileSettings settings) {
+        if (settings == null) return;
+        synchronized (STORE_LOCK) {
+            JSONObject value = new JSONObject();
+            try {
+                value.put("displayName", safeDisplayName(settings.displayName));
+                value.put("rememberSearches", settings.rememberSearches);
+                value.put("showFavoritesOnHome", settings.showFavoritesOnHome);
+                value.put("showRecentSearches", settings.showRecentSearches);
+                prefs.edit().putString(PROFILE_SETTINGS_KEY, value.toString()).apply();
+            } catch (Exception ignored) { }
+        }
+    }
+
+    private List<SearchEntry> readSearchesLocked() {
+        List<SearchEntry> entries = new ArrayList<>();
+        Set<String> seen = new HashSet<>();
+        try {
+            JSONArray array = new JSONArray(prefs.getString(SEARCH_HISTORY_KEY, "[]"));
+            for (int index = 0; index < array.length() && entries.size() < MAX_SEARCHES; index++) {
+                JSONObject value = array.optJSONObject(index);
+                if (value == null) continue;
+                String query = safeQuery(value.optString("query", ""));
+                String identity = queryIdentity(query);
+                if (identity.isEmpty() || !seen.add(identity)) continue;
+                entries.add(new SearchEntry(query,
+                    Math.max(0L, value.optLong("lastUsedAt", 0L)),
+                    Math.max(1, value.optInt("useCount", 1))));
+            }
+        } catch (Exception ignored) { }
+        return entries;
+    }
+
+    private void writeSearchesLocked(List<SearchEntry> entries) {
+        JSONArray array = new JSONArray();
+        try {
+            int count = 0;
+            for (SearchEntry entry : entries) {
+                if (count >= MAX_SEARCHES) break;
+                String query = safeQuery(entry.query);
+                if (query.isEmpty()) continue;
+                JSONObject value = new JSONObject();
+                value.put("query", query);
+                value.put("lastUsedAt", Math.max(0L, entry.lastUsedAt));
+                value.put("useCount", Math.max(1, entry.useCount));
+                array.put(value);
+                count++;
+            }
+            prefs.edit().putString(SEARCH_HISTORY_KEY, array.toString()).apply();
+        } catch (Exception ignored) { }
+    }
+
+    private static ProfileSettings defaultProfileSettings() {
+        return new ProfileSettings(DEFAULT_PROFILE_NAME, true, true, true);
+    }
+
+    private static boolean tolerantBoolean(JSONObject value, String key, boolean fallback) {
+        Object raw = value.opt(key);
+        if (raw instanceof Boolean) return (Boolean) raw;
+        if (raw instanceof String) {
+            if ("true".equalsIgnoreCase((String) raw)) return true;
+            if ("false".equalsIgnoreCase((String) raw)) return false;
+        }
+        return fallback;
+    }
+
+    private static String safeQuery(String query) {
+        return compactAndLimit(query, MAX_QUERY_CODE_POINTS, "");
+    }
+
+    private static String queryIdentity(String query) {
+        return query == null ? "" : query.toLowerCase(Locale.ROOT);
+    }
+
+    private static String safeDisplayName(String displayName) {
+        return compactAndLimit(displayName, MAX_DISPLAY_NAME_CODE_POINTS, DEFAULT_PROFILE_NAME);
+    }
+
+    private static String compactAndLimit(String value, int maxCodePoints, String fallback) {
+        if (value == null) return fallback;
+        String compact = value.trim().replaceAll("\\s+", " ");
+        if (compact.isEmpty()) return fallback;
+        int count = compact.codePointCount(0, compact.length());
+        if (count > maxCodePoints)
+            compact = compact.substring(0, compact.offsetByCodePoints(0, maxCodePoints)).trim();
+        return compact.isEmpty() ? fallback : compact;
+    }
+
+    String blockerMode() {
+        synchronized (STORE_LOCK) { return prefs.getString("blockerMode", "strict"); }
+    }
     void setBlockerMode(String mode) {
         if ("off".equals(mode) || "standard".equals(mode) || "strict".equals(mode))
-            prefs.edit().putString("blockerMode", mode).apply();
+            synchronized (STORE_LOCK) { prefs.edit().putString("blockerMode", mode).apply(); }
     }
 
     boolean isBlockerDisabledForHost(String host) {
         String safeHost = safeHost(host);
         if (safeHost.isEmpty()) return false;
-        return new HashSet<>(prefs.getStringSet("blockerExceptions", new HashSet<>())).contains(safeHost);
+        synchronized (STORE_LOCK) {
+            return new HashSet<>(prefs.getStringSet("blockerExceptions", new HashSet<>())).contains(safeHost);
+        }
+    }
+
+    Set<String> blockerExceptionsSnapshot() {
+        synchronized (STORE_LOCK) {
+            return new HashSet<>(prefs.getStringSet("blockerExceptions", new HashSet<>()));
+        }
     }
 
     void setBlockerDisabledForHost(String host, boolean disabled) {
         String safeHost = safeHost(host);
         if (safeHost.isEmpty()) return;
-        Set<String> exceptions = new HashSet<>(prefs.getStringSet("blockerExceptions", new HashSet<>()));
-        if (disabled) exceptions.add(safeHost);
-        else exceptions.remove(safeHost);
-        prefs.edit().putStringSet("blockerExceptions", exceptions).apply();
+        synchronized (STORE_LOCK) {
+            Set<String> exceptions = new HashSet<>(prefs.getStringSet("blockerExceptions", new HashSet<>()));
+            if (disabled) exceptions.add(safeHost);
+            else exceptions.remove(safeHost);
+            prefs.edit().putStringSet("blockerExceptions", exceptions).apply();
+        }
     }
 
     String sitePermissionState(String origin, String kind) {
         if (!isPermissionKind(kind)) return "ask";
         String safeOrigin = safeOrigin(origin);
         if (safeOrigin.isEmpty()) return "ask";
-        try {
-            JSONObject all = new JSONObject(prefs.getString("sitePermissions", "{}"));
-            JSONObject site = all.optJSONObject(safeOrigin);
-            String state = site == null ? "ask" : site.optString(kind, "ask");
-            return "allow".equals(state) || "deny".equals(state) ? state : "ask";
-        } catch (Exception ignored) {
-            return "ask";
+        synchronized (STORE_LOCK) {
+            try {
+                JSONObject all = new JSONObject(prefs.getString("sitePermissions", "{}"));
+                JSONObject site = all.optJSONObject(safeOrigin);
+                String state = site == null ? "ask" : site.optString(kind, "ask");
+                return "allow".equals(state) || "deny".equals(state) ? state : "ask";
+            } catch (Exception ignored) {
+                return "ask";
+            }
         }
     }
 
@@ -222,26 +471,30 @@ final class BrowserStore {
         String safeOrigin = safeOrigin(origin);
         if (safeOrigin.isEmpty()) return;
         String safeState = "allow".equals(state) || "deny".equals(state) ? state : "ask";
-        try {
-            JSONObject all = new JSONObject(prefs.getString("sitePermissions", "{}"));
-            JSONObject site = all.optJSONObject(safeOrigin);
-            if (site == null) site = new JSONObject();
-            if ("ask".equals(safeState)) site.remove(kind);
-            else site.put(kind, safeState);
-            if (site.length() == 0) all.remove(safeOrigin);
-            else all.put(safeOrigin, site);
-            prefs.edit().putString("sitePermissions", all.toString()).apply();
-        } catch (Exception ignored) { }
+        synchronized (STORE_LOCK) {
+            try {
+                JSONObject all = new JSONObject(prefs.getString("sitePermissions", "{}"));
+                JSONObject site = all.optJSONObject(safeOrigin);
+                if (site == null) site = new JSONObject();
+                if ("ask".equals(safeState)) site.remove(kind);
+                else site.put(kind, safeState);
+                if (site.length() == 0) all.remove(safeOrigin);
+                else all.put(safeOrigin, site);
+                prefs.edit().putString("sitePermissions", all.toString()).apply();
+            } catch (Exception ignored) { }
+        }
     }
 
     void resetSitePermissionStates(String origin) {
         String safeOrigin = safeOrigin(origin);
         if (safeOrigin.isEmpty()) return;
-        try {
-            JSONObject all = new JSONObject(prefs.getString("sitePermissions", "{}"));
-            all.remove(safeOrigin);
-            prefs.edit().putString("sitePermissions", all.toString()).apply();
-        } catch (Exception ignored) { }
+        synchronized (STORE_LOCK) {
+            try {
+                JSONObject all = new JSONObject(prefs.getString("sitePermissions", "{}"));
+                all.remove(safeOrigin);
+                prefs.edit().putString("sitePermissions", all.toString()).apply();
+            } catch (Exception ignored) { }
+        }
     }
 
     private static String safeHost(String host) {
