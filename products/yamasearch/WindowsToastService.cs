@@ -94,6 +94,36 @@ internal static class WindowsToastService
         }
     }
 
+    internal static bool TryShowTest(bool playSound, out string errorMessage)
+    {
+        errorMessage = "";
+        if (!TryInitialize())
+        {
+            errorMessage = "Registraci oznámení Windows se nepodařilo inicializovat.";
+            return false;
+        }
+
+        try
+        {
+            var builder = new ToastContentBuilder()
+                .AddText("YamaSearch")
+                .AddText("Oznámení Windows fungují. Webová upozornění se zobrazí, pokud je daný web povolí.")
+                .AddAttributionText("Test oznámení");
+
+            if (!playSound) builder.AddAudio(new ToastAudio { Silent = true });
+            var logo = System.IO.Path.Combine(AppContext.BaseDirectory, "Assets", "YamaSearch-symbol-256.png");
+            if (System.IO.File.Exists(logo)) builder.AddAppLogoOverride(new Uri(logo));
+            builder.Show();
+            return true;
+        }
+        catch (Exception error)
+        {
+            Debug.WriteLine("Windows test notification could not be shown: " + error);
+            errorMessage = $"Windows oznámení se nepodařilo zobrazit ({error.GetType().Name}).";
+            return false;
+        }
+    }
+
     internal static string? TakePendingStartupUrl()
     {
         lock (Sync)

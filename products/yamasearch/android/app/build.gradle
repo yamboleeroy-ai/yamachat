@@ -5,7 +5,9 @@ plugins {
 dependencies {
     // Runs YamaBlock's YouTube response filter at document start, before the
     // page can consume the first embedded player response.
-    implementation 'androidx.webkit:webkit:1.12.1'
+    implementation 'androidx.webkit:webkit:1.17.1'
+    implementation 'androidx.credentials:credentials:1.6.0'
+    implementation 'androidx.credentials:credentials-play-services-auth:1.6.0'
 }
 
 android {

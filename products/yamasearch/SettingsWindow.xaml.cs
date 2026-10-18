@@ -9,16 +9,29 @@ public partial class SettingsWindow : Window
 {
     private readonly SettingsStore _settings;
     private readonly CoreWebView2Profile? _profile;
+    private readonly AccountService _accounts;
+    private readonly bool _privateWindow;
     private readonly bool _originalHardwareAcceleration;
+    private readonly CancellationTokenSource _lifetime = new();
+    private int _avatarVersion;
 
     public bool RestartRequired { get; private set; }
 
-    public SettingsWindow(SettingsStore settings, CoreWebView2Profile? profile)
+    public SettingsWindow(SettingsStore settings, CoreWebView2Profile? profile, AccountService accounts, bool privateWindow)
     {
         InitializeComponent();
         _settings = settings;
         _profile = profile;
+        _accounts = accounts;
+        _privateWindow = privateWindow;
         _originalHardwareAcceleration = settings.Data.HardwareAccelerationEnabled;
+        _accounts.StateChanged += Accounts_StateChanged;
+        Closed += (_, _) =>
+        {
+            _accounts.StateChanged -= Accounts_StateChanged;
+            _lifetime.Cancel();
+            _lifetime.Dispose();
+        };
 
         SearchEngine.SelectedIndex = new[] { "Google", "Seznam", "Bing", "DuckDuckGo", "Brave Search", "Ecosia", "Yahoo", "Startpage" }
             .ToList().IndexOf(settings.Data.SearchEngine);
@@ -36,11 +49,55 @@ public partial class SettingsWindow : Window
             CustomHome.Text = settings.Data.HomePage;
 
         OfferPasswordSave.IsChecked = settings.Data.OfferPasswordSave;
+        EnableGeneralAutofill.IsChecked = settings.Data.EnableGeneralAutofill;
         HardwareAcceleration.IsChecked = settings.Data.HardwareAccelerationEnabled;
         BlockNewNotificationRequests.IsChecked = settings.Data.BlockNewNotificationRequests;
         EnableNativeNotifications.IsChecked = settings.Data.EnableNativeNotifications;
         EnableNotificationSound.IsChecked = settings.Data.EnableNotificationSound;
         EnableTabNotificationIndicators.IsChecked = settings.Data.EnableTabNotificationIndicators;
+        RenderAccountSummary();
+    }
+
+    private void Accounts_StateChanged(object? sender, EventArgs e)
+        => _ = Dispatcher.InvokeAsync(RenderAccountSummary);
+
+    private void RenderAccountSummary()
+    {
+        if (_privateWindow)
+        {
+            AccountDisplayName.Text = "Anonymní okno";
+            AccountEmail.Text = "Účet je v tomto okně skrytý";
+            AccountStatus.Text = "Přihlášení a synchronizace jsou vypnuté.";
+            AccountSyncNote.Text = "Anonymní relace se nikdy nesynchronizuje.";
+            ManageAccountButton.IsEnabled = false;
+            _ = SetAccountAvatarAsync("");
+            return;
+        }
+
+        var snapshot = _accounts.Snapshot;
+        AccountDisplayName.Text = snapshot.DisplayName;
+        AccountEmail.Text = snapshot.Email;
+        AccountStatus.Text = snapshot.StatusText;
+        AccountSyncNote.Text = snapshot.IsSignedIn
+            ? "Účet je připojený, ale přenos místních dat zatím není aktivní; nic se neodesílá bez výslovného zapnutí."
+            : "Synchronizace není aktivní; místní data se nikam neodesílají.";
+        ManageAccountButton.IsEnabled = true;
+        _ = SetAccountAvatarAsync(snapshot.AvatarUrl);
+    }
+
+    private async Task SetAccountAvatarAsync(string url)
+    {
+        var version = ++_avatarVersion;
+        AccountAvatarImage.Visibility = Visibility.Collapsed;
+        AccountAvatarBrush.ImageSource = null;
+        if (string.IsNullOrWhiteSpace(url)) return;
+        var image = await AvatarImageLoader.LoadAsync(url, _lifetime.Token);
+        if (version != _avatarVersion || image is null || _lifetime.IsCancellationRequested) return;
+        await Dispatcher.InvokeAsync(() =>
+        {
+            AccountAvatarBrush.ImageSource = image;
+            AccountAvatarImage.Visibility = Visibility.Visible;
+        });
     }
 
     private async void DeletePasswords_Click(object sender, RoutedEventArgs e)
@@ -85,6 +142,7 @@ public partial class SettingsWindow : Window
         }
 
         _settings.Data.OfferPasswordSave = OfferPasswordSave.IsChecked == true;
+        _settings.Data.EnableGeneralAutofill = EnableGeneralAutofill.IsChecked == true;
         _settings.Data.HardwareAccelerationEnabled = HardwareAcceleration.IsChecked == true;
         _settings.Data.BlockNewNotificationRequests = BlockNewNotificationRequests.IsChecked == true;
         _settings.Data.EnableNativeNotifications = EnableNativeNotifications.IsChecked == true;
@@ -104,6 +162,38 @@ public partial class SettingsWindow : Window
             return;
         }
         new PermissionsWindow(_profile, "", false) { Owner = this }.ShowDialog();
+    }
+
+    private void TestNotification_Click(object sender, RoutedEventArgs e)
+    {
+        if (EnableNativeNotifications.IsChecked != true)
+        {
+            MessageBox.Show("Nejdřív zapněte volbu „Zobrazovat oznámení Windows“.", "YamaSearch",
+                MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+
+        if (!WindowsToastService.TryShowTest(EnableNotificationSound.IsChecked == true, out var error))
+            MessageBox.Show(error, "YamaSearch", MessageBoxButton.OK, MessageBoxImage.Warning);
+    }
+
+    private void ManageAccount_Click(object sender, RoutedEventArgs e)
+    {
+        new AccountWindow(_accounts, _settings, _privateWindow) { Owner = this }.ShowDialog();
+        RenderAccountSummary();
+    }
+
+    private void DefaultBrowser_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            DefaultBrowserService.OpenWindowsDefaultApps();
+        }
+        catch (Exception error)
+        {
+            MessageBox.Show("Nastavení výchozího prohlížeče se nepodařilo otevřít: " + error.Message,
+                "YamaSearch", MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
     }
 
     private void TitleBar_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)

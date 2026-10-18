@@ -35,6 +35,21 @@ Source: "{#BuildDirectory}\*"; DestDir: "{app}"; Flags: ignoreversion recursesub
 Name: "{group}\{#AppName}"; Filename: "{app}\{#AppExeName}"
 Name: "{autodesktop}\{#AppName}"; Filename: "{app}\{#AppExeName}"
 
+[Registry]
+Root: HKCU; Subkey: "Software\Classes\YamaSearch.Url"; ValueType: string; ValueName: ""; ValueData: "YamaSearch URL"; Flags: uninsdeletekey
+Root: HKCU; Subkey: "Software\Classes\YamaSearch.Url"; ValueType: string; ValueName: "URL Protocol"; ValueData: ""
+Root: HKCU; Subkey: "Software\Classes\YamaSearch.Url\DefaultIcon"; ValueType: string; ValueName: ""; ValueData: """{app}\{#AppExeName}"",0"
+Root: HKCU; Subkey: "Software\Classes\YamaSearch.Url\shell\open\command"; ValueType: string; ValueName: ""; ValueData: """{app}\{#AppExeName}"" --url=""%1"""
+Root: HKCU; Subkey: "Software\Clients\StartMenuInternet\YamaSearch"; ValueType: string; ValueName: ""; ValueData: "YamaSearch"; Flags: uninsdeletekey
+Root: HKCU; Subkey: "Software\Clients\StartMenuInternet\YamaSearch\DefaultIcon"; ValueType: string; ValueName: ""; ValueData: """{app}\{#AppExeName}"",0"
+Root: HKCU; Subkey: "Software\Clients\StartMenuInternet\YamaSearch\shell\open\command"; ValueType: string; ValueName: ""; ValueData: """{app}\{#AppExeName}"""
+Root: HKCU; Subkey: "Software\Clients\StartMenuInternet\YamaSearch\Capabilities"; ValueType: string; ValueName: "ApplicationName"; ValueData: "YamaSearch"
+Root: HKCU; Subkey: "Software\Clients\StartMenuInternet\YamaSearch\Capabilities"; ValueType: string; ValueName: "ApplicationDescription"; ValueData: "Soukromější webový prohlížeč s YamaBlock a YamaShield."
+Root: HKCU; Subkey: "Software\Clients\StartMenuInternet\YamaSearch\Capabilities"; ValueType: string; ValueName: "ApplicationIcon"; ValueData: """{app}\{#AppExeName}"",0"
+Root: HKCU; Subkey: "Software\Clients\StartMenuInternet\YamaSearch\Capabilities\URLAssociations"; ValueType: string; ValueName: "http"; ValueData: "YamaSearch.Url"
+Root: HKCU; Subkey: "Software\Clients\StartMenuInternet\YamaSearch\Capabilities\URLAssociations"; ValueType: string; ValueName: "https"; ValueData: "YamaSearch.Url"
+Root: HKCU; Subkey: "Software\RegisteredApplications"; ValueType: string; ValueName: "YamaSearch"; ValueData: "Software\Clients\StartMenuInternet\YamaSearch\Capabilities"; Flags: uninsdeletevalue
+
 [Run]
 Filename: "{app}\{#AppExeName}"; Description: "Spustit YamaSearch"; Flags: nowait postinstall skipifsilent
 

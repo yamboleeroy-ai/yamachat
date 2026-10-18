@@ -1,0 +1,50 @@
+{
+  "backendUrl": "https://YOUR_YAMASEARCH_PROJECT_REF.supabase.co",
+  "publishableKey": "sb_publishable_REPLACE_WITH_PUBLIC_KEY",
+  "manualIdentityLinkingEnabled": false,
+  "providers": [
+    {
+      "id": "google",
+      "displayName": "Google",
+      "scopes": "openid email profile",
+      "enabled": true
+    },
+    {
+      "id": "azure",
+      "displayName": "Microsoft",
+      "scopes": "email",
+      "enabled": true
+    },
+    {
+      "id": "apple",
+      "displayName": "Apple",
+      "scopes": "name email",
+      "enabled": true
+    },
+    {
+      "id": "github",
+      "displayName": "GitHub",
+      "scopes": "read:user user:email",
+      "enabled": true
+    },
+    {
+      "id": "discord",
+      "displayName": "Discord",
+      "scopes": "identify email",
+      "enabled": true
+    },
+    {
+      "id": "facebook",
+      "displayName": "Facebook",
+      "scopes": "email public_profile",
+      "enabled": true
+    },
+    {
+      "id": "custom:seznam",
+      "displayName": "Seznam.cz",
+      "scopes": "identity",
+      "enabled": false,
+      "serverVerified": false
+    }
+  ]
+}

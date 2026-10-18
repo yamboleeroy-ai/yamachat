@@ -4,6 +4,8 @@ namespace YamaSearch;
 
 public partial class App : Application
 {
+    public static AccountService Accounts { get; } = new();
+
     private void Application_Startup(object sender, StartupEventArgs e)
     {
         // Closing the original window must not terminate other browser windows.
@@ -58,8 +60,21 @@ public partial class App : Application
             }
         }
 
+        if (!privateWindow && !appMode)
+            _ = InitializeAccountServiceAsync();
+
         var window = new MainWindow(startupUrl, appMode, siteAppId, manageAppId, privateWindow);
         MainWindow = window;
         window.Show();
+    }
+
+    private static async Task InitializeAccountServiceAsync()
+    {
+        try { await Accounts.InitializeAsync(); }
+        catch
+        {
+            // Account setup is optional. Browser startup must never be blocked by
+            // a missing backend, unavailable network, or damaged local credential.
+        }
     }
 }

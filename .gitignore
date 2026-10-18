@@ -17,3 +17,4 @@ release-assets/
 .android-sdk/
 .build-tools/
 products/yamasearch/preview/
+products/yamasearch/build/

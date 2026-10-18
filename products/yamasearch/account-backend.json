@@ -1,0 +1,50 @@
+{
+  "backendUrl": "https://bdfrzupieygsutraxyjx.supabase.co",
+  "publishableKey": "sb_publishable_mupFWonETvZQ751Prjx1ng_KsXGC_zW",
+  "manualIdentityLinkingEnabled": false,
+  "providers": [
+    {
+      "id": "google",
+      "displayName": "Google",
+      "scopes": "openid email profile",
+      "enabled": true
+    },
+    {
+      "id": "azure",
+      "displayName": "Microsoft",
+      "scopes": "email",
+      "enabled": true
+    },
+    {
+      "id": "apple",
+      "displayName": "Apple",
+      "scopes": "name email",
+      "enabled": true
+    },
+    {
+      "id": "github",
+      "displayName": "GitHub",
+      "scopes": "read:user user:email",
+      "enabled": true
+    },
+    {
+      "id": "discord",
+      "displayName": "Discord",
+      "scopes": "identify email",
+      "enabled": true
+    },
+    {
+      "id": "facebook",
+      "displayName": "Facebook",
+      "scopes": "email public_profile",
+      "enabled": true
+    },
+    {
+      "id": "custom:seznam",
+      "displayName": "Seznam.cz",
+      "scopes": "identity",
+      "enabled": false,
+      "serverVerified": false
+    }
+  ]
+}

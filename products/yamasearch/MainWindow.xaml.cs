@@ -60,6 +60,7 @@ public partial class MainWindow : Window
     private bool _wasMaximizedBeforeVideo;
     private bool _sidePanelWasVisibleBeforeVideo;
     private int _siteInfoRenderVersion;
+    private int _profileAvatarVersion;
     private PendingSitePermissionRequest? _pendingSitePermissionRequest;
     private Rect _restoreWindowBounds;
     private Rect _videoRestoreBounds;
@@ -98,13 +99,18 @@ public partial class MainWindow : Window
             ? _settings.Data.InstalledApps.FirstOrDefault(x => x.Id == siteAppId)
             : null;
         InitializeComponent();
+        App.Accounts.StateChanged += Accounts_StateChanged;
         Loaded += (_, _) => TabWindowRegistry.Register(_windowId, this);
         Closing += (_, _) =>
         {
             _isClosing = true;
             foreach (var tab in _tabs.ToArray()) CancelPendingSitePermissionRequest(tab);
         };
-        Closed += (_, _) => TabWindowRegistry.Unregister(_windowId);
+        Closed += (_, _) =>
+        {
+            TabWindowRegistry.Unregister(_windowId);
+            App.Accounts.StateChanged -= Accounts_StateChanged;
+        };
         if (_isPrivateWindow)
         {
             Title = "YamaSearch · Anonymní okno";
@@ -123,6 +129,7 @@ public partial class MainWindow : Window
         UpdateShieldButton();
         UpdateBlockButton();
         UpdateDownloadToolbar();
+        RenderAccountUi();
         ShowFavoritesBarCheckBox.IsChecked = _settings.Data.FavoritesBarVisible;
         FavoritesBar.Visibility = _settings.Data.FavoritesBarVisible ? Visibility.Visible : Visibility.Collapsed;
         Loaded += (_, _) => RenderFavoritesBar();
@@ -337,9 +344,9 @@ public partial class MainWindow : Window
         File.Move(partialPath, targetPath);
     }
 
-    private async Task CreateTabAsync(string? address = null)
+    private async Task<BrowserTab?> CreateTabAsync(string? address = null, bool deferNavigationToNewWindow = false)
     {
-        if (_isClosing) return;
+        if (_isClosing) return null;
         var tab = new BrowserTab();
         if (_isPrivateWindow)
         {
@@ -350,11 +357,11 @@ public partial class MainWindow : Window
         _tabs.Add(tab);
         try
         {
-            if (!IsTabCreationStillCurrent(tab)) return;
+            if (!IsTabCreationStillCurrent(tab)) return null;
             SelectTab(tab);
             StatusText.Text = "Spouštím webový engine…";
             environment = await GetWebViewEnvironmentAsync(tab);
-            if (!IsTabCreationStillCurrent(tab)) return;
+            if (!IsTabCreationStillCurrent(tab)) return null;
             // A private session distinguishes an environment that was created but
             // never received a controller from a real Chromium process. This lets
             // a rapid window close clean the former immediately, while the latter
@@ -399,12 +406,14 @@ public partial class MainWindow : Window
             if (await Task.WhenAny(initializeTask, Task.Delay(TimeSpan.FromSeconds(12))) != initializeTask)
                 throw new TimeoutException("WebView2 Runtime se nespustil během 12 sekund.");
             await initializeTask;
-            if (!IsTabCreationStillCurrent(tab)) return;
+            if (!IsTabCreationStillCurrent(tab)) return null;
             await ConfigureWebViewAsync(tab);
-            if (!IsTabCreationStillCurrent(tab)) return;
+            if (!IsTabCreationStillCurrent(tab)) return null;
             SelectTab(tab);
             _ = Dispatcher.BeginInvoke(() => TabsScroller.ScrollToRightEnd());
-            await NavigateAsync(tab, address ?? _settings.Data.HomePage);
+            if (!deferNavigationToNewWindow)
+                await NavigateAsync(tab, address ?? _settings.Data.HomePage);
+            return tab;
         }
         catch (Exception exception)
         {
@@ -415,13 +424,14 @@ public partial class MainWindow : Window
             // already clear the cached environment in their dedicated paths.
             var wasTracked = _tabs.Remove(tab);
             if (wasTracked) DisposeBrowserTab(tab);
-            if (_isClosing || !wasTracked) return;
+            if (_isClosing || !wasTracked) return null;
             StatusText.Text = "Novou kartu se nepodařilo otevřít: " + exception.Message;
             MessageBox.Show(
                 "YamaSearch nemohl otevřít novou kartu.\n\n" + exception.Message,
                 "YamaSearch",
                 MessageBoxButton.OK,
                 MessageBoxImage.Error);
+            return null;
         }
     }
 
@@ -445,7 +455,7 @@ public partial class MainWindow : Window
         core.Settings.IsStatusBarEnabled = false;
         core.Settings.IsReputationCheckingRequired = _settings.Data.EnableSmartScreen;
         core.Settings.IsPasswordAutosaveEnabled = !_isPrivateWindow && _settings.Data.OfferPasswordSave;
-        core.Settings.IsGeneralAutofillEnabled = false;
+        core.Settings.IsGeneralAutofillEnabled = !_isPrivateWindow && _settings.Data.EnableGeneralAutofill;
         core.AddWebResourceRequestedFilter("*", CoreWebView2WebResourceContext.All);
         core.WebResourceRequested += (_, e) => tab.Owner?.BlockRequest(tab, e);
         await RefreshYamaBlockBootstrapAsync(tab);
@@ -546,8 +556,48 @@ public partial class MainWindow : Window
         };
         core.HistoryChanged += (_, _) => { var owner = tab.Owner; if (owner?._active == tab) owner.Dispatcher.Invoke(owner.UpdateNavigationControls); };
         core.PermissionRequested += (_, e) => tab.Owner?.HandlePermissionRequest(tab, e);
-        core.NewWindowRequested += async (_, e) => { e.Handled = true; var owner = tab.Owner; if (owner is not null) await owner.CreateTabAsync(e.Uri); };
+        core.NewWindowRequested += async (_, e) =>
+        {
+            var owner = tab.Owner;
+            if (owner is null)
+            {
+                e.Handled = true;
+                return;
+            }
+            await owner.HandleNewWindowRequestedAsync(e);
+        };
+        core.WindowCloseRequested += (_, _) => tab.Owner?.Dispatcher.BeginInvoke(() =>
+        {
+            var owner = tab.Owner;
+            if (owner is null || !owner._tabs.Contains(tab)) return;
+            owner.CloseTab(tab);
+        });
         core.DownloadStarting += (_, e) => tab.Owner?.HandleDownloadStarting(e);
+    }
+
+    private async Task HandleNewWindowRequestedAsync(CoreWebView2NewWindowRequestedEventArgs args)
+    {
+        var deferral = args.GetDeferral();
+        try
+        {
+            var popupTab = await CreateTabAsync(deferNavigationToNewWindow: true);
+            if (popupTab?.View.CoreWebView2 is { } popupCore)
+            {
+                // Hand the real target WebView2 back to Chromium. OAuth popups then
+                // retain window.opener/postMessage and can close themselves normally.
+                args.NewWindow = popupCore;
+                args.Handled = true;
+                return;
+            }
+
+            args.Handled = true;
+            if (!string.IsNullOrWhiteSpace(args.Uri))
+                await CreateTabAsync(args.Uri);
+        }
+        finally
+        {
+            deferral.Complete();
+        }
     }
 
     private static async Task InstallTabTitleWatcherAsync(BrowserTab tab)
@@ -2879,6 +2929,85 @@ public partial class MainWindow : Window
         PanelColumn.Width = opening ? new GridLength(390) : new GridLength(0);
         if (opening) ShowBookmarksPanel();
     }
+
+    private void Accounts_StateChanged(object? sender, EventArgs e)
+        => _ = Dispatcher.InvokeAsync(RenderAccountUi);
+
+    private void ProfileButton_Click(object sender, RoutedEventArgs e)
+    {
+        RenderAccountUi();
+        ProfilePopup.IsOpen = !ProfilePopup.IsOpen;
+    }
+
+    private void OpenAccountWindow_Click(object sender, RoutedEventArgs e)
+    {
+        ProfilePopup.IsOpen = false;
+        new AccountWindow(App.Accounts, _settings, _isPrivateWindow) { Owner = this }.ShowDialog();
+        RenderAccountUi();
+    }
+
+    private async void ProfileSignOut_Click(object sender, RoutedEventArgs e)
+    {
+        ProfilePopup.IsOpen = false;
+        if (MessageBox.Show(
+                "Odhlásit účet YamaSearch na tomto zařízení? Místní data prohlížeče zůstanou zachována.",
+                "YamaSearch",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Question) != MessageBoxResult.Yes)
+            return;
+
+        try { await App.Accounts.SignOutAsync(); }
+        catch
+        {
+            MessageBox.Show("Odhlášení se nepodařilo bezpečně dokončit.", "YamaSearch", MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+    }
+
+    private void RenderAccountUi()
+    {
+        if (_isPrivateWindow || _siteAppMode)
+        {
+            ProfileButton.Visibility = Visibility.Collapsed;
+            ProfilePopup.IsOpen = false;
+            return;
+        }
+
+        ProfileButton.Visibility = Visibility.Visible;
+        var snapshot = App.Accounts.Snapshot;
+        ProfileButton.ToolTip = snapshot.IsSignedIn
+            ? $"Účet YamaSearch · {snapshot.DisplayName}"
+            : "Účet YamaSearch · nepřihlášeno";
+        ProfilePopupName.Text = snapshot.DisplayName;
+        ProfilePopupEmail.Text = snapshot.Email;
+        ProfilePopupStatus.Text = snapshot.StatusText;
+        ProfileSignInButton.Visibility = snapshot.IsSignedIn ? Visibility.Collapsed : Visibility.Visible;
+        ProfileManageButton.Visibility = snapshot.IsSignedIn ? Visibility.Visible : Visibility.Collapsed;
+        ProfileLinkedButton.Visibility = snapshot.IsSignedIn ? Visibility.Visible : Visibility.Collapsed;
+        ProfileSyncButton.Visibility = snapshot.IsSignedIn ? Visibility.Visible : Visibility.Collapsed;
+        ProfileSignOutButton.Visibility = snapshot.IsSignedIn ? Visibility.Visible : Visibility.Collapsed;
+        ProfileSignInButton.Content = snapshot.IsConfigured ? "Přihlásit se" : "Nastavení účtu";
+        _ = SetProfileAvatarAsync(snapshot.AvatarUrl);
+    }
+
+    private async Task SetProfileAvatarAsync(string url)
+    {
+        var version = ++_profileAvatarVersion;
+        ProfileAvatarImage.Visibility = Visibility.Collapsed;
+        ProfilePopupAvatarImage.Visibility = Visibility.Collapsed;
+        ProfileAvatarBrush.ImageSource = null;
+        ProfilePopupAvatarBrush.ImageSource = null;
+        if (string.IsNullOrWhiteSpace(url)) return;
+
+        var image = await AvatarImageLoader.LoadAsync(url);
+        if (version != _profileAvatarVersion || image is null || _isClosing) return;
+        await Dispatcher.InvokeAsync(() =>
+        {
+            ProfileAvatarBrush.ImageSource = image;
+            ProfilePopupAvatarBrush.ImageSource = image;
+            ProfileAvatarImage.Visibility = Visibility.Visible;
+            ProfilePopupAvatarImage.Visibility = Visibility.Visible;
+        });
+    }
     private void BookmarksPanel_Click(object sender, RoutedEventArgs e)
     {
         ShowBookmarksPanel();
@@ -2913,10 +3042,15 @@ public partial class MainWindow : Window
     }
     private void Settings_Click(object sender, RoutedEventArgs e)
     {
-        var dialog = new SettingsWindow(_settings, _active?.View.CoreWebView2?.Profile) { Owner = this };
+        var dialog = new SettingsWindow(_settings, _active?.View.CoreWebView2?.Profile, App.Accounts, _isPrivateWindow) { Owner = this };
         if (dialog.ShowDialog() != true) return;
 
         _settings.Save();
+        foreach (var tab in _tabs.Where(x => x.View.CoreWebView2 != null))
+        {
+            tab.View.CoreWebView2.Settings.IsPasswordAutosaveEnabled = !_isPrivateWindow && _settings.Data.OfferPasswordSave;
+            tab.View.CoreWebView2.Settings.IsGeneralAutofillEnabled = !_isPrivateWindow && _settings.Data.EnableGeneralAutofill;
+        }
         StatusText.Text = "Nastavení bylo uloženo";
 
         if (!dialog.RestartRequired) return;
@@ -3080,6 +3214,8 @@ public partial class MainWindow : Window
         }
 
         TabsScroller.Visibility = Visibility.Collapsed;
+        ProfileButton.Visibility = Visibility.Collapsed;
+        ProfilePopup.IsOpen = false;
         root.RowDefinitions[1].Height = new GridLength(0);
         root.RowDefinitions[2].Height = new GridLength(0);
         root.RowDefinitions[4].Height = new GridLength(0);
@@ -5249,7 +5385,7 @@ public sealed class SiteAppEntry
     public bool StartOnLogin { get; set; }
 }
 
-public sealed class AppData { public string Theme { get; set; } = "dark"; public string HomePage { get; set; } = "yamasearch://newtab"; public string SearchEngine { get; set; } = "DuckDuckGo"; public string CustomSearchEndpoint { get; set; } = ""; public bool OnboardingCompleted { get; set; } = false; public bool FavoritesBarVisible { get; set; } = false; public bool HardwareAccelerationEnabled { get; set; } = true; public BlockMode BlockMode { get; set; } = BlockMode.Standard; public bool EnableYouTubeAdBlock { get; set; } = true; public bool EnableCosmeticBlocking { get; set; } = true; public bool EnableTrackerBlocking { get; set; } = true; public SecurityLevel SecurityLevel { get; set; } = SecurityLevel.Recommended; public bool EnableSmartScreen { get; set; } = true; public bool OfferPasswordSave { get; set; } = true; public bool BlockNewNotificationRequests { get; set; } = false; public bool EnableNativeNotifications { get; set; } = true; public bool EnableNotificationSound { get; set; } = true; public bool EnableTabNotificationIndicators { get; set; } = true; public List<string> Whitelist { get; set; } = []; public List<string> Bookmarks { get; set; } = []; public List<HistoryEntry> History { get; set; } = []; public List<DownloadEntry> Downloads { get; set; } = []; public List<SiteAppEntry> InstalledApps { get; set; } = []; }
+public sealed class AppData { public string Theme { get; set; } = "dark"; public string HomePage { get; set; } = "yamasearch://newtab"; public string SearchEngine { get; set; } = "DuckDuckGo"; public string CustomSearchEndpoint { get; set; } = ""; public bool OnboardingCompleted { get; set; } = false; public bool FavoritesBarVisible { get; set; } = false; public bool HardwareAccelerationEnabled { get; set; } = true; public BlockMode BlockMode { get; set; } = BlockMode.Standard; public bool EnableYouTubeAdBlock { get; set; } = true; public bool EnableCosmeticBlocking { get; set; } = true; public bool EnableTrackerBlocking { get; set; } = true; public SecurityLevel SecurityLevel { get; set; } = SecurityLevel.Recommended; public bool EnableSmartScreen { get; set; } = true; public bool OfferPasswordSave { get; set; } = true; public bool EnableGeneralAutofill { get; set; } = true; public bool BlockNewNotificationRequests { get; set; } = false; public bool EnableNativeNotifications { get; set; } = true; public bool EnableNotificationSound { get; set; } = true; public bool EnableTabNotificationIndicators { get; set; } = true; public string PreferredAccountProvider { get; set; } = ""; public List<string> Whitelist { get; set; } = []; public List<string> Bookmarks { get; set; } = []; public List<HistoryEntry> History { get; set; } = []; public List<DownloadEntry> Downloads { get; set; } = []; public List<SiteAppEntry> InstalledApps { get; set; } = []; }
 public sealed class HistoryEntry { public string Url { get; set; } = ""; public string Title { get; set; } = ""; public string FaviconUrl { get; set; } = ""; public DateTimeOffset VisitedAt { get; set; } }
 public sealed class DownloadEntry
 {

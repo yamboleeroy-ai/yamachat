@@ -5,6 +5,7 @@ import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.app.DownloadManager;
+import android.app.role.RoleManager;
 import android.content.ActivityNotFoundException;
 import android.content.BroadcastReceiver;
 import android.content.Intent;
@@ -56,6 +57,8 @@ import android.widget.TextView;
 import android.widget.Toast;
 import android.graphics.drawable.GradientDrawable;
 import androidx.core.content.FileProvider;
+import androidx.webkit.WebSettingsCompat;
+import androidx.webkit.WebViewFeature;
 import org.json.JSONObject;
 import java.io.ByteArrayInputStream;
 import java.io.File;
@@ -704,6 +707,27 @@ public class BrowserActivity extends Activity {
         MobileProfileDialog.show(this, store, privateSession(), this::refreshHomeTabs);
     }
 
+    private void configureWebAuthentication(WebSettings settings) {
+        if (!WebViewFeature.isFeatureSupported(WebViewFeature.WEB_AUTHENTICATION)) return;
+
+        int support = WebSettingsCompat.WEB_AUTHENTICATION_SUPPORT_NONE;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            RoleManager roles = getSystemService(RoleManager.class);
+            if (roles != null && roles.isRoleHeld(RoleManager.ROLE_BROWSER))
+                support = WebSettingsCompat.WEB_AUTHENTICATION_SUPPORT_FOR_BROWSER;
+        }
+
+        try {
+            // Android permits WebAuthn on behalf of arbitrary sites only to the
+            // selected browser. Credential providers may additionally require
+            // their own privileged-caller approval; the page receives a normal
+            // WebAuthn failure when that approval is not available.
+            WebSettingsCompat.setWebAuthenticationSupport(settings, support);
+        } catch (UnsupportedOperationException | SecurityException ignored) {
+            // Keep browsing functional on older WebView/provider combinations.
+        }
+    }
+
     @SuppressLint({"SetJavaScriptEnabled", "ClickableViewAccessibility"})
     private void createTab(String firstUrl, boolean activate) {
         createTab(firstUrl, activate, false);
@@ -732,6 +756,7 @@ public class BrowserActivity extends Activity {
         settings.setAllowContentAccess(true);
         settings.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
         settings.setMediaPlaybackRequiresUserGesture(true);
+        configureWebAuthentication(settings);
         if (privateSession()) {
             settings.setCacheMode(WebSettings.LOAD_NO_CACHE);
             // The private activity has its own WebView data-directory suffix. Keep

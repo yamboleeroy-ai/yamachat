@@ -36,6 +36,31 @@
 
           <Border Style="{StaticResource YamaDialogCard}">
             <StackPanel>
+              <TextBlock Text="Účet a synchronizace" Style="{StaticResource YamaSectionTitle}"/>
+              <Grid Margin="0,14,0,0">
+                <Grid.ColumnDefinitions><ColumnDefinition Width="60"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                <Grid Width="48" Height="48">
+                  <Ellipse Fill="#0E1A2B" Stroke="#2D638E" StrokeThickness="1"/>
+                  <Ellipse Width="7" Height="7" Fill="#7DE7FF" VerticalAlignment="Top" Margin="0,8,0,0"/>
+                  <Path Data="M8,40 C9,30 15,26 24,26 C33,26 39,30 40,40" Stroke="#7DE7FF" StrokeThickness="3" Fill="Transparent" StrokeStartLineCap="Round"/>
+                  <Ellipse x:Name="AccountAvatarImage" Visibility="Collapsed" Stroke="#42D8FF" StrokeThickness="1">
+                    <Ellipse.Fill><ImageBrush x:Name="AccountAvatarBrush" Stretch="UniformToFill"/></Ellipse.Fill>
+                  </Ellipse>
+                </Grid>
+                <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                  <TextBlock x:Name="AccountDisplayName" Text="Nepřihlášený uživatel" FontSize="15" FontWeight="SemiBold" Foreground="#F4F8FF" TextTrimming="CharacterEllipsis"/>
+                  <TextBlock x:Name="AccountEmail" Style="{StaticResource YamaSubtleText}" Margin="0,3,0,0"/>
+                  <TextBlock x:Name="AccountStatus" Style="{StaticResource YamaSubtleText}" Foreground="#6EDFFF" Margin="0,5,0,0"/>
+                </StackPanel>
+                <Button x:Name="ManageAccountButton" Grid.Column="2" Content="Spravovat účet" Style="{StaticResource YamaSecondaryButton}" Click="ManageAccount_Click" VerticalAlignment="Center"/>
+              </Grid>
+              <TextBlock x:Name="AccountSyncNote" Text="Synchronizace není aktivní; místní data se nikam neodesílají."
+                         Style="{StaticResource YamaSubtleText}" Margin="0,12,0,0"/>
+            </StackPanel>
+          </Border>
+
+          <Border Style="{StaticResource YamaDialogCard}">
+            <StackPanel>
               <TextBlock Text="Vyhledávání a domovská stránka" Style="{StaticResource YamaSectionTitle}"/>
               <TextBlock Text="Výchozí vyhledávač" Style="{StaticResource YamaSubtleText}" Margin="0,14,0,5"/>
               <ComboBox x:Name="SearchEngine" Style="{StaticResource YamaComboBox}" Height="42">
@@ -55,6 +80,16 @@
 
           <Border Style="{StaticResource YamaDialogCard}">
             <StackPanel>
+              <TextBlock Text="Výchozí prohlížeč ve Windows" Style="{StaticResource YamaSectionTitle}"/>
+              <TextBlock Text="Zaregistruje YamaSearch pro odkazy HTTP a HTTPS a otevře bezpečnou systémovou volbu Windows. Změnu vždy potvrzuje uživatel; aplikace ji neprovede potají."
+                         Style="{StaticResource YamaSubtleText}" Margin="0,10,0,0" TextWrapping="Wrap"/>
+              <Button Content="Nastavit YamaSearch jako výchozí prohlížeč" Style="{StaticResource YamaPrimaryButton}"
+                      HorizontalAlignment="Left" Margin="0,14,0,0" Click="DefaultBrowser_Click"/>
+            </StackPanel>
+          </Border>
+
+          <Border Style="{StaticResource YamaDialogCard}">
+            <StackPanel>
               <TextBlock Text="Výkon" Style="{StaticResource YamaSectionTitle}"/>
               <CheckBox x:Name="HardwareAcceleration" Style="{StaticResource YamaCheckBox}"
                         Content="Používat hardwarovou akceleraci, když je dostupná"
@@ -69,6 +104,8 @@
               <TextBlock Text="Hesla a přihlašování" Style="{StaticResource YamaSectionTitle}"/>
               <CheckBox x:Name="OfferPasswordSave" Style="{StaticResource YamaCheckBox}"
                         Content="Nabízet bezpečné ukládání hesel" Margin="0,14,0,8"/>
+              <CheckBox x:Name="EnableGeneralAutofill" Style="{StaticResource YamaCheckBox}"
+                        Content="Nabízet vyplnění jmen, adres a dalších údajů" Margin="0,0,0,8"/>
               <TextBlock Text="Hesla se nikdy nezobrazují ani nekopírují. Spravuje je bezpečný profil WebView2/Windows."
                          Style="{StaticResource YamaSubtleText}"/>
               <Button Content="Smazat všechna uložená hesla" Style="{StaticResource YamaDangerButton}"
@@ -89,6 +126,8 @@
                         Content="Zobrazovat indikátor nového upozornění na kartě" Margin="0,0,0,8"/>
               <TextBlock Text="Oznámení respektují režim Nerušit a další nastavení Windows. Po kliknutí se otevře příslušná karta." Style="{StaticResource YamaSubtleText}"/>
               <TextBlock Text="Web Push po úplném zavření karty WebView2 negarantuje; oznámení fungují pro otevřené karty během běhu YamaSearch." Style="{StaticResource YamaSubtleText}" Margin="0,8,0,0" TextWrapping="Wrap"/>
+              <Button Content="Vyzkoušet oznámení Windows" Style="{StaticResource YamaSecondaryButton}"
+                      HorizontalAlignment="Left" Margin="0,14,0,0" Click="TestNotification_Click"/>
             </StackPanel>
           </Border>
 
