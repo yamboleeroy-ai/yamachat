@@ -9,6 +9,18 @@
   "display": "standalone",
   "background_color": "#030a17",
   "theme_color": "#050c1b",
-  "icons": [{"src":"assets/yamaportal.png","sizes":"1254x1254","type":"image/png","purpose":"any"}]
+  "icons": [
+    {
+      "purpose": "any",
+      "src": "assets/yamaportal-192.png",
+      "type": "image/png",
+      "sizes": "192x192"
+    },
+    {
+      "purpose": "any",
+      "src": "assets/yamaportal-512.png",
+      "type": "image/png",
+      "sizes": "512x512"
+    }
+  ]
 }
-

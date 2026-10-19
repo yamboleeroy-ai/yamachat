@@ -2,6 +2,7 @@ const {test}=require('node:test');
 const assert=require('node:assert/strict');
 const vm=require('node:vm');
 const fs=require('node:fs');
+const path=require('node:path');
 test('offline worker ignores credentials, account config and backend requests',()=>{
   const handlers={};
   vm.runInNewContext(fs.readFileSync(require.resolve('../preview/dist/sw.js'),'utf8'),{self:{registration:{scope:'http://localhost:4187/'},location:{origin:'http://localhost:4187'},addEventListener(name,fn){handlers[name]=fn;}},URL,Response,fetch(){throw new Error('No backend request may be intercepted');},caches:{}});
@@ -18,4 +19,8 @@ test('offline worker ignores credentials, account config and backend requests',(
 test('PWA scope, names and start destination are relative for isolated deployment',()=>{
   const manifest=JSON.parse(fs.readFileSync(require.resolve('../preview/dist/manifest.webmanifest'),'utf8'));
   assert.equal(manifest.name,'Yamaportal');assert.equal(manifest.scope,'./');assert.equal(manifest.start_url,'./#domu');
+});
+test('PWA declares real 192px and 512px installation icons',()=>{
+ const manifest=JSON.parse(fs.readFileSync(path.join(__dirname,'../preview/dist/manifest.webmanifest'),'utf8').replace(/^\uFEFF/,''));
+ for(const size of [192,512]){const icon=manifest.icons.find(item=>item.sizes===`${size}x${size}`);assert.ok(icon);const png=fs.readFileSync(path.join(__dirname,'../preview/dist',icon.src));assert.equal(png.readUInt32BE(16),size);assert.equal(png.readUInt32BE(20),size);}
 });
