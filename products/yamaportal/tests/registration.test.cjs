@@ -1,0 +1,8 @@
+const {test}=require('node:test'),assert=require('node:assert/strict');
+const {AccountController,AUTHORITY,RECOVERY}=require('../preview/dist/account-core.js');
+const config={schemaVersion:1,authorityUrl:AUTHORITY,recoveryUrl:RECOVERY,publishableKey:'sb_publishable_test'};
+const valid={email:'new@example.invalid',username:'NewUser',password:'synthetic-password',confirmation:'synthetic-password'};
+function fixture(result){let request;const c=new AccountController({auth:{signUp:async input=>{request=input;return result;}}},config);return {c,request:()=>request};}
+test('Portal registration retains original Yamachat metadata contract and no privileged fields',async()=>{const h=fixture({data:{user:{id:'synthetic'},session:null}});const text=await h.c.signUp({...valid,role:'admin'});assert.deepEqual(h.request(),{email:valid.email,password:valid.password,options:{data:{username:'NewUser',display_name:'NewUser'}}});assert.match(text,/Žádost/);assert.equal(h.c.snapshot().user,null);});
+test('invalid registration never reaches Auth and an existing owner cannot be overwritten',async()=>{for(const change of [{email:'bad'},{username:'x'},{password:'short',confirmation:'short'},{confirmation:'different'}]){const h=fixture({});await assert.rejects(()=>h.c.signUp({...valid,...change}));assert.equal(h.request(),undefined);}const h=fixture({});h.c.state.user={id:'original'};await assert.rejects(()=>h.c.signUp(valid),/nepřepisujeme/);assert.equal(h.request(),undefined);});
+test('registration errors do not disclose provider internals or claim success',async()=>{const h=fixture({error:{message:'private diagnostic'}});await assert.rejects(()=>h.c.signUp(valid),error=>!error.message.includes('private diagnostic'));});

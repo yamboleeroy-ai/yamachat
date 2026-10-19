@@ -1,0 +1,10 @@
+{
+  "status": "prepared-not-applied",
+  "template": "recovery.html",
+  "senderDisplayName": "Yamaportal",
+  "senderEmail": "noreply@yamachat.eu",
+  "subject": "Obnova hesla k účtu Yamaportal",
+  "recoveryRedirect": "https://yamachat.eu/reset-password.html",
+  "requiredPublicAsset": "https://yamachat.eu/portal-assets/yamaportal.png",
+  "note": "Návrh hodnot k nastavení v Supabase Auth a stávajícím SMTP, nikoli API payload. Nemění SMTP heslo, adresu ani doménu. Nasadit až po schválení a zveřejnění assetu."
+}

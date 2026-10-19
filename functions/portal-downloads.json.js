@@ -10,5 +10,10 @@ export async function onRequestGet() {
       return {...item,available:response.status===200 && Number(response.headers.get('content-length'))>1000000};
     } catch { return {...item,available:false}; }
   }));
-  return Response.json({checkedAt:new Date().toISOString(),preview:false,downloads},{headers:{'Cache-Control':'public, max-age=300','X-Content-Type-Options':'nosniff'}});
+  let version=null;
+  try {
+    const response=await fetch('https://updates.yamachat.eu/yamaportal/latest.json',{redirect:'error',signal:AbortSignal.timeout(8000)});
+    if(response.ok){const release=await response.json();if(release.product==='Yamaportal'&&/^\d+\.\d+\.\d+$/.test(release.version))version=release.version;}
+  }catch{}
+  return Response.json({checkedAt:new Date().toISOString(),preview:false,version,downloads},{headers:{'Cache-Control':'public, max-age=300','X-Content-Type-Options':'nosniff'}});
 }

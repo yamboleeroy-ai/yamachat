@@ -1,6 +1,8 @@
 name: Publish Yamaportal Windows
 on:
   workflow_dispatch:
+  pull_request:
+    paths: ['products/yamaportal/**', '.github/workflows/yamaportal-release.yml']
   push:
     branches: [main]
     paths: ['products/yamaportal/package.json']
@@ -10,7 +12,17 @@ concurrency:
   group: yamaportal-release
   cancel-in-progress: false
 jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --test tests/*.test.cjs
+        working-directory: products/yamaportal
   build:
+    needs: check
     runs-on: windows-latest
     timeout-minutes: 30
     steps:
@@ -30,6 +42,7 @@ jobs:
           path: products/yamaportal/artifacts/*.exe
           if-no-files-found: error
   publish:
+    if: github.event_name != 'pull_request'
     needs: build
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -62,3 +75,5 @@ jobs:
           $W r2 object put yamachat-releases/yamaportal/SHA256SUMS.txt --file SHA256SUMS.txt --content-type text/plain --cache-control no-cache --remote
           curl -fsSI --retry 5 --retry-delay 10 https://updates.yamachat.eu/yamaportal/Yamaportal-Setup-latest.exe
           curl -fsSI --retry 5 --retry-delay 10 https://updates.yamachat.eu/yamaportal/Yamaportal-Portable-latest.exe
+          printf '%s\n' '{"product":"Yamaportal","version":"0.1.0","installerUrl":"https://updates.yamachat.eu/yamaportal/Yamaportal-Setup-latest.exe","portableUrl":"https://updates.yamachat.eu/yamaportal/Yamaportal-Portable-latest.exe"}' > latest.json
+          $W r2 object put yamachat-releases/yamaportal/latest.json --file latest.json --content-type application/json --cache-control 'no-cache,no-store' --remote

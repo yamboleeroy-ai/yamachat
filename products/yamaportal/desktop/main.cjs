@@ -1,6 +1,7 @@
 const {app,BrowserWindow,ipcMain,dialog,Menu,shell,safeStorage,globalShortcut}=require('electron');const fs=require('node:fs');const path=require('node:path');
 const {createPortalServer}=require('../preview/server.cjs');const launcher=require('./launcher.cjs');
 const {DesktopOAuth}=require('./oauth.cjs');
+const {installDisplayPicker}=require('./media.cjs');
 let win,server,origin,desktopOAuth,selected={};
 const returnToken=require('node:crypto').randomBytes(32).toString('hex');
 const smoke=process.argv.includes('--smoke-test');
@@ -13,6 +14,7 @@ app.whenReady().then(async()=>{
  const settings=path.join(app.getPath('userData'),'app-paths.json');try{selected=JSON.parse(fs.readFileSync(settings,'utf8'));}catch{}
  const serverOptions={oauthCallback:url=>desktopOAuth?.receive(url)===true,returnToken,onPortalReturn:()=>{if(win?.isMinimized())win.restore();win?.show();win?.focus();}};server=createPortalServer(serverOptions);await new Promise((resolve,reject)=>{server.once('error',reject);server.listen(smoke?0:4188,'127.0.0.1',resolve);});origin='http://127.0.0.1:'+server.address().port;serverOptions.origin=origin;
  win=new BrowserWindow({icon:path.join(__dirname,'../preview/dist/assets/yamaportal.png'),frame:false,show:!smoke,title:'Yamaportal · testovací verze',width:1250,height:860,backgroundColor:'#050c1b',webPreferences:{preload:path.join(__dirname,'preload.cjs'),nodeIntegration:false,contextIsolation:true,sandbox:true,webSecurity:true}});
+ installDisplayPicker({win,origin,desktopCapturer:require('electron').desktopCapturer,dialog,smoke});
  win.webContents.on('preload-error',(_event,_file,error)=>console.error('Preload initialization failed:',error.name,error.message));
  if(smoke)win.webContents.session.webRequest.onBeforeRequest({urls:['https://*/*','wss://*/*']},(details,callback)=>callback({cancel:true}));
  win.webContents.session.setPermissionRequestHandler(async(contents,permission,callback,details)=>{if(smoke){callback(false);return;}let valid=false;try{valid=new URL(details.requestingUrl).origin===origin;}catch{}if(contents!==win.webContents||!valid||!['media','display-capture','notifications','fullscreen'].includes(permission)){callback(false);return;}const result=await dialog.showMessageBox(win,{type:'question',buttons:['Nepovolit','Povolit'],defaultId:0,cancelId:0,title:'Oprávnění Yamachatu',message:'Povolit oprávnění: '+permission+'?'});callback(result.response===1);});
