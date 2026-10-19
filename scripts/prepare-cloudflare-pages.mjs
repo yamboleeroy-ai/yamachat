@@ -76,7 +76,9 @@ fs.copyFileSync(path.join(dist,'index.html'),path.join(dist,'yamachat.html'));
 const portal=path.join(root,'products/yamaportal/preview/dist');
 if(!fs.existsSync(path.join(portal,'index.html')))throw Error('Missing Yamaportal entry');
 fs.cpSync(portal,dist,{recursive:true});
-fs.writeFileSync(path.join(dist,'_redirects'),'/yamachat /yamachat.html 302\n');
+// Pages already serves .html documents at their clean path. A 302 back to the
+// .html URL would conflict with that canonical redirect and form a loop.
+fs.writeFileSync(path.join(dist,'_redirects'),'');
 
 let count=0;
 let bytes=0;
