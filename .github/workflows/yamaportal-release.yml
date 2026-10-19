@@ -21,6 +21,12 @@ jobs:
           node-version: '22'
       - run: node --test tests/*.test.cjs
         working-directory: products/yamaportal
+      - name: Install isolated browser test runtime
+        run: |
+          npm install --no-save --package-lock=false playwright@1.62.1
+          npx playwright install --with-deps chromium
+      - name: Verify real offline navigation without account or network
+        run: node products/yamaportal/tests/offline-browser.cjs
   build:
     needs: check
     runs-on: windows-latest
