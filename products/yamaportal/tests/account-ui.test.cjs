@@ -11,7 +11,7 @@ async function harness(){
   const form={id:'portal-profile',reportValidity(){return true;},querySelector(selector){return {'#profile-status':status,'[type=submit]':button,'#profile-name':{value:'Tester'},'#profile-bio':{value:''}}[selector];}};
   const header={innerHTML:'',setAttribute(){}};const dialog={open:true,innerHTML:'private account menu',close(){this.open=false;}};
   const client={auth:{onAuthStateChange(fn){authCallback=fn;return {data:{subscription:{unsubscribe(){}}}};},async getSession(){return {data:{session:{user}}};},async getUser(){return {data:{user}};}},from(){return {select(){return this;},eq(){return this;},async maybeSingle(){return {data:profile};},update(){return this;},async single(){return {data:{...profile}};}};}};
-  const window={supabase:{createClient(){return client;}}};
+  const window={addEventListener(){},supabase:{createClient(){return client;}}};
   const context={window,YamaAccountCore:core,AbortController,setTimeout,clearTimeout,CustomEvent:class{constructor(type){this.type=type;}},location:{hash:'#profil'},fetch:async()=>({ok:true,json:async()=>({schemaVersion:1,authorityUrl:core.AUTHORITY,publishableKey:'sb_publishable_test',recoveryUrl:core.RECOVERY})}),document:{querySelector(selector){return selector==='#account-menu-button'?header:selector==='#account-dialog'?dialog:null;},querySelectorAll(){return [];},addEventListener(name,fn){handlers[name]=fn;},dispatchEvent(event){if(event.type==='yama-account-state'&&window.YamaAccountUI.shouldRender())renders++;}}};
   vm.runInNewContext(fs.readFileSync(require.resolve('../preview/dist/account-ui.js'),'utf8'),context);
   await window.YamaAccountUI.init();

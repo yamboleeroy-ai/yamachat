@@ -8,16 +8,18 @@
   function callbackFor(location,policy){const url=new URL('./auth-callback.html',location.href);if(!policy.approvedCallbackUrls.includes(url.href))return null;if(url.protocol!=='https:'&&!(url.protocol==='http:'&&['127.0.0.1','localhost'].includes(url.hostname)))return null;return url.href;}
   function availableProviders(policy,settings,callback,mode='signin'){return policy.providers.map(provider=>{const enabled=provider.id.startsWith('custom:')?provider.customProviderVerified===true&&settings?.external?.[provider.id]===true:settings?.external?.[provider.id]===true;const reason=!settings?'unavailable':!enabled?'setup':!callback?'callback':mode==='link'&&policy.manualLinkingVerified!==true?'linking':null;return {...provider,enabled,ready:reason===null,reason};});}
   class IdentityController{
-    constructor({client,policy,fetch,storage,location,now=Date.now}){this.client=client;this.policy=validatePolicy(policy);this.fetch=fetch;this.storage=storage;this.location=location;this.now=now;this.settings=null;this.busy=false;}
+    constructor({client,policy,fetch,storage,location,now=Date.now}){this.client=client;this.policy=validatePolicy(policy);this.fetch=fetch;this.storage=storage;this.location=location;this.now=now;this.settings=null;this.busy=false;this.attempt=0;}
+    hasPending(){try{const item=JSON.parse(this.storage.getItem(PENDING));return !!item&&Number.isFinite(item.createdAt)&&this.now()>=item.createdAt&&this.now()-item.createdAt<600000;}catch{return false;}}
     async discover(){try{const response=await this.fetch(AUTHORITY+'/auth/v1/settings');if(!response.ok)throw new Error();this.settings=await response.json();}catch{this.settings=null;}return this.providers();}
     providers(mode='signin'){return availableProviders(this.policy,this.settings,callbackFor(this.location,this.policy),mode);}
     async begin(providerId,mode='signin'){
       if(this.busy)throw new Error('Přihlášení už probíhá.');if(!['signin','link'].includes(mode))throw new Error('Neplatný způsob přihlášení.');
       const provider=this.providers(mode).find(item=>item.id===providerId);if(!provider?.ready)throw new Error('Tato možnost přihlášení se ještě připravuje.');
       const prior=this.storage.getItem(PENDING);if(prior){try{if(this.now()-JSON.parse(prior).createdAt<600000)throw new Error('Dokonči předchozí přihlášení nebo ho zruš.');}catch(error){if(error.message.startsWith('Dokonči'))throw error;}this.storage.removeItem(PENDING);}
-      this.busy=true;
+      this.busy=true;const attempt=++this.attempt;
       try{
         const {data:identity,error:identityError}=await this.client.auth.getUser();
+        if(attempt!==this.attempt)throw new Error('Přihlášení bylo zrušené.');
         if(identityError&&!['AuthSessionMissingError'].includes(identityError.name)&&identityError.code!=='session_not_found')throw new Error('Relaci se nepodařilo ověřit. Zkontroluj připojení a zkus to znovu.');
         if(mode==='link'&&(identityError||!identity?.user))throw new Error('Pro přidání služby se nejdřív přihlas ke svému účtu Yamaportal.');
         if(mode==='signin'&&identity?.user)throw new Error('Už jsi přihlášený. Další službu přidej v propojených účtech.');
@@ -25,6 +27,7 @@
         // Supabase SDK owns state and the PKCE verifier. Never create a client secret in a public app.
         this.storage.setItem(PENDING,JSON.stringify({provider:provider.id,mode,userId:mode==='link'?identity.user.id:null,createdAt:this.now(),callback}));
         const result=mode==='link'?await this.client.auth.linkIdentity({provider:provider.id,options}):await this.client.auth.signInWithOAuth({provider:provider.id,options});
+        if(attempt!==this.attempt)throw new Error('Přihlášení bylo zrušené.');
         if(result.error||!result.data?.url)throw new Error('Přihlášení se nepodařilo zahájit. Zkus to znovu.');
         const target=new URL(result.data.url);const safe=target.protocol==='https:'&&!target.port&&!target.username&&!target.password;const authEndpoint=safe&&target.origin===AUTHORITY&&['/auth/v1/authorize','/auth/v1/user/identities/authorize'].includes(target.pathname);const providerEndpoint=safe&&mode==='link'&&LINK_HOSTS[providerId]?.includes(target.hostname);if(!authEndpoint&&!providerEndpoint)throw new Error('Server vrátil neplatný přihlašovací odkaz.');
         await this.location.assign(target.href);
@@ -42,7 +45,7 @@
       if(!verified.user.identities?.some(item=>item.provider===pending.provider||'custom:'+item.provider===pending.provider)){await this.client.auth.signOut({scope:'local'});throw new Error('Přihlášení vybrané služby se nepodařilo potvrdit.');}
       return {userId:verified.user.id,mode:pending.mode};
     }
-    cancel(){this.storage.removeItem(PENDING);}
+    cancel(){this.attempt++;this.storage.removeItem(PENDING);}
   }
   return {IdentityController,validatePolicy,availableProviders,callbackFor,PENDING};
 });
