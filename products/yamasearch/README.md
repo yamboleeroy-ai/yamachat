@@ -30,3 +30,6 @@ dotnet run
 Při spuštění aplikace se bez blokování prohlížení ověří manifest `https://updates.yamachat.eu/yamasearch/latest.json`. Pokud je dostupná novější verze, uživatel si zvolí Installer nebo Portable. Odkaz se otevře jen pro HTTPS host `updates.yamachat.eu`.
 
 Pro produkční vydání používá Yamachat ručně spouštěný GitHub Actions workflow `Publish YamaSearch for Windows`. Ten publikuje pouze do Cloudflare R2 prefixu `yamasearch/`; nevytváří ani nemění artefakty YamaHelp nebo Yamachatu.
+
+### Příprava společného účtu Yamaportal (19. 10. 2026)
+Konfigurace obsahuje vypnutý provider custom:yamaportal. Původní backend a Google zůstávají zachované. Provider ani manualIdentityLinkingEnabled nezapínat bez nakonfigurované a ověřené serverové federace. Při budoucím propojení AccountService ověřuje stejné uživatelské UUID a přítomnost vybrané identity ještě před uložením nové relace. Tato změna zdrojů nebyla vydána jako nová verze.

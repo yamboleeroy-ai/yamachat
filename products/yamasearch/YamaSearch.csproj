@@ -29,6 +29,7 @@
     <Resource Include="Assets\YamaSearch-symbol-64.png" />
     <Resource Include="Assets\YamaSearch-wordmark.png" />
     <Resource Include="Assets\YamaSearch.ico" />
+    <Content Include="portal-account-backend.json" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="account-backend.json" CopyToOutputDirectory="PreserveNewest" Condition="Exists('account-backend.json')" />
   </ItemGroup>
 </Project>

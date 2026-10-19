@@ -1,0 +1,64 @@
+name: Publish Yamaportal Windows
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['products/yamaportal/package.json']
+permissions:
+  contents: read
+concurrency:
+  group: yamaportal-release
+  cancel-in-progress: false
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: products/yamaportal/package-lock.json
+      - run: npm ci
+        working-directory: products/yamaportal
+      - run: npx electron-builder --config electron-builder.json --win --publish never
+        working-directory: products/yamaportal
+      - uses: actions/upload-artifact@v4
+        with:
+          name: yamaportal-windows
+          path: products/yamaportal/artifacts/*.exe
+          if-no-files-found: error
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/download-artifact@v4
+        with:
+          name: yamaportal-windows
+          path: release-assets
+      - name: Publish separate Yamaportal prefix
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          set -euo pipefail
+          test -n "$CLOUDFLARE_API_TOKEN"
+          test -n "$CLOUDFLARE_ACCOUNT_ID"
+          W='npx --yes wrangler@latest'
+          $W r2 bucket list | grep -q yamachat-releases
+          cd release-assets
+          sha256sum *.exe > SHA256SUMS.txt
+          for kind in Setup Portable; do
+            file="Yamaportal-$kind-0.1.0-x64.exe"
+            test -s "$file"
+            $W r2 object put "yamachat-releases/yamaportal/$file" --file "$file" --content-type application/vnd.microsoft.portable-executable --cache-control 'public,max-age=31536000,immutable' --remote
+            $W r2 object put "yamachat-releases/yamaportal/Yamaportal-$kind-latest.exe" --file "$file" --content-type application/vnd.microsoft.portable-executable --cache-control no-cache --remote
+          done
+          $W r2 object put yamachat-releases/yamaportal/SHA256SUMS.txt --file SHA256SUMS.txt --content-type text/plain --cache-control no-cache --remote
+          curl -fsSI --retry 5 --retry-delay 10 https://updates.yamachat.eu/yamaportal/Yamaportal-Setup-latest.exe
+          curl -fsSI --retry 5 --retry-delay 10 https://updates.yamachat.eu/yamaportal/Yamaportal-Portable-latest.exe

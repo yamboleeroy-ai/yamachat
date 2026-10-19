@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "publishedAt": "2026-10-09T09:34:54.035Z",
+  "windows": {
+    "latestVersion": "1.0.128",
+    "required": true,
+    "notes": "Yamachat 1.0.114: odkazy YamaHelp používají stálé kanály nejnovější verze.",
+    "feedUrl": "https://updates.yamachat.eu/windows/",
+    "installerUrl": "https://updates.yamachat.eu/windows/Yamachat-Setup-1.0.128.exe"
+  },
+  "android": {
+    "latestVersion": "1.1.0.798",
+    "latestVersionCode": 200798,
+    "required": true,
+    "apkUrl": "https://updates.yamachat.eu/android/Yamachat-Android-200798.apk",
+    "sha256": "a4c47d025ca6fb2f6d1116ce436243a65f6437ea53ac1a047f910d0dc22c03cc",
+    "notes": [
+      "Deep stability audit: voice, stream, WebRTC, reconnect a cleanup lifecycle byly zpevněné.",
+      "Android zachovává současné mobilní rozložení, Microsoft Natural Voices a interoperabilitu s webem a Windows.",
+      "Windows i Android veřejná distribuce běží přes Cloudflare R2 a nevyžaduje GitHub Releases."
+    ]
+  }
+}

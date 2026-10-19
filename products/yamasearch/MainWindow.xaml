@@ -234,6 +234,7 @@
                 </StackPanel>
               </Grid>
               <Border Height="1" Background="#243C59" Margin="0,0,0,8"/>
+              <Button x:Name="PortalReturnButton" Content="← Zpět do Yamaportalu" Visibility="Collapsed" HorizontalContentAlignment="Left" Background="#182A43" Click="PortalReturn_Click" Margin="0,2"/>
               <Button x:Name="ProfileSignInButton" Content="Přihlásit se" HorizontalContentAlignment="Left" Background="#087EAA" BorderBrush="#2DD8FF" BorderThickness="1" Click="OpenAccountWindow_Click" Margin="0,2"/>
               <Button x:Name="ProfileManageButton" Content="Spravovat profil" HorizontalContentAlignment="Left" Background="#182A43" Click="OpenAccountWindow_Click" Margin="0,2" Visibility="Collapsed"/>
               <Button x:Name="ProfileLinkedButton" Content="Propojené účty" HorizontalContentAlignment="Left" Background="#182A43" Click="OpenAccountWindow_Click" Margin="0,2" Visibility="Collapsed"/>

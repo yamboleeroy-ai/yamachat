@@ -4,6 +4,13 @@
   "manualIdentityLinkingEnabled": false,
   "providers": [
     {
+      "id": "custom:yamaportal",
+      "displayName": "Yamaportal",
+      "scopes": "openid email profile",
+      "enabled": false,
+      "serverVerified": false
+    },
+    {
       "id": "google",
       "displayName": "Google",
       "scopes": "openid email profile",

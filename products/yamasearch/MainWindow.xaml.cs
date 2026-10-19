@@ -18,6 +18,12 @@ namespace YamaSearch;
 
 public partial class MainWindow : Window
 {
+    private async void PortalReturn_Click(object sender, RoutedEventArgs e)
+    {
+        if (!await PortalReturn.TryReturnAsync())
+            MessageBox.Show(this, "Yamaportal už není dostupný. YamaSearch může dál běžet samostatně.", "Yamaportal", MessageBoxButton.OK, MessageBoxImage.Information);
+    }
+
     internal Guid WindowId => _windowId;
 
     [DllImport("user32.dll")]
@@ -99,6 +105,7 @@ public partial class MainWindow : Window
             ? _settings.Data.InstalledApps.FirstOrDefault(x => x.Id == siteAppId)
             : null;
         InitializeComponent();
+        PortalReturnButton.Visibility = PortalReturn.Available ? Visibility.Visible : Visibility.Collapsed;
         App.Accounts.StateChanged += Accounts_StateChanged;
         Loaded += (_, _) => TabWindowRegistry.Register(_windowId, this);
         Closing += (_, _) =>

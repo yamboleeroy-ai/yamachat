@@ -1,0 +1,13 @@
+{
+  "name": "yamaportal",
+  "version": "0.1.0",
+  "productName": "Yamaportal",
+  "description": "Yamaportal — aplikace a společný účet",
+  "author": "Lukáš Hubáček",
+  "private": true,
+  "main": "desktop/main.cjs",
+  "devDependencies": {
+    "electron": "44.3.0",
+    "electron-builder": "26.15.3"
+  }
+}

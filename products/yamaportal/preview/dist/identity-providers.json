@@ -1,0 +1,61 @@
+{
+  "schemaVersion": 1,
+  "authorityUrl": "https://bxjvmjdppmqgbxfcowpf.supabase.co",
+  "approvedCallbackUrls": [
+    "http://127.0.0.1:4187/auth-callback.html",
+    "http://127.0.0.1:4188/auth-callback.html",
+    "https://yamaportal-preview.pages.dev/auth-callback.html",
+    "https://yamachat.eu/auth-callback.html"
+  ],
+  "manualLinkingVerified": true,
+  "providers": [
+    {
+      "id": "google",
+      "name": "Google",
+      "scopes": "openid email profile",
+      "customProviderVerified": false
+    },
+    {
+      "id": "azure",
+      "name": "Microsoft",
+      "scopes": "email",
+      "customProviderVerified": false
+    },
+    {
+      "id": "custom:seznam",
+      "name": "Seznam.cz / Email.cz",
+      "scopes": "identity",
+      "customProviderVerified": false
+    },
+    {
+      "id": "apple",
+      "name": "Apple",
+      "scopes": "email name",
+      "customProviderVerified": false
+    },
+    {
+      "id": "facebook",
+      "name": "Facebook",
+      "scopes": "email",
+      "customProviderVerified": false
+    },
+    {
+      "id": "discord",
+      "name": "Discord",
+      "scopes": "identify email",
+      "customProviderVerified": false
+    },
+    {
+      "id": "github",
+      "name": "GitHub",
+      "scopes": "user:email",
+      "customProviderVerified": false
+    },
+    {
+      "id": "custom:mojeid",
+      "name": "mojeID",
+      "scopes": "openid email profile",
+      "customProviderVerified": false
+    }
+  ]
+}

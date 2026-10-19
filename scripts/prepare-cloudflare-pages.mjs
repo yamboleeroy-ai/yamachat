@@ -70,6 +70,14 @@ fs.writeFileSync(path.join(dist,'_headers'),[
   ''
 ].join('\n'));
 
+// Preserve the independent chat at a root-level document so its relative assets
+// retain their established paths. Portal owns only the shared web entry.
+fs.copyFileSync(path.join(dist,'index.html'),path.join(dist,'yamachat.html'));
+const portal=path.join(root,'products/yamaportal/preview/dist');
+if(!fs.existsSync(path.join(portal,'index.html')))throw Error('Missing Yamaportal entry');
+fs.cpSync(portal,dist,{recursive:true});
+fs.writeFileSync(path.join(dist,'_redirects'),'/yamachat /yamachat.html 302\n');
+
 let count=0;
 let bytes=0;
 let largest={path:'',size:0};

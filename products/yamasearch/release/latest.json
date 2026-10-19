@@ -1,7 +1,7 @@
 {
   "product": "YamaSearch",
-  "version": "0.3.21",
-  "notes": "Účet YamaSearch s bezpečným přihlášením přes Google a zachováním relace po restartu, opravená souběžná obnova tokenu, oznámení Windows s diagnostickým testem a volba výchozího prohlížeče ve Windows.",
+  "version": "0.3.22",
+  "notes": "Volitelný společný účet Yamaportal, Google/Microsoft/Discord a sdílený profil včetně Discord avatara. Původní účet i prohlížení bez účtu zůstávají dostupné. Návrat do běžícího Yamaportalu.",
   "portableUrl": "https://updates.yamachat.eu/yamasearch/YamaSearch-Portable-latest.zip",
   "installerUrl": "https://updates.yamachat.eu/yamasearch/YamaSearch-Setup-latest.exe"
 }

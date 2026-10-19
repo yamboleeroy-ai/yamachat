@@ -1,0 +1,26 @@
+{
+  "backendUrl": "https://bxjvmjdppmqgbxfcowpf.supabase.co",
+  "publishableKey": "sb_publishable_LCIW_v-MjpfTu1hHRfdxng_wvvuYSEY",
+  "manualIdentityLinkingEnabled": true,
+  "providers": [
+    {
+      "id": "google",
+      "displayName": "Google",
+      "scopes": "openid email profile",
+      "enabled": true
+    },
+    {
+      "id": "azure",
+      "displayName": "Microsoft",
+      "scopes": "email",
+      "enabled": true
+    },
+    {
+      "id": "discord",
+      "displayName": "Discord",
+      "scopes": "identify email",
+      "enabled": true
+    }
+  ],
+  "nativeCallbackVerified": true
+}

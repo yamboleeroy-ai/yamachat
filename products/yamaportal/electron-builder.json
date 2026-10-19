@@ -1,0 +1,44 @@
+{
+  "appId": "eu.yamachat.yamaportal.preview",
+  "productName": "Yamaportal",
+  "electronVersion": "44.3.0",
+  "asar": true,
+  "npmRebuild": false,
+  "directories": {
+    "output": "artifacts"
+  },
+  "files": [
+    "desktop/*.cjs",
+    "preview/server.cjs",
+    "preview/dist/**/*",
+    "package.json"
+  ],
+  "win": {
+    "target": [
+      {
+        "target": "nsis",
+        "arch": [
+          "x64"
+        ]
+      },
+      {
+        "target": "portable",
+        "arch": [
+          "x64"
+        ]
+      }
+    ],
+    "signExecutable": false,
+    "icon": "preview/dist/assets/yamaportal.png"
+  },
+  "nsis": {
+    "oneClick": false,
+    "perMachine": false,
+    "allowToChangeInstallationDirectory": true,
+    "deleteAppDataOnUninstall": false,
+    "artifactName": "Yamaportal-Setup-${version}-${arch}.${ext}"
+  },
+  "portable": {
+    "artifactName": "Yamaportal-Portable-${version}-${arch}.${ext}"
+  }
+}

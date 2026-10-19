@@ -1,0 +1,14 @@
+{
+  "source": "Local Yamachat web source",
+  "sourceSha256": "5abd49f4506fea3ed5919fba9dc1af4df2b17d8da1847a32f05809e53d0fc9c9",
+  "preparedAt": "2026-10-19T06:53:38.423Z",
+  "changes": [
+    "reuse parent Auth and realtime client",
+    "Portal owns service worker lifecycle",
+    "app-styled return button",
+    "local logout and media cleanup",
+    "Portal recovery and provider-link delegation",
+    "module-relative update manifest"
+  ],
+  "productionModified": false
+}

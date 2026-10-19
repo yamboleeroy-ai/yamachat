@@ -10,6 +10,13 @@ public partial class App : Application
     {
         // Closing the original window must not terminate other browser windows.
         ShutdownMode = ShutdownMode.OnLastWindowClose;
+        if (e.Args.Contains("--portal-account-test", StringComparer.Ordinal))
+        {
+            var accountTest = new AccountWindow(new AccountService(usePortalAccount: true), new SettingsStore(), false);
+            MainWindow = accountTest;
+            accountTest.Show();
+            return;
+        }
         WindowsToastService.TryInitialize();
         string? startupUrl = null;
         string? siteAppId = null;

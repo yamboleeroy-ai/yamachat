@@ -1,0 +1,9 @@
+const AUTHORITY='https://bxjvmjdppmqgbxfcowpf.supabase.co';
+const HOSTS=new Set(['accounts.google.com','login.microsoftonline.com','login.seznam.cz','appleid.apple.com','facebook.com','www.facebook.com','discord.com','github.com','mojeid.cz','www.mojeid.cz']);
+class DesktopOAuth{
+ constructor({origin,policy,openExternal,deliver,now=Date.now}){Object.assign(this,{origin,policy,openExternal,deliver,now});this.pending=null;}
+ async begin(value,callback){const target=new URL(value);const expected=this.origin+'/auth-callback.html';if(callback!==expected||!this.policy.approvedCallbackUrls.includes(callback))throw new Error('Návrat přihlášení ještě není schválený.');if(target.protocol!=='https:'||target.username||target.password||target.port||!(target.origin===AUTHORITY&&['/auth/v1/authorize','/auth/v1/user/identities/authorize'].includes(target.pathname)||HOSTS.has(target.hostname)))throw new Error('Neplatná přihlašovací adresa.');if(this.pending&&this.now()-this.pending.started<600000)throw new Error('Přihlášení již probíhá.');this.pending={callback,started:this.now()};try{await this.openExternal(target.href);}catch{this.pending=null;throw new Error('Systémový prohlížeč se nepodařilo otevřít.');}}
+ receive(value){if(!this.pending||this.now()-this.pending.started>=600000||this.now()<this.pending.started){this.pending=null;return false;}const target=new URL(value);if(target.origin+target.pathname!==this.pending.callback||target.hash||target.search.length>4096)return false;const codes=target.searchParams.getAll('code'),errors=target.searchParams.getAll('error');if(!((codes.length===1&&codes[0]&&errors.length===0)||(errors.length===1&&errors[0]&&codes.length===0)))return false;if([...target.searchParams.keys()].some(key=>!['code','error','error_description','error_code'].includes(key)))return false;this.pending=null;this.deliver(target.href);return true;}
+ cancel(){this.pending=null;}
+}
+module.exports={DesktopOAuth};

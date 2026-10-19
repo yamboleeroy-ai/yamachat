@@ -1,0 +1,14 @@
+{
+  "id": "./",
+  "name": "Yamaportal",
+  "short_name": "Yamaportal",
+  "description": "Společný rozcestník Yama aplikací a účet založený na Yamachatu.",
+  "lang": "cs",
+  "start_url": "./#domu",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#030a17",
+  "theme_color": "#050c1b",
+  "icons": [{"src":"assets/yamaportal.png","sizes":"1254x1254","type":"image/png","purpose":"any"}]
+}
+

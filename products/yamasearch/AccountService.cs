@@ -53,6 +53,7 @@ public sealed class AccountService
     private static readonly HttpClient Client = new(new SocketsHttpHandler
     {
         AutomaticDecompression = DecompressionMethods.All,
+        AllowAutoRedirect = false,
         PooledConnectionLifetime = TimeSpan.FromMinutes(10)
     })
     {
@@ -64,12 +65,64 @@ public sealed class AccountService
     private AccountBackendConfig _config = AccountBackendConfig.Empty;
     private AccountSession? _session;
     private bool _initialized;
+    private bool _usePortalAccount;
+    public AccountService(bool? usePortalAccount = null) { _usePortalAccount = usePortalAccount ?? AccountModeStore.Read(); }
+    public bool UsesPortalAccount => _usePortalAccount;
     private AccountSnapshot _snapshot = AccountSnapshot.NotConfigured;
 
     public AccountSnapshot Snapshot => _snapshot;
-    public bool CanLinkIdentities => _config.ManualIdentityLinkingEnabled;
+    public bool CanUseNativeOAuth => !_usePortalAccount || _config.NativeCallbackVerified;
+    public bool CanLinkIdentities => _config.ManualIdentityLinkingEnabled && CanUseNativeOAuth;
     public bool CanUnlinkIdentities => false;
     public event EventHandler? StateChanged;
+
+    public async Task SwitchAccountSystemAsync(bool portal, CancellationToken cancellationToken = default)
+    {
+        await _oauthGate.WaitAsync(cancellationToken);
+        try
+        {
+            await _stateGate.WaitAsync(cancellationToken);
+            try
+            {
+                if (_usePortalAccount == portal) return;
+                AccountModeStore.Write(portal);
+                _usePortalAccount = portal;
+                _session = null;
+                _initialized = false;
+                _config = AccountBackendConfig.Empty;
+                Publish(AccountSnapshot.NotConfigured);
+            }
+            finally { _stateGate.Release(); }
+            await InitializeAsync(cancellationToken);
+        }
+        finally { _oauthGate.Release(); }
+    }
+
+    public async Task SignInWithPasswordAsync(string email, string password, CancellationToken cancellationToken = default)
+    {
+        await _oauthGate.WaitAsync(cancellationToken);
+        try
+        {
+            if (!_usePortalAccount || !_config.IsConfigured) throw new InvalidOperationException("Vyberte společný účet Yamaportal.");
+            if (_session is not null) throw new InvalidOperationException("Účet je již přihlášený.");
+            email = email.Trim();
+            if (email.Length > 254 || !email.Contains('@') || password.Length is < 1 or > 4096)
+                throw new InvalidOperationException("Zadejte e-mail a heslo svého původního účtu Yamachat/Yamaportal.");
+            Publish(_snapshot with { State = AccountConnectionState.SigningIn, StatusText = "Ověřuji společný účet…" });
+            using var request = CreateRequest(HttpMethod.Post, "token?grant_type=password");
+            request.Content = JsonContent.Create(new { email, password });
+            using var response = await Client.SendAsync(request, cancellationToken);
+            await EnsureSuccessAsync(response, cancellationToken);
+            var token = await ReadTokenAsync(response, cancellationToken);
+            await ApplySessionAsync(token, _snapshot.AvailableProviders, cancellationToken);
+        }
+        catch (Exception error)
+        {
+            Publish((_session is null ? SignedOutSnapshot(_snapshot.AvailableProviders) : _snapshot with { State = AccountConnectionState.SignedIn }) with { StatusText = SafeMessage(error) });
+            throw;
+        }
+        finally { _oauthGate.Release(); }
+    }
 
     public async Task InitializeAsync(CancellationToken cancellationToken = default)
     {
@@ -80,14 +133,14 @@ public sealed class AccountService
         try
         {
             if (_initialized) return;
-            _config = AccountBackendConfig.Load();
+            _config = _usePortalAccount ? AccountBackendConfig.LoadPortal() : AccountBackendConfig.Load();
             if (!_config.IsConfigured)
             {
                 Publish(AccountSnapshot.NotConfigured);
                 return;
             }
 
-            cachedProfile = AccountProfileCache.Read();
+            cachedProfile = AccountProfileCache.Read(_usePortalAccount);
 
             try
             {
@@ -109,12 +162,12 @@ public sealed class AccountService
             try
             {
                 var token = await RefreshWithCrossProcessLockAsync(refreshToken, cancellationToken);
-                ApplySession(token, discoveredProviders);
+                await ApplySessionAsync(token, discoveredProviders, cancellationToken);
             }
             catch (AccountApiException error) when (error.StatusCode is HttpStatusCode.BadRequest or HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden)
             {
                 WindowsCredentialStore.Delete(CredentialTarget());
-                AccountProfileCache.Delete();
+                AccountProfileCache.Delete(_usePortalAccount);
                 Publish(SignedOutSnapshot(discoveredProviders) with { StatusText = "Uložená relace vypršela. Přihlaste se znovu." });
             }
             catch (Exception error) when (IsNetworkFailure(error))
@@ -154,7 +207,7 @@ public sealed class AccountService
         IReadOnlyList<AccountProviderSnapshot> discoveredProviders = _snapshot.AvailableProviders;
         try
         {
-            _config = AccountBackendConfig.Load();
+            _config = _usePortalAccount ? AccountBackendConfig.LoadPortal() : AccountBackendConfig.Load();
             if (!_config.IsConfigured)
             {
                 Publish(AccountSnapshot.NotConfigured);
@@ -170,7 +223,7 @@ public sealed class AccountService
             }
 
             var token = await RefreshWithCrossProcessLockAsync(refreshToken, cancellationToken);
-            ApplySession(token, discoveredProviders);
+            await ApplySessionAsync(token, discoveredProviders, cancellationToken);
         }
         catch (Exception error)
         {
@@ -202,7 +255,7 @@ public sealed class AccountService
         {
             Publish(_snapshot with { State = AccountConnectionState.SigningIn, StatusText = $"Čekám na přihlášení přes {provider.DisplayName}…" });
             var token = await RunOAuthFlowAsync(provider, linkIdentity: false, cancellationToken);
-            ApplySession(token, _snapshot.AvailableProviders);
+            await ApplySessionAsync(token, _snapshot.AvailableProviders, cancellationToken);
         }
         catch (OperationCanceledException)
         {
@@ -234,12 +287,16 @@ public sealed class AccountService
         {
             await EnsureSessionAsync(cancellationToken);
             if (_session is null) throw new InvalidOperationException("Nejdřív se přihlaste k účtu YamaSearch.");
+            var ownerId = _session.User.Id;
             if (previous.Identities.Any(identity => ProviderMatches(identity.Provider, provider.Id)))
                 throw new InvalidOperationException("Tento účet už je s profilem propojený.");
 
             Publish(previous with { State = AccountConnectionState.SigningIn, StatusText = $"Propojuji účet {provider.DisplayName}…" });
             var token = await RunOAuthFlowAsync(provider, linkIdentity: true, cancellationToken);
-            ApplySession(token, previous.AvailableProviders);
+            var verifiedUser = await GetUserAsync(token.AccessToken, cancellationToken);
+            ValidateLinkedIdentity(ownerId, verifiedUser, provider.Id);
+            token.User = verifiedUser;
+            await ApplySessionAsync(token, previous.AvailableProviders, cancellationToken);
         }
         catch (Exception error)
         {
@@ -250,6 +307,14 @@ public sealed class AccountService
         {
             _oauthGate.Release();
         }
+    }
+
+    internal static void ValidateLinkedIdentity(string ownerId, SupabaseUser user, string providerId)
+    {
+        if (string.IsNullOrWhiteSpace(ownerId) || !string.Equals(ownerId, user.Id, StringComparison.Ordinal))
+            throw new InvalidOperationException("Propojení změnilo vlastníka účtu. Původní účet YamaSearch zůstává zachovaný.");
+        if (user.Identities?.Any(identity => ProviderMatches(identity.Provider ?? "", providerId)) != true)
+            throw new InvalidOperationException("Připojení vybrané přihlašovací služby se nepodařilo ověřit.");
     }
 
     public async Task UnlinkIdentityAsync(AccountIdentitySnapshot identity, CancellationToken cancellationToken = default)
@@ -300,7 +365,7 @@ public sealed class AccountService
 
             _session = null;
             if (_config.IsConfigured) WindowsCredentialStore.Delete(CredentialTarget());
-            AccountProfileCache.Delete();
+            AccountProfileCache.Delete(_usePortalAccount);
             Publish(_config.IsConfigured ? SignedOutSnapshot(_snapshot.AvailableProviders) : AccountSnapshot.NotConfigured);
         }
         finally
@@ -327,19 +392,20 @@ public sealed class AccountService
         }
 
         var token = await RefreshWithCrossProcessLockAsync(refreshToken, cancellationToken);
-        ApplySession(token, _snapshot.AvailableProviders);
+        await ApplySessionAsync(token, _snapshot.AvailableProviders, cancellationToken);
     }
 
     private async Task<SupabaseTokenResponse> RunOAuthFlowAsync(AccountProviderSnapshot provider, bool linkIdentity, CancellationToken cancellationToken)
     {
+        if (!CanUseNativeOAuth) throw new InvalidOperationException("Návrat přihlášení Yamaportal pro Windows se ještě připravuje. Zatím použijte e-mail a heslo.");
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         timeout.CancelAfter(TimeSpan.FromMinutes(5));
 
         var verifier = Base64Url(RandomNumberGenerator.GetBytes(48));
         var challenge = Base64Url(SHA256.HashData(Encoding.ASCII.GetBytes(verifier)));
         var callbackNonce = Base64Url(RandomNumberGenerator.GetBytes(24));
-        var callbackPath = $"/yamasearch-auth/{callbackNonce}/";
-        var listener = new TcpListener(IPAddress.Loopback, 0);
+        var callbackPath = _usePortalAccount ? "/yamasearch-auth/" : $"/yamasearch-auth/{callbackNonce}/";
+        var listener = new TcpListener(IPAddress.Loopback, _usePortalAccount ? 4190 : 0);
         listener.Start(1);
         var completionPageOwnsListener = false;
 
@@ -367,7 +433,7 @@ public sealed class AccountService
             }
 
             Process.Start(new ProcessStartInfo(authorizeUrl) { UseShellExecute = true });
-            var callback = await ReceiveLoopbackCallbackAsync(listener, callbackPath, timeout.Token);
+            var callback = await ReceiveLoopbackCallbackAsync(listener, callbackPath, port, timeout.Token);
             completionPageOwnsListener = true;
             _ = KeepLoopbackCompletionPageAliveAsync(listener, callbackPath, callback.Code is not null);
             if (!string.IsNullOrWhiteSpace(callback.Error))
@@ -407,7 +473,7 @@ public sealed class AccountService
         return new Uri(_config.AuthBaseUri, path).AbsoluteUri + "?" + query;
     }
 
-    private static async Task<LoopbackResult> ReceiveLoopbackCallbackAsync(TcpListener listener, string expectedPath, CancellationToken cancellationToken)
+    private static async Task<LoopbackResult> ReceiveLoopbackCallbackAsync(TcpListener listener, string expectedPath, int expectedPort, CancellationToken cancellationToken)
     {
         using var client = await listener.AcceptTcpClientAsync(cancellationToken);
         await using var stream = client.GetStream();
@@ -415,9 +481,14 @@ public sealed class AccountService
         var requestLine = await reader.ReadLineAsync(cancellationToken);
         if (string.IsNullOrWhiteSpace(requestLine)) throw new InvalidOperationException("Neplatná odpověď přihlášení.");
 
-        string? line;
-        do { line = await reader.ReadLineAsync(cancellationToken); }
-        while (!string.IsNullOrEmpty(line));
+        string? line; string? host = null; int headerBytes = 0;
+        while (!string.IsNullOrEmpty(line = await reader.ReadLineAsync(cancellationToken)))
+        {
+            headerBytes += line.Length;
+            if (headerBytes > 8192) throw new InvalidOperationException("Neplatný návrat přihlášení.");
+            if (line.StartsWith("Host:", StringComparison.OrdinalIgnoreCase)) host = line[5..].Trim();
+        }
+        if (host != $"127.0.0.1:{expectedPort}") throw new InvalidOperationException("Neplatný hostitel návratu přihlášení.");
 
         var parts = requestLine.Split(' ', StringSplitOptions.RemoveEmptyEntries);
         if (parts.Length < 2 || !parts[0].Equals("GET", StringComparison.Ordinal))
@@ -429,7 +500,9 @@ public sealed class AccountService
 
         var query = ParseQuery(requestUri.Query);
         var succeeded = query.TryGetValue("code", out var code) && !string.IsNullOrWhiteSpace(code);
-        await WriteLoopbackCompletionPageAsync(stream, succeeded, cancellationToken);
+        var cleanPath = expectedPath + "complete";
+        var redirectHeaders = Encoding.ASCII.GetBytes($"HTTP/1.1 303 See Other\r\nLocation: {cleanPath}\r\nCache-Control: no-store\r\nReferrer-Policy: no-referrer\r\nContent-Length: 0\r\nConnection: close\r\n\r\n");
+        await stream.WriteAsync(redirectHeaders, cancellationToken);
 
         return new LoopbackResult(
             code,
@@ -456,8 +529,12 @@ public sealed class AccountService
                 if (parts.Length >= 2 && parts[0].Equals("GET", StringComparison.Ordinal))
                 {
                     var requestUri = new Uri("http://127.0.0.1" + parts[1]);
-                    if (requestUri.AbsolutePath.Equals(expectedPath, StringComparison.Ordinal))
+                    if (requestUri.AbsolutePath.Equals(expectedPath + "complete", StringComparison.Ordinal)
+                        || requestUri.AbsolutePath.Equals(expectedPath, StringComparison.Ordinal))
+                    {
                         await WriteLoopbackCompletionPageAsync(stream, succeeded, lifetime.Token);
+                        if (requestUri.AbsolutePath.EndsWith("/complete", StringComparison.Ordinal)) break;
+                    }
                 }
             }
         }
@@ -472,9 +549,9 @@ public sealed class AccountService
 
     private static async Task WriteLoopbackCompletionPageAsync(NetworkStream stream, bool succeeded, CancellationToken cancellationToken)
     {
-        var title = succeeded ? "Přihlášení dokončeno" : "Přihlášení nebylo dokončeno";
+        var title = succeeded ? "Návrat do YamaSearch" : "Přihlášení nebylo dokončeno";
         var message = succeeded
-            ? "Účet byl bezpečně připojen. Tuto kartu můžete zavřít a vrátit se do YamaSearch."
+            ? "Přihlašovací odpověď byla předána aplikaci. Výsledek ověření uvidíte v YamaSearch; tuto kartu můžete zavřít."
             : "Vraťte se do YamaSearch, kde uvidíte podrobnosti.";
         var body = $"<!doctype html><html lang='cs'><head><meta charset='utf-8'><meta name='viewport' content='width=device-width'><meta name='color-scheme' content='dark'><title>{title}</title><style>body{{margin:0;background:#08111d;color:#eaf3ff;font-family:Segoe UI,Arial;display:grid;place-items:center;min-height:100vh}}main{{width:min(520px,86vw);padding:34px;border:1px solid #245a84;border-radius:18px;background:#14243a;box-shadow:0 24px 70px #0008}}h1{{color:#42d8ff;font-size:24px}}p{{color:#b9cee4;line-height:1.55}}</style></head><body><main><h1>{title}</h1><p>{message}</p></main></body></html>";
         var bytes = Encoding.UTF8.GetBytes(body);
@@ -542,8 +619,41 @@ public sealed class AccountService
         using var request = CreateRequest(HttpMethod.Get, "user", accessToken);
         using var response = await Client.SendAsync(request, cancellationToken);
         await EnsureSuccessAsync(response, cancellationToken);
-        return await response.Content.ReadFromJsonAsync<SupabaseUser>(JsonOptions, cancellationToken)
+        var user = await response.Content.ReadFromJsonAsync<SupabaseUser>(JsonOptions, cancellationToken)
             ?? throw new InvalidOperationException("Server nevrátil profil uživatele.");
+        return user;
+    }
+
+    private async Task LoadPortalProfileAsync(SupabaseUser user, string accessToken, CancellationToken cancellationToken)
+    {
+        if (_usePortalAccount)
+        {
+            if (!Guid.TryParse(user.Id, out _)) throw new InvalidOperationException("Server neověřil vlastníka účtu.");
+            using var profileRequest = CreateRequest(HttpMethod.Get,
+                "https://bxjvmjdppmqgbxfcowpf.supabase.co/rest/v1/profiles?select=id,username,display_name,avatar_path,use_discord_avatar,discord_avatar_url&id=eq." + Uri.EscapeDataString(user.Id) + "&limit=1", accessToken, pathIsAbsolute: true);
+            using var profileResponse = await Client.SendAsync(profileRequest, cancellationToken);
+            await EnsureSuccessAsync(profileResponse, cancellationToken);
+            using var profileJson = JsonDocument.Parse(await profileResponse.Content.ReadAsStringAsync(cancellationToken));
+            if (profileJson.RootElement.ValueKind == JsonValueKind.Array && profileJson.RootElement.GetArrayLength() == 1)
+            {
+                ApplyPortalProfile(user, profileJson.RootElement[0]);
+            }
+        }
+    }
+
+    internal static void ApplyPortalProfile(SupabaseUser user, JsonElement profile)
+    {
+        if (!Guid.TryParse(user.Id, out _) || profile.GetProperty("id").GetString() != user.Id)
+            throw new InvalidOperationException("Profil nepatří přihlášenému účtu.");
+        user.PortalDisplayName = ReadMetadata(profile, "display_name", "username");
+        var avatarPath = ReadMetadata(profile, "avatar_path");
+        if (!string.IsNullOrWhiteSpace(avatarPath) && !avatarPath.Split('/').Any(part => part == ".."))
+            user.PortalAvatarUrl = "https://bxjvmjdppmqgbxfcowpf.supabase.co/storage/v1/object/public/avatars/" + string.Join("/", avatarPath.Split('/').Select(Uri.EscapeDataString));
+        if (profile.TryGetProperty("use_discord_avatar", out var useDiscord) && useDiscord.ValueKind == JsonValueKind.True
+            && Uri.TryCreate(ReadMetadata(profile, "discord_avatar_url"), UriKind.Absolute, out var discordAvatar)
+            && discordAvatar.Scheme == Uri.UriSchemeHttps
+            && (discordAvatar.Host == "cdn.discordapp.com" || discordAvatar.Host == "media.discordapp.net"))
+            user.PortalAvatarUrl = discordAvatar.AbsoluteUri;
     }
 
     private HttpRequestMessage CreateRequest(HttpMethod method, string path, string? accessToken = null, bool pathIsAbsolute = false)
@@ -562,7 +672,7 @@ public sealed class AccountService
         return request;
     }
 
-    private void ApplySession(SupabaseTokenResponse token, IReadOnlyList<AccountProviderSnapshot> providers)
+    private async Task ApplySessionAsync(SupabaseTokenResponse token, IReadOnlyList<AccountProviderSnapshot> providers, CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(token.AccessToken) || string.IsNullOrWhiteSpace(token.RefreshToken) || token.User is null)
             throw new InvalidOperationException("Server vrátil neúplnou přihlašovací relaci.");
@@ -571,17 +681,30 @@ public sealed class AccountService
             : DateTimeOffset.UtcNow.AddSeconds(Math.Max(60, token.ExpiresIn));
         _session = new AccountSession(token.AccessToken, token.RefreshToken, expiresAt, token.User);
         WindowsCredentialStore.Write(CredentialTarget(), token.RefreshToken);
-        var snapshot = CreateSignedInSnapshot(_session, providers, "Účet je přihlášený a relace je bezpečně uložená ve Windows.");
-        AccountProfileCache.Write(snapshot);
+        var status = "Účet je přihlášený a relace je bezpečně uložená ve Windows.";
+        if (_usePortalAccount)
+        {
+            try { await LoadPortalProfileAsync(token.User, token.AccessToken, cancellationToken); }
+            catch (Exception error) when (error is AccountApiException or HttpRequestException or IOException or TaskCanceledException or JsonException)
+            { status = "Přihlášení je ověřené. Společný profil teď není dostupný; uložená relace zůstává zachovaná."; }
+            catch
+            {
+                _session = null;
+                WindowsCredentialStore.Delete(CredentialTarget());
+                throw;
+            }
+        }
+        var snapshot = CreateSignedInSnapshot(_session, providers, status);
+        AccountProfileCache.Write(snapshot, _usePortalAccount);
         Publish(snapshot);
     }
 
     private static AccountSnapshot CreateSignedInSnapshot(AccountSession session, IReadOnlyList<AccountProviderSnapshot> providers, string status)
     {
         var metadata = session.User.UserMetadata;
-        var displayName = ReadMetadata(metadata, "full_name", "name", "user_name");
+        var displayName = session.User.PortalDisplayName ?? ReadMetadata(metadata, "full_name", "name", "user_name");
         if (string.IsNullOrWhiteSpace(displayName)) displayName = session.User.Email ?? "Uživatel YamaSearch";
-        var avatar = ReadMetadata(metadata, "avatar_url", "picture");
+        var avatar = session.User.PortalAvatarUrl ?? ReadMetadata(metadata, "avatar_url", "picture");
         var identities = (session.User.Identities ?? [])
             .Where(identity => !string.IsNullOrWhiteSpace(identity.IdentityId))
             .Select(identity => new AccountIdentitySnapshot(
@@ -630,13 +753,23 @@ public sealed class AccountService
 
     private string CredentialTarget()
     {
-        var hash = SHA256.HashData(Encoding.UTF8.GetBytes(_config.AuthBaseUri.AbsoluteUri));
+        return CredentialTargetFor(_config);
+    }
+
+    internal static string CredentialTargetFor(AccountBackendConfig config)
+    {
+        var hash = SHA256.HashData(Encoding.UTF8.GetBytes(config.AuthBaseUri.AbsoluteUri));
         return "YamaSearch.Account." + Convert.ToHexString(hash.AsSpan(0, 12));
     }
 
-    private static async Task<SupabaseTokenResponse> ReadTokenAsync(HttpResponseMessage response, CancellationToken cancellationToken)
-        => await response.Content.ReadFromJsonAsync<SupabaseTokenResponse>(JsonOptions, cancellationToken)
+    private async Task<SupabaseTokenResponse> ReadTokenAsync(HttpResponseMessage response, CancellationToken cancellationToken)
+    {
+        var token = await response.Content.ReadFromJsonAsync<SupabaseTokenResponse>(JsonOptions, cancellationToken)
             ?? throw new InvalidOperationException("Server nevrátil přihlašovací relaci.");
+        if (string.IsNullOrWhiteSpace(token.AccessToken)) throw new InvalidOperationException("Neplatná relace.");
+        token.User ??= await GetUserAsync(token.AccessToken, cancellationToken);
+        return token;
+    }
 
     private static async Task EnsureSuccessAsync(HttpResponseMessage response, CancellationToken cancellationToken)
     {
@@ -727,6 +860,7 @@ internal sealed class AccountBackendConfig
     public string PublishableKey { get; set; } = "";
     public List<AccountProviderConfig> Providers { get; set; } = [];
     public bool ManualIdentityLinkingEnabled { get; set; }
+    public bool NativeCallbackVerified { get; set; }
 
     [JsonIgnore]
     public bool IsConfigured
@@ -739,6 +873,18 @@ internal sealed class AccountBackendConfig
     public Uri AuthBaseUri => new(new Uri(BackendUrl.TrimEnd('/') + "/"), "auth/v1/");
 
     public static AccountBackendConfig Empty { get; } = new();
+    internal static bool IsTrustedPortal(AccountBackendConfig config) => config.BackendUrl == "https://bxjvmjdppmqgbxfcowpf.supabase.co" && config.PublishableKey.StartsWith("sb_publishable_", StringComparison.Ordinal);
+    public static AccountBackendConfig LoadPortal()
+    {
+        var file = Path.Combine(AppContext.BaseDirectory, "portal-account-backend.json");
+        try
+        {
+            var config = JsonSerializer.Deserialize<AccountBackendConfig>(File.ReadAllText(file), new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? Empty;
+            if (!IsTrustedPortal(config)) return Empty;
+            return config;
+        }
+        catch (Exception error) when (error is IOException or JsonException or UnauthorizedAccessException) { return Empty; }
+    }
 
     public static AccountBackendConfig Load()
     {
@@ -808,6 +954,8 @@ internal sealed class SupabaseTokenResponse
 
 internal sealed class SupabaseUser
 {
+    [JsonIgnore] public string? PortalDisplayName { get; set; }
+    [JsonIgnore] public string? PortalAvatarUrl { get; set; }
     [JsonPropertyName("id")] public string Id { get; set; } = "";
     [JsonPropertyName("email")] public string? Email { get; set; }
     [JsonPropertyName("user_metadata")] public JsonElement UserMetadata { get; set; }

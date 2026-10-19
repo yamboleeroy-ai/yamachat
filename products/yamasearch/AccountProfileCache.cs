@@ -13,11 +13,11 @@ internal static class AccountProfileCache
 {
     private static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = false };
 
-    internal static CachedAccountProfile? Read()
+    internal static CachedAccountProfile? Read(bool portal = false)
     {
         try
         {
-            var path = CachePath();
+            var path = CachePath(portal);
             if (!File.Exists(path)) return null;
             var cached = JsonSerializer.Deserialize<CachedAccountProfile>(File.ReadAllText(path), JsonOptions);
             return cached is { Email.Length: > 0 } ? cached : null;
@@ -28,12 +28,12 @@ internal static class AccountProfileCache
         }
     }
 
-    internal static void Write(AccountSnapshot snapshot)
+    internal static void Write(AccountSnapshot snapshot, bool portal = false)
     {
         if (!snapshot.IsSignedIn || string.IsNullOrWhiteSpace(snapshot.Email)) return;
         try
         {
-            var path = CachePath();
+            var path = CachePath(portal);
             var directory = Path.GetDirectoryName(path)!;
             Directory.CreateDirectory(directory);
             var temporary = path + $".{Environment.ProcessId}.tmp";
@@ -51,11 +51,11 @@ internal static class AccountProfileCache
         }
     }
 
-    internal static void Delete()
+    internal static void Delete(bool portal = false)
     {
         try
         {
-            var path = CachePath();
+            var path = CachePath(portal);
             if (File.Exists(path)) File.Delete(path);
             if (File.Exists(path + ".tmp")) File.Delete(path + ".tmp");
         }
@@ -66,10 +66,12 @@ internal static class AccountProfileCache
         }
     }
 
-    private static string CachePath() => Path.Combine(
+    private static string CachePath(bool portal) => Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
         "YamaSearch",
-        "account-profile.json");
+        CacheFileName(portal));
+
+    internal static string CacheFileName(bool portal) => portal ? "portal-account-profile.json" : "account-profile.json";
 }
 
 internal static class AccountDiagnostics

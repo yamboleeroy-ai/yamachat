@@ -23,7 +23,7 @@
         <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
           <Image Source="pack://application:,,,/Assets/YamaSearch-symbol-64.png" Width="42" Height="42" Margin="0,0,12,0"/>
           <StackPanel>
-            <TextBlock Text="Účet YamaSearch" FontSize="22" FontWeight="SemiBold" Foreground="#42D8FF"/>
+            <TextBlock x:Name="AccountSystemTitle" Text="Yama účet" FontSize="22" FontWeight="SemiBold" Foreground="#42D8FF"/>
             <TextBlock Text="Přihlášení, propojené účty a synchronizace" Style="{StaticResource YamaSubtleText}" Margin="0,3,0,0"/>
           </StackPanel>
         </StackPanel>
@@ -33,6 +33,14 @@
       <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
         <ScrollViewer.Resources><Style TargetType="ScrollBar" BasedOn="{StaticResource YamaScrollBar}"/></ScrollViewer.Resources>
         <StackPanel Margin="0,0,8,0">
+          <StackPanel x:Name="AccountSystemPanel" Margin="0,0,0,12">
+            <TextBlock Text="Používaný účet" Foreground="#AFC5DB" Margin="0,0,0,6"/>
+            <ComboBox x:Name="AccountSystemSelector" SelectionChanged="AccountSystem_SelectionChanged" Background="#182A43" Foreground="#101826" Padding="10,6">
+              <ComboBoxItem Content="Yamaportal — společný účet"/>
+              <ComboBoxItem Content="Původní účet YamaSearch"/>
+            </ComboBox>
+            <TextBlock Text="Přepnutí zachová obě přihlášení i místní historii a oblíbené. Účty se neslučují podle e-mailu." Style="{StaticResource YamaSubtleText}" Margin="0,6,0,0"/>
+          </StackPanel>
           <Border Style="{StaticResource YamaDialogCard}">
             <Grid>
               <Grid.ColumnDefinitions><ColumnDefinition Width="72"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
@@ -60,8 +68,16 @@
           <Border x:Name="SignInCard" Style="{StaticResource YamaDialogCard}">
             <StackPanel>
               <TextBlock Text="Přihlášení" Style="{StaticResource YamaSectionTitle}"/>
-              <TextBlock Text="Heslo zadáváte pouze na oficiální stránce vybraného poskytovatele. YamaSearch používá systémový prohlížeč a PKCE."
+              <TextBlock Text="Vyber způsob přihlášení. Google, Microsoft a Discord se otevírají v systémovém prohlížeči se zabezpečením PKCE."
                          Style="{StaticResource YamaSubtleText}" Margin="0,8,0,12"/>
+              <StackPanel x:Name="PortalPasswordPanel" Visibility="Collapsed" Margin="0,0,0,14">
+                <TextBlock Text="E-mail účtu Yamachat / Yamaportal" Style="{StaticResource YamaSubtleText}"/>
+                <TextBox x:Name="PortalEmailBox" Margin="0,6,0,12" Padding="10,8"/>
+                <TextBlock Text="Heslo" Style="{StaticResource YamaSubtleText}"/>
+                <PasswordBox x:Name="PortalPasswordBox" Margin="0,6,0,12" Padding="10,8"/>
+                <Button x:Name="PortalPasswordSignIn" Content="Přihlásit společný účet" Style="{StaticResource YamaPrimaryButton}" Click="PortalPasswordSignIn_Click"/>
+                <TextBlock Text="Heslo se pošle pouze centrálnímu zabezpečenému serveru Yamachat/Yamaportal a neukládá se." Style="{StaticResource YamaSubtleText}" Margin="0,8,0,0"/>
+              </StackPanel>
               <StackPanel x:Name="SignInProvidersPanel"/>
               <TextBlock x:Name="NoProvidersText" Text="Na odděleném serveru YamaSearch zatím není aktivní žádný podporovaný poskytovatel."
                          Style="{StaticResource YamaSubtleText}" Visibility="Collapsed"/>

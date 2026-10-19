@@ -11,6 +11,7 @@ public partial class AccountWindow : Window
     private readonly bool _privateWindow;
     private readonly CancellationTokenSource _lifetime = new();
     private int _avatarVersion;
+    private bool _renderingAccountSystem;
 
     public AccountWindow(AccountService accounts, SettingsStore settings, bool privateWindow)
     {
@@ -41,6 +42,16 @@ public partial class AccountWindow : Window
 
     private void Render(AccountSnapshot snapshot)
     {
+        _renderingAccountSystem = true;
+        AccountSystemSelector.SelectedIndex = _accounts.UsesPortalAccount ? 0 : 1;
+        AccountSystemSelector.IsEnabled = snapshot.State != AccountConnectionState.SigningIn;
+        AccountSystemPanel.Visibility = _privateWindow ? Visibility.Collapsed : Visibility.Visible;
+        var testSuffix = Environment.GetCommandLineArgs().Contains("--portal-account-test", StringComparer.Ordinal) ? " · TEST 19-B" : "";
+        AccountSystemTitle.Text = (_accounts.UsesPortalAccount ? "Účet Yamaportal" : "Původní účet YamaSearch") + testSuffix;
+        Title = AccountSystemTitle.Text;
+        PortalPasswordPanel.Visibility = _accounts.UsesPortalAccount && !_privateWindow ? Visibility.Visible : Visibility.Collapsed;
+        PortalPasswordSignIn.IsEnabled = snapshot.State != AccountConnectionState.SigningIn;
+        _renderingAccountSystem = false;
         if (_privateWindow)
         {
             DisplayNameText.Text = "Anonymní okno";
@@ -65,7 +76,7 @@ public partial class AccountWindow : Window
         LinkedAccountsCard.Visibility = snapshot.IsSignedIn ? Visibility.Visible : Visibility.Collapsed;
         SignedInActionsCard.Visibility = snapshot.IsSignedIn ? Visibility.Visible : Visibility.Collapsed;
         SyncStatusText.Text = snapshot.IsSignedIn
-            ? "Samostatný backend YamaSearch je připravený, ale přenos místních dat zůstává vypnutý, dokud nebude dokončený a ověřený synchronizační klient."
+            ? (_accounts.UsesPortalAccount ? "Používáš společný profil Yamaportal. Synchronizace historie a oblíbených zatím není zapnutá." : "Používáš původní účet YamaSearch. Přenos místních dat zůstává vypnutý, dokud nebude dokončený a ověřený synchronizační klient.")
             : "Synchronizace není zapnutá. Místní oblíbené, nastavení ani historie se nikam neodesílají.";
 
         RenderSignInProviders(snapshot);
@@ -90,7 +101,10 @@ public partial class AccountWindow : Window
             button.Click += SignInProvider_Click;
             SignInProvidersPanel.Children.Add(button);
         }
-        NoProvidersText.Visibility = snapshot.AvailableProviders.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+        NoProvidersText.Text = _accounts.UsesPortalAccount && !_accounts.CanUseNativeOAuth
+            ? "Google, Microsoft a Discord čekají na povolení návratu přihlášení pro Windows. Zatím použij e-mail a heslo společného účtu."
+            : "Na serveru zatím není dostupný poskytovatel přihlášení.";
+        NoProvidersText.Visibility = snapshot.AvailableProviders.Count == 0 || !_accounts.CanUseNativeOAuth ? Visibility.Visible : Visibility.Collapsed;
     }
 
     private void RenderLinkedAccounts(AccountSnapshot snapshot)
@@ -179,6 +193,22 @@ public partial class AccountWindow : Window
             AvatarImageBrush.ImageSource = image;
             AvatarImage.Visibility = Visibility.Visible;
         });
+    }
+
+    private async void AccountSystem_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_renderingAccountSystem || !IsLoaded || AccountSystemSelector.SelectedIndex < 0) return;
+        var portal = AccountSystemSelector.SelectedIndex == 0;
+        PortalPasswordBox.Clear();
+        await RunAccountActionAsync(token => _accounts.SwitchAccountSystemAsync(portal, token));
+    }
+
+    private async void PortalPasswordSignIn_Click(object sender, RoutedEventArgs e)
+    {
+        var email = PortalEmailBox.Text;
+        var password = PortalPasswordBox.Password;
+        PortalPasswordBox.Clear();
+        await RunAccountActionAsync(token => _accounts.SignInWithPasswordAsync(email, password, token));
     }
 
     private async void SignInProvider_Click(object sender, RoutedEventArgs e)

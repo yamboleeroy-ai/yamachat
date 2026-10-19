@@ -1,0 +1,84 @@
+{
+  "checkedAt": "2026-10-19T01:08:44.670Z",
+  "results": [
+    {
+      "id": "search-android",
+      "url": "https://updates.yamachat.eu/yamasearch/YamaSearch-Android-latest.apk",
+      "status": 200,
+      "type": "application/vnd.android.package-archive",
+      "available": true
+    },
+    {
+      "id": "search-ios",
+      "url": "https://yamachat.eu/yamasearch/",
+      "status": 200,
+      "type": "text/html; charset=utf-8",
+      "available": true
+    },
+    {
+      "id": "chat-web",
+      "url": "https://yamachat.eu/yamachat.html",
+      "status": 200,
+      "type": "text/html; charset=utf-8",
+      "available": true,
+      "hasChat": true,
+      "framePolicy": null,
+      "csp": null
+    },
+    {
+      "id": "chat-download",
+      "url": "https://yamachat.eu/download/",
+      "status": 200,
+      "type": "text/html; charset=utf-8",
+      "available": true
+    },
+    {
+      "id": "search-feed",
+      "url": "https://updates.yamachat.eu/yamasearch/latest.json",
+      "status": 200,
+      "type": "application/json",
+      "available": true,
+      "version": "0.3.21",
+      "installerUrl": "https://updates.yamachat.eu/yamasearch/YamaSearch-Setup-latest.exe",
+      "portableUrl": "https://updates.yamachat.eu/yamasearch/YamaSearch-Portable-latest.zip"
+    },
+    {
+      "id": "help-feed",
+      "url": "https://updates.yamachat.eu/yamahelp/latest.json",
+      "status": 200,
+      "type": "application/json",
+      "available": true,
+      "version": "1.0.85",
+      "installerUrl": "https://updates.yamachat.eu/yamahelp/YamaHelp-Setup-v85.exe",
+      "portableUrl": "https://updates.yamachat.eu/yamahelp/YamaHelp-Portable-v85-x64.zip"
+    },
+    {
+      "id": "search-installer",
+      "url": "https://updates.yamachat.eu/yamasearch/YamaSearch-Setup-latest.exe",
+      "status": 200,
+      "type": "application/vnd.microsoft.portable-executable",
+      "available": true
+    },
+    {
+      "id": "search-portable",
+      "url": "https://updates.yamachat.eu/yamasearch/YamaSearch-Portable-latest.zip",
+      "status": 200,
+      "type": "application/zip",
+      "available": true
+    },
+    {
+      "id": "help-installer",
+      "url": "https://updates.yamachat.eu/yamahelp/YamaHelp-Setup-latest.exe",
+      "status": 200,
+      "type": "application/x-msdownload",
+      "available": true
+    },
+    {
+      "id": "help-portable",
+      "url": "https://updates.yamachat.eu/yamahelp/YamaHelp-Portable-latest.zip",
+      "status": 200,
+      "type": "application/x-zip-compressed",
+      "available": true
+    }
+  ]
+}
