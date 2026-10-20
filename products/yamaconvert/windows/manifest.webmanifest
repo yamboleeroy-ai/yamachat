@@ -1,0 +1,16 @@
+{
+  "id": "./",
+  "name": "YamaConvert",
+  "short_name": "YamaConvert",
+  "description": "Lokální převod obrázků, zvuku a videa.",
+  "lang": "cs",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#080b18",
+  "theme_color": "#080b18",
+  "icons": [
+    { "src": "icons/yamaconvert.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}
