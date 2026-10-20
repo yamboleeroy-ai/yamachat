@@ -44,6 +44,25 @@ jobs:
           Copy-Item (Join-Path $nodeDir 'node.exe') (Join-Path $stage 'runtime\node.exe')
           Copy-Item (Join-Path $nodeDir 'LICENSE') (Join-Path $stage 'runtime\NODE-LICENSE.txt')
           Copy-Item 'products/yamaconvert/windows/*' $stage -Recurse -Force
+
+          $headers = @{ 'User-Agent' = 'YamaConvert-Windows-Packager' }
+          $ytRelease = Invoke-RestMethod -Uri 'https://api.github.com/repos/yt-dlp/yt-dlp/releases/latest' -Headers $headers
+          $ytBinary = $ytRelease.assets | Where-Object name -eq 'yt-dlp.exe' | Select-Object -First 1
+          $ytSums = $ytRelease.assets | Where-Object name -eq 'SHA2-256SUMS' | Select-Object -First 1
+          if (-not $ytBinary -or -not $ytSums) { throw 'Oficiální vydání yt-dlp neobsahuje program nebo kontrolní součty.' }
+          $ytTemp = Join-Path $work 'yt-dlp.exe'
+          Invoke-WebRequest -UseBasicParsing -Uri $ytBinary.browser_download_url -OutFile $ytTemp -Headers $headers
+          $sumText = (Invoke-WebRequest -UseBasicParsing -Uri $ytSums.browser_download_url -Headers $headers).Content
+          $ytHash = [regex]::Match($sumText, '(?m)^([0-9a-fA-F]{64})\s+\*?yt-dlp\.exe\s*$')
+          if (-not $ytHash.Success) { throw 'V oficiálním vydání yt-dlp chybí SHA-256 kontrolní součet.' }
+          $actualYtHash = (Get-FileHash -LiteralPath $ytTemp -Algorithm SHA256).Hash
+          if ($actualYtHash -ine $ytHash.Groups[1].Value) { throw 'Kontrolní součet yt-dlp nesouhlasí.' }
+          $ytDir = Join-Path $stage 'vendor\yt-dlp'
+          New-Item -ItemType Directory -Path $ytDir -Force | Out-Null
+          Move-Item -LiteralPath $ytTemp -Destination (Join-Path $ytDir 'yt-dlp.exe')
+          & (Join-Path $ytDir 'yt-dlp.exe') --version
+          if ($LASTEXITCODE -ne 0) { throw 'Přibalený yt-dlp se nepodařilo spustit.' }
+
           if (-not (Test-Path (Join-Path $stage 'Start-YamaConvert.cmd'))) { throw 'Balíček neobsahuje spouštěč Windows.' }
           if (-not (Test-Path (Join-Path $stage 'media-downloader.cjs'))) { throw 'Balíček neobsahuje místní downloader.' }
           $portable = Join-Path $work 'YamaConvert-Windows-Portable.zip'
