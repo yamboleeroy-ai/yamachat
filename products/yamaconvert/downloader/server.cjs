@@ -262,6 +262,8 @@ function makeHandler({ env = process.env, fetchImpl = fetch, spawnImpl = spawn }
             ? 'Zdroj je větší než limit 100 MB.'
             : /requested format is not available/i.test(stderr)
               ? 'Stránka nenabízí požadovaný formát.'
+              : /sign in to confirm.*not a bot|confirm you.re not a bot|not a bot|captcha/i.test(stderr)
+                ? 'YouTube nebo cílová platforma blokuje požadavek stahovacího serveru kontrolou automatizovaného přístupu. Stránku můžeš otevřít v její aplikaci; server tuto kontrolu nepřekonává.'
               : /sign in|login|required|private|members.only/i.test(stderr)
                 ? 'Tento obsah vyžaduje přihlášení nebo není veřejný.'
                 : 'Stránku se nepodařilo zpracovat. Může být nedostupná, změněná nebo chráněná.';

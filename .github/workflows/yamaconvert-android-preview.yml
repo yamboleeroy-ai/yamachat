@@ -1,0 +1,68 @@
+name: Build YamaConvert Android preview
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'products/yamaconvert/android/**'
+      - 'products/yamaconvert/pwa/downloads.js'
+      - 'products/yamaconvert/tests/**'
+      - '.github/workflows/yamaconvert-android-preview.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'products/yamaconvert/android/**'
+      - 'products/yamaconvert/pwa/downloads.js'
+      - 'products/yamaconvert/tests/**'
+      - '.github/workflows/yamaconvert-android-preview.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: yamaconvert-android-preview-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    defaults:
+      run:
+        working-directory: products/yamaconvert/android
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+      - name: Install Android build tools
+        run: |
+          set -euo pipefail
+          SDKMANAGER=$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager -print -quit)
+          test -x "$SDKMANAGER"
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" --install 'platforms;android-35' 'build-tools;35.0.0'
+      - name: Verify product sources
+        working-directory: .
+        run: |
+          node --check products/yamaconvert/pwa/downloads.js
+          node --test products/yamaconvert/tests/*.test.cjs products/yamaconvert/downloader/tests/*.test.cjs
+      - name: Build installable preview APK
+        run: gradle --no-daemon :app:assembleDebug
+      - name: Verify preview package identity
+        run: |
+          set -euo pipefail
+          APK=app/build/outputs/apk/debug/app-debug.apk
+          test -s "$APK"
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep -F "package: name='eu.yamachat.yamaconvert.preview'"
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep -F "sdkVersion:'26'"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: YamaConvert-Android-preview-${{ github.run_number }}
+          path: products/yamaconvert/android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 30

@@ -119,3 +119,24 @@ test('download returns the converted bytes, preserves format selection, and remo
   await new Promise(resolve => setTimeout(resolve, 30));
   await assert.rejects(fs.access(workingDirectory));
 });
+
+test('download reports automated-access checks separately from private content', async () => {
+  const spawnImpl = (_command, _args, options) => {
+    const child = new EventEmitter();
+    child.stdout = new EventEmitter();
+    child.stderr = new EventEmitter();
+    child.kill = () => {};
+    setImmediate(() => {
+      child.stderr.emit('data', Buffer.from("Sign in to confirm you're not a bot"));
+      child.emit('close', 1);
+    });
+    return child;
+  };
+  const handler = makeHandler({ env, fetchImpl: authFetch, spawnImpl });
+  const response = await request(handler, {
+    method: 'POST', url: '/api/social-download', headers: { origin, 'content-type': 'application/json', authorization: 'Bearer fake-access-token-12345678' },
+    body: JSON.stringify({ url: 'https://youtu.be/abc', format: 'video/mp4', rightsConfirmed: true }),
+  });
+  assert.equal(response.status, 422);
+  assert.match(JSON.parse(response.body).error, /serveru.*kontrolou automatizovaného přístupu/i);
+});

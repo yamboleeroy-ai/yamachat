@@ -1,0 +1,52 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'eu.yamachat.yamaconvert'
+    compileSdk 35
+
+    defaultConfig {
+        applicationId 'eu.yamachat.yamaconvert'
+        minSdk 26
+        targetSdk 35
+        versionCode Integer.parseInt((findProperty('yamaconvertVersionCode') ?: '10000').toString())
+        versionName (findProperty('yamaconvertVersionName') ?: '1.0.0-preview').toString()
+    }
+
+    signingConfigs {
+        yamaconvertRelease {
+            storeFile file(System.getenv('YAMACONVERT_KEYSTORE_FILE') ?: 'release-signing.jks')
+            storePassword System.getenv('YAMACONVERT_STORE_PASSWORD') ?: 'unset'
+            keyAlias System.getenv('YAMACONVERT_KEY_ALIAS') ?: 'yamaconvert'
+            keyPassword System.getenv('YAMACONVERT_KEY_PASSWORD') ?: 'unset'
+        }
+    }
+
+    buildTypes {
+        debug { applicationIdSuffix '.preview' }
+        release {
+            minifyEnabled false
+            signingConfig signingConfigs.yamaconvertRelease
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    sourceSets.main.res.srcDirs += ["$buildDir/generated/yamaconvert-res"]
+}
+
+dependencies {
+    implementation 'androidx.core:core:1.15.0'
+    implementation 'dev.ffmpegkit-maintained:yt-dlp-android:2.0.2'
+}
+
+tasks.register('prepareYamaConvertIcon', Copy) {
+    from(file('../../pwa/icons/yamaconvert-512.png'))
+    into(layout.buildDirectory.dir('generated/yamaconvert-res/drawable-nodpi'))
+    rename { 'yamaconvert_icon.png' }
+}
+tasks.named('preBuild').configure { dependsOn('prepareYamaConvertIcon') }
