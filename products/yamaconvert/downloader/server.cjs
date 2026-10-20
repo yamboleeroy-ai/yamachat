@@ -185,7 +185,7 @@ function makeHandler({ env = process.env, fetchImpl = fetch, spawnImpl = spawn }
       '--socket-timeout', '15', '--retries', '1', '--fragment-retries', '1', '--concurrent-fragments', '4',
       '--max-filesize', '100M', '--format', selector,
       '--output', path.join(dir, 'source.%(ext)s'), '--print', 'after_move:filepath',
-      '--js-runtimes', 'node',
+      '--remote-components', 'ejs:npm', '--js-runtimes', 'node',
     ];
     if (isAudio) args.push('--extract-audio', '--audio-format', 'mp3', '--audio-quality', '5');
     else args.push('--merge-output-format', requestedFormat === 'video/webm' ? 'webm' : 'mp4');

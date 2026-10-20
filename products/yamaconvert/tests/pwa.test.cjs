@@ -79,8 +79,12 @@ test('Yamaportal catalog and release feed point to the YamaConvert PWA',()=>{
   const links=fs.readFileSync(path.join(root,'products','yamaportal','preview','dist','app-links.js'),'utf8');
   const feed=JSON.parse(fs.readFileSync(path.join(root,'release-feed.json'),'utf8'));
   assert.match(catalog,/id:'convert',name:'YamaConvert'/);
+  assert.match(catalog,/Android PWA · Windows PWA · Web/);
+  assert.match(catalog,/ne o samostatný APK ani Windows EXE/);
   assert.match(catalog,/https:\/\/yamachat\.eu\/yamaconvert\//);
   assert.match(links,/https:\/\/yamachat\.eu\/yamaconvert\//);
+  assert.match(links,/Instalovat YamaConvert na Android/);
+  assert.match(links,/Instalovat YamaConvert ve Windows/);
   assert.ok(feed.releases.some(release=>release.id==='yamaconvert:1.0.0'&&release.app==='yamaconvert'));
   assert.ok(feed.releases.some(release=>release.id==='yamaconvert:1.0.1'&&release.app==='yamaconvert'));
   assert.ok(feed.releases.some(release=>release.id==='yamaconvert:1.0.2'&&release.app==='yamaconvert'));
