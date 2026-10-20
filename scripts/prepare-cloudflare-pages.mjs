@@ -44,6 +44,14 @@ for(const file of ['index.html','app.css','app.js','sw.js','manifest.webmanifest
 // YamaConvert is shipped as an installable Android PWA. The Windows local
 // downloader is deliberately not copied into this public static package.
 copy('products/yamaconvert/pwa','yamaconvert');
+const downloaderUrl=String(process.env.YAMACONVERT_DOWNLOADER_URL||'').trim().replace(/\/+$/,'');
+if(downloaderUrl){
+  const parsed=new URL(downloaderUrl);
+  if(parsed.protocol!=='https:'||parsed.username||parsed.password||parsed.pathname!=='/'||parsed.search||parsed.hash)
+    throw new Error('YAMACONVERT_DOWNLOADER_URL must be an HTTPS origin without a path, query, or credentials.');
+}
+fs.writeFileSync(path.join(dist,'yamaconvert','download-config.js'),
+  `'use strict';\nwindow.YamaConvertDownloader=Object.freeze({apiBase:${JSON.stringify(downloaderUrl)}});\n`);
 
 
 for(const file of [

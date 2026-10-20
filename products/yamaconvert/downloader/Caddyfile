@@ -1,0 +1,4 @@
+{$DOWNLOAD_HOST} {
+	encode zstd gzip
+	reverse_proxy downloader:3000
+}
