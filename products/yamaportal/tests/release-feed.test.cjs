@@ -10,8 +10,9 @@ const app=fs.readFileSync(path.join(__dirname,'..','preview','dist','app.js'),'u
 const index=fs.readFileSync(path.join(__dirname,'..','preview','dist','index.html'),'utf8');
 const manifest=JSON.parse(fs.readFileSync(path.join(root,'release-feed.json'),'utf8'));
 
-test('release history starts empty and never invents an unreleased activity',()=>{
-  assert.deepEqual(manifest,{schemaVersion:1,releases:[]});
+test('release history only shows real published entries with a release timestamp',()=>{
+  assert.equal(manifest.schemaVersion,1);assert.ok(Array.isArray(manifest.releases));
+  for(const item of manifest.releases){assert.ok(item.id&&item.app&&item.version&&item.title&&item.summary&&item.details);assert.ok(Number.isFinite(Date.parse(item.releasedAt)));}
   assert.match(ui,/po zveřejnění aktualizace/i);
   assert.match(ui,/Ověřená vydání/);
 });

@@ -11,6 +11,9 @@
     <uses-feature android:name="android.hardware.camera" android:required="false" />
     <uses-feature android:name="android.hardware.microphone" android:required="false" />
     <uses-feature android:name="android.hardware.location" android:required="false" />
+    <queries>
+        <package android:name="eu.yamaportal.app" />
+    </queries>
     <application
         android:label="YamaSearch"
         android:icon="@drawable/yamasearch_logo"

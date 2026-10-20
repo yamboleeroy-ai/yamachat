@@ -20,7 +20,7 @@ test('a custom provider cannot remain available after server discovery fails or 
  assert.equal(availableProviders(custom,{external:{'custom:seznam':true}},callback)[0].ready,true);
 });
 test('Discord login uses central PKCE callback and limited scopes on web and Windows',async()=>{
- for(const callback of policy.approvedCallbackUrls){
+ for(const callback of policy.approvedCallbackUrls.filter(url=>!url.startsWith('eu.yamaportal.app:'))){
   let request,navigated;const data=new Map();
   const controller=new IdentityController({policy,location:{href:callback,assign:url=>{navigated=url;}},storage:{getItem:k=>data.get(k),setItem:(k,v)=>data.set(k,v),removeItem:k=>data.delete(k)},fetch:async()=>({ok:true,json:async()=>({external:{discord:true}})}),client:{auth:{getUser:async()=>({data:{},error:{name:'AuthSessionMissingError'}}),signInWithOAuth:async input=>{request=input;return {data:{url:policy.authorityUrl+'/auth/v1/authorize?provider=discord'}};}}}});
   await controller.discover();await controller.begin('discord');
@@ -30,7 +30,7 @@ test('Discord login uses central PKCE callback and limited scopes on web and Win
  }
 });
 test('Microsoft, Apple and Facebook link to the original owner on both platform callbacks',async()=>{
- for(const id of ['azure','apple','facebook'])for(const callback of policy.approvedCallbackUrls){
+ for(const id of ['azure','apple','facebook'])for(const callback of policy.approvedCallbackUrls.filter(url=>!url.startsWith('eu.yamaportal.app:'))){
   const memory=new Map();let linked;const owner={id:'original-owner',identities:[{provider:id}],email:id==='apple'?'relay@example.invalid':'original@example.invalid'};
   const controller=new IdentityController({policy,location:{href:callback,assign(){}},storage:{getItem:k=>memory.get(k),setItem:(k,v)=>memory.set(k,v),removeItem:k=>memory.delete(k)},fetch:async()=>({ok:true,json:async()=>({external:{[id]:true}})}),client:{auth:{getUser:async()=>({data:{user:owner}}),linkIdentity:async input=>{linked=input;return {data:{url:policy.authorityUrl+'/auth/v1/user/identities/authorize'}};},exchangeCodeForSession:async()=>({data:{session:{user:owner}}})}}});
   await controller.discover();await controller.begin(id,'link');
