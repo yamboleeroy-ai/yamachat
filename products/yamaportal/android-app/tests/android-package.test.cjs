@@ -18,7 +18,7 @@ test('Android package copies the existing Portal rather than the Yamachat mobile
  assert.doesNotMatch(build,/mobile\/src\/native-bridge/);
 });
 test('Android launcher only targets installed YamaSearch and returns without passing account data',()=>{
- const plugin=fs.readFileSync(path.join(root,'android','YamaAppLauncherPlugin.java'),'utf8');
+ const plugin=fs.readFileSync(path.join(root,'native-src','YamaAppLauncherPlugin.java'),'utf8');
  assert.match(plugin,/eu\.yamachat\.yamasearch\.mobile/);
  assert.match(plugin,/eu\.yamaportal\.app/);
  assert.match(plugin,/if \(!"search"\.equals\(id\)\)/);

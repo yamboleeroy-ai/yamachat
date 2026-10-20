@@ -14,7 +14,7 @@ if (!xml.includes('android:host="auth-callback"')) {
 const mainActivityPath = path.resolve('android/app/src/main/java/eu/yamaportal/app/MainActivity.java');
 fs.mkdirSync(path.dirname(mainActivityPath), { recursive: true });
 fs.writeFileSync(mainActivityPath, `package eu.yamaportal.app;\n\nimport android.os.Bundle;\nimport com.getcapacitor.BridgeActivity;\n\npublic class MainActivity extends BridgeActivity {\n    @Override\n    public void onCreate(Bundle savedInstanceState) {\n        registerPlugin(YamaAppLauncherPlugin.class);\n        super.onCreate(savedInstanceState);\n    }\n}\n`);
-const pluginSource = path.resolve('android/YamaAppLauncherPlugin.java');
+const pluginSource = path.resolve('native-src/YamaAppLauncherPlugin.java');
 const pluginTarget = path.resolve('android/app/src/main/java/eu/yamaportal/app/YamaAppLauncherPlugin.java');
 if (!fs.existsSync(pluginSource)) throw new Error('Chybí Android launcher Yamaportal.');
 fs.copyFileSync(pluginSource, pluginTarget);
