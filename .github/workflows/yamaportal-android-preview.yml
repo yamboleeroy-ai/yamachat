@@ -1,0 +1,50 @@
+name: Build Yamaportal Android preview
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+    paths:
+      - 'products/yamaportal/android-app/**'
+      - 'products/yamaportal/preview/dist/**'
+      - 'products/yamaportal/tests/identity.test.cjs'
+      - 'products/yamasearch/android/app/src/main/AndroidManifest.xml'
+      - 'products/yamasearch/android/app/src/main/java/eu/yamachat/yamasearch/BrowserActivity.java'
+      - '.github/workflows/yamaportal-android-preview.yml'
+permissions:
+  contents: read
+concurrency:
+  group: yamaportal-android-preview
+  cancel-in-progress: false
+jobs:
+  test-and-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Install Android build dependencies
+        working-directory: products/yamaportal/android-app
+        run: npm install --no-audit --no-fund
+      - name: Run Portal and Android auth checks
+        run: |
+          node --test products/yamaportal/tests/*.test.cjs
+          node --test products/yamaportal/android-app/tests/*.test.cjs
+      - name: Generate isolated Yamaportal Android project
+        working-directory: products/yamaportal/android-app
+        run: npm run native:init
+      - name: Build debug APK
+        working-directory: products/yamaportal/android-app/android
+        run: ./gradlew assembleDebug
+      - uses: actions/upload-artifact@v4
+        with:
+          name: yamaportal-android-debug
+          path: products/yamaportal/android-app/android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error

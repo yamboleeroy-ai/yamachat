@@ -38,3 +38,23 @@ test('HTTPS callback survives exact clean HTML redirect without widening origin 
  const h=harness();await h.instance.discover();await h.instance.begin('google');h.setUser({id:'portal-account',identities:[{provider:'google'}]});const result=await h.instance.finish('https://portal.test/auth-callback?code=test-code');assert.equal(result.userId,'portal-account');assert.equal(h.calls.filter(x=>x.exchange).length,1);
  for(const destination of ['https://attacker.test/auth-callback?code=test-code','https://portal.test/other/auth-callback?code=test-code','https://portal.test/auth-callback-extra?code=test-code']){const bad=harness();await bad.instance.discover();await bad.instance.begin('google');await assert.rejects(()=>bad.instance.finish(destination));assert.equal(bad.calls.some(x=>x.exchange),false);}
 });
+
+test('Android native redirect uses the exact app scheme and PKCE callback exchange',async()=>{
+ const nativeCallback='eu.yamaportal.app://auth-callback';
+ const h=harness();h.instance.policy.approvedCallbackUrls.push(nativeCallback);
+ h.instance.location={href:'https://localhost/',callbackUrl:nativeCallback,assign(url){h.calls.push({navigate:url});}};
+ await h.instance.discover();await h.instance.begin('google');
+ assert.equal(h.calls[0].signin.options.redirectTo,nativeCallback);
+ h.setUser({id:'portal-account',identities:[{provider:'google'}]});
+ const result=await h.instance.finish(nativeCallback+'?code=android-test');
+ assert.equal(result.userId,'portal-account');assert.equal(h.calls.filter(item=>item.exchange).length,1);
+});
+
+test('Android callback rejects a different custom scheme or callback host before exchanging code',async()=>{
+ const nativeCallback='eu.yamaportal.app://auth-callback';
+ const h=harness();h.instance.policy.approvedCallbackUrls.push(nativeCallback);
+ h.instance.location={href:'https://localhost/',callbackUrl:nativeCallback,assign(url){h.calls.push({navigate:url});}};
+ await h.instance.discover();await h.instance.begin('google');
+ await assert.rejects(()=>h.instance.finish('eu.yamaportal.attacker://auth-callback?code=bad'));
+ assert.equal(h.calls.some(item=>item.exchange),false);
+});

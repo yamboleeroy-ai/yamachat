@@ -1264,12 +1264,24 @@ public class BrowserActivity extends Activity {
     }
 
     private void openMenu() {
-        String[] options = {
+        java.util.ArrayList<String> options = new java.util.ArrayList<>(java.util.Arrays.asList(
             "Nová karta", "Soukromé okno", "Oblíbené stránky", "Historie", "Profil prohlížeče",
             "Oprávnění tohoto webu", "Stažené soubory",
             "YamaBlock: " + blockerModeLabel(blockerMode()), "Zkontrolovat aktualizace", "O aplikaci"
-        };
-        new AlertDialog.Builder(this).setTitle("YamaSearch").setItems(options, (dialog, which) -> {
+        ));
+        int portalIndex = -1;
+        if (getPackageManager().getLaunchIntentForPackage("eu.yamaportal.app") != null) {
+            portalIndex = options.size();
+            options.add("Zpět do Yamaportalu");
+        }
+        final int returnIndex = portalIndex;
+        new AlertDialog.Builder(this).setTitle("YamaSearch").setItems(options.toArray(new String[0]), (dialog, which) -> {
+            if (which == returnIndex && returnIndex >= 0) {
+                Intent portal = getPackageManager().getLaunchIntentForPackage("eu.yamaportal.app");
+                if (portal != null) startActivity(portal);
+                else Toast.makeText(this, "Yamaportal už není dostupný.", Toast.LENGTH_SHORT).show();
+                return;
+            }
             switch (which) {
                 case 0: createTab(HOME, true); break;
                 case 1: if (!privateSession()) startActivity(new Intent(this, PrivateBrowserActivity.class)); break;

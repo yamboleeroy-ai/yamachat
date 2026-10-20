@@ -1,5 +1,6 @@
 const {app,BrowserWindow,ipcMain,dialog,Menu,shell,safeStorage,globalShortcut}=require('electron');const fs=require('node:fs');const path=require('node:path');
 const {createPortalServer}=require('../preview/server.cjs');const launcher=require('./launcher.cjs');
+const {listenPortal}=require('./server-start.cjs');
 const {DesktopOAuth}=require('./oauth.cjs');
 const {installDisplayPicker}=require('./media.cjs');
 let win,server,origin,desktopOAuth,selected={};
@@ -12,7 +13,7 @@ app.on('second-instance',()=>{win?.show();win?.focus();});
 app.whenReady().then(async()=>{
  let nativeBridgeReady=false,resolveNativeBridge;const nativeBridgePromise=new Promise(resolve=>{resolveNativeBridge=resolve;});
  const settings=path.join(app.getPath('userData'),'app-paths.json');try{selected=JSON.parse(fs.readFileSync(settings,'utf8'));}catch{}
- const serverOptions={publicDownloads:!smoke,oauthCallback:url=>desktopOAuth?.receive(url)===true,returnToken,onPortalReturn:()=>{if(win?.isMinimized())win.restore();win?.show();win?.focus();}};server=createPortalServer(serverOptions);await new Promise((resolve,reject)=>{server.once('error',reject);server.listen(smoke?0:4188,'127.0.0.1',resolve);});origin='http://127.0.0.1:'+server.address().port;serverOptions.origin=origin;
+ const serverOptions={publicDownloads:!smoke,oauthCallback:url=>desktopOAuth?.receive(url)===true,returnToken,onPortalReturn:()=>{if(win?.isMinimized())win.restore();win?.show();win?.focus();}};server=createPortalServer(serverOptions);const listening=await listenPortal(server,smoke?0:4188);if(listening.usedFallback)console.warn('Port 4188 je obsazený; Yamaportal použil volný místní port.');origin='http://127.0.0.1:'+listening.address.port;serverOptions.origin=origin;
  win=new BrowserWindow({icon:path.join(__dirname,'../preview/dist/assets/yamaportal.png'),frame:false,show:!smoke,title:'Yamaportal',width:1250,height:860,backgroundColor:'#050c1b',webPreferences:{preload:path.join(__dirname,'preload.cjs'),nodeIntegration:false,contextIsolation:true,sandbox:true,webSecurity:true}});
  installDisplayPicker({win,origin,desktopCapturer:require('electron').desktopCapturer,dialog,smoke});
  win.webContents.on('preload-error',(_event,_file,error)=>console.error('Preload initialization failed:',error.name,error.message));
@@ -39,6 +40,6 @@ app.whenReady().then(async()=>{
  await win.loadURL(origin+'/#domu');
  if(!smoke){win.show();win.focus();}
  if(smoke){await Promise.race([nativeBridgePromise,new Promise(resolve=>setTimeout(resolve,2000))]);const report={checkedAt:new Date().toISOString(),desktopLoaded:true,nativeBridgeReady,secureStorage:safeStorage.isEncryptionAvailable(),nativeApps:Object.keys(launcher.names).map(key=>({id:key,installed:!!launcher.detect(key,selected[key])})),accountRequiredForLauncher:false};console.log(JSON.stringify(report));if(process.env.YAMAPORTAL_SMOKE_REPORT&&path.isAbsolute(process.env.YAMAPORTAL_SMOKE_REPORT))fs.writeFileSync(process.env.YAMAPORTAL_SMOKE_REPORT,JSON.stringify(report,null,2));app.exit(nativeBridgeReady?0:1);}
-}).catch(error=>{console.error('Yamaportal se nepodařilo spustit:',error.code||error.message);app.exit(1);});
+}).catch(async error=>{console.error('Yamaportal se nepodařilo spustit:',error.code||error.message);try{await dialog.showMessageBox({type:'error',title:'Yamaportal se nespustil',message:'Aplikaci se nepodařilo otevřít. Zavři případné starší okno Yamaportalu, ověř připojení a spusť ji znovu.',detail:String(error.code||error.message||'Neznámá chyba')});}catch{}app.exit(1);});
 app.on('window-all-closed',()=>app.quit());app.on('before-quit',()=>{globalShortcut.unregisterAll();server?.close();});
 }
