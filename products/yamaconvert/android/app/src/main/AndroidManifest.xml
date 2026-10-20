@@ -9,6 +9,7 @@
         android:theme="@android:style/Theme.Material.Light.NoActionBar"
         android:usesCleartextTraffic="false"
         android:allowBackup="false"
+        android:extractNativeLibs="true"
         android:supportsRtl="true">
         <provider
             android:name="androidx.core.content.FileProvider"
@@ -35,3 +36,4 @@
         </activity>
     </application>
 </manifest>
+

@@ -12,11 +12,8 @@ const MAX_BODY = 16 * 1024;
 const MAX_ACTIVE = 2;
 const DAILY_LIMIT = 10;
 const TIMEOUT_MS = 10 * 60 * 1000;
-const HOSTS = [
-  'youtube.com', 'youtu.be', 'youtube-nocookie.com', 'tiktok.com',
-  'instagram.com', 'facebook.com', 'fb.watch', 'vimeo.com',
-  'dailymotion.com', 'x.com', 'twitter.com', 'reddit.com', 'redd.it', 'twitch.tv',
-];
+const HOSTS = fs.readFileSync(path.join(__dirname, 'supported-sites.txt'), 'utf8')
+  .split(/\r?\n/).map(line => line.trim()).filter(line => line && !line.startsWith('#'));
 
 function parseUrl(value) {
   let url;
@@ -328,3 +325,4 @@ if (require.main === module) {
 }
 
 module.exports = { DAILY_LIMIT, HOSTS, MAX_BYTES, MAX_ACTIVE, makeHandler, parseUrl };
+

@@ -103,11 +103,17 @@ test('native Android project downloads on-device without source-site credentials
   assert.match(gradle,/applicationId 'eu\.yamachat\.yamaconvert'/);
   assert.match(manifest,/android:name="android\.permission\.INTERNET"/);
   assert.match(manifest,/android:usesCleartextTraffic="false"/);
+  assert.match(manifest,/android:extractNativeLibs="true"/);
   assert.match(manifest,/android\.intent\.action\.SEND/);
   assert.match(activity,/YtDlp\.execute\(request/);
   assert.match(activity,/--max-filesize/);
-  assert.match(activity,/ALLOWED_HOSTS/);
+  assert.match(activity,/supportedMediaHosts/);
   assert.match(activity,/YtDlpRequest/);
+  assert.match(activity,/--remote-components/);
+  assert.match(activity,/ejs:github/);
+  assert.match(activity,/--js-runtimes/);
+  assert.match(activity,/quickjs:/);
+  assert.match(activity,/nativeLibraryDir, "libqjs\.so"/);
   assert.doesNotMatch(activity,/--cookies|--proxy|curl.cffi|impersonat/i);
   assert.match(activity,/Platforma omezuje automatické stahování/);
   assert.match(activity,/RELEASE_API/);
@@ -115,3 +121,34 @@ test('native Android project downloads on-device without source-site credentials
   assert.match(manifest,/REQUEST_INSTALL_PACKAGES/);
   assert.match(manifest,/androidx\.core\.content\.FileProvider/);
 });
+
+test('Android and web downloader share the same expanded yt-dlp domain allow-list',()=>{
+  const sites=fs.readFileSync(path.join(root,'products','yamaconvert','downloader','supported-sites.txt'),'utf8')
+    .split(/\r?\n/).map(line=>line.trim()).filter(line=>line&&!line.startsWith('#'));
+  const android=fs.readFileSync(path.join(root,'products','yamaconvert','android','app','src','main','java','eu','yamachat','yamaconvert','YamaConvertActivity.java'),'utf8');
+  const gradle=fs.readFileSync(path.join(root,'products','yamaconvert','android','app','build.gradle'),'utf8');
+  const server=fs.readFileSync(path.join(root,'products','yamaconvert','downloader','server.cjs'),'utf8');
+  const docker=fs.readFileSync(path.join(root,'products','yamaconvert','downloader','Dockerfile'),'utf8');
+  assert.ok(sites.length>=100);
+  for(const domain of ['youtube.com','facebook.com','instagram.com','tiktok.com','soundcloud.com','bilibili.com','reddit.com']) assert.ok(sites.includes(domain),`missing ${domain}`);
+  assert.match(android,/supported-sites\.txt/);
+  assert.match(gradle,/prepareYamaConvertSupportedSites/);
+  assert.match(server,/supported-sites\.txt/);
+  assert.match(docker,/COPY server\.cjs supported-sites\.txt/);
+  assert.match(read('index.html'),/supportedsites\.md/);
+});
+
+test('Android build packages a pinned QuickJS runtime for yt-dlp on both supported ABIs',()=>{
+  const android=path.join(root,'products','yamaconvert','android');
+  const build=fs.readFileSync(path.join(android,'app','build.gradle'),'utf8');
+  const script=fs.readFileSync(path.join(android,'scripts','build-quickjs.sh'),'utf8');
+  const preview=fs.readFileSync(path.join(root,'.github','workflows','yamaconvert-android-preview.yml'),'utf8');
+  const release=fs.readFileSync(path.join(root,'.github','workflows','yamaconvert-android-release.yml'),'utf8');
+  assert.match(build,/generated\/yamaconvert-jniLibs/);
+  assert.match(script,/--branch v0\.16\.1/);
+  assert.match(script,/arm64-v8a x86_64/);
+  assert.match(script,/install -m 0755/);
+  assert.match(preview,/bash scripts\/build-quickjs\.sh/);
+  assert.match(release,/bash scripts\/build-quickjs\.sh/);
+});
+

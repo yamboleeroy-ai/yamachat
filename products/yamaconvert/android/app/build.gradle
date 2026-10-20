@@ -37,6 +37,8 @@ android {
     }
 
     sourceSets.main.res.srcDirs += ["$buildDir/generated/yamaconvert-res"]
+    sourceSets.main.jniLibs.srcDirs += ["$buildDir/generated/yamaconvert-jniLibs"]
+    sourceSets.main.assets.srcDirs += ["$buildDir/generated/yamaconvert-assets"]
 }
 
 dependencies {
@@ -49,4 +51,9 @@ tasks.register('prepareYamaConvertIcon', Copy) {
     into(layout.buildDirectory.dir('generated/yamaconvert-res/drawable-nodpi'))
     rename { 'yamaconvert_icon.png' }
 }
-tasks.named('preBuild').configure { dependsOn('prepareYamaConvertIcon') }
+tasks.register('prepareYamaConvertSupportedSites', Copy) {
+    from(file('../../downloader/supported-sites.txt'))
+    into(layout.buildDirectory.dir('generated/yamaconvert-assets'))
+}
+tasks.named('preBuild').configure { dependsOn('prepareYamaConvertIcon', 'prepareYamaConvertSupportedSites') }
+
