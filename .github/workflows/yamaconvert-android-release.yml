@@ -65,7 +65,6 @@ jobs:
           STORE_PASSWORD: ${{ secrets.YAMACONVERT_ANDROID_STORE_PASSWORD }}
           KEY_ALIAS: yamaconvert
           KEY_PASSWORD: ${{ secrets.YAMACONVERT_ANDROID_KEY_PASSWORD }}
-          EXPECTED_CERT: ${{ vars.YAMACONVERT_ANDROID_CERT_SHA256 }}
         run: |
           set -euo pipefail
           [[ "$INPUT_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
@@ -83,6 +82,7 @@ jobs:
           YAMACONVERT_STORE_PASSWORD: ${{ secrets.YAMACONVERT_ANDROID_STORE_PASSWORD }}
           YAMACONVERT_KEY_ALIAS: yamaconvert
           YAMACONVERT_KEY_PASSWORD: ${{ secrets.YAMACONVERT_ANDROID_KEY_PASSWORD }}
+          EXPECTED_CERT: E6:ED:B6:3B:36:F4:BF:CB:D4:00:60:2A:2E:0B:03:66:BE:FA:77:9B:3E:8B:FD:15:06:7F:46:73:35:74:23:58
         run: |
           set -euo pipefail
           gradle --no-daemon :app:assembleRelease -PyamaconvertVersionName="$VERSION" -PyamaconvertVersionCode="$VERSION_CODE"
