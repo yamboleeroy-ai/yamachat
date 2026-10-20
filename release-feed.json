@@ -1,4 +1,19 @@
 {
   "schemaVersion": 1,
-  "releases": []
+  "releases": [
+    {
+      "id": "yamaportal:v0.2.0",
+      "app": "yamaportal",
+      "kind": "new-app",
+      "version": "0.2.0",
+      "title": "Yamaportal 0.2.0",
+      "summary": "První vydání centrálního rozcestníku Yamaportal se společným Yama účtem.",
+      "details": "Yamaportal přináší společný účet založený na stávajícím přihlášení Yamachat, přehled Yama aplikací a odkazy na jejich oficiální verze.\n\nDo Portalu přibyly živý chat a fórum, které jsou dostupné pouze po přihlášení. Uživatelé mohou zakládat témata a přidávat do nich odpovědi.\n\nVydání zahrnuje responzivní web/PWA a samostatnou Windows instalaci i portable balíček. Jednotlivé Yama aplikace si zachovávají vlastní funkce a distribuci.",
+      "releasedAt": "2026-10-20T07:35:15.386Z",
+      "platforms": [
+        "Web / PWA",
+        "Windows"
+      ]
+    }
+  ]
 }
