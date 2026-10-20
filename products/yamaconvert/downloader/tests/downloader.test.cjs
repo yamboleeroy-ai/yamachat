@@ -111,6 +111,8 @@ test('download returns the converted bytes, preserves format selection, and remo
   assert.deepEqual(response.body, Buffer.from('test-video'));
   assert.ok(spawnArgs.includes('--no-playlist'));
   assert.ok(spawnArgs.includes('--max-filesize'));
+  assert.ok(spawnArgs.includes('--remote-components'));
+  assert.ok(spawnArgs.includes('ejs:npm'));
   assert.ok(spawnArgs.includes('bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best'));
   await new Promise(resolve => setTimeout(resolve, 30));
   await assert.rejects(fs.access(workingDirectory));
