@@ -2,10 +2,26 @@
   "id": "./",
   "name": "YamaConvert",
   "short_name": "YamaConvert",
-  "description": "Lokální převod obrázků, zvuku a videa.",
+  "description": "Lokální převody souborů. Sdílej audio a video z Androidu do YamaConvert.",
   "lang": "cs",
   "start_url": "./",
   "scope": "./",
+  "share_target": {
+    "action": "./share/",
+    "method": "POST",
+    "enctype": "multipart/form-data",
+    "params": {
+      "title": "title",
+      "text": "text",
+      "url": "url",
+      "files": [
+        {
+          "name": "mediaFiles",
+          "accept": ["audio/*", "video/*", ".mp3", ".wav", ".m4a", ".ogg", ".opus", ".mp4", ".webm", ".mov", ".mkv", ".avi"]
+        }
+      ]
+    }
+  },
   "display": "standalone",
   "orientation": "any",
   "background_color": "#080b18",

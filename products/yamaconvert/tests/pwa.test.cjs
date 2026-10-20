@@ -23,12 +23,27 @@ test('Android PWA manifest has an installable same-origin scope and sized icons'
   }
 });
 
+test('Android PWA accepts saved audio/video files from the system share sheet',()=>{
+  const manifest=JSON.parse(read('manifest.webmanifest'));
+  assert.deepEqual(manifest.share_target.params.files[0].accept.slice(0,2),['audio/*','video/*']);
+  assert.equal(manifest.share_target.method,'POST');
+  assert.equal(manifest.share_target.enctype,'multipart/form-data');
+  assert.equal(manifest.share_target.action,'./share/');
+  const serviceWorker=read('sw.js');
+  assert.match(serviceWorker,/receiveSharedContent\(request, scope\.href\)/);
+  assert.match(serviceWorker,/SHARE_MAX_BYTES/);
+  assert.match(read('share-inbox.js'),/window\.YamaApp\.addFiles\(files\)/);
+  assert.match(read('downloads.js'),/Samotný odkaz/);
+  assert.doesNotMatch(read('share-inbox.js'),/fetch\s*\(/);
+});
+
 test('offline shell references files present in the static release package',()=>{
   const serviceWorker=read('sw.js');
   const block=serviceWorker.match(/const SHELL = \[([\s\S]*?)\];/);
   assert.ok(block,'service worker shell list is missing');
   const entries=[...block[1].matchAll(/'([^']+)'/g)].map(match=>match[1]);
   assert.ok(entries.includes('./account.js'));
+  assert.ok(entries.includes('./share-inbox.js'));
   assert.ok(entries.includes('./icons/yamaconvert-192.png'));
   for(const entry of entries)assert.ok(fs.existsSync(path.join(pwa,entry.replace(/^\.\//,''))),`missing offline asset ${entry}`);
   assert.match(serviceWorker,/request\.method !== 'GET'/);
@@ -44,7 +59,8 @@ test('PWA shares the Yamaportal auth session and excludes the Windows downloader
   assert.match(account,/from\('profiles'\)/);
   assert.doesNotMatch(account,/access_token|refresh_token/);
   assert.ok(!fs.existsSync(path.join(pwa,'yt-dlp.exe')));
-  assert.match(read('downloads.js'),/Android PWA/);
+  assert.match(read('downloads.js'),/Otevřít příspěvek/);
+  assert.doesNotMatch(read('downloads.js'),/\/api\/social-download/);
 });
 
 test('Yamaportal catalog and release feed point to the YamaConvert PWA',()=>{
@@ -55,5 +71,6 @@ test('Yamaportal catalog and release feed point to the YamaConvert PWA',()=>{
   assert.match(catalog,/https:\/\/yamachat\.eu\/yamaconvert\//);
   assert.match(links,/https:\/\/yamachat\.eu\/yamaconvert\//);
   assert.ok(feed.releases.some(release=>release.id==='yamaconvert:1.0.0'&&release.app==='yamaconvert'));
+  assert.ok(feed.releases.some(release=>release.id==='yamaconvert:1.0.1'&&release.app==='yamaconvert'));
   assert.ok(fs.existsSync(path.join(root,'products','yamaportal','preview','dist','assets','yamaconvert.png')));
 });

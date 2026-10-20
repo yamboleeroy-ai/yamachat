@@ -80,6 +80,6 @@ jobs:
             if [ "$attempt" -eq 18 ]; then echo 'Production release feed did not become available'; exit 1; fi
             sleep 10
           done
-          curl -fsSI https://yamachat.eu/yamachat.html | grep -Eq '^HTTP/[0-9.]+ 200'
-          curl -fsSI https://yamachat.eu/reset-password.html | grep -Eq '^HTTP/[0-9.]+ 200'
-          curl -fsSI https://yamachat.eu/yamasearch/ | grep -Eq '^HTTP/[0-9.]+ 200'
+          curl -fsSIL https://yamachat.eu/yamachat.html | grep -Eq '^HTTP/[0-9.]+ 200'
+          curl -fsSIL https://yamachat.eu/reset-password.html | grep -Eq '^HTTP/[0-9.]+ 200'
+          curl -fsSIL https://yamachat.eu/yamasearch/ | grep -Eq '^HTTP/[0-9.]+ 200'
