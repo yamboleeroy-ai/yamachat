@@ -24,9 +24,12 @@ cookies or credentials and does not bypass private, paid, or DRM-protected
 content. Downloaded media is temporarily staged on the downloader service and
 deleted after it is streamed to the app; conversion and history remain local.
 
-The native project uses the free `yt-dlp-android` library from Maven Central.
-It does not pass social-site cookies or credentials, use a proxy, or attempt to
-overcome a platform block; a platform can still refuse a download. A signed
+The native project uses the free `yt-dlp-android` library from Maven Central
+and bundles QuickJS-NG for yt-dlp's YouTube JavaScript challenge support. The
+Android preview and release workflows build the runtime for arm64 and x86_64;
+run `bash scripts/build-quickjs.sh` from `android/` before making a local APK.
+The app does not pass social-site cookies or credentials, use a proxy, or
+attempt to overcome a platform block; a platform can still refuse a download. A signed
 release is published as a versioned GitHub Release. The Portal links to its
 stable APK asset, and the installed app checks GitHub Releases for newer
 versions. Android asks the user to approve each APK update and validates the
@@ -34,8 +37,9 @@ product signature before replacing the installed app. The release workflow
 requires YamaConvert-specific signing secrets and a pinned certificate
 fingerprint; it is separate from YamaSearch signing material.
 
-Build a local preview in Android Studio by opening `android/`, or from a JDK
-17 and Android SDK 35 run `gradle :app:assembleDebug`. The debug package ID is
+Build a local preview in Android Studio by opening `android/`; build QuickJS
+first using the script above. The debug package ID is
 `eu.yamachat.yamaconvert.preview`, so it installs beside any future public
 version. The `yamaconvert-android-preview.yml` workflow builds the same APK and
 stores it as a temporary GitHub Actions artifact; it does not publish it.
+
