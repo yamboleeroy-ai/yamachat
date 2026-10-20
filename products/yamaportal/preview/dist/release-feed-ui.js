@@ -1,7 +1,7 @@
 'use strict';
 (()=>{
-  const icons={yamaportal:'yamaportal.png',yamachat:'yamachat.png',yamasearch:'yamasearch.png',yamahelp:'yamahelp.png',yamaview:'yamaview.png'};
-  const names={yamaportal:'Yamaportal',yamachat:'Yamachat',yamasearch:'YamaSearch',yamahelp:'YamaHelp',yamaview:'YamaView',yamamaker:'YamaMaker'};
+  const icons={yamaportal:'yamaportal.png',yamachat:'yamachat.png',yamasearch:'yamasearch.png',yamahelp:'yamahelp.png',yamaview:'yamaview.png',yamaconvert:'yamaconvert.png'};
+  const names={yamaportal:'Yamaportal',yamachat:'Yamachat',yamasearch:'YamaSearch',yamahelp:'YamaHelp',yamaview:'YamaView',yamamaker:'YamaMaker',yamaconvert:'YamaConvert'};
   const escape=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const valid=item=>item&&typeof item.id==='string'&&/^[a-zA-Z0-9._:-]{1,100}$/.test(item.id)&&Object.hasOwn(names,item.app)&&typeof item.version==='string'&&item.version.length<=40&&typeof item.title==='string'&&item.title.trim().length>0&&typeof item.summary==='string'&&item.summary.trim().length>0&&typeof item.details==='string'&&item.details.trim().length>0&&Number.isFinite(Date.parse(item.releasedAt))&&Array.isArray(item.platforms)&&item.platforms.length<=8;
   const date=value=>new Intl.DateTimeFormat('cs-CZ',{dateStyle:'medium'}).format(new Date(value));

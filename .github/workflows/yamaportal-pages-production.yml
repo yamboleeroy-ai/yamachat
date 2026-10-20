@@ -6,6 +6,7 @@ on:
     paths:
       - '.github/workflows/yamaportal-pages-production.yml'
       - 'products/yamaportal/preview/dist/**'
+      - 'products/yamaconvert/**'
       - 'release-feed.json'
       - 'scripts/prepare-cloudflare-pages.mjs'
 permissions:
@@ -30,15 +31,24 @@ jobs:
           set -euo pipefail
           node scripts/build-web.mjs
           node scripts/check.mjs
+          node --test products/yamaconvert/tests/*.test.cjs
           node scripts/prepare-cloudflare-pages.mjs
           test -s web-dist/index.html
           test -s web-dist/yamachat.html
           test -s web-dist/release-feed.json
           test -s web-dist/yamasearch/index.html
+          test -s web-dist/yamaconvert/index.html
+          test -s web-dist/yamaconvert/manifest.webmanifest
+          test -s web-dist/yamaconvert/sw.js
+          test -s web-dist/yamaconvert/icons/yamaconvert-192.png
+          test -s web-dist/yamaconvert/icons/yamaconvert-512.png
           node - <<'NODE'
           const fs=require('node:fs');
           const feed=JSON.parse(fs.readFileSync('web-dist/release-feed.json','utf8'));
           if(!feed.releases.some(item=>item.id==='yamaportal:v0.2.0')) throw Error('Published release entry is missing');
+          if(!feed.releases.some(item=>item.id==='yamaconvert:1.0.0')) throw Error('YamaConvert release entry is missing');
+          const convert=JSON.parse(fs.readFileSync('web-dist/yamaconvert/manifest.webmanifest','utf8'));
+          if(convert.name!=='YamaConvert'||convert.start_url!=='./'||convert.scope!=='./'||convert.display!=='standalone') throw Error('YamaConvert Android PWA manifest is invalid');
           const chat=fs.readFileSync('web-dist/yamachat.html','utf8');
           if(!/<title>Yamachat<\/title>/i.test(chat)) throw Error('Standalone Yamachat entry is missing');
           NODE
