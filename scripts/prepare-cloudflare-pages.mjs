@@ -77,6 +77,9 @@ fs.copyFileSync(path.join(dist,'index.html'),path.join(dist,'yamachat.html'));
 const portal=path.join(root,'products/yamaportal/preview/dist');
 if(!fs.existsSync(path.join(portal,'index.html')))throw Error('Missing Yamaportal entry');
 fs.cpSync(portal,dist,{recursive:true});
+// The Portal bundle carries an empty preview feed. Keep the verified root
+// release history for production instead of overwriting it with that preview.
+fs.copyFileSync(path.join(root,'release-feed.json'),path.join(dist,'release-feed.json'));
 // Pages already serves .html documents at their clean path. A 302 back to the
 // .html URL would conflict with that canonical redirect and form a loop.
 fs.writeFileSync(path.join(dist,'_redirects'),'');
