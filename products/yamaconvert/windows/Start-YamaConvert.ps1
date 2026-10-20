@@ -8,7 +8,7 @@ $nodeOut = Join-Path $stateDir 'server-output.log'
 $nodeErr = Join-Path $stateDir 'server-error.log'
 
 try {
-  $nodePath = Join-Path $PSScriptRoot 'runtime\\node.exe'
+  $nodePath = Join-Path $PSScriptRoot 'runtime\node.exe'
   if (-not (Test-Path -LiteralPath $nodePath)) {
     $node = Get-Command node.exe -ErrorAction SilentlyContinue
     if ($node) { $nodePath = $node.Source }
@@ -17,7 +17,7 @@ try {
   $runtimeDir = Split-Path -Parent $nodePath
   $env:PATH = "$runtimeDir;$env:PATH"
 
-  $engine = Join-Path $PSScriptRoot 'vendor\\yt-dlp\\yt-dlp.exe'
+  $engine = Join-Path $PSScriptRoot 'vendor\yt-dlp\yt-dlp.exe'
   if (-not (Test-Path -LiteralPath $engine)) {
     Write-Warning 'The social download engine is missing. The app will still open, but social downloads will be unavailable.'
     Add-Content -LiteralPath $logPath -Value "$(Get-Date -Format o) yt-dlp.exe is missing; starting the app without social downloads."
