@@ -1,10 +1,10 @@
-name: Publish YamaConvert Windows portable app
+name: Publish YamaConvert Windows app
 
 on:
   workflow_dispatch:
     inputs:
       release_tag:
-        description: Existing YamaConvert release tag to attach the Windows package to
+        description: Existing YamaConvert release tag to attach the Windows packages to
         required: true
         default: yamaconvert-v1.0.0-10000
         type: string
@@ -20,7 +20,7 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v4
-      - name: Build portable Windows package
+      - name: Build portable ZIP and setup EXE
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
@@ -46,14 +46,22 @@ jobs:
           Copy-Item 'products/yamaconvert/windows/*' $stage -Recurse -Force
           if (-not (Test-Path (Join-Path $stage 'Start-YamaConvert.cmd'))) { throw 'Balíček neobsahuje spouštěč Windows.' }
           if (-not (Test-Path (Join-Path $stage 'media-downloader.cjs'))) { throw 'Balíček neobsahuje místní downloader.' }
-          $package = Join-Path $work 'YamaConvert-Windows-Portable.zip'
-          Compress-Archive -Path (Join-Path $stage '*') -DestinationPath $package -CompressionLevel Optimal
-          if ((Get-Item $package).Length -lt 100000) { throw 'Vytvořený balíček je neúplný.' }
-          $sum = (Get-FileHash -LiteralPath $package -Algorithm SHA256).Hash.ToLowerInvariant()
-          "$sum  YamaConvert-Windows-Portable.zip" | Set-Content -LiteralPath (Join-Path $work 'YamaConvert-Windows-SHA256SUMS.txt') -Encoding ascii
-          "PACKAGE_PATH=$package" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          $portable = Join-Path $work 'YamaConvert-Windows-Portable.zip'
+          Compress-Archive -Path (Join-Path $stage '*') -DestinationPath $portable -CompressionLevel Optimal
+          if ((Get-Item $portable).Length -lt 100000) { throw 'Vytvořený ZIP je neúplný.' }
+          $iscc = 'C:\Program Files (x86)\Inno Setup 6\ISCC.exe'
+          if (-not (Test-Path -LiteralPath $iscc)) { throw 'Na Windows runneru chybí Inno Setup.' }
+          & $iscc "/DSourceDir=$stage" "/DOutputDir=$work" 'products/yamaconvert/windows/YamaConvert.iss'
+          if ($LASTEXITCODE -ne 0) { throw 'Vytvoření instalačního EXE selhalo.' }
+          $setup = Join-Path $work 'YamaConvert-Setup.exe'
+          if (-not (Test-Path -LiteralPath $setup) -or (Get-Item $setup).Length -lt 100000) { throw 'Instalační EXE je neúplné.' }
+          $zipSum = (Get-FileHash -LiteralPath $portable -Algorithm SHA256).Hash.ToLowerInvariant()
+          $exeSum = (Get-FileHash -LiteralPath $setup -Algorithm SHA256).Hash.ToLowerInvariant()
+          @("$zipSum  YamaConvert-Windows-Portable.zip", "$exeSum  YamaConvert-Setup.exe") | Set-Content -LiteralPath (Join-Path $work 'YamaConvert-Windows-SHA256SUMS.txt') -Encoding ascii
+          "PORTABLE_PATH=$portable" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          "SETUP_PATH=$setup" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
           "SUMS_PATH=$(Join-Path $work 'YamaConvert-Windows-SHA256SUMS.txt')" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
-      - name: Attach package to the YamaConvert release
+      - name: Attach Windows downloads to the YamaConvert release
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ inputs.release_tag }}
@@ -62,4 +70,4 @@ jobs:
           $ErrorActionPreference = 'Stop'
           if ($env:RELEASE_TAG -notmatch '^yamaconvert-v[0-9]+\.[0-9]+\.[0-9]+-[0-9]+$') { throw 'Neplatná značka vydání YamaConvert.' }
           gh release view $env:RELEASE_TAG --repo $env:GITHUB_REPOSITORY | Out-Null
-          gh release upload $env:RELEASE_TAG $env:PACKAGE_PATH $env:SUMS_PATH --repo $env:GITHUB_REPOSITORY --clobber
+          gh release upload $env:RELEASE_TAG $env:SETUP_PATH $env:PORTABLE_PATH $env:SUMS_PATH --repo $env:GITHUB_REPOSITORY --clobber

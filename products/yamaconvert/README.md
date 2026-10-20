@@ -11,16 +11,16 @@ Saved files can be shared directly into YamaConvert for local conversion.
 Shared files stay in a same-origin IndexedDB inbox until the PWA opens them;
 unopened inbox entries expire after 24 hours.
 
-Social downloads are provided by the native Android app and the portable
-Windows desktop app. Both run yt-dlp on the user's device, so the request uses
-the device's network instead of a hosted PWA server IP. The web/PWA directs
-users to an app for social downloads and remains available for local file
-conversion. The Android app uses Yamaportal sign-in. The Windows portable app
-runs locally, launches a local-only web interface, and downloads the official
-yt-dlp Windows executable on first start after validating its SHA-256 checksum.
-It includes its own Node.js runtime, so a separate Node installation is not
-required. Download the Windows ZIP from Yamaportal and run
-`Start-YamaConvert.cmd` after extracting it.
+Social downloads are provided by the native Android app and the Windows
+desktop app. Both run yt-dlp on the user's device, so the request uses the
+device's network instead of a hosted PWA server IP. The web/PWA directs users
+to an app for social downloads and remains available for local file conversion.
+The Android app uses Yamaportal sign-in. The Windows app runs locally and
+downloads the official yt-dlp Windows executable on first start after
+validating its SHA-256 checksum. It includes its own Node.js runtime, so a
+separate Node installation is not required. Yamaportal offers a Windows
+installer (`.exe`) and a portable ZIP. The installer creates a Start menu
+shortcut and can add a desktop shortcut.
 
 Both app routes require a fresh confirmation that the user has rights to use
 the content. Changing a link or starting another download clears the
@@ -46,8 +46,6 @@ a local APK. A signed release is published as a versioned GitHub Release. The
 Portal links to its stable APK asset, and the installed app checks GitHub
 Releases for newer versions. Android asks the user to approve each APK update
 and validates the product signature before replacing the installed app.
-Windows downloads use a stable release asset URL; download a fresh ZIP to
-update the portable app.
 
 Build a local preview in Android Studio by opening `android/`; build QuickJS
 first using the script above. The debug package ID is
