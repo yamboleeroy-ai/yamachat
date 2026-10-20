@@ -2,6 +2,11 @@ name: Publish Yamachat Android release
 
 on:
   workflow_dispatch:
+    inputs:
+      releaseNotes:
+        description: 'Popis skutečných změn v tomto Android vydání'
+        required: true
+        type: string
 
 permissions:
   contents: write
@@ -59,6 +64,8 @@ jobs:
           done
           curl -fsSI --max-time 20 https://updates.yamachat.eu/android/Yamachat-Android.apk >/dev/null
       - name: Publish Android metadata to main
+        env:
+          RELEASE_NOTES: ${{ inputs.releaseNotes }}
         run: |
           set -euo pipefail
           cp release-assets/android-artifact.json /tmp/android-artifact.json
@@ -71,6 +78,9 @@ jobs:
           from datetime import datetime, timezone
           from pathlib import Path
           artifact=json.loads(Path('/tmp/android-artifact.json').read_text())['artifact']
+          notes=os.environ.get('RELEASE_NOTES','').strip()
+          if not notes or len(notes)>10000:
+            raise SystemExit('Enter concise, verified Android release notes before publishing.')
           path=Path('update-manifest.json')
           manifest=json.loads(path.read_text())
           android=manifest.setdefault('android', {})
@@ -80,12 +90,21 @@ jobs:
             'required': True,
             'apkUrl': f"https://updates.yamachat.eu/android/Yamachat-Android-{artifact['versionCode']}.apk",
             'sha256': artifact['sha256'],
+            'notes': notes,
           })
           manifest['publishedAt']=datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace('+00:00','Z')
           path.write_text(json.dumps(manifest, ensure_ascii=False, indent=2)+'\n')
+          entry={
+            'id':f"yamachat:android:{artifact['versionCode']}",'app':'yamachat','kind':'update',
+            'version':f"{artifact['versionName']} ({artifact['versionCode']})",'title':f"Yamachat Android {artifact['versionName']}",
+            'summary':notes.splitlines()[0],'details':notes,
+            'releasedAt':manifest['publishedAt'],'platforms':['Android']
+          }
+          Path('/tmp/portal-release-entry.json').write_text(json.dumps(entry,ensure_ascii=False))
           PY
+          node scripts/record-portal-release.cjs /tmp/portal-release-entry.json
           node scripts/build-web.mjs
           node scripts/check.mjs
-          git add update-manifest.json index.html
+          git add update-manifest.json release-feed.json index.html
           git diff --cached --quiet || git commit -m 'Release Yamachat Android update [skip ci]'
           git push origin HEAD:main

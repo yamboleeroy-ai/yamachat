@@ -389,8 +389,17 @@ jobs:
           state.published = true;
           fs.writeFileSync(file, JSON.stringify(state, null, 2) + '\n');
           NODE
+          VERSION="$VERSION" VERSION_CODE="$VERSION_CODE" node - <<'NODE'
+          const fs=require('fs');
+          const manifest=JSON.parse(fs.readFileSync(process.env.RUNNER_TEMP+'/YamaSearch-Android-update-public.json','utf8'));
+          const notes=String(manifest.notes||'').trim();
+          if(!notes)throw Error('YamaSearch Android release notes are required for the Portal release history.');
+          const entry={id:`yamasearch:android:${process.env.VERSION_CODE}`,app:'yamasearch',kind:'update',version:`${process.env.VERSION} (${process.env.VERSION_CODE})`,title:`YamaSearch Android ${process.env.VERSION}`,summary:notes.split(/\n+/)[0],details:notes,releasedAt:manifest.publishedAtUtc,platforms:['Android']};
+          fs.writeFileSync('/tmp/portal-release-entry.json',JSON.stringify(entry));
+          NODE
+          node scripts/record-portal-release.cjs /tmp/portal-release-entry.json
           node scripts/build-web.mjs
           node scripts/check.mjs
-          git add products/yamasearch/release/android-mobile.json index.html
+          git add products/yamasearch/release/android-mobile.json release-feed.json index.html
           git diff --cached --quiet || git commit -m "Activate verified YamaSearch Android $VERSION download"
           git push origin HEAD:main

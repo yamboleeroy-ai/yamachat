@@ -19,7 +19,7 @@ on:
       - 'products/yamasearch/release/latest.json'
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: yamasearch-release
@@ -95,6 +95,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
@@ -142,3 +145,25 @@ jobs:
           done
           curl -fsSI --max-time 20 https://updates.yamachat.eu/yamasearch/YamaSearch-Setup-latest.exe >/dev/null
           curl -fsSI --max-time 20 https://updates.yamachat.eu/yamasearch/YamaSearch-Portable-latest.zip >/dev/null
+
+      - name: Record the verified YamaSearch Windows release in Yamaportal
+        env:
+          VERSION: ${{ needs.build.outputs.version }}
+        run: |
+          set -euo pipefail
+          node - <<'NODE'
+          const fs=require('fs');
+          const release=JSON.parse(fs.readFileSync('release-assets/latest.json','utf8'));
+          const notes=String(release.notes||'').trim();
+          if(!notes)throw Error('YamaSearch release notes are required for the Portal release history.');
+          const entry={id:`yamasearch:windows:${process.env.VERSION}`,app:'yamasearch',kind:'update',version:process.env.VERSION,title:`YamaSearch ${process.env.VERSION}`,summary:notes.split(/\n+/)[0],details:notes,releasedAt:new Date().toISOString(),platforms:['Windows']};
+          fs.writeFileSync('/tmp/portal-release-entry.json',JSON.stringify(entry));
+          NODE
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git fetch origin main
+          git checkout -B publish-main origin/main
+          node scripts/record-portal-release.cjs /tmp/portal-release-entry.json
+          git add release-feed.json
+          git diff --cached --quiet || git commit -m "Record YamaSearch Windows $VERSION release [skip ci]"
+          git push origin HEAD:main

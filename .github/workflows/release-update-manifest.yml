@@ -13,6 +13,10 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: yamaportal-release-feed-main
+  cancel-in-progress: false
+
 jobs:
   sync-manifest:
     runs-on: ubuntu-latest
@@ -88,6 +92,7 @@ jobs:
           set -euo pipefail
           python - <<'PY'
           import json, os
+          from datetime import datetime, timezone
           from pathlib import Path
 
           manifest_path = Path('update-manifest.json')
@@ -120,17 +125,49 @@ jobs:
 
           manifest['publishedAt'] = release.get('publishedAt') or manifest.get('publishedAt')
           manifest_path.write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
+
+          # The Portal feed follows only published GitHub releases. Release body,
+          # tag and timestamp come from GitHub's release record, never guesses.
+          title = (release.get('name') or release.get('tagName') or '').strip()
+          tag = (release.get('tagName') or '').strip()
+          body = (release.get('body') or '').strip()
+          asset_names = ' '.join((asset.get('name') or '') for asset in release.get('assets', [])).lower()
+          identity = (title + ' ' + tag + ' ' + asset_names).lower()
+          apps = [('yamaportal', 'yamaportal'), ('yamasearch', 'yamasearch'), ('yamahelp', 'yamahelp'), ('yamaview', 'yamaview'), ('yamamaker', 'yamamaker'), ('yamachat', 'yamachat')]
+          app = next((key for marker, key in apps if marker in identity), None)
+          if app:
+              first = next((line.strip().lstrip('#').strip() for line in body.splitlines() if line.strip() and not line.strip().startswith('---')), '')
+              assets = [asset.get('name', '').lower() for asset in release.get('assets', [])]
+              platforms = []
+              for marker, label in [('.exe', 'Windows'), ('.apk', 'Android'), ('.zip', 'Windows portable'), ('.dmg', 'macOS'), ('.msi', 'Windows'), ('.aab', 'Android')]:
+                  if any(marker in asset for asset in assets) and label not in platforms:
+                      platforms.append(label)
+              if not platforms:
+                  platforms = ['Web']
+              entry = {
+                  'id': f"{app}:{tag}", 'app': app, 'kind': 'update',
+                  'version': tag, 'title': title or tag,
+                  'summary': first or f"Bylo zveřejněno vydání {tag}; podrobný popis změn nebyl připojen.",
+                  'details': body or 'K této verzi nebyl při vydání připojen podrobný popis změn.',
+                  'releasedAt': release.get('publishedAt') or datetime.now(timezone.utc).isoformat(),
+                  'platforms': platforms
+              }
+              feed_path = Path('release-feed.json')
+              feed = json.loads(feed_path.read_text(encoding='utf-8'))
+              feed['releases'] = [entry] + [item for item in feed.get('releases', []) if item.get('id') != entry['id']]
+              feed['releases'] = sorted(feed['releases'], key=lambda item: item.get('releasedAt', ''), reverse=True)[:100]
+              feed_path.write_text(json.dumps(feed, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
           PY
 
       - name: Publish manifest
         run: |
           set -euo pipefail
-          if git diff --quiet -- update-manifest.json; then
+          if git diff --quiet -- update-manifest.json release-feed.json; then
             echo "Manifest already matches release."
             exit 0
           fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add update-manifest.json
+          git add update-manifest.json release-feed.json
           git commit -m "Sync update manifest for $TAG [skip ci]"
           git push origin HEAD:main

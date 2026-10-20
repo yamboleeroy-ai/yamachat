@@ -7,7 +7,7 @@ on:
     branches: [main]
     paths: ['products/yamaportal/package.json']
 permissions:
-  contents: read
+  contents: write
 concurrency:
   group: yamaportal-release
   cancel-in-progress: false
@@ -53,6 +53,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
@@ -73,7 +76,7 @@ jobs:
           cd release-assets
           sha256sum *.exe > SHA256SUMS.txt
           for kind in Setup Portable; do
-            file="Yamaportal-$kind-0.1.0-x64.exe"
+            file="Yamaportal-$kind-0.2.0-x64.exe"
             test -s "$file"
             $W r2 object put "yamachat-releases/yamaportal/$file" --file "$file" --content-type application/vnd.microsoft.portable-executable --cache-control 'public,max-age=31536000,immutable' --remote
             $W r2 object put "yamachat-releases/yamaportal/Yamaportal-$kind-latest.exe" --file "$file" --content-type application/vnd.microsoft.portable-executable --cache-control no-cache --remote
@@ -81,5 +84,24 @@ jobs:
           $W r2 object put yamachat-releases/yamaportal/SHA256SUMS.txt --file SHA256SUMS.txt --content-type text/plain --cache-control no-cache --remote
           curl -fsSI --retry 5 --retry-delay 10 https://updates.yamachat.eu/yamaportal/Yamaportal-Setup-latest.exe
           curl -fsSI --retry 5 --retry-delay 10 https://updates.yamachat.eu/yamaportal/Yamaportal-Portable-latest.exe
-          printf '%s\n' '{"product":"Yamaportal","version":"0.1.0","installerUrl":"https://updates.yamachat.eu/yamaportal/Yamaportal-Setup-latest.exe","portableUrl":"https://updates.yamachat.eu/yamaportal/Yamaportal-Portable-latest.exe"}' > latest.json
+          printf '%s\n' '{"product":"Yamaportal","version":"0.2.0","installerUrl":"https://updates.yamachat.eu/yamaportal/Yamaportal-Setup-latest.exe","portableUrl":"https://updates.yamachat.eu/yamaportal/Yamaportal-Portable-latest.exe"}' > latest.json
           $W r2 object put yamachat-releases/yamaportal/latest.json --file latest.json --content-type application/json --cache-control 'no-cache,no-store' --remote
+      - name: Record this published Yamaportal release on the Portal
+        run: |
+          set -euo pipefail
+          export VERSION="$(node -p "require('./products/yamaportal/package.json').version")"
+          node - <<'NODE'
+          const fs=require('fs');
+          const path=`products/yamaportal/release-notes/v${process.env.VERSION}.json`;
+          const notes=JSON.parse(fs.readFileSync(path,'utf8'));
+          const entry={...notes,id:`yamaportal:v${process.env.VERSION}`,app:'yamaportal',version:process.env.VERSION,releasedAt:new Date().toISOString()};
+          fs.writeFileSync('/tmp/portal-release-entry.json',JSON.stringify(entry));
+          NODE
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git fetch origin main
+          git checkout -B publish-main origin/main
+          node scripts/record-portal-release.cjs /tmp/portal-release-entry.json
+          git add release-feed.json
+          git diff --cached --quiet || git commit -m "Record Yamaportal $VERSION release [skip ci]"
+          git push origin HEAD:main

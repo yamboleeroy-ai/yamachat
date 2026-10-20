@@ -22,7 +22,8 @@ for(const file of [
   'favicon.ico',
   'manifest.webmanifest',
   'offline.html',
-  'update-manifest.json'
+  'update-manifest.json',
+  'release-feed.json'
 ]) copy(file);
 
 for(const dir of ['icons','audio','vendor','build','download']) copy(dir);
