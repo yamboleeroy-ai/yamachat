@@ -18,6 +18,7 @@ products/yamaportal/artifacts/
 .android-sdk/
 .build-tools/
 products/yamaconvert/android/release-signing.jks
+products/yamaconvert/android/release-signing.password
 products/yamaconvert/android/release/
 products/yamasearch/preview/
 products/yamasearch/build/
