@@ -129,7 +129,7 @@ test('Android and web downloader share the same expanded yt-dlp domain allow-lis
   const gradle=fs.readFileSync(path.join(root,'products','yamaconvert','android','app','build.gradle'),'utf8');
   const server=fs.readFileSync(path.join(root,'products','yamaconvert','downloader','server.cjs'),'utf8');
   const docker=fs.readFileSync(path.join(root,'products','yamaconvert','downloader','Dockerfile'),'utf8');
-  assert.ok(sites.length>=40);
+  assert.ok(sites.length>=100);
   for(const domain of ['youtube.com','facebook.com','instagram.com','tiktok.com','soundcloud.com','bilibili.com','reddit.com']) assert.ok(sites.includes(domain),`missing ${domain}`);
   assert.match(android,/supported-sites\.txt/);
   assert.match(gradle,/prepareYamaConvertSupportedSites/);
