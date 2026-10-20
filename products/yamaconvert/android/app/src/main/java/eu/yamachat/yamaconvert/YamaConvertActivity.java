@@ -31,12 +31,15 @@ import org.json.JSONObject;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
 import java.net.URI;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.util.Locale;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
@@ -53,12 +56,6 @@ public final class YamaConvertActivity extends Activity {
     private static final String RELEASE_API = "https://api.github.com/repos/yamboleeroy-ai/yamachat/releases/latest";
     private static final long MAX_BYTES = 100L * 1024L * 1024L;
     private static final Pattern REQUEST_ID = Pattern.compile("yc-[a-zA-Z0-9-]{8,64}");
-    private static final String[] ALLOWED_HOSTS = {
-        "youtube.com", "youtu.be", "youtube-nocookie.com", "tiktok.com", "instagram.com",
-        "facebook.com", "fb.watch", "vimeo.com", "dailymotion.com", "x.com", "twitter.com",
-        "reddit.com", "redd.it", "twitch.tv"
-    };
-
     private final Handler main = new Handler(Looper.getMainLooper());
     private final ExecutorService downloads = Executors.newSingleThreadExecutor();
     private final Map<String, File> exposedFiles = new ConcurrentHashMap<>();
@@ -67,11 +64,13 @@ public final class YamaConvertActivity extends Activity {
     private WebView webView;
     private String pendingSharedLink;
     private boolean updateCheckStarted;
+    private Set<String> supportedMediaHosts = Set.of();
     private File pendingUpdateApk;
 
     @SuppressLint({"SetJavaScriptEnabled", "JavascriptInterface"})
     @Override protected void onCreate(Bundle state) {
         super.onCreate(state);
+        supportedMediaHosts = loadSupportedMediaHosts();
         File temp = new File(getCacheDir(), "yamaconvert-media");
         deleteTree(temp);
         temp.mkdirs();
@@ -278,6 +277,20 @@ public final class YamaConvertActivity extends Activity {
         file.delete();
     }
 
+    private Set<String> loadSupportedMediaHosts() {
+        Set<String> hosts = new HashSet<>();
+        try (BufferedReader reader = new BufferedReader(new InputStreamReader(getAssets().open("supported-sites.txt"), java.nio.charset.StandardCharsets.UTF_8))) {
+            String line;
+            while ((line = reader.readLine()) != null) {
+                line = line.trim();
+                if (!line.isEmpty() && !line.startsWith("#")) hosts.add(line.toLowerCase(Locale.ROOT));
+            }
+        } catch (IOException ignored) {
+            // An empty allow-list fails closed if the packaged site registry is missing.
+        }
+        return Set.copyOf(hosts);
+    }
+
     private final class AndroidBridge {
         @JavascriptInterface public boolean isReady() { return true; }
 
@@ -287,8 +300,7 @@ public final class YamaConvertActivity extends Activity {
             try { uri = URI.create(rawUrl); }
             catch (Exception error) { fail(requestId, "Odkaz není platný."); return; }
             String host = uri.getHost() == null ? "" : uri.getHost().toLowerCase(Locale.ROOT);
-            boolean supported = false;
-            for (String domain : ALLOWED_HOSTS) if (host.equals(domain) || host.endsWith("." + domain)) supported = true;
+            boolean supported = supportedMediaHosts.stream().anyMatch(domain -> host.equals(domain) || host.endsWith("." + domain));
             if (!"https".equalsIgnoreCase(uri.getScheme()) || uri.getUserInfo() != null || uri.getPort() != -1 && uri.getPort() != 443 || !supported) {
                 fail(requestId, "Podporujeme veřejné HTTPS odkazy z uvedených video a sociálních sítí.");
                 return;
