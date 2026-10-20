@@ -2,6 +2,20 @@
   "schemaVersion": 1,
   "releases": [
     {
+      "id": "yamaconvert:1.0.0",
+      "app": "yamaconvert",
+      "kind": "new-app",
+      "version": "1.0.0",
+      "title": "YamaConvert 1.0.0",
+      "summary": "První instalovatelná verze YamaConvert pro Android a web.",
+      "details": "YamaConvert je dostupný jako instalovatelná PWA. V Android Chrome ho lze přidat na plochu; webové soubory se aktualizují automaticky při spuštění aplikace. Přihlášení sdílí relaci Yamaportalu.\n\nPřevody souborů běží lokálně v zařízení. Stahování odkazů ze sociálních sítí vyžaduje místní službu ve Windows a v této PWA není dostupné.",
+      "releasedAt": "2026-10-20T08:45:25.000Z",
+      "platforms": [
+        "Android",
+        "Web / PWA"
+      ]
+    },
+    {
       "id": "yamaportal:v0.2.0",
       "app": "yamaportal",
       "kind": "new-app",

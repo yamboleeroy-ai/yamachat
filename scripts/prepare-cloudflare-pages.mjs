@@ -41,6 +41,10 @@ for(const file of ['index.html','app.css','app.js','sw.js','manifest.webmanifest
   fs.copyFileSync(from,to);
 }
 
+// YamaConvert is shipped as an installable Android PWA. The Windows local
+// downloader is deliberately not copied into this public static package.
+copy('products/yamaconvert/pwa','yamaconvert');
+
 
 for(const file of [
   'LICENSE',
@@ -67,6 +71,12 @@ fs.writeFileSync(path.join(dist,'_headers'),[
   '/yamasearch/sw.js',
   '  Cache-Control: no-cache, must-revalidate',
   '/yamasearch/manifest.webmanifest',
+  '  Cache-Control: no-cache, must-revalidate',
+  '/yamaconvert/index.html',
+  '  Cache-Control: no-cache, must-revalidate',
+  '/yamaconvert/sw.js',
+  '  Cache-Control: no-cache, must-revalidate',
+  '/yamaconvert/manifest.webmanifest',
   '  Cache-Control: no-cache, must-revalidate',
   ''
 ].join('\n'));
