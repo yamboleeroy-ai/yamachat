@@ -2,6 +2,34 @@
   "schemaVersion": 1,
   "releases": [
     {
+      "id": "yamaconvert:1.0.2",
+      "app": "yamaconvert",
+      "kind": "update",
+      "version": "1.0.2",
+      "title": "YamaConvert 1.0.2",
+      "summary": "Stahování veřejných odkazů a převod do MP3, MP4 nebo WEBM na webu i Androidu.",
+      "details": "YamaConvert nyní používá stejnou stahovací službu na webu i v Android PWA. Přihlas se přes Yamaportal, vlož veřejný odkaz a vyber MP3, MP4 nebo WEBM. Každé stažení vyžaduje potvrzení oprávnění; limit je 100 MB a 10 stažení za 24 hodin na účet. Přihlášení ke zdrojovým sociálním sítím, soukromý či placený obsah a DRM služba nepodporuje.",
+      "releasedAt": "2026-10-20T12:00:00Z",
+      "platforms": [
+        "Android",
+        "Web / PWA"
+      ]
+    },
+    {
+      "id": "yamaconvert:1.0.1",
+      "app": "yamaconvert",
+      "kind": "update",
+      "version": "1.0.1",
+      "title": "YamaConvert 1.0.1",
+      "summary": "Android může převzít uložené audio/video ze systémové nabídky Sdílet.",
+      "details": "YamaConvert se nyní zobrazí v androidovské nabídce Sdílet pro audio a video. Vyber soubor uložený funkcí platformy a aplikace ho přidá do místní fronty pro převod na zvolený formát. Sdílené soubory zůstávají v zařízení.\n\nSamotný odkaz na sociální síť médium nestahuje; otevře původní stránku. Dostupnost ukládání určuje daná platforma.",
+      "releasedAt": "2026-10-20T09:24:50Z",
+      "platforms": [
+        "Android",
+        "Web / PWA"
+      ]
+    },
+    {
       "id": "yamaconvert:1.0.0",
       "app": "yamaconvert",
       "kind": "new-app",
@@ -9,7 +37,7 @@
       "title": "YamaConvert 1.0.0",
       "summary": "První instalovatelná verze YamaConvert pro Android a web.",
       "details": "YamaConvert je dostupný jako instalovatelná PWA. V Android Chrome ho lze přidat na plochu; webové soubory se aktualizují automaticky při spuštění aplikace. Přihlášení sdílí relaci Yamaportalu.\n\nPřevody souborů běží lokálně v zařízení. Stahování odkazů ze sociálních sítí vyžaduje místní službu ve Windows a v této PWA není dostupné.",
-      "releasedAt": "2026-10-20T08:45:25.000Z",
+      "releasedAt": "2026-10-20T08:45:25Z",
       "platforms": [
         "Android",
         "Web / PWA"
