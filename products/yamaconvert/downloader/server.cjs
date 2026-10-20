@@ -12,11 +12,8 @@ const MAX_BODY = 16 * 1024;
 const MAX_ACTIVE = 2;
 const DAILY_LIMIT = 10;
 const TIMEOUT_MS = 10 * 60 * 1000;
-const HOSTS = [
-  'youtube.com', 'youtu.be', 'youtube-nocookie.com', 'tiktok.com',
-  'instagram.com', 'facebook.com', 'fb.watch', 'vimeo.com',
-  'dailymotion.com', 'x.com', 'twitter.com', 'reddit.com', 'redd.it', 'twitch.tv',
-];
+const HOSTS = fs.readFileSync(path.join(__dirname, 'supported-sites.txt'), 'utf8')
+  .split(/\r?\n/).map(line => line.trim()).filter(line => line && !line.startsWith('#'));
 
 function parseUrl(value) {
   let url;
@@ -262,6 +259,8 @@ function makeHandler({ env = process.env, fetchImpl = fetch, spawnImpl = spawn }
             ? 'Zdroj je větší než limit 100 MB.'
             : /requested format is not available/i.test(stderr)
               ? 'Stránka nenabízí požadovaný formát.'
+              : /sign in to confirm.*not a bot|confirm you.re not a bot|not a bot|captcha/i.test(stderr)
+                ? 'YouTube nebo cílová platforma blokuje požadavek stahovacího serveru kontrolou automatizovaného přístupu. Stránku můžeš otevřít v její aplikaci; server tuto kontrolu nepřekonává.'
               : /sign in|login|required|private|members.only/i.test(stderr)
                 ? 'Tento obsah vyžaduje přihlášení nebo není veřejný.'
                 : 'Stránku se nepodařilo zpracovat. Může být nedostupná, změněná nebo chráněná.';
@@ -326,3 +325,4 @@ if (require.main === module) {
 }
 
 module.exports = { DAILY_LIMIT, HOSTS, MAX_BYTES, MAX_ACTIVE, makeHandler, parseUrl };
+

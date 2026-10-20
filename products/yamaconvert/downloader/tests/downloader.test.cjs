@@ -6,11 +6,14 @@ const fs = require('node:fs/promises');
 const path = require('node:path');
 const { PassThrough } = require('node:stream');
 const { once } = require('node:events');
-const { makeHandler, parseUrl } = require('../server.cjs');
+const { HOSTS, makeHandler, parseUrl } = require('../server.cjs');
 
 test('URL validation accepts supported HTTPS domains and rejects unsafe targets', () => {
   assert.equal(parseUrl('https://youtu.be/abc').hostname, 'youtu.be');
   assert.equal(parseUrl('https://www.tiktok.com/@user/video/123').hostname, 'www.tiktok.com');
+  assert.equal(parseUrl('https://soundcloud.com/artist/track').hostname, 'soundcloud.com');
+  assert.equal(parseUrl('https://www.bilibili.com/video/BV123').hostname, 'www.bilibili.com');
+  for (const domain of HOSTS) assert.equal(parseUrl(`https://${domain}/video`).hostname, domain, domain);
   for (const url of [
     'http://youtube.com/watch?v=abc',
     'https://youtube.com.evil.example/watch?v=abc',
@@ -113,7 +116,31 @@ test('download returns the converted bytes, preserves format selection, and remo
   assert.ok(spawnArgs.includes('--max-filesize'));
   assert.ok(spawnArgs.includes('--remote-components'));
   assert.ok(spawnArgs.includes('ejs:npm'));
+  assert.ok(spawnArgs.includes('--js-runtimes'));
+  assert.ok(spawnArgs.includes('node'));
   assert.ok(spawnArgs.includes('bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best'));
   await new Promise(resolve => setTimeout(resolve, 30));
   await assert.rejects(fs.access(workingDirectory));
 });
+
+test('download reports automated-access checks separately from private content', async () => {
+  const spawnImpl = (_command, _args, options) => {
+    const child = new EventEmitter();
+    child.stdout = new EventEmitter();
+    child.stderr = new EventEmitter();
+    child.kill = () => {};
+    setImmediate(() => {
+      child.stderr.emit('data', Buffer.from("Sign in to confirm you're not a bot"));
+      child.emit('close', 1);
+    });
+    return child;
+  };
+  const handler = makeHandler({ env, fetchImpl: authFetch, spawnImpl });
+  const response = await request(handler, {
+    method: 'POST', url: '/api/social-download', headers: { origin, 'content-type': 'application/json', authorization: 'Bearer fake-access-token-12345678' },
+    body: JSON.stringify({ url: 'https://youtu.be/abc', format: 'video/mp4', rightsConfirmed: true }),
+  });
+  assert.equal(response.status, 422);
+  assert.match(JSON.parse(response.body).error, /serveru.*kontrolou automatizovaného přístupu/i);
+});
+
