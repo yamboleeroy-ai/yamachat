@@ -34,15 +34,15 @@ jobs:
           $zip = Join-Path $work $zipName
           Invoke-WebRequest -Uri "$base/$zipName" -OutFile $zip
           $checksums = (Invoke-WebRequest -Uri "$base/SHASUMS256.txt").Content
-          $line = [regex]::Match($checksums, "(?m)^([0-9a-f]{64})\\s+\\*?$([regex]::Escape($zipName))$")
+          $line = [regex]::Match($checksums, "(?m)^([0-9a-f]{64})\s+\*?$([regex]::Escape($zipName))$")
           if (-not $line.Success) { throw 'Oficiální seznam Node.js neobsahuje kontrolní součet archivu.' }
           $actual = (Get-FileHash -LiteralPath $zip -Algorithm SHA256).Hash
           if ($actual -ine $line.Groups[1].Value) { throw 'Kontrolní součet Node.js nesouhlasí.' }
           Expand-Archive -LiteralPath $zip -DestinationPath $work
           $nodeDir = Join-Path $work "node-v$version-win-x64"
           New-Item -ItemType Directory -Path (Join-Path $stage 'runtime') -Force | Out-Null
-          Copy-Item (Join-Path $nodeDir 'node.exe') (Join-Path $stage 'runtime\\node.exe')
-          Copy-Item (Join-Path $nodeDir 'LICENSE') (Join-Path $stage 'runtime\\NODE-LICENSE.txt')
+          Copy-Item (Join-Path $nodeDir 'node.exe') (Join-Path $stage 'runtime\node.exe')
+          Copy-Item (Join-Path $nodeDir 'LICENSE') (Join-Path $stage 'runtime\NODE-LICENSE.txt')
           Copy-Item 'products/yamaconvert/windows/*' $stage -Recurse -Force
 
           $headers = @{ 'User-Agent' = 'YamaConvert-Windows-Packager' }
@@ -53,11 +53,11 @@ jobs:
           $ytTemp = Join-Path $work 'yt-dlp.exe'
           Invoke-WebRequest -UseBasicParsing -Uri $ytBinary.browser_download_url -OutFile $ytTemp -Headers $headers
           $sumText = (Invoke-WebRequest -UseBasicParsing -Uri $ytSums.browser_download_url -Headers $headers).Content
-          $ytHash = [regex]::Match($sumText, '(?m)^([0-9a-fA-F]{64})\\s+\\*?yt-dlp\\.exe\\s*$')
+          $ytHash = [regex]::Match($sumText, '(?m)^([0-9a-fA-F]{64})\s+\*?yt-dlp\.exe\s*$')
           if (-not $ytHash.Success) { throw 'V oficiálním vydání yt-dlp chybí SHA-256 kontrolní součet.' }
           $actualYtHash = (Get-FileHash -LiteralPath $ytTemp -Algorithm SHA256).Hash
           if ($actualYtHash -ine $ytHash.Groups[1].Value) { throw 'Kontrolní součet yt-dlp nesouhlasí.' }
-          $ytDir = Join-Path $stage 'vendor\\yt-dlp'
+          $ytDir = Join-Path $stage 'vendor\yt-dlp'
           New-Item -ItemType Directory -Path $ytDir -Force | Out-Null
           Move-Item -LiteralPath $ytTemp -Destination (Join-Path $ytDir 'yt-dlp.exe')
           & (Join-Path $ytDir 'yt-dlp.exe') --version
@@ -68,7 +68,7 @@ jobs:
           $portable = Join-Path $work 'YamaConvert-Windows-Portable.zip'
           Compress-Archive -Path (Join-Path $stage '*') -DestinationPath $portable -CompressionLevel Optimal
           if ((Get-Item $portable).Length -lt 100000) { throw 'Vytvořený ZIP je neúplný.' }
-          $iscc = 'C:\\Program Files (x86)\\Inno Setup 6\\ISCC.exe'
+          $iscc = 'C:\Program Files (x86)\Inno Setup 6\ISCC.exe'
           if (-not (Test-Path -LiteralPath $iscc)) { throw 'Na Windows runneru chybí Inno Setup.' }
           & $iscc "/DSourceDir=$stage" "/DOutputDir=$work" 'products/yamaconvert/windows/YamaConvert.iss'
           if ($LASTEXITCODE -ne 0) { throw 'Vytvoření instalačního EXE selhalo.' }
@@ -87,6 +87,6 @@ jobs:
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          if ($env:RELEASE_TAG -notmatch '^yamaconvert-v[0-9]+\\.[0-9]+\\.[0-9]+-[0-9]+$') { throw 'Neplatná značka vydání YamaConvert.' }
+          if ($env:RELEASE_TAG -notmatch '^yamaconvert-v[0-9]+\.[0-9]+\.[0-9]+-[0-9]+$') { throw 'Neplatná značka vydání YamaConvert.' }
           gh release view $env:RELEASE_TAG --repo $env:GITHUB_REPOSITORY | Out-Null
           gh release upload $env:RELEASE_TAG $env:SETUP_PATH $env:PORTABLE_PATH $env:SUMS_PATH --repo $env:GITHUB_REPOSITORY --clobber
