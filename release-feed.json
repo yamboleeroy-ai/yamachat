@@ -2,6 +2,20 @@
   "schemaVersion": 1,
   "releases": [
     {
+      "id": "yamaconvert:1.0.2",
+      "app": "yamaconvert",
+      "kind": "update",
+      "version": "1.0.2",
+      "title": "YamaConvert 1.0.2",
+      "summary": "Stahování veřejných odkazů a převod do MP3, MP4 nebo WEBM na webu i Androidu.",
+      "details": "YamaConvert nyní používá stejnou stahovací službu na webu i v Android PWA. Přihlas se přes Yamaportal, vlož veřejný odkaz a vyber MP3, MP4 nebo WEBM. Každé stažení vyžaduje potvrzení oprávnění; limit je 100 MB a 10 stažení za 24 hodin na účet. Přihlášení ke zdrojovým sociálním sítím, soukromý či placený obsah a DRM služba nepodporuje.",
+      "releasedAt": "2026-10-20T12:00:00Z",
+      "platforms": [
+        "Android",
+        "Web / PWA"
+      ]
+    },
+    {
       "id": "yamaconvert:1.0.1",
       "app": "yamaconvert",
       "kind": "update",

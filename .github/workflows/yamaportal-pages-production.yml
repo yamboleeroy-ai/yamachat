@@ -31,7 +31,7 @@ jobs:
           set -euo pipefail
           node scripts/build-web.mjs
           node scripts/check.mjs
-          node --test products/yamaconvert/tests/*.test.cjs
+          node --test products/yamaconvert/tests/*.test.cjs products/yamaconvert/downloader/tests/*.test.cjs
           node scripts/prepare-cloudflare-pages.mjs
           test -s web-dist/index.html
           test -s web-dist/yamachat.html
