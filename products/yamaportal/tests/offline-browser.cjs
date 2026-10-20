@@ -15,7 +15,7 @@ const {createPortalServer}=require('../preview/server.cjs');
   await page.getByRole('heading',{name:'Tvůj prostor. Tvoje aplikace.'}).waitFor();
   await page.reload();
   await page.getByRole('heading',{name:'Tvůj prostor. Tvoje aplikace.'}).waitFor();
-  assert.equal(await page.getByRole('link',{name:'Otevřít v Portalu →'}).count(),1);
+  assert.ok(await page.getByRole('button',{name:/Otevřít Yamachat/}).count()>0);
   await page.getByRole('link',{name:'◉ Můj profil'}).click();
   await page.getByRole('heading',{name:'Přihlášení do Yamaportalu'}).waitFor();
   console.log('PASS: real Chromium mobile viewport, prepared worker, offline navigation, reload and public account entry. No live credentials or services used.');

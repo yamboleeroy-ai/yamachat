@@ -5,7 +5,7 @@ on:
     paths: ['products/yamaportal/**', '.github/workflows/yamaportal-release.yml']
   push:
     branches: [main]
-    paths: ['products/yamaportal/package.json']
+    paths: ['products/yamaportal/package.json', 'products/yamaportal/tests/offline-browser.cjs', '.github/workflows/yamaportal-release.yml']
 permissions:
   contents: write
 concurrency:
