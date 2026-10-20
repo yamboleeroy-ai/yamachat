@@ -24,6 +24,11 @@ cookies or credentials and does not bypass private, paid, or DRM-protected
 content. Downloaded media is temporarily staged on the downloader service and
 deleted after it is streamed to the app; conversion and history remain local.
 
+Both routes use a shared allow-list in `downloader/supported-sites.txt` for
+common yt-dlp sites. The upstream extractor catalog is much larger and includes
+sources that may be broken or need an account; the app links to that catalog as
+a reference, while accepted domains stay limited to this shared list.
+
 The native project uses the free `yt-dlp-android` library from Maven Central
 and bundles QuickJS-NG for yt-dlp's YouTube JavaScript challenge support. The
 Android preview and release workflows build the runtime for arm64 and x86_64;
