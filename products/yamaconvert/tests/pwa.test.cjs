@@ -107,7 +107,7 @@ test('native Android project downloads on-device without source-site credentials
   assert.match(manifest,/android\.intent\.action\.SEND/);
   assert.match(activity,/YtDlp\.execute\(request/);
   assert.match(activity,/--max-filesize/);
-  assert.match(activity,/ALLOWED_HOSTS/);
+  assert.match(activity,/supportedMediaHosts/);
   assert.match(activity,/YtDlpRequest/);
   assert.match(activity,/--remote-components/);
   assert.match(activity,/ejs:github/);
@@ -120,6 +120,22 @@ test('native Android project downloads on-device without source-site credentials
   assert.match(activity,/ACTION_MANAGE_UNKNOWN_APP_SOURCES/);
   assert.match(manifest,/REQUEST_INSTALL_PACKAGES/);
   assert.match(manifest,/androidx\.core\.content\.FileProvider/);
+});
+
+test('Android and web downloader share the same expanded yt-dlp domain allow-list',()=>{
+  const sites=fs.readFileSync(path.join(root,'products','yamaconvert','downloader','supported-sites.txt'),'utf8')
+    .split(/\r?\n/).map(line=>line.trim()).filter(line=>line&&!line.startsWith('#'));
+  const android=fs.readFileSync(path.join(root,'products','yamaconvert','android','app','src','main','java','eu','yamachat','yamaconvert','YamaConvertActivity.java'),'utf8');
+  const gradle=fs.readFileSync(path.join(root,'products','yamaconvert','android','app','build.gradle'),'utf8');
+  const server=fs.readFileSync(path.join(root,'products','yamaconvert','downloader','server.cjs'),'utf8');
+  const docker=fs.readFileSync(path.join(root,'products','yamaconvert','downloader','Dockerfile'),'utf8');
+  assert.ok(sites.length>=40);
+  for(const domain of ['youtube.com','facebook.com','instagram.com','tiktok.com','soundcloud.com','bilibili.com','reddit.com']) assert.ok(sites.includes(domain),`missing ${domain}`);
+  assert.match(android,/supported-sites\.txt/);
+  assert.match(gradle,/prepareYamaConvertSupportedSites/);
+  assert.match(server,/supported-sites\.txt/);
+  assert.match(docker,/COPY server\.cjs supported-sites\.txt/);
+  assert.match(read('index.html'),/supportedsites\.md/);
 });
 
 test('Android build packages a pinned QuickJS runtime for yt-dlp on both supported ABIs',()=>{
