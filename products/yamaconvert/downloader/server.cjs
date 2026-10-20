@@ -185,7 +185,7 @@ function makeHandler({ env = process.env, fetchImpl = fetch, spawnImpl = spawn }
       '--socket-timeout', '15', '--retries', '1', '--fragment-retries', '1', '--concurrent-fragments', '4',
       '--max-filesize', '100M', '--format', selector,
       '--output', path.join(dir, 'source.%(ext)s'), '--print', 'after_move:filepath',
-      '--js-runtimes', 'node',
+      '--remote-components', 'ejs:npm', '--js-runtimes', 'node',
     ];
     if (isAudio) args.push('--extract-audio', '--audio-format', 'mp3', '--audio-quality', '5');
     else args.push('--merge-output-format', requestedFormat === 'video/webm' ? 'webm' : 'mp4');
@@ -262,6 +262,8 @@ function makeHandler({ env = process.env, fetchImpl = fetch, spawnImpl = spawn }
             ? 'Zdroj je větší než limit 100 MB.'
             : /requested format is not available/i.test(stderr)
               ? 'Stránka nenabízí požadovaný formát.'
+              : /sign in to confirm.*not a bot|confirm you.re not a bot|not a bot|captcha/i.test(stderr)
+                ? 'YouTube nebo cílová platforma blokuje požadavek stahovacího serveru kontrolou automatizovaného přístupu. Stránku můžeš otevřít v její aplikaci; server tuto kontrolu nepřekonává.'
               : /sign in|login|required|private|members.only/i.test(stderr)
                 ? 'Tento obsah vyžaduje přihlášení nebo není veřejný.'
                 : 'Stránku se nepodařilo zpracovat. Může být nedostupná, změněná nebo chráněná.';

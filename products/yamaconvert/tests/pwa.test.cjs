@@ -39,6 +39,8 @@ test('Android PWA accepts saved audio/video files from the system share sheet',(
   assert.match(read('downloads.js'),/rights\.checked=false/);
   assert.match(read('downloads.js'),/window\.YamaConvertAuth\.accessToken\(\)/);
   assert.match(read('downloads.js'),/window\.YamaApp\.convertDownloadedFile/);
+  assert.match(read('downloads.js'),/window\.YamaConvertAndroid\?\.downloadMedia/);
+  assert.match(read('downloads.js'),/releaseDownload/);
   assert.match(read('index.html'),/id="media-format"/);
   assert.match(read('index.html'),/cancel-media-download/);
   assert.match(read('sw.js'),/download-config\.js/);
@@ -74,15 +76,42 @@ test('PWA shares the Yamaportal auth session and excludes the Windows downloader
   assert.match(read('downloads.js'),/\/api\/social-download/);
 });
 
-test('Yamaportal catalog and release feed point to the YamaConvert PWA',()=>{
+test('Yamaportal offers the native YamaConvert APK and web PWA with shared updates',()=>{
   const catalog=fs.readFileSync(path.join(root,'products','yamaportal','preview','dist','app.js'),'utf8');
   const links=fs.readFileSync(path.join(root,'products','yamaportal','preview','dist','app-links.js'),'utf8');
   const feed=JSON.parse(fs.readFileSync(path.join(root,'release-feed.json'),'utf8'));
   assert.match(catalog,/id:'convert',name:'YamaConvert'/);
+  assert.match(catalog,/Android APK · Android PWA · Windows PWA · Web/);
+  assert.match(catalog,/místním enginem v telefonu/);
   assert.match(catalog,/https:\/\/yamachat\.eu\/yamaconvert\//);
   assert.match(links,/https:\/\/yamachat\.eu\/yamaconvert\//);
+  assert.match(links,/releases\/latest\/download\/YamaConvert-Android\.apk/);
+  assert.match(links,/Otevřít Android PWA/);
+  assert.match(links,/Instalovat YamaConvert ve Windows/);
   assert.ok(feed.releases.some(release=>release.id==='yamaconvert:1.0.0'&&release.app==='yamaconvert'));
   assert.ok(feed.releases.some(release=>release.id==='yamaconvert:1.0.1'&&release.app==='yamaconvert'));
   assert.ok(feed.releases.some(release=>release.id==='yamaconvert:1.0.2'&&release.app==='yamaconvert'));
   assert.ok(fs.existsSync(path.join(root,'products','yamaportal','preview','dist','assets','yamaconvert.png')));
+});
+
+test('native Android project downloads on-device without source-site credentials',()=>{
+  const android=path.join(root,'products','yamaconvert','android');
+  const gradle=fs.readFileSync(path.join(android,'app','build.gradle'),'utf8');
+  const manifest=fs.readFileSync(path.join(android,'app','src','main','AndroidManifest.xml'),'utf8');
+  const activity=fs.readFileSync(path.join(android,'app','src','main','java','eu','yamachat','yamaconvert','YamaConvertActivity.java'),'utf8');
+  assert.match(gradle,/dev\.ffmpegkit-maintained:yt-dlp-android:2\.0\.2/);
+  assert.match(gradle,/applicationId 'eu\.yamachat\.yamaconvert'/);
+  assert.match(manifest,/android:name="android\.permission\.INTERNET"/);
+  assert.match(manifest,/android:usesCleartextTraffic="false"/);
+  assert.match(manifest,/android\.intent\.action\.SEND/);
+  assert.match(activity,/YtDlp\.execute\(request/);
+  assert.match(activity,/--max-filesize/);
+  assert.match(activity,/ALLOWED_HOSTS/);
+  assert.match(activity,/YtDlpRequest/);
+  assert.doesNotMatch(activity,/--cookies|--proxy|curl.cffi|impersonat/i);
+  assert.match(activity,/Platforma omezuje automatické stahování/);
+  assert.match(activity,/RELEASE_API/);
+  assert.match(activity,/ACTION_MANAGE_UNKNOWN_APP_SOURCES/);
+  assert.match(manifest,/REQUEST_INSTALL_PACKAGES/);
+  assert.match(manifest,/androidx\.core\.content\.FileProvider/);
 });
