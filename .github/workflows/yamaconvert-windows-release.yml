@@ -48,46 +48,10 @@ jobs:
           $headers = @{ 'User-Agent' = 'YamaConvert-Windows-Packager' }
           $ytRelease = Invoke-RestMethod -Uri 'https://api.github.com/repos/yt-dlp/yt-dlp/releases/latest' -Headers $headers
           $ytBinary = $ytRelease.assets | Where-Object name -eq 'yt-dlp.exe' | Select-Object -First 1
-          if (-not $ytBinary) { throw 'Oficiální vydání yt-dlp neobsahuje program.' }
+          if (-not $ytBinary) { throw 'Oficialni vydani yt-dlp neobsahuje program.' }
           $ytTemp = Join-Path $work 'yt-dlp.exe'
           Invoke-WebRequest -UseBasicParsing -Uri $ytBinary.browser_download_url -OutFile $ytTemp -Headers $headers
-          $ytHash = [regex]::Match([string]$ytBinary.digest, '^sha256:([0-9a-fA-F]{64})
-          $actualYtHash = (Get-FileHash -LiteralPath $ytTemp -Algorithm SHA256).Hash
-          if ($actualYtHash -ine $ytHash.Groups[1].Value) { throw 'Kontrolní součet yt-dlp nesouhlasí.' }
-          $ytDir = Join-Path $stage 'vendor\yt-dlp'
-          New-Item -ItemType Directory -Path $ytDir -Force | Out-Null
-          Move-Item -LiteralPath $ytTemp -Destination (Join-Path $ytDir 'yt-dlp.exe')
-          & (Join-Path $ytDir 'yt-dlp.exe') --version
-          if ($LASTEXITCODE -ne 0) { throw 'Přibalený yt-dlp se nepodařilo spustit.' }
-
-          if (-not (Test-Path (Join-Path $stage 'Start-YamaConvert.cmd'))) { throw 'Balíček neobsahuje spouštěč Windows.' }
-          if (-not (Test-Path (Join-Path $stage 'media-downloader.cjs'))) { throw 'Balíček neobsahuje místní downloader.' }
-          $portable = Join-Path $work 'YamaConvert-Windows-Portable.zip'
-          Compress-Archive -Path (Join-Path $stage '*') -DestinationPath $portable -CompressionLevel Optimal
-          if ((Get-Item $portable).Length -lt 100000) { throw 'Vytvořený ZIP je neúplný.' }
-          $iscc = 'C:\Program Files (x86)\Inno Setup 6\ISCC.exe'
-          if (-not (Test-Path -LiteralPath $iscc)) { throw 'Na Windows runneru chybí Inno Setup.' }
-          & $iscc "/DSourceDir=$stage" "/DOutputDir=$work" 'products/yamaconvert/windows/YamaConvert.iss'
-          if ($LASTEXITCODE -ne 0) { throw 'Vytvoření instalačního EXE selhalo.' }
-          $setup = Join-Path $work 'YamaConvert-Setup.exe'
-          if (-not (Test-Path -LiteralPath $setup) -or (Get-Item $setup).Length -lt 100000) { throw 'Instalační EXE je neúplné.' }
-          $zipSum = (Get-FileHash -LiteralPath $portable -Algorithm SHA256).Hash.ToLowerInvariant()
-          $exeSum = (Get-FileHash -LiteralPath $setup -Algorithm SHA256).Hash.ToLowerInvariant()
-          @("$zipSum  YamaConvert-Windows-Portable.zip", "$exeSum  YamaConvert-Setup.exe") | Set-Content -LiteralPath (Join-Path $work 'YamaConvert-Windows-SHA256SUMS.txt') -Encoding ascii
-          "PORTABLE_PATH=$portable" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
-          "SETUP_PATH=$setup" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
-          "SUMS_PATH=$(Join-Path $work 'YamaConvert-Windows-SHA256SUMS.txt')" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
-      - name: Attach Windows downloads to the YamaConvert release
-        env:
-          GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG: ${{ inputs.release_tag }}
-        shell: pwsh
-        run: |
-          $ErrorActionPreference = 'Stop'
-          if ($env:RELEASE_TAG -notmatch '^yamaconvert-v[0-9]+\.[0-9]+\.[0-9]+-[0-9]+$') { throw 'Neplatná značka vydání YamaConvert.' }
-          gh release view $env:RELEASE_TAG --repo $env:GITHUB_REPOSITORY | Out-Null
-          gh release upload $env:RELEASE_TAG $env:SETUP_PATH $env:PORTABLE_PATH $env:SUMS_PATH --repo $env:GITHUB_REPOSITORY --clobber
-)
+          $ytHash = [regex]::Match([string]$ytBinary.digest, '^sha256:([0-9a-fA-F]{64})$')
           if (-not $ytHash.Success) { throw 'GitHub API nevrátilo SHA-256 pro oficiální yt-dlp.exe.' }
           $actualYtHash = (Get-FileHash -LiteralPath $ytTemp -Algorithm SHA256).Hash
           if ($actualYtHash -ine $ytHash.Groups[1].Value) { throw 'Kontrolní součet yt-dlp nesouhlasí.' }
