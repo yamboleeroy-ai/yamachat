@@ -33,7 +33,9 @@ test('Android PWA accepts saved audio/video files from the system share sheet',(
   assert.match(serviceWorker,/receiveSharedContent\(request, scope\.href\)/);
   assert.match(serviceWorker,/SHARE_MAX_BYTES/);
   assert.match(read('share-inbox.js'),/window\.YamaApp\.addFiles\(files\)/);
-  assert.match(read('downloads.js'),/social-download/);
+  assert.match(read('downloads.js'),/YamaConvertAndroid.*isReady/s);
+  assert.doesNotMatch(read('downloads.js'),/\/api\/social-download/);
+  assert.match(read('index.html'),/download-app-required/);
   assert.match(read('index.html'),/id="media-rights-consent" type="checkbox"/);
   assert.match(read('downloads.js'),/if\(!rights\.checked\)/);
   assert.match(read('downloads.js'),/rights\.checked=false/);
@@ -61,7 +63,7 @@ test('offline shell references files present in the static release package',()=>
   assert.match(serviceWorker,/url\.origin !== self\.location\.origin/);
 });
 
-test('PWA shares the Yamaportal auth session and excludes the Windows downloader',()=>{
+test('PWA shares the Yamaportal auth session and requires an installed app for social downloads',()=>{
   const account=read('account.js');
   const portalAuth=fs.readFileSync(path.join(root,'products','yamaportal','preview','dist','account-ui.js'),'utf8');
   assert.match(account,/storageKey:'yamaportal-auth-v1'/);
@@ -72,8 +74,10 @@ test('PWA shares the Yamaportal auth session and excludes the Windows downloader
   assert.match(account,/window\.YamaConvertAuth/);
   assert.doesNotMatch(account,/refresh_token/);
   assert.ok(!fs.existsSync(path.join(pwa,'yt-dlp.exe')));
-  assert.match(read('downloads.js'),/Stahovací služba/);
-  assert.match(read('downloads.js'),/\/api\/social-download/);
+  assert.match(read('downloads.js'),/Stahování odkazů je dostupné v aplikaci YamaConvert pro Android a Windows/);
+  assert.match(read('index.html'),/Stáhnout aplikaci pro Android/);
+  assert.match(read('index.html'),/download-windows-app/);
+  assert.doesNotMatch(read('downloads.js'),/\/api\/social-download/);
 });
 
 test('Yamaportal offers the native YamaConvert APK and web PWA with shared updates',()=>{
