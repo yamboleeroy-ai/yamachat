@@ -37,6 +37,7 @@ android {
     }
 
     sourceSets.main.res.srcDirs += ["$buildDir/generated/yamaconvert-res"]
+    sourceSets.main.jniLibs.srcDirs += ["$buildDir/generated/yamaconvert-jniLibs"]
 }
 
 dependencies {
@@ -50,3 +51,4 @@ tasks.register('prepareYamaConvertIcon', Copy) {
     rename { 'yamaconvert_icon.png' }
 }
 tasks.named('preBuild').configure { dependsOn('prepareYamaConvertIcon') }
+
