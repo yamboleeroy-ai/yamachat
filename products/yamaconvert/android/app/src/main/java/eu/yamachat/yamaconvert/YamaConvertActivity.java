@@ -308,12 +308,19 @@ public final class YamaConvertActivity extends Activity {
                 .setOutputTemplate(new File(directory, "%(id)s.%(ext)s").getAbsolutePath())
                 .addOption("--no-config")
                 .addOption("--no-playlist")
-                .addOption("--no-cache-dir")
                 .addOption("--no-warnings")
                 .addOption("--socket-timeout", "15")
                 .addOption("--retries", "1")
                 .addOption("--max-filesize", "100M")
+                .addOption("--remote-components", "ejs:github")
                 .addOption("-f", selector);
+            File quickJs = new File(getApplicationInfo().nativeLibraryDir, "libqjs.so");
+            if (!quickJs.isFile() || !quickJs.canExecute()) {
+                deleteTree(directory);
+                fail(requestId, "Android stahovací engine není kompletní. Nainstaluj aktuální vydání z Yamaportalu.");
+                return;
+            }
+            request.addOption("--js-runtimes", "quickjs:" + quickJs.getAbsolutePath());
             FutureTask<Void> task = new FutureTask<>(() -> {
                 try {
                     YtDlp.init(getApplicationContext());
@@ -373,6 +380,8 @@ public final class YamaConvertActivity extends Activity {
         String error = raw == null ? "" : raw.toLowerCase(Locale.ROOT);
         if (error.contains("not a bot") || error.contains("captcha") || error.contains("automated"))
             return "Platforma omezuje automatické stahování této položky. Aplikace nepřekonává její ochranu.";
+        if (error.contains("no supported javascript runtime") || error.contains("js challenge") || error.contains("ejs"))
+            return "YouTube změnil ověření videa. Aktualizuj YamaConvert z Yamaportalu a zkus to znovu.";
         if (error.contains("sign in") || error.contains("login") || error.contains("private") || error.contains("members only"))
             return "Příspěvek vyžaduje přihlášení nebo není veřejný.";
         if (error.contains("requested format is not available")) return "Příspěvek nenabízí zvolený formát.";
@@ -390,3 +399,4 @@ public final class YamaConvertActivity extends Activity {
         super.onDestroy();
     }
 }
+
