@@ -4,8 +4,8 @@ YamaConvert is served as an installable Progressive Web App from the existing
 Yamaportal Cloudflare Pages site at `/yamaconvert/`. A separate native Android
 project lives in `android/`; it opens the same Yamaportal page, keeps its own
 Yamaportal sign-in and runs the public-link downloader on the phone. Android
-file conversions remain local. The PWA and Windows installation keep using the
-hosted downloader when it accepts a public URL.
+file conversions remain local. The Windows desktop version continues to use its local
+downloader; the hosted PWA is for converting files already on the device.
 
 The Android PWA registers as a system share target for audio and video files.
 Saved files can be shared directly into YamaConvert for local conversion.
@@ -13,9 +13,11 @@ Shared files stay in a same-origin IndexedDB inbox until the PWA opens them;
 unopened inbox entries expire after 24 hours.
 
 YamaConvert also accepts public links from supported social and video sites.
-The web/PWA uses the hosted downloader; the native APK invokes yt-dlp locally
-on the phone, so source sites see the user's network instead of a cloud-server
-IP. Both paths offer MP3, MP4, or WEBM output choices. Each download requires
+The Android APK invokes yt-dlp locally on the phone, so source sites see the
+user's network instead of a cloud-server IP. The existing Windows desktop app
+continues to use its local downloader. The web/PWA directs users to the app for
+social downloads and remains available for local file conversion. Android offers
+MP3, MP4, or WEBM output choices. Each download requires
 a Yamaportal sign-in and a fresh
 confirmation that the user has rights to use the content. Changing a link or
 starting another download clears the confirmation. Downloads are limited to

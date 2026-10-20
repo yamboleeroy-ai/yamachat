@@ -74,9 +74,10 @@ test('PWA shares the Yamaportal auth session and requires an installed app for s
   assert.match(account,/window\.YamaConvertAuth/);
   assert.doesNotMatch(account,/refresh_token/);
   assert.ok(!fs.existsSync(path.join(pwa,'yt-dlp.exe')));
-  assert.match(read('downloads.js'),/Stahování odkazů je dostupné v aplikaci YamaConvert pro Android a Windows/);
+  assert.match(read('downloads.js'),/Stahování sociálních odkazů vyžaduje aplikaci YamaConvert pro Android/);
   assert.match(read('index.html'),/Stáhnout aplikaci pro Android/);
-  assert.match(read('index.html'),/download-windows-app/);
+  assert.match(read('index.html'),/download-windows-info/);
+  assert.match(read('downloads.js'),/místní desktopovou aplikaci YamaConvert/);
   assert.doesNotMatch(read('downloads.js'),/\/api\/social-download/);
 });
 
