@@ -61,7 +61,7 @@ jobs:
           INPUT_CODE: ${{ inputs.versionCode }}
           KEYSTORE_BASE64: ${{ secrets.YAMACONVERT_ANDROID_KEYSTORE_BASE64 }}
           STORE_PASSWORD: ${{ secrets.YAMACONVERT_ANDROID_STORE_PASSWORD }}
-          KEY_ALIAS: ${{ secrets.YAMACONVERT_ANDROID_KEY_ALIAS }}
+          KEY_ALIAS: yamaconvert
           KEY_PASSWORD: ${{ secrets.YAMACONVERT_ANDROID_KEY_PASSWORD }}
           EXPECTED_CERT: ${{ vars.YAMACONVERT_ANDROID_CERT_SHA256 }}
         run: |
@@ -79,7 +79,7 @@ jobs:
       - name: Build signed Android APK
         env:
           YAMACONVERT_STORE_PASSWORD: ${{ secrets.YAMACONVERT_ANDROID_STORE_PASSWORD }}
-          YAMACONVERT_KEY_ALIAS: ${{ secrets.YAMACONVERT_ANDROID_KEY_ALIAS }}
+          YAMACONVERT_KEY_ALIAS: yamaconvert
           YAMACONVERT_KEY_PASSWORD: ${{ secrets.YAMACONVERT_ANDROID_KEY_PASSWORD }}
         run: |
           set -euo pipefail
