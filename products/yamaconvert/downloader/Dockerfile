@@ -12,7 +12,8 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
-COPY server.cjs ./server.cjs
+COPY server.cjs supported-sites.txt ./
 USER node
 EXPOSE 3000
 CMD ["node", "server.cjs"]
+
