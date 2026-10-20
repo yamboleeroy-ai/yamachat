@@ -48,13 +48,11 @@ jobs:
           $headers = @{ 'User-Agent' = 'YamaConvert-Windows-Packager' }
           $ytRelease = Invoke-RestMethod -Uri 'https://api.github.com/repos/yt-dlp/yt-dlp/releases/latest' -Headers $headers
           $ytBinary = $ytRelease.assets | Where-Object name -eq 'yt-dlp.exe' | Select-Object -First 1
-          $ytSums = $ytRelease.assets | Where-Object name -eq 'SHA2-256SUMS' | Select-Object -First 1
-          if (-not $ytBinary -or -not $ytSums) { throw 'Oficiální vydání yt-dlp neobsahuje program nebo kontrolní součty.' }
+          if (-not $ytBinary) { throw 'Oficialni vydani yt-dlp neobsahuje program.' }
           $ytTemp = Join-Path $work 'yt-dlp.exe'
           Invoke-WebRequest -UseBasicParsing -Uri $ytBinary.browser_download_url -OutFile $ytTemp -Headers $headers
-          $sumText = (Invoke-WebRequest -UseBasicParsing -Uri $ytSums.browser_download_url -Headers $headers).Content
-          $ytHash = [regex]::Match($sumText, '(?m)^([0-9a-fA-F]{64})\s+\*?yt-dlp\.exe\s*$')
-          if (-not $ytHash.Success) { throw 'V oficiálním vydání yt-dlp chybí SHA-256 kontrolní součet.' }
+          $ytHash = [regex]::Match([string]$ytBinary.digest, '^sha256:([0-9a-fA-F]{64})$')
+          if (-not $ytHash.Success) { throw 'GitHub API nevrátilo SHA-256 pro oficiální yt-dlp.exe.' }
           $actualYtHash = (Get-FileHash -LiteralPath $ytTemp -Algorithm SHA256).Hash
           if ($actualYtHash -ine $ytHash.Groups[1].Value) { throw 'Kontrolní součet yt-dlp nesouhlasí.' }
           $ytDir = Join-Path $stage 'vendor\yt-dlp'
