@@ -55,7 +55,7 @@ function remove(dir) {
 function handler(req, res) {
   const pathname = new URL(req.url, 'http://127.0.0.1').pathname;
   if (req.method === 'GET' && pathname === '/api/status') {
-    respond(res, 200, { socialDownloads: true, maxBytes: MAX_BYTES });
+    respond(res, 200, { app: true, socialDownloads: fs.existsSync(EXE), maxBytes: MAX_BYTES });
     return true;
   }
   if (req.method !== 'POST' || pathname !== '/api/social-download') return false;
