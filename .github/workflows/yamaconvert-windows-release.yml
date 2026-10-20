@@ -1,0 +1,65 @@
+name: Publish YamaConvert Windows portable app
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Existing YamaConvert release tag to attach the Windows package to
+        required: true
+        default: yamaconvert-v1.0.0-10000
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build portable Windows package
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $ProgressPreference = 'SilentlyContinue'
+          $version = '22.23.3'
+          $zipName = "node-v$version-win-x64.zip"
+          $base = "https://nodejs.org/dist/v$version"
+          $work = Join-Path $env:RUNNER_TEMP 'yamaconvert-windows'
+          $stage = Join-Path $work 'package'
+          New-Item -ItemType Directory -Path $stage -Force | Out-Null
+          $zip = Join-Path $work $zipName
+          Invoke-WebRequest -Uri "$base/$zipName" -OutFile $zip
+          $checksums = (Invoke-WebRequest -Uri "$base/SHASUMS256.txt").Content
+          $line = [regex]::Match($checksums, "(?m)^([0-9a-f]{64})\s+\*?$([regex]::Escape($zipName))$")
+          if (-not $line.Success) { throw 'Oficiální seznam Node.js neobsahuje kontrolní součet archivu.' }
+          $actual = (Get-FileHash -LiteralPath $zip -Algorithm SHA256).Hash
+          if ($actual -ine $line.Groups[1].Value) { throw 'Kontrolní součet Node.js nesouhlasí.' }
+          Expand-Archive -LiteralPath $zip -DestinationPath $work
+          $nodeDir = Join-Path $work "node-v$version-win-x64"
+          New-Item -ItemType Directory -Path (Join-Path $stage 'runtime') -Force | Out-Null
+          Copy-Item (Join-Path $nodeDir 'node.exe') (Join-Path $stage 'runtime\node.exe')
+          Copy-Item (Join-Path $nodeDir 'LICENSE') (Join-Path $stage 'runtime\NODE-LICENSE.txt')
+          Copy-Item 'products/yamaconvert/windows/*' $stage -Recurse -Force
+          if (-not (Test-Path (Join-Path $stage 'Start-YamaConvert.cmd'))) { throw 'Balíček neobsahuje spouštěč Windows.' }
+          if (-not (Test-Path (Join-Path $stage 'media-downloader.cjs'))) { throw 'Balíček neobsahuje místní downloader.' }
+          $package = Join-Path $work 'YamaConvert-Windows-Portable.zip'
+          Compress-Archive -Path (Join-Path $stage '*') -DestinationPath $package -CompressionLevel Optimal
+          if ((Get-Item $package).Length -lt 100000) { throw 'Vytvořený balíček je neúplný.' }
+          $sum = (Get-FileHash -LiteralPath $package -Algorithm SHA256).Hash.ToLowerInvariant()
+          "$sum  YamaConvert-Windows-Portable.zip" | Set-Content -LiteralPath (Join-Path $work 'YamaConvert-Windows-SHA256SUMS.txt') -Encoding ascii
+          "PACKAGE_PATH=$package" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          "SUMS_PATH=$(Join-Path $work 'YamaConvert-Windows-SHA256SUMS.txt')" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+      - name: Attach package to the YamaConvert release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.release_tag }}
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          if ($env:RELEASE_TAG -notmatch '^yamaconvert-v[0-9]+\.[0-9]+\.[0-9]+-[0-9]+$') { throw 'Neplatná značka vydání YamaConvert.' }
+          gh release view $env:RELEASE_TAG --repo $env:GITHUB_REPOSITORY | Out-Null
+          gh release upload $env:RELEASE_TAG $env:PACKAGE_PATH $env:SUMS_PATH --repo $env:GITHUB_REPOSITORY --clobber

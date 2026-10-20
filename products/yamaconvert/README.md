@@ -4,49 +4,53 @@ YamaConvert is served as an installable Progressive Web App from the existing
 Yamaportal Cloudflare Pages site at `/yamaconvert/`. A separate native Android
 project lives in `android/`; it opens the same Yamaportal page, keeps its own
 Yamaportal sign-in and runs the public-link downloader on the phone. Android
-file conversions remain local. The Windows desktop version continues to use its local
-downloader; the hosted PWA is for converting files already on the device.
+file conversions remain local.
 
 The Android PWA registers as a system share target for audio and video files.
 Saved files can be shared directly into YamaConvert for local conversion.
 Shared files stay in a same-origin IndexedDB inbox until the PWA opens them;
 unopened inbox entries expire after 24 hours.
 
-YamaConvert also accepts public links from supported social and video sites.
-The Android APK invokes yt-dlp locally on the phone, so source sites see the
-user's network instead of a cloud-server IP. The existing Windows desktop app
-continues to use its local downloader. The web/PWA directs users to the app for
-social downloads and remains available for local file conversion. Android offers
-MP3, MP4, or WEBM output choices. Each download requires
-a Yamaportal sign-in and a fresh
-confirmation that the user has rights to use the content. Changing a link or
-starting another download clears the confirmation. Downloads are limited to
-100 MB and 10 per account per 24 hours. The service never uses source-site
-cookies or credentials and does not bypass private, paid, or DRM-protected
-content. Downloaded media is temporarily staged on the downloader service and
-deleted after it is streamed to the app; conversion and history remain local.
+Social downloads are provided by the native Android app and the portable
+Windows desktop app. Both run yt-dlp on the user's device, so the request uses
+the device's network instead of a hosted PWA server IP. The web/PWA directs
+users to an app for social downloads and remains available for local file
+conversion. The Android app uses Yamaportal sign-in. The Windows portable app
+runs locally, launches a local-only web interface, and downloads the official
+yt-dlp Windows executable on first start after validating its SHA-256 checksum.
+It includes its own Node.js runtime, so a separate Node installation is not
+required. Download the Windows ZIP from Yamaportal and run
+`Start-YamaConvert.cmd` after extracting it.
 
-Both routes use a shared allow-list in `downloader/supported-sites.txt` for
-common yt-dlp sites. The upstream extractor catalog is much larger and includes
-sources that may be broken or need an account; the app links to that catalog as
-a reference, while accepted domains stay limited to this shared list.
+Both app routes require a fresh confirmation that the user has rights to use
+the content. Changing a link or starting another download clears the
+confirmation. Downloads are limited to 100 MB. The apps do not use source-site
+cookies or credentials, do not use a proxy, and do not bypass private, paid, or
+DRM-protected content; a platform can still refuse a download.
 
-The native project uses the free `yt-dlp-android` library from Maven Central
-and bundles QuickJS-NG for yt-dlp's YouTube JavaScript challenge support. The
-Android preview and release workflows build the runtime for arm64 and x86_64;
-run `bash scripts/build-quickjs.sh` from `android/` before making a local APK.
-The app does not pass social-site cookies or credentials, use a proxy, or
-attempt to overcome a platform block; a platform can still refuse a download. A signed
-release is published as a versioned GitHub Release. The Portal links to its
-stable APK asset, and the installed app checks GitHub Releases for newer
-versions. Android asks the user to approve each APK update and validates the
-product signature before replacing the installed app. The release workflow
-requires YamaConvert-specific signing secrets and a pinned certificate
-fingerprint; it is separate from YamaSearch signing material.
+Android offers MP3, MP4, or WEBM output choices. Downloaded media is temporarily
+staged by the Android downloader service and deleted after it is streamed to
+the app; conversion and history remain local. The Windows app processes
+downloads and file conversions on the user's own computer.
+
+The Android route uses a shared allow-list in
+`downloader/supported-sites.txt` for common yt-dlp sites. The upstream
+extractor catalog is much larger and includes sources that may be broken or
+need an account; accepted domains stay limited to this shared list.
+
+The native Android project uses the free `yt-dlp-android` library from Maven
+Central and bundles QuickJS-NG for yt-dlp's YouTube JavaScript challenge
+support. The Android preview and release workflows build the runtime for arm64
+and x86_64; run `bash scripts/build-quickjs.sh` from `android/` before making
+a local APK. A signed release is published as a versioned GitHub Release. The
+Portal links to its stable APK asset, and the installed app checks GitHub
+Releases for newer versions. Android asks the user to approve each APK update
+and validates the product signature before replacing the installed app.
+Windows downloads use a stable release asset URL; download a fresh ZIP to
+update the portable app.
 
 Build a local preview in Android Studio by opening `android/`; build QuickJS
 first using the script above. The debug package ID is
 `eu.yamachat.yamaconvert.preview`, so it installs beside any future public
-version. The `yamaconvert-android-preview.yml` workflow builds the same APK and
-stores it as a temporary GitHub Actions artifact; it does not publish it.
-
+version. The `yamaconvert-android-preview.yml` workflow builds the same APK
+and stores it as a temporary GitHub Actions artifact; it does not publish it.
