@@ -1,0 +1,75 @@
+name: Publish Yamaportal to Cloudflare Pages
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/yamaportal-pages-production.yml'
+      - 'products/yamaportal/preview/dist/**'
+      - 'release-feed.json'
+      - 'scripts/prepare-cloudflare-pages.mjs'
+permissions:
+  contents: read
+concurrency:
+  group: yamaportal-pages-production
+  cancel-in-progress: false
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Build and verify the production web package
+        run: |
+          set -euo pipefail
+          node scripts/build-web.mjs
+          node scripts/check.mjs
+          node scripts/prepare-cloudflare-pages.mjs
+          test -s web-dist/index.html
+          test -s web-dist/yamachat.html
+          test -s web-dist/release-feed.json
+          test -s web-dist/yamasearch/index.html
+          node - <<'NODE'
+          const fs=require('node:fs');
+          const feed=JSON.parse(fs.readFileSync('web-dist/release-feed.json','utf8'));
+          if(!feed.releases.some(item=>item.id==='yamaportal:v0.2.0')) throw Error('Published release entry is missing');
+          const chat=fs.readFileSync('web-dist/yamachat.html','utf8');
+          if(!/<title>Yamachat<\/title>/i.test(chat)) throw Error('Standalone Yamachat entry is missing');
+          NODE
+      - name: Resolve the existing production Pages project for yamachat.eu
+        id: project
+        run: |
+          set -euo pipefail
+          test -n "$CLOUDFLARE_API_TOKEN"
+          test -n "$CLOUDFLARE_ACCOUNT_ID"
+          curl -fsS -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+            "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/pages/projects" > /tmp/pages-projects.json
+          node - <<'NODE' >> "$GITHUB_OUTPUT"
+          const fs=require('node:fs');
+          const data=JSON.parse(fs.readFileSync('/tmp/pages-projects.json','utf8'));
+          if(!data.success) throw Error('Cloudflare Pages project lookup failed');
+          const matches=(data.result||[]).filter(project=>(project.domains||[]).includes('yamachat.eu'));
+          if(matches.length!==1) throw Error(`Expected exactly one existing Pages project for yamachat.eu, found ${matches.length}`);
+          const project=matches[0];
+          if(project.production_branch!=='main') throw Error(`Production branch mismatch: ${project.production_branch}`);
+          process.stdout.write(`name=${project.name}\n`);
+          NODE
+      - name: Deploy to the existing production project
+        run: npx --yes wrangler@latest pages deploy web-dist --project-name "${{ steps.project.outputs.name }}" --branch main
+      - name: Verify production release feed and existing Yamachat path
+        run: |
+          set -euo pipefail
+          for attempt in $(seq 1 18); do
+            if curl -fsS "https://yamachat.eu/release-feed.json?release-check=$GITHUB_RUN_ID-$attempt" | grep -q 'yamaportal:v0.2.0'; then break; fi
+            if [ "$attempt" -eq 18 ]; then echo 'Production release feed did not become available'; exit 1; fi
+            sleep 10
+          done
+          curl -fsSI https://yamachat.eu/yamachat.html | grep -Eq '^HTTP/[0-9.]+ 200'
+          curl -fsSI https://yamachat.eu/reset-password.html | grep -Eq '^HTTP/[0-9.]+ 200'
+          curl -fsSI https://yamachat.eu/yamasearch/ | grep -Eq '^HTTP/[0-9.]+ 200'
