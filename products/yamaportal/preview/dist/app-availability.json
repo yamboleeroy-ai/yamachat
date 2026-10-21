@@ -1,5 +1,5 @@
 {
-  "checkedAt": "2026-10-19T01:08:44.670Z",
+  "checkedAt": "2026-10-21T09:10:00.000Z",
   "results": [
     {
       "id": "search-android",
@@ -78,6 +78,27 @@
       "url": "https://updates.yamachat.eu/yamahelp/YamaHelp-Portable-latest.zip",
       "status": 200,
       "type": "application/x-zip-compressed",
+      "available": true
+    },
+    {
+      "id": "view-installer",
+      "url": "https://updates.yamachat.eu/yamaview/YamaView-Setup-latest.exe",
+      "status": 200,
+      "type": "application/vnd.microsoft.portable-executable",
+      "available": true
+    },
+    {
+      "id": "view-portable",
+      "url": "https://updates.yamachat.eu/yamaview/YamaView-Portable-latest.zip",
+      "status": 200,
+      "type": "application/zip",
+      "available": true
+    },
+    {
+      "id": "view-android-test",
+      "url": "https://updates.yamachat.eu/yamaview/YamaView-Android-1.6.0-test.apk",
+      "status": 200,
+      "type": "application/vnd.android.package-archive",
       "available": true
     }
   ]
