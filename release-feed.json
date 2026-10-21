@@ -2,6 +2,21 @@
   "schemaVersion": 1,
   "releases": [
     {
+      "id": "yamaconvert:1.0.3",
+      "app": "yamaconvert",
+      "kind": "update",
+      "version": "1.0.3",
+      "title": "YamaConvert 1.0.3",
+      "summary": "Přehlednější rozhraní Androidu a spolehlivější aktualizace; stahování a převody zůstávají zachované.",
+      "details": "Android nyní zobrazuje všechny hlavní části v přehledné navigaci pro telefon. Po dokončení stažení a převodu otevře aplikace frontu souborů. Kontrola aktualizací vyhledává vydání YamaConvert samostatně, takže ji nezakryjí vydání jiných aplikací Yamachat. Přihlášení přes Yamaportal a stahování přímo v telefonu zůstávají zachované.",
+      "releasedAt": "2026-10-21T09:58:53Z",
+      "platforms": [
+        "Android APK",
+        "Android PWA",
+        "Web"
+      ]
+    },
+    {
       "id": "yamaconvert:1.0.2",
       "app": "yamaconvert",
       "kind": "update",
