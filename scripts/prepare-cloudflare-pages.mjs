@@ -44,7 +44,11 @@ for(const file of ['index.html','app.css','app.js','sw.js','manifest.webmanifest
 // YamaConvert is shipped as an installable Android PWA. The Windows local
 // downloader is deliberately not copied into this public static package.
 copy('products/yamaconvert/pwa','yamaconvert');
-const downloaderUrl=String(process.env.YAMACONVERT_DOWNLOADER_URL||'').trim().replace(/\/+$/,'');
+// The downloader lives on the Yama domain and validates both the Yamaportal
+// session and the allowed web origin. Keep this default so production PWA
+// releases cannot silently lose the protected social-download capability when
+// a CI repository variable has not been configured yet.
+const downloaderUrl=String(process.env.YAMACONVERT_DOWNLOADER_URL||'https://downloads.yamachat.eu').trim().replace(/\/+$/,'');
 if(downloaderUrl){
   const parsed=new URL(downloaderUrl);
   if(parsed.protocol!=='https:'||parsed.username||parsed.password||parsed.pathname!=='/'||parsed.search||parsed.hash)
