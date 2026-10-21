@@ -3,14 +3,18 @@ package eu.yamachat.yamaconvert;
 import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.app.AlertDialog;
+import android.content.ContentValues;
 import android.content.Intent;
 import android.graphics.Color;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.os.Environment;
 import android.os.Build;
 import android.provider.Settings;
+import android.provider.MediaStore;
+import android.util.Base64;
 import android.webkit.JavascriptInterface;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebResourceResponse;
@@ -38,6 +42,7 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 import java.io.FileOutputStream;
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.util.Locale;
 import java.util.HashSet;
 import java.util.Map;
@@ -59,9 +64,13 @@ public final class YamaConvertActivity extends Activity {
     private static final String RELEASE_API = "https://api.github.com/repos/yamboleeroy-ai/yamachat/releases?per_page=100";
     private static final long MAX_BYTES = 100L * 1024L * 1024L;
     private static final Pattern REQUEST_ID = Pattern.compile("yc-[a-zA-Z0-9-]{8,64}");
+    private static final Pattern SAVE_REQUEST_ID = Pattern.compile("yc-save-[a-zA-Z0-9-]{8,64}");
+    private static final int CREATE_EXPORT_REQUEST = 0x5943;
     private final Handler main = new Handler(Looper.getMainLooper());
     private final ExecutorService downloads = Executors.newSingleThreadExecutor();
     private final Map<String, File> exposedFiles = new ConcurrentHashMap<>();
+    private final Map<String, ConvertedExport> pendingExports = new ConcurrentHashMap<>();
+    private ConvertedExport pendingDocumentExport;
     private final Map<String, Future<?>> activeJobs = new ConcurrentHashMap<>();
     private final Set<String> cancelledJobs = ConcurrentHashMap.newKeySet();
     private WebView webView;
@@ -70,6 +79,23 @@ public final class YamaConvertActivity extends Activity {
     private boolean updateCheckStarted;
     private Set<String> supportedMediaHosts = Set.of();
     private File pendingUpdateApk;
+
+    private static final class ConvertedExport {
+        final String id;
+        final String name;
+        final String mime;
+        final File file;
+        final FileOutputStream output;
+        long bytes;
+
+        ConvertedExport(String id, String name, String mime, File file, FileOutputStream output) {
+            this.id = id;
+            this.name = name;
+            this.mime = mime;
+            this.file = file;
+            this.output = output;
+        }
+    }
 
     @SuppressLint({"SetJavaScriptEnabled", "JavascriptInterface"})
     @Override protected void onCreate(Bundle state) {
@@ -337,6 +363,65 @@ public final class YamaConvertActivity extends Activity {
     private final class AndroidBridge {
         @JavascriptInterface public boolean isReady() { return true; }
 
+        @JavascriptInterface public boolean beginConvertedFile(String id, String rawName, String mime) {
+            if (id == null || !SAVE_REQUEST_ID.matcher(id).matches() || pendingExports.containsKey(id) ||
+                rawName == null || mime == null || !mime.matches("[A-Za-z0-9!#&^_.+-]+/[A-Za-z0-9!#&^_.+-]+")) return false;
+            String name = rawName.replaceAll("[\\\\/:*?\"<>|\\p{Cntrl}]", "_").trim();
+            if (name.isEmpty() || name.equals(".") || name.equals("..")) return false;
+            if (name.length() > 180) name = name.substring(name.length() - 180);
+            File directory = new File(getCacheDir(), "yamaconvert-exports");
+            if (!directory.exists() && !directory.mkdirs()) return false;
+            File file = new File(directory, UUID.randomUUID() + ".part");
+            try {
+                ConvertedExport export = new ConvertedExport(id, name, mime, file, new FileOutputStream(file));
+                pendingExports.put(id, export);
+                return true;
+            } catch (IOException error) {
+                file.delete();
+                return false;
+            }
+        }
+
+        @JavascriptInterface public boolean writeConvertedFileChunk(String id, String encoded) {
+            ConvertedExport export = id == null ? null : pendingExports.get(id);
+            if (export == null || encoded == null || encoded.length() > 400000) return false;
+            try {
+                byte[] bytes = Base64.decode(encoded, Base64.NO_WRAP);
+                synchronized (export) {
+                    if (pendingExports.get(id) != export || export.bytes + bytes.length > MAX_BYTES) return false;
+                    export.output.write(bytes);
+                    export.bytes += bytes.length;
+                }
+                return true;
+            } catch (Exception error) {
+                return false;
+            }
+        }
+
+        @JavascriptInterface public boolean finishConvertedFile(String id) {
+            ConvertedExport export = id == null ? null : pendingExports.remove(id);
+            if (export == null) return false;
+            try {
+                synchronized (export) { export.output.close(); }
+                if (export.bytes <= 0 || export.bytes > MAX_BYTES) throw new IOException("Neplatná velikost souboru.");
+                if (Build.VERSION.SDK_INT >= 29) downloads.execute(() -> saveExportToDownloads(export));
+                else main.post(() -> requestExportLocation(export));
+                return true;
+            } catch (Exception error) {
+                failExport(export, "Hotový soubor se nepodařilo připravit k uložení.");
+                return false;
+            }
+        }
+
+        @JavascriptInterface public void cancelConvertedFile(String id) {
+            ConvertedExport export = id == null ? null : pendingExports.remove(id);
+            if (export == null) return;
+            synchronized (export) {
+                try { export.output.close(); } catch (IOException ignored) { }
+            }
+            export.file.delete();
+        }
+
         @JavascriptInterface public void downloadMedia(String rawUrl, String format, String requestId) {
             if (requestId == null || !REQUEST_ID.matcher(requestId).matches()) return;
             URI uri;
@@ -417,6 +502,66 @@ public final class YamaConvertActivity extends Activity {
         }
     }
 
+    private void requestExportLocation(ConvertedExport export) {
+        if (pendingDocumentExport != null) {
+            failExport(export, "Nejdřív dokonči předchozí výběr umístění.");
+            return;
+        }
+        pendingDocumentExport = export;
+        Intent intent = new Intent(Intent.ACTION_CREATE_DOCUMENT);
+        intent.addCategory(Intent.CATEGORY_OPENABLE);
+        intent.setType(export.mime);
+        intent.putExtra(Intent.EXTRA_TITLE, export.name);
+        try { startActivityForResult(intent, CREATE_EXPORT_REQUEST); }
+        catch (Exception error) {
+            pendingDocumentExport = null;
+            failExport(export, "Výběr umístění pro soubor se nepodařilo otevřít.");
+        }
+    }
+
+    private void saveExportToDownloads(ConvertedExport export) {
+        Uri destination = null;
+        try {
+            ContentValues values = new ContentValues();
+            values.put(MediaStore.MediaColumns.DISPLAY_NAME, export.name);
+            values.put(MediaStore.MediaColumns.MIME_TYPE, export.mime);
+            values.put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS + "/YamaConvert");
+            values.put(MediaStore.MediaColumns.IS_PENDING, 1);
+            destination = getContentResolver().insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values);
+            if (destination == null) throw new IOException("Android nevytvořil soubor ve Stažených souborech.");
+            try (InputStream input = new FileInputStream(export.file);
+                 OutputStream output = getContentResolver().openOutputStream(destination, "w")) {
+                if (output == null) throw new IOException("Android neotevřel uložený soubor.");
+                copy(input, output);
+            }
+            ContentValues ready = new ContentValues();
+            ready.put(MediaStore.MediaColumns.IS_PENDING, 0);
+            if (getContentResolver().update(destination, ready, null, null) != 1)
+                throw new IOException("Android soubor nedokončil.");
+            completeExport(export, true, "Uloženo do Stažených souborů/YamaConvert.");
+        } catch (Exception error) {
+            if (destination != null) getContentResolver().delete(destination, null, null);
+            failExport(export, "Soubor se nepodařilo uložit do Stažených souborů.");
+        }
+    }
+
+    private static void copy(InputStream input, OutputStream output) throws IOException {
+        byte[] buffer = new byte[65536];
+        int count;
+        while ((count = input.read(buffer)) != -1) output.write(buffer, 0, count);
+    }
+
+    private void completeExport(ConvertedExport export, boolean success, String message) {
+        export.file.delete();
+        main.post(() -> evaluate("window.onYamaConvertNativeSaveComplete&&window.onYamaConvertNativeSaveComplete(" +
+            JSONObject.quote(export.id) + "," + success + "," + JSONObject.quote(message) + ")"));
+    }
+
+    private void failExport(ConvertedExport export, String message) {
+        export.file.delete();
+        completeExport(export, false, message);
+    }
+
     private void progress(String requestId, float progress) {
         main.post(() -> evaluate("window.onYamaConvertNativeProgress&&window.onYamaConvertNativeProgress(" +
             JSONObject.quote(requestId) + "," + Math.round(progress) + ",\"\")"));
@@ -447,6 +592,17 @@ public final class YamaConvertActivity extends Activity {
         for (Future<?> job : activeJobs.values()) job.cancel(true);
         activeJobs.clear();
         cancelledJobs.clear();
+        for (ConvertedExport export : pendingExports.values()) {
+            synchronized (export) {
+                try { export.output.close(); } catch (IOException ignored) { }
+            }
+            export.file.delete();
+        }
+        pendingExports.clear();
+        if (pendingDocumentExport != null) {
+            pendingDocumentExport.file.delete();
+            pendingDocumentExport = null;
+        }
         exposedFiles.clear();
         deleteTree(new File(getCacheDir(), "yamaconvert-media"));
         downloads.shutdownNow();
