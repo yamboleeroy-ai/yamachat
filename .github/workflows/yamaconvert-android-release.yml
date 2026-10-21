@@ -72,6 +72,7 @@ jobs:
               raise SystemExit("Could not pin the yt-dlp package in the Android runtime source.")
           build_file.write_text(source.replace(old, new))
           PY
+          chmod +x gradlew
           ./gradlew --no-daemon :library:publishToMavenLocal -PVERSION=2.0.3 -x test
       - name: Build the Android JavaScript runtime
         run: bash scripts/build-quickjs.sh
