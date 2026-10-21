@@ -63,6 +63,12 @@ test('offline shell references files present in the static release package',()=>
   assert.match(serviceWorker,/url\.origin !== self\.location\.origin/);
 });
 
+test('Android phone layout keeps navigation visible and returns completed downloads to the queue',()=>{
+  assert.match(read('index.html'),/@media\(max-width:420px\)\{.*?\.nav\{display:grid;grid-template-columns:repeat\(2,minmax\(0,1fr\)\)/);
+  assert.match(read('app.js'),/showConverter:[^}]*scrollIntoView\(\{behavior:"smooth",block:"start"\}\)/);
+  assert.match(read('downloads.js'),/window\.YamaApp\.showConverter\(\)/);
+  assert.match(read('sw.js'),/yamaconvert-pwa-v4/);
+});
 test('PWA shares the Yamaportal auth session and requires an installed app for social downloads',()=>{
   const account=read('account.js');
   const portalAuth=fs.readFileSync(path.join(root,'products','yamaportal','preview','dist','account-ui.js'),'utf8');
@@ -92,7 +98,8 @@ test('Yamaportal offers the native YamaConvert APK and web PWA with shared updat
   assert.match(links,/https:\/\/yamachat\.eu\/yamaconvert\//);
   assert.match(links,/releases\/latest\/download\/YamaConvert-Android\.apk/);
   assert.match(links,/Otevřít Android PWA/);
-  assert.match(links,/Instalovat YamaConvert ve Windows/);
+  assert.match(links,/Instalátor pro Windows/);
+  assert.match(links,/Windows portable/);
   assert.ok(feed.releases.some(release=>release.id==='yamaconvert:1.0.0'&&release.app==='yamaconvert'));
   assert.ok(feed.releases.some(release=>release.id==='yamaconvert:1.0.1'&&release.app==='yamaconvert'));
   assert.ok(feed.releases.some(release=>release.id==='yamaconvert:1.0.2'&&release.app==='yamaconvert'));
@@ -122,6 +129,9 @@ test('native Android project downloads on-device without source-site credentials
   assert.doesNotMatch(activity,/--cookies|--proxy|curl.cffi|impersonat/i);
   assert.match(activity,/Platforma omezuje automatické stahování/);
   assert.match(activity,/RELEASE_API/);
+  assert.ok(activity.includes("releases?per_page=100"));
+  assert.match(activity,/new org\.json\.JSONArray\(json\.toString\(\)\)/);
+  assert.ok(activity.includes("yamaconvert-v("));
   assert.match(activity,/ACTION_MANAGE_UNKNOWN_APP_SOURCES/);
   assert.match(manifest,/REQUEST_INSTALL_PACKAGES/);
   assert.match(manifest,/androidx\.core\.content\.FileProvider/);

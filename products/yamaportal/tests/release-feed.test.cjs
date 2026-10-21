@@ -24,7 +24,7 @@ test('release history contains only complete, timestamped release records',()=>{
 });
 
 test('release entries are validated, ordered, icon-branded and open details safely',()=>{
-  for(const appId of ['yamaportal','yamachat','yamasearch','yamahelp','yamaview','yamamaker'])assert.match(ui,new RegExp(`${appId}:`));
+  for(const appId of ['yamaportal','yamachat','yamasearch','yamahelp','yamaview','yamamaker','yamaconvert'])assert.match(ui,new RegExp(`${appId}:`));
   assert.match(ui,/sort\(\(a,b\)=>Date\.parse\(b\.releasedAt\)-Date\.parse\(a\.releasedAt\)\)/);
   assert.match(ui,/escape\(item\.details\)/);
   assert.match(ui,/data-release-id/);
@@ -40,7 +40,7 @@ test('release recorder accepts only complete, timestamped release records and de
     fs.copyFileSync(path.join(root,'scripts','record-portal-release.cjs'),path.join(temp,'scripts','record-portal-release.cjs'));
     fs.writeFileSync(path.join(temp,'release-feed.json'),JSON.stringify({schemaVersion:1,releases:[]}));
     const entryPath=path.join(temp,'entry.json');
-    const entry={id:'yamachat:v1.2.3',app:'yamachat',kind:'update',version:'v1.2.3',title:'Yamachat 1.2.3',summary:'Opravy a vylepšení.',details:'Oprava spojení hovoru.',releasedAt:'2026-10-20T12:00:00Z',platforms:['Windows']};
+    const entry={id:'yamaconvert:1.0.3',app:'yamaconvert',kind:'update',version:'1.0.3',title:'YamaConvert 1.0.3',summary:'Mobilní rozhraní a spolehlivé aktualizace.',details:'Android APK se aktualizuje přes Yamaportal.',releasedAt:'2026-10-21T12:00:00Z',platforms:['Android APK']};
     fs.writeFileSync(entryPath,JSON.stringify(entry));
     const run=()=>cp.spawnSync(process.execPath,[path.join(temp,'scripts','record-portal-release.cjs'),entryPath],{encoding:'utf8'});
     assert.equal(run().status,0);

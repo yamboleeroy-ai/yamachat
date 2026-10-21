@@ -53,7 +53,7 @@ import java.util.regex.Pattern;
 public final class YamaConvertActivity extends Activity {
     private static final String HOME = "https://yamachat.eu/yamaconvert/";
     private static final String SITE_ORIGIN = "https://yamachat.eu";
-    private static final String RELEASE_API = "https://api.github.com/repos/yamboleeroy-ai/yamachat/releases/latest";
+    private static final String RELEASE_API = "https://api.github.com/repos/yamboleeroy-ai/yamachat/releases?per_page=100";
     private static final long MAX_BYTES = 100L * 1024L * 1024L;
     private static final Pattern REQUEST_ID = Pattern.compile("yc-[a-zA-Z0-9-]{8,64}");
     private final Handler main = new Handler(Looper.getMainLooper());
@@ -166,23 +166,29 @@ public final class YamaConvertActivity extends Activity {
                     while ((count = input.read(buffer)) != -1 && json.length() < 1_000_000)
                         json.append(new String(buffer, 0, count, java.nio.charset.StandardCharsets.UTF_8));
                 }
-                JSONObject release = new JSONObject(json.toString());
-                if (release.optBoolean("draft") || release.optBoolean("prerelease")) return;
+                org.json.JSONArray releases = new org.json.JSONArray(json.toString());
+                JSONObject release = null;
                 int latestCode = -1;
                 String downloadUrl = null;
-                org.json.JSONArray assets = release.optJSONArray("assets");
-                if (assets == null) return;
-                for (int i = 0; i < assets.length(); i++) {
-                    JSONObject asset = assets.getJSONObject(i);
-                    String name = asset.optString("name");
-                    if ("YamaConvert-Android.apk".equals(name)) {
-                        java.util.regex.Matcher matcher = Pattern.compile("yamaconvert-v[0-9.]+-([0-9]+)").matcher(release.optString("tag_name"));
-                        if (!matcher.matches()) return;
-                        latestCode = Integer.parseInt(matcher.group(1));
-                        downloadUrl = asset.optString("browser_download_url");
-                        break;
+                Pattern releaseTag = Pattern.compile("^yamaconvert-v([0-9]+\\.[0-9]+\\.[0-9]+)-([0-9]+)$");
+                for (int releaseIndex = 0; releaseIndex < releases.length(); releaseIndex++) {
+                    JSONObject candidate = releases.getJSONObject(releaseIndex);
+                    if (candidate.optBoolean("draft") || candidate.optBoolean("prerelease")) continue;
+                    java.util.regex.Matcher matcher = releaseTag.matcher(candidate.optString("tag_name"));
+                    if (!matcher.matches()) continue;
+                    int candidateCode = Integer.parseInt(matcher.group(2));
+                    org.json.JSONArray assets = candidate.optJSONArray("assets");
+                    if (assets == null) continue;
+                    for (int assetIndex = 0; assetIndex < assets.length(); assetIndex++) {
+                        JSONObject asset = assets.getJSONObject(assetIndex);
+                        if ("YamaConvert-Android.apk".equals(asset.optString("name")) && candidateCode > latestCode) {
+                            latestCode = candidateCode;
+                            downloadUrl = asset.optString("browser_download_url");
+                            release = candidate;
+                        }
                     }
                 }
+                if (release == null || downloadUrl == null) return;
                 long installedCode = Build.VERSION.SDK_INT >= 28
                     ? getPackageManager().getPackageInfo(getPackageName(), 0).getLongVersionCode()
                     : getPackageManager().getPackageInfo(getPackageName(), 0).versionCode;

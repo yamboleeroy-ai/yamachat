@@ -4,7 +4,7 @@ const path=require('node:path');
 
 const root=path.resolve(__dirname,'..');
 const file=path.join(root,'release-feed.json');
-const allowed=new Set(['yamaportal','yamachat','yamasearch','yamahelp','yamaview','yamamaker']);
+const allowed=new Set(['yamaportal','yamachat','yamasearch','yamahelp','yamaview','yamamaker','yamaconvert']);
 const input=process.argv[2];
 if(!input){console.error('Usage: node scripts/record-portal-release.cjs <verified-release-entry.json>');process.exit(2);}
 const entry=JSON.parse(fs.readFileSync(path.resolve(input),'utf8'));
