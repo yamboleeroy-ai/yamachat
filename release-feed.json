@@ -2,6 +2,20 @@
   "schemaVersion": 1,
   "releases": [
     {
+      "id": "yamaconvert:windows:1.0.3",
+      "app": "yamaconvert",
+      "kind": "update",
+      "version": "1.0.3",
+      "title": "YamaConvert Windows 1.0.3",
+      "summary": "YamaConvert pro Windows je dostupný jako instalační EXE a přenosný ZIP. Soubory se stahují z oficiálního portálu aktualizací Yamachat.",
+      "details": "YamaConvert pro Windows je dostupný jako instalační EXE a přenosný ZIP. Soubory se stahují z oficiálního portálu aktualizací Yamachat.",
+      "releasedAt": "2026-10-21T10:34:52.205Z",
+      "platforms": [
+        "Windows instalátor (.exe)",
+        "Windows portable (.zip)"
+      ]
+    },
+    {
       "id": "yamaconvert:1.0.3",
       "app": "yamaconvert",
       "kind": "update",
