@@ -10,7 +10,7 @@ on:
       release_tag:
         description: Existing YamaConvert release tag to attach the Windows packages to
         required: true
-        default: yamaconvert-v1.0.0-10000
+        default: yamaconvert-v1.0.3-10001
         type: string
 
 permissions:
@@ -132,3 +132,98 @@ jobs:
           if ($env:RELEASE_TAG -notmatch '^yamaconvert-v[0-9]+\.[0-9]+\.[0-9]+-[0-9]+$') { throw 'Neplatná značka vydání YamaConvert.' }
           gh release view $env:RELEASE_TAG --repo $env:GITHUB_REPOSITORY | Out-Null
           gh release upload $env:RELEASE_TAG $env:SETUP_PATH $env:PORTABLE_PATH $env:SUMS_PATH --repo $env:GITHUB_REPOSITORY --clobber
+      - uses: actions/upload-artifact@v4
+        with:
+          name: yamaconvert-windows-1.0.3
+          path: |
+            ${{ env.SETUP_PATH }}
+            ${{ env.PORTABLE_PATH }}
+            ${{ env.SUMS_PATH }}
+          if-no-files-found: error
+          retention-days: 30
+
+  publish:
+    if: github.event_name == 'workflow_dispatch'
+    needs: package
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/download-artifact@v4
+        with:
+          name: yamaconvert-windows-1.0.3
+          path: release-assets
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify Cloudflare R2 access
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          set -euo pipefail
+          test -n "${CLOUDFLARE_API_TOKEN:-}"
+          test -n "${CLOUDFLARE_ACCOUNT_ID:-}"
+          npx --yes wrangler@latest r2 bucket list | grep -q 'yamachat-releases'
+      - name: Prepare Windows release manifest and checksums
+        run: |
+          set -euo pipefail
+          node - <<'NODE'
+          const fs=require('node:fs');
+          const crypto=require('node:crypto');
+          const dir='release-assets';
+          const files=['YamaConvert-Setup.exe','YamaConvert-Windows-Portable.zip'];
+          const names={'YamaConvert-Setup.exe':'YamaConvert-Setup-1.0.3.exe','YamaConvert-Windows-Portable.zip':'YamaConvert-Portable-1.0.3.zip'};
+          for(const file of files)if(!fs.statSync(`${dir}/${file}`).size)throw new Error('Missing Windows release asset: '+file);
+          const sums=files.map(file=>`${crypto.createHash('sha256').update(fs.readFileSync(`${dir}/${file}`)).digest('hex')}  ${names[file]}`).join('\n')+'\n';
+          fs.writeFileSync(`${dir}/SHA256SUMS.txt`,sums);
+          const notes='YamaConvert pro Windows je dostupný jako instalační EXE a přenosný ZIP.';
+          const manifest={product:'YamaConvert',version:'1.0.3',notes,installerUrl:'https://updates.yamachat.eu/yamaconvert/YamaConvert-Setup-latest.exe',portableUrl:'https://updates.yamachat.eu/yamaconvert/YamaConvert-Portable-latest.zip',publishedAt:new Date().toISOString()};
+          fs.writeFileSync(`${dir}/latest.json`,JSON.stringify(manifest,null,2)+'\n');
+          NODE
+      - name: Publish YamaConvert Windows downloads to Cloudflare R2
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          set -euo pipefail
+          W='npx --yes wrangler@latest'
+          BUCKET='yamachat-releases/yamaconvert'
+          $W r2 object put "$BUCKET/YamaConvert-Setup-1.0.3.exe" --file release-assets/YamaConvert-Setup.exe --content-type application/vnd.microsoft.portable-executable --content-disposition 'attachment; filename=YamaConvert-Setup-1.0.3.exe' --cache-control 'public, max-age=31536000, immutable' --remote
+          $W r2 object put "$BUCKET/YamaConvert-Portable-1.0.3.zip" --file release-assets/YamaConvert-Windows-Portable.zip --content-type application/zip --content-disposition 'attachment; filename=YamaConvert-Portable-1.0.3.zip' --cache-control 'public, max-age=31536000, immutable' --remote
+          $W r2 object put "$BUCKET/YamaConvert-Setup-latest.exe" --file release-assets/YamaConvert-Setup.exe --content-type application/vnd.microsoft.portable-executable --content-disposition 'attachment; filename=YamaConvert-Setup-latest.exe' --cache-control 'no-cache' --remote
+          $W r2 object put "$BUCKET/YamaConvert-Portable-latest.zip" --file release-assets/YamaConvert-Windows-Portable.zip --content-type application/zip --content-disposition 'attachment; filename=YamaConvert-Portable-latest.zip' --cache-control 'no-cache' --remote
+          $W r2 object put "$BUCKET/SHA256SUMS.txt" --file release-assets/SHA256SUMS.txt --content-type text/plain --cache-control 'no-cache' --remote
+          $W r2 object put "$BUCKET/latest.json" --file release-assets/latest.json --content-type application/json --cache-control 'no-cache, no-store' --remote
+      - name: Verify public Windows downloads
+        run: |
+          set -euo pipefail
+          for i in $(seq 1 30); do
+            if curl -fsS --max-time 15 "https://updates.yamachat.eu/yamaconvert/latest.json?verify=$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT-$i" | jq -e '.product == "YamaConvert" and .version == "1.0.3"' >/dev/null; then break; fi
+            test "$i" != 30 || { echo 'YamaConvert Windows update feed did not become ready'; exit 1; }
+            sleep 10
+          done
+          curl -fsSI --max-time 20 "https://updates.yamachat.eu/yamaconvert/YamaConvert-Setup-latest.exe?verify=$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" >/dev/null
+          curl -fsSI --max-time 20 "https://updates.yamachat.eu/yamaconvert/YamaConvert-Portable-latest.zip?verify=$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" >/dev/null
+      - name: Record verified Windows release in Yamaportal
+        run: |
+          set -euo pipefail
+          node - <<'NODE'
+          const fs=require('node:fs');
+          const notes='YamaConvert pro Windows je dostupný jako instalační EXE a přenosný ZIP. Soubory se stahují z oficiálního portálu aktualizací Yamachat.';
+          const entry={id:'yamaconvert:windows:1.0.3',app:'yamaconvert',kind:'update',version:'1.0.3',title:'YamaConvert Windows 1.0.3',summary:notes,details:notes,releasedAt:new Date().toISOString(),platforms:['Windows instalátor (.exe)','Windows portable (.zip)']};
+          fs.writeFileSync('/tmp/yamaconvert-windows-release.json',JSON.stringify(entry));
+          NODE
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git fetch origin main
+          git checkout -B publish-main origin/main
+          node scripts/record-portal-release.cjs /tmp/yamaconvert-windows-release.json
+          git add release-feed.json
+          git diff --cached --quiet || git commit -m 'Record YamaConvert Windows 1.0.3 release [skip ci]'
+          git push origin HEAD:main
+
