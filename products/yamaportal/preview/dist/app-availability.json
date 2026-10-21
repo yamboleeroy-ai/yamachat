@@ -82,14 +82,14 @@
     },
     {
       "id": "view-installer",
-      "url": "https://updates.yamachat.eu/yamaview/YamaView-Setup-latest.exe",
+      "url": "https://updates.yamachat.eu/yamaview/YamaView-Setup-1.6.0.exe",
       "status": 200,
       "type": "application/vnd.microsoft.portable-executable",
       "available": true
     },
     {
       "id": "view-portable",
-      "url": "https://updates.yamachat.eu/yamaview/YamaView-Portable-latest.zip",
+      "url": "https://updates.yamachat.eu/yamaview/YamaView-Portable-1.6.0.zip",
       "status": 200,
       "type": "application/zip",
       "available": true
