@@ -58,7 +58,7 @@ test('offline shell references files present in the static release package',()=>
   assert.ok(entries.includes('./download-config.js'));
   assert.ok(entries.includes('./share-inbox.js'));
   assert.ok(entries.includes('./icons/yamaconvert-192.png'));
-  for(const entry of entries)assert.ok(fs.existsSync(path.join(pwa,entry.replace(/^\.\//,''))),`missing offline asset ${entry}`);
+  for(const entry of entries)assert.ok(fs.existsSync(path.join(pwa,entry.replace(/^\.\//,'').split('?')[0])),`missing offline asset ${entry}`);
   assert.match(serviceWorker,/request\.method !== 'GET'/);
   assert.match(serviceWorker,/url\.origin !== self\.location\.origin/);
 });
@@ -67,7 +67,9 @@ test('Android phone layout keeps navigation visible and returns completed downlo
   assert.match(read('index.html'),/@media\(max-width:420px\)\{.*?\.nav\{display:grid;grid-template-columns:repeat\(2,minmax\(0,1fr\)\)/);
   assert.match(read('app.js'),/showConverter:[^}]*scrollIntoView\(\{behavior:"smooth",block:"start"\}\)/);
   assert.match(read('downloads.js'),/window\.YamaApp\.showConverter\(\)/);
-  assert.match(read('sw.js'),/yamaconvert-pwa-v4/);
+  assert.match(read('sw.js'),/yamaconvert-pwa-v5/);
+  assert.match(read('index.html'),/app\.js\?v=10005/);
+  assert.match(read('sw.js'),/app\.js\?v=10005/);
 });
 test('PWA shares the Yamaportal auth session and requires an installed app for social downloads',()=>{
   const account=read('account.js');
