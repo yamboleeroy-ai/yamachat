@@ -73,7 +73,7 @@ jobs:
           build_file.write_text(source.replace(old, new))
           PY
           chmod +x gradlew
-          ./gradlew --no-daemon :library:publishToMavenLocal -PVERSION=2.0.3 -x test
+          ./gradlew --no-daemon :library:publishToMavenLocal -PVERSION=2.0.3 -x test -x signMavenPublication
       - name: Build the Android JavaScript runtime
         run: bash scripts/build-quickjs.sh
       - name: Test YamaConvert web and downloader
