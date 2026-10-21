@@ -118,6 +118,12 @@ test('native Android project downloads on-device without source-site credentials
   assert.match(manifest,/android:extractNativeLibs="true"/);
   assert.match(manifest,/android\.intent\.action\.SEND/);
   assert.match(activity,/YtDlp\.execute\(request/);
+  assert.match(activity,/beginConvertedFile/);
+  assert.match(activity,/writeConvertedFileChunk/);
+  assert.match(activity,/finishConvertedFile/);
+  assert.match(activity,/MediaStore\.Downloads\.EXTERNAL_CONTENT_URI/);
+  assert.match(read('app.js'),/makeDownloadButton/);
+  assert.match(read('app.js'),/window\.onYamaConvertNativeSaveComplete/);
   assert.match(activity,/--max-filesize/);
   assert.match(activity,/supportedMediaHosts/);
   assert.match(activity,/YtDlpRequest/);
