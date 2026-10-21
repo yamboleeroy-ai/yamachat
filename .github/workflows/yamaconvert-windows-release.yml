@@ -1,6 +1,10 @@
 name: Publish YamaConvert Windows app
 
 on:
+  pull_request:
+    paths:
+      - 'products/yamaconvert/windows/**'
+      - '.github/workflows/yamaconvert-windows-release.yml'
   workflow_dispatch:
     inputs:
       release_tag:
@@ -118,6 +122,7 @@ jobs:
           "SETUP_PATH=$setup" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
           "SUMS_PATH=$(Join-Path $work 'YamaConvert-Windows-SHA256SUMS.txt')" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
       - name: Attach Windows downloads to the YamaConvert release
+        if: github.event_name == 'workflow_dispatch'
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ inputs.release_tag }}
