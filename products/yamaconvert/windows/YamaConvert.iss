@@ -1,5 +1,5 @@
 #define MyAppName "YamaConvert"
-#define MyAppVersion "1.0.0"
+#define MyAppVersion "1.0.1"
 #ifndef SourceDir
   #define SourceDir "package"
 #endif
@@ -23,6 +23,7 @@ Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern
 UninstallDisplayName=YamaConvert
+CloseApplications=yes
 
 [Tasks]
 Name: "desktopicon"; Description: "Vytvořit zástupce na ploše"; GroupDescription: "Další možnosti:"
@@ -31,5 +32,5 @@ Name: "desktopicon"; Description: "Vytvořit zástupce na ploše"; GroupDescript
 Source: "{#SourceDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
-Name: "{autoprograms}\YamaConvert"; Filename: "{app}\Start-YamaConvert.cmd"; WorkingDir: "{app}"
-Name: "{autodesktop}\YamaConvert"; Filename: "{app}\Start-YamaConvert.cmd"; WorkingDir: "{app}"; Tasks: desktopicon
+Name: "{autoprograms}\YamaConvert"; Filename: "{app}\YamaConvert.exe"; WorkingDir: "{app}"
+Name: "{autodesktop}\YamaConvert"; Filename: "{app}\YamaConvert.exe"; WorkingDir: "{app}"; Tasks: desktopicon

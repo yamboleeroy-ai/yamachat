@@ -1,0 +1,8 @@
+{
+  "name": "yamaconvert",
+  "productName": "YamaConvert",
+  "version": "1.0.1",
+  "description": "Samostatná desktopová aplikace YamaConvert",
+  "main": "main.cjs",
+  "private": true
+}
