@@ -43,7 +43,7 @@ android {
 
 dependencies {
     implementation 'androidx.core:core:1.15.0'
-    implementation 'dev.ffmpegkit-maintained:yt-dlp-android:2.0.2'
+    implementation 'dev.ffmpegkit-maintained:yt-dlp-android:2.0.3'
 }
 
 tasks.register('prepareYamaConvertIcon', Copy) {

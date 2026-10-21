@@ -111,7 +111,7 @@ test('native Android project downloads on-device without source-site credentials
   const gradle=fs.readFileSync(path.join(android,'app','build.gradle'),'utf8');
   const manifest=fs.readFileSync(path.join(android,'app','src','main','AndroidManifest.xml'),'utf8');
   const activity=fs.readFileSync(path.join(android,'app','src','main','java','eu','yamachat','yamaconvert','YamaConvertActivity.java'),'utf8');
-  assert.match(gradle,/dev\.ffmpegkit-maintained:yt-dlp-android:2\.0\.2/);
+  assert.match(gradle,/dev\.ffmpegkit-maintained:yt-dlp-android:2\.0\.3/);
   assert.match(gradle,/applicationId 'eu\.yamachat\.yamaconvert'/);
   assert.match(manifest,/android:name="android\.permission\.INTERNET"/);
   assert.match(manifest,/android:usesCleartextTraffic="false"/);
