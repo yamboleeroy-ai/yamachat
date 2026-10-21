@@ -81,7 +81,7 @@ async function smokeTest() {
   })()`);
   if (result !== 'ok') throw new Error(`Kontrola interakce aplikace selhala: ${result}`);
   log('Smoke test passed: app scripts and navigation are interactive.');
-  app.exit(0);
+  app.quit();
 }
 
 function createWindow() {
@@ -112,7 +112,7 @@ function createWindow() {
   mainWindow.webContents.once('did-finish-load', () => {
     if (process.env.YAMACONVERT_SMOKE_TEST === '1') void smokeTest().catch(error => {
       log(error.stack || error.message);
-      app.exit(1);
+      app.quit();
     });
   });
   mainWindow.loadURL(`http://127.0.0.1:${serverPort}/`);
