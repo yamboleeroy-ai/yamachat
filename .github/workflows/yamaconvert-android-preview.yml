@@ -67,10 +67,11 @@ jobs:
           if source.count(old) != 1:
               raise SystemExit("Could not pin the yt-dlp package in the Android runtime source.")
           source = source.replace(old, new)
-          signing = "    signAllPublications()\\n"
-          if source.count(signing) != 1:
-              raise SystemExit("Could not disable upstream Maven signing for local-only publication.")
-          build_file.write_text(source.replace(signing, ""))
+          import re
+          source, removed = re.subn(r"(?m)^[ \t]*signAllPublications\(\)[ \t]*\r?\n", "", source)
+          if removed != 1:
+              raise SystemExit(f"Expected one upstream Maven signing call, found {removed}.")
+          build_file.write_text(source)
           PY
           chmod +x gradlew
           ./gradlew --no-daemon :library:publishToMavenLocal -PVERSION=2.0.3 -x test
