@@ -1,13 +1,13 @@
 YamaConvert pro Windows
 
-Klasická instalace:
+Instalace:
 1. Spusť YamaConvert-Setup.exe a dokonči instalaci.
-2. Aplikaci otevři z nabídky Start nebo zástupcem na ploše.
-3. Při prvním spuštění se stáhne a ověří oficiální stahovací engine. To vyžaduje internet.
+2. Otevři „YamaConvert“ z nabídky Start nebo ze zástupce na ploše. Aplikace se otevře ve vlastním okně a není potřeba spouštět prohlížeč ani CMD.
+3. Veřejné podporované odkazy stahuje místní yt-dlp engine. Platformy mohou podporu měnit nebo blokovat.
 
 Přenosná verze:
 1. Rozbal celý ZIP do složky, do které můžeš zapisovat.
-2. Spusť Start-YamaConvert.cmd.
-3. Při prvním spuštění se stáhne a ověří oficiální stahovací engine.
+2. Spusť YamaConvert.exe.
+3. Převody i stahování běží místně v počítači.
 
-Obě verze obsahují vlastní běhové prostředí a nevyžadují samostatnou instalaci Node.js. Stahování z veřejných podporovaných odkazů běží místně v počítači. Aplikace nepoužívá přihlášení ani cookies ze zdrojových sítí. Novou verzi stáhneš znovu z Yamaportalu.
+Obě verze obsahují vlastní desktopové prostředí a běhové prostředí Node.js. Přihlášení ani cookies ze zdrojových sociálních sítí se nepoužívají. Novou verzi stáhneš znovu z Yamaportalu.
