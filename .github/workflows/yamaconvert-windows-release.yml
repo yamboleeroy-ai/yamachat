@@ -22,132 +22,8 @@ jobs:
     timeout-minutes: 30
     permissions:
       contents: write
-    outputs:
-      version: ${{ steps.release_version.outputs.version }}
     steps:
       - uses: actions/checkout@v4
-      - name: Resolve Windows package version
-        id: release_version
-        shell: pwsh
-        env:
-          EVENT_NAME: ${{ github.event_name }}
-          RELEASE_TAG: ${{ inputs.release_tag }}
-        run: |
-          if ($env:EVENT_NAME -eq 'workflow_dispatch') {
-            if ($env:RELEASE_TAG -notmatch '^yamaconvert-v(?<version>[0-9]+\.[0-9]+\.[0-9]+)-[0-9]+      - name: Build and test standalone desktop app, portable ZIP and setup EXE
-        shell: pwsh
-        run: |
-          $ErrorActionPreference = 'Stop'
-          $ProgressPreference = 'SilentlyContinue'
-          $nodeVersion = '22.23.3'
-          $work = Join-Path $env:RUNNER_TEMP 'yamaconvert-windows'
-          $stage = Join-Path $work 'package'
-          $appDir = Join-Path $stage 'resources\app'
-          New-Item -ItemType Directory -Path $stage, $appDir -Force | Out-Null
-
-          $nodeZipName = "node-v$nodeVersion-win-x64.zip"
-          $nodeBase = "https://nodejs.org/dist/v$nodeVersion"
-          $nodeZip = Join-Path $work $nodeZipName
-          Invoke-WebRequest -Uri "$nodeBase/$nodeZipName" -OutFile $nodeZip
-          $nodeChecksums = (Invoke-WebRequest -Uri "$nodeBase/SHASUMS256.txt").Content
-          $nodeLine = [regex]::Match($nodeChecksums, "(?m)^([0-9a-f]{64})\s+\*?$([regex]::Escape($nodeZipName))$")
-          if (-not $nodeLine.Success) { throw 'Oficiální seznam Node.js neobsahuje kontrolní součet archivu.' }
-          if ((Get-FileHash -LiteralPath $nodeZip -Algorithm SHA256).Hash -ine $nodeLine.Groups[1].Value) { throw 'Kontrolní součet Node.js nesouhlasí.' }
-          Expand-Archive -LiteralPath $nodeZip -DestinationPath $work
-          $nodeDir = Join-Path $work "node-v$nodeVersion-win-x64"
-          $runtimeDir = Join-Path $stage 'runtime'
-          New-Item -ItemType Directory -Path $runtimeDir -Force | Out-Null
-          Copy-Item (Join-Path $nodeDir 'node.exe') (Join-Path $runtimeDir 'node.exe')
-          Copy-Item (Join-Path $nodeDir 'LICENSE') (Join-Path $runtimeDir 'NODE-LICENSE.txt')
-
-          $headers = @{ 'User-Agent' = 'YamaConvert-Windows-Packager'; 'Accept' = 'application/vnd.github+json' }
-          $electronRelease = Invoke-RestMethod -Uri 'https://api.github.com/repos/electron/electron/releases/latest' -Headers $headers
-          $electronVersion = [string]$electronRelease.tag_name
-          if ($electronVersion -notmatch '^v[0-9]+\.[0-9]+\.[0-9]+$') { throw 'Electron API nevrátila stabilní verzi.' }
-          $electronZipName = "electron-$electronVersion-win32-x64.zip"
-          $electronAsset = $electronRelease.assets | Where-Object name -eq $electronZipName | Select-Object -First 1
-          if (-not $electronAsset) { throw "Oficiální Electron vydání neobsahuje $electronZipName." }
-          $electronHash = [regex]::Match([string]$electronAsset.digest, '^sha256:([0-9a-fA-F]{64})$')
-          if (-not $electronHash.Success) { throw 'GitHub API nevrátilo ověřitelný SHA-256 pro Electron.' }
-          $electronZip = Join-Path $work $electronZipName
-          Invoke-WebRequest -Uri $electronAsset.browser_download_url -OutFile $electronZip -Headers $headers
-          if ((Get-FileHash -LiteralPath $electronZip -Algorithm SHA256).Hash -ine $electronHash.Groups[1].Value) { throw 'Kontrolní součet Electronu nesouhlasí.' }
-          $electronDir = Join-Path $work 'electron'
-          Expand-Archive -LiteralPath $electronZip -DestinationPath $electronDir
-          Copy-Item (Join-Path $electronDir '*') $stage -Recurse -Force
-          $electronExe = Join-Path $stage 'electron.exe'
-          if (-not (Test-Path -LiteralPath $electronExe)) { throw 'Stažený Electron neobsahuje spustitelný soubor.' }
-          Move-Item -LiteralPath $electronExe -Destination (Join-Path $stage 'YamaConvert.exe')
-          $defaultApp = Join-Path $stage 'resources\default_app.asar'
-          if (Test-Path -LiteralPath $defaultApp) { Remove-Item -LiteralPath $defaultApp -Force }
-
-          $windowsSource = 'products/yamaconvert/windows'
-          Get-ChildItem -LiteralPath $windowsSource -Force | Where-Object { $_.Name -notin @('YamaConvert.iss', 'Start-YamaConvert.cmd', 'Stop-YamaConvert.cmd', 'Stop-YamaConvert.ps1', 'Start-YamaConvert.ps1', 'Install-YtDlp.ps1') } | ForEach-Object {
-            Copy-Item -LiteralPath $_.FullName -Destination $appDir -Recurse -Force
-          }
-          Copy-Item 'products/yamaconvert/windows/README-Windows.txt' (Join-Path $stage 'README-Windows.txt')
-          Copy-Item 'products/yamaconvert/windows/THIRD-PARTY-NOTICES.md' (Join-Path $stage 'THIRD-PARTY-NOTICES.md')
-
-          $ytRelease = Invoke-RestMethod -Uri 'https://api.github.com/repos/yt-dlp/yt-dlp/releases/latest' -Headers $headers
-          $ytBinary = $ytRelease.assets | Where-Object name -eq 'yt-dlp.exe' | Select-Object -First 1
-          if (-not $ytBinary) { throw 'Oficiální vydání yt-dlp neobsahuje program.' }
-          $ytTemp = Join-Path $work 'yt-dlp.exe'
-          Invoke-WebRequest -Uri $ytBinary.browser_download_url -OutFile $ytTemp -Headers $headers
-          $ytHash = [regex]::Match([string]$ytBinary.digest, '^sha256:([0-9a-fA-F]{64})$')
-          if (-not $ytHash.Success) { throw 'GitHub API nevrátilo SHA-256 pro oficiální yt-dlp.exe.' }
-          if ((Get-FileHash -LiteralPath $ytTemp -Algorithm SHA256).Hash -ine $ytHash.Groups[1].Value) { throw 'Kontrolní součet yt-dlp nesouhlasí.' }
-          $ytDir = Join-Path $appDir 'vendor\yt-dlp'
-          New-Item -ItemType Directory -Path $ytDir -Force | Out-Null
-          Move-Item -LiteralPath $ytTemp -Destination (Join-Path $ytDir 'yt-dlp.exe')
-          & (Join-Path $ytDir 'yt-dlp.exe') --version
-          if ($LASTEXITCODE -ne 0) { throw 'Přibalený yt-dlp se nepodařilo spustit.' }
-
-          foreach ($required in @('YamaConvert.exe', 'runtime\node.exe', 'resources\app\main.cjs', 'resources\app\preview.cjs', 'resources\app\media-downloader.cjs', 'resources\app\vendor\yt-dlp\yt-dlp.exe')) {
-            if (-not (Test-Path (Join-Path $stage $required))) { throw "Balíčku chybí $required." }
-          }
-          $env:YAMACONVERT_SMOKE_TEST = '1'
-          $smoke = Start-Process -FilePath (Join-Path $stage 'YamaConvert.exe') -WorkingDirectory $stage -PassThru
-          $deadline = [DateTime]::UtcNow.AddSeconds(35)
-          while (-not $smoke.HasExited -and [DateTime]::UtcNow -lt $deadline) { Start-Sleep -Milliseconds 400; $smoke.Refresh() }
-          Remove-Item Env:YAMACONVERT_SMOKE_TEST -ErrorAction SilentlyContinue
-          if (-not $smoke.HasExited) {
-            Stop-Process -Id $smoke.Id -Force -ErrorAction SilentlyContinue
-            throw 'Test samostatného okna doběhl do limitu.'
-          }
-          if ($smoke.ExitCode -ne 0) { throw "Test samostatného okna selhal (exit code $($smoke.ExitCode))." }
-
-          $portable = Join-Path $work 'YamaConvert-Windows-Portable.zip'
-          Compress-Archive -Path (Join-Path $stage '*') -DestinationPath $portable -CompressionLevel Optimal
-          if ((Get-Item $portable).Length -lt 100000) { throw 'Vytvořený ZIP je neúplný.' }
-          $iscc = 'C:\Program Files (x86)\Inno Setup 6\ISCC.exe'
-          if (-not (Test-Path -LiteralPath $iscc)) { throw 'Na Windows runneru chybí Inno Setup.' }
-          & $iscc "/DSourceDir=$stage" "/DOutputDir=$work" 'products/yamaconvert/windows/YamaConvert.iss'
-          if ($LASTEXITCODE -ne 0) { throw 'Vytvoření instalačního EXE selhalo.' }
-          $setup = Join-Path $work 'YamaConvert-Setup.exe'
-          if (-not (Test-Path -LiteralPath $setup) -or (Get-Item $setup).Length -lt 100000) { throw 'Instalační EXE je neúplné.' }
-          $zipSum = (Get-FileHash -LiteralPath $portable -Algorithm SHA256).Hash.ToLowerInvariant()
-          $exeSum = (Get-FileHash -LiteralPath $setup -Algorithm SHA256).Hash.ToLowerInvariant()
-          @("$zipSum  YamaConvert-Windows-Portable.zip", "$exeSum  YamaConvert-Setup.exe") | Set-Content -LiteralPath (Join-Path $work 'YamaConvert-Windows-SHA256SUMS.txt') -Encoding ascii
-          "PORTABLE_PATH=$portable" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
-          "SETUP_PATH=$setup" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
-          "SUMS_PATH=$(Join-Path $work 'YamaConvert-Windows-SHA256SUMS.txt')" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
-      - name: Attach Windows downloads to the YamaConvert release
-        if: github.event_name == 'workflow_dispatch'
-        env:
-          GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG: ${{ inputs.release_tag }}
-        shell: pwsh
-        run: |
-          $ErrorActionPreference = 'Stop'
-          if ($env:RELEASE_TAG -notmatch '^yamaconvert-v[0-9]+\.[0-9]+\.[0-9]+-[0-9]+$') { throw 'Neplatná značka vydání YamaConvert.' }
-          gh release view $env:RELEASE_TAG --repo $env:GITHUB_REPOSITORY | Out-Null
-          gh release upload $env:RELEASE_TAG $env:SETUP_PATH $env:PORTABLE_PATH $env:SUMS_PATH --repo $env:GITHUB_REPOSITORY --clobber
-) { throw 'Neplatná značka vydání YamaConvert.' }
-            $version = $Matches.version
-          } else {
-            $version = "pr-$env:GITHUB_RUN_NUMBER"
-          }
-          "version=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
       - name: Build and test standalone desktop app, portable ZIP and setup EXE
         shell: pwsh
         run: |
@@ -256,10 +132,9 @@ jobs:
           if ($env:RELEASE_TAG -notmatch '^yamaconvert-v[0-9]+\.[0-9]+\.[0-9]+-[0-9]+$') { throw 'Neplatná značka vydání YamaConvert.' }
           gh release view $env:RELEASE_TAG --repo $env:GITHUB_REPOSITORY | Out-Null
           gh release upload $env:RELEASE_TAG $env:SETUP_PATH $env:PORTABLE_PATH $env:SUMS_PATH --repo $env:GITHUB_REPOSITORY --clobber
-
       - uses: actions/upload-artifact@v4
         with:
-          name: yamaconvert-windows-${{ steps.release_version.outputs.version }}
+          name: yamaconvert-windows-1.0.3
           path: |
             ${{ env.SETUP_PATH }}
             ${{ env.PORTABLE_PATH }}
@@ -280,7 +155,7 @@ jobs:
           fetch-depth: 0
       - uses: actions/download-artifact@v4
         with:
-          name: yamaconvert-windows-${{ needs.package.outputs.version }}
+          name: yamaconvert-windows-1.0.3
           path: release-assets
       - uses: actions/setup-node@v4
         with:
@@ -295,8 +170,6 @@ jobs:
           test -n "${CLOUDFLARE_ACCOUNT_ID:-}"
           npx --yes wrangler@latest r2 bucket list | grep -q 'yamachat-releases'
       - name: Prepare Windows release manifest and checksums
-        env:
-          VERSION: ${{ needs.package.outputs.version }}
         run: |
           set -euo pipefail
           node - <<'NODE'
@@ -304,50 +177,45 @@ jobs:
           const crypto=require('node:crypto');
           const dir='release-assets';
           const files=['YamaConvert-Setup.exe','YamaConvert-Windows-Portable.zip'];
-          const names={'YamaConvert-Setup.exe':`YamaConvert-Setup-${process.env.VERSION}.exe`,'YamaConvert-Windows-Portable.zip':`YamaConvert-Portable-${process.env.VERSION}.zip`};
+          const names={'YamaConvert-Setup.exe':'YamaConvert-Setup-1.0.3.exe','YamaConvert-Windows-Portable.zip':'YamaConvert-Portable-1.0.3.zip'};
           for(const file of files)if(!fs.statSync(`${dir}/${file}`).size)throw new Error('Missing Windows release asset: '+file);
-          const sums=files.map(file=>`${crypto.createHash('sha256').update(fs.readFileSync(`${dir}/${file}`)).digest('hex')}  ${names[file]}`).join('\\n')+'\\n';
+          const sums=files.map(file=>`${crypto.createHash('sha256').update(fs.readFileSync(`${dir}/${file}`)).digest('hex')}  ${names[file]}`).join('\n')+'\n';
           fs.writeFileSync(`${dir}/SHA256SUMS.txt`,sums);
           const notes='YamaConvert pro Windows je dostupný jako instalační EXE a přenosný ZIP.';
-          const manifest={product:'YamaConvert',version:process.env.VERSION,notes,installerUrl:'https://updates.yamachat.eu/yamaconvert/YamaConvert-Setup-latest.exe',portableUrl:'https://updates.yamachat.eu/yamaconvert/YamaConvert-Portable-latest.zip',publishedAt:new Date().toISOString()};
-          fs.writeFileSync(`${dir}/latest.json`,JSON.stringify(manifest,null,2)+'\\n');
+          const manifest={product:'YamaConvert',version:'1.0.3',notes,installerUrl:'https://updates.yamachat.eu/yamaconvert/YamaConvert-Setup-latest.exe',portableUrl:'https://updates.yamachat.eu/yamaconvert/YamaConvert-Portable-latest.zip',publishedAt:new Date().toISOString()};
+          fs.writeFileSync(`${dir}/latest.json`,JSON.stringify(manifest,null,2)+'\n');
           NODE
       - name: Publish YamaConvert Windows downloads to Cloudflare R2
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          VERSION: ${{ needs.package.outputs.version }}
         run: |
           set -euo pipefail
           W='npx --yes wrangler@latest'
           BUCKET='yamachat-releases/yamaconvert'
-          $W r2 object put "$BUCKET/YamaConvert-Setup-$VERSION.exe" --file release-assets/YamaConvert-Setup.exe --content-type application/vnd.microsoft.portable-executable --content-disposition "attachment; filename=YamaConvert-Setup-$VERSION.exe" --cache-control 'public, max-age=31536000, immutable' --remote
-          $W r2 object put "$BUCKET/YamaConvert-Portable-$VERSION.zip" --file release-assets/YamaConvert-Windows-Portable.zip --content-type application/zip --content-disposition "attachment; filename=YamaConvert-Portable-$VERSION.zip" --cache-control 'public, max-age=31536000, immutable' --remote
+          $W r2 object put "$BUCKET/YamaConvert-Setup-1.0.3.exe" --file release-assets/YamaConvert-Setup.exe --content-type application/vnd.microsoft.portable-executable --content-disposition 'attachment; filename=YamaConvert-Setup-1.0.3.exe' --cache-control 'public, max-age=31536000, immutable' --remote
+          $W r2 object put "$BUCKET/YamaConvert-Portable-1.0.3.zip" --file release-assets/YamaConvert-Windows-Portable.zip --content-type application/zip --content-disposition 'attachment; filename=YamaConvert-Portable-1.0.3.zip' --cache-control 'public, max-age=31536000, immutable' --remote
           $W r2 object put "$BUCKET/YamaConvert-Setup-latest.exe" --file release-assets/YamaConvert-Setup.exe --content-type application/vnd.microsoft.portable-executable --content-disposition 'attachment; filename=YamaConvert-Setup-latest.exe' --cache-control 'no-cache' --remote
           $W r2 object put "$BUCKET/YamaConvert-Portable-latest.zip" --file release-assets/YamaConvert-Windows-Portable.zip --content-type application/zip --content-disposition 'attachment; filename=YamaConvert-Portable-latest.zip' --cache-control 'no-cache' --remote
           $W r2 object put "$BUCKET/SHA256SUMS.txt" --file release-assets/SHA256SUMS.txt --content-type text/plain --cache-control 'no-cache' --remote
           $W r2 object put "$BUCKET/latest.json" --file release-assets/latest.json --content-type application/json --cache-control 'no-cache, no-store' --remote
       - name: Verify public Windows downloads
-        env:
-          VERSION: ${{ needs.package.outputs.version }}
         run: |
           set -euo pipefail
           for i in $(seq 1 30); do
-            if curl -fsS --max-time 15 "https://updates.yamachat.eu/yamaconvert/latest.json?verify=$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT-$i" | jq -e --arg v "$VERSION" '.product == "YamaConvert" and .version == $v' >/dev/null; then break; fi
+            if curl -fsS --max-time 15 "https://updates.yamachat.eu/yamaconvert/latest.json?verify=$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT-$i" | jq -e '.product == "YamaConvert" and .version == "1.0.3"' >/dev/null; then break; fi
             test "$i" != 30 || { echo 'YamaConvert Windows update feed did not become ready'; exit 1; }
             sleep 10
           done
           curl -fsSI --max-time 20 "https://updates.yamachat.eu/yamaconvert/YamaConvert-Setup-latest.exe?verify=$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" >/dev/null
           curl -fsSI --max-time 20 "https://updates.yamachat.eu/yamaconvert/YamaConvert-Portable-latest.zip?verify=$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" >/dev/null
       - name: Record verified Windows release in Yamaportal
-        env:
-          VERSION: ${{ needs.package.outputs.version }}
         run: |
           set -euo pipefail
           node - <<'NODE'
           const fs=require('node:fs');
           const notes='YamaConvert pro Windows je dostupný jako instalační EXE a přenosný ZIP. Soubory se stahují z oficiálního portálu aktualizací Yamachat.';
-          const entry={id:`yamaconvert:windows:${process.env.VERSION}`,app:'yamaconvert',kind:'update',version:process.env.VERSION,title:`YamaConvert Windows ${process.env.VERSION}`,summary:notes,details:notes,releasedAt:new Date().toISOString(),platforms:['Windows instalátor (.exe)','Windows portable (.zip)']};
+          const entry={id:'yamaconvert:windows:1.0.3',app:'yamaconvert',kind:'update',version:'1.0.3',title:'YamaConvert Windows 1.0.3',summary:notes,details:notes,releasedAt:new Date().toISOString(),platforms:['Windows instalátor (.exe)','Windows portable (.zip)']};
           fs.writeFileSync('/tmp/yamaconvert-windows-release.json',JSON.stringify(entry));
           NODE
           git config user.name 'github-actions[bot]'
@@ -356,5 +224,6 @@ jobs:
           git checkout -B publish-main origin/main
           node scripts/record-portal-release.cjs /tmp/yamaconvert-windows-release.json
           git add release-feed.json
-          git diff --cached --quiet || git commit -m "Record YamaConvert Windows ${VERSION} release [skip ci]"
+          git diff --cached --quiet || git commit -m 'Record YamaConvert Windows 1.0.3 release [skip ci]'
           git push origin HEAD:main
+
