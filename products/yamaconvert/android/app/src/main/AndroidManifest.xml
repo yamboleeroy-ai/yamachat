@@ -23,6 +23,7 @@
         <activity
             android:name=".YamaConvertActivity"
             android:exported="true"
+            android:launchMode="singleTask"
             android:configChanges="keyboardHidden|orientation|screenSize">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -33,7 +34,14 @@
                 <category android:name="android.intent.category.DEFAULT" />
                 <data android:mimeType="text/plain" />
             </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="yamaconvert" android:host="auth-callback" />
+            </intent-filter>
         </activity>
     </application>
 </manifest>
+
 

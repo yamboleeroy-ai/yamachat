@@ -53,6 +53,9 @@ import java.util.regex.Pattern;
 public final class YamaConvertActivity extends Activity {
     private static final String HOME = "https://yamachat.eu/yamaconvert/";
     private static final String SITE_ORIGIN = "https://yamachat.eu";
+    private static final String PORTAL_PROFILE = "https://yamachat.eu/#profil";
+    private static final String OAUTH_SCHEME = "yamaconvert";
+    private static final String OAUTH_HOST = "auth-callback";
     private static final String RELEASE_API = "https://api.github.com/repos/yamboleeroy-ai/yamachat/releases?per_page=100";
     private static final long MAX_BYTES = 100L * 1024L * 1024L;
     private static final Pattern REQUEST_ID = Pattern.compile("yc-[a-zA-Z0-9-]{8,64}");
@@ -63,6 +66,7 @@ public final class YamaConvertActivity extends Activity {
     private final Set<String> cancelledJobs = ConcurrentHashMap.newKeySet();
     private WebView webView;
     private String pendingSharedLink;
+    private String pendingOAuthCallback;
     private boolean updateCheckStarted;
     private Set<String> supportedMediaHosts = Set.of();
     private File pendingUpdateApk;
@@ -74,7 +78,8 @@ public final class YamaConvertActivity extends Activity {
         File temp = new File(getCacheDir(), "yamaconvert-media");
         deleteTree(temp);
         temp.mkdirs();
-        pendingSharedLink = sharedText(getIntent());
+        pendingOAuthCallback = oauthCallback(getIntent());
+        pendingSharedLink = pendingOAuthCallback == null ? sharedText(getIntent()) : null;
 
         webView = new WebView(this);
         webView.setBackgroundColor(Color.rgb(12, 17, 31));
@@ -113,6 +118,7 @@ public final class YamaConvertActivity extends Activity {
             }
 
             @Override public void onPageFinished(WebView view, String url) {
+                if (pendingOAuthCallback != null && url.startsWith(SITE_ORIGIN + "/")) injectOAuthCallback();
                 if (HOME.equals(url) || url.startsWith(HOME + "?")) {
                     injectSharedLink();
                     if (!updateCheckStarted) { updateCheckStarted = true; checkForUpdate(); }
@@ -120,12 +126,19 @@ public final class YamaConvertActivity extends Activity {
             }
         });
         setContentView(webView, new FrameLayout.LayoutParams(-1, -1));
-        webView.loadUrl(HOME);
+        webView.loadUrl(pendingOAuthCallback == null ? HOME : PORTAL_PROFILE);
     }
 
     @Override protected void onNewIntent(Intent intent) {
         super.onNewIntent(intent);
         setIntent(intent);
+        String callback = oauthCallback(intent);
+        if (callback != null) {
+            pendingOAuthCallback = callback;
+            pendingSharedLink = null;
+            injectOAuthCallback();
+            return;
+        }
         pendingSharedLink = sharedText(intent);
         injectSharedLink();
     }
@@ -147,6 +160,30 @@ public final class YamaConvertActivity extends Activity {
         pendingSharedLink = null;
         String quoted = JSONObject.quote(shared);
         webView.evaluateJavascript("(()=>{const b=document.querySelector('[data-view=downloads]'),i=document.querySelector('#media-url');if(b)b.click();if(i){i.value=" + quoted + ";i.dispatchEvent(new Event('input',{bubbles:true}));}})()", null);
+    }
+
+    private void injectOAuthCallback() {
+        String callback = pendingOAuthCallback;
+        if (callback == null || webView == null) return;
+        String current = webView.getUrl();
+        if (current == null || !current.startsWith(SITE_ORIGIN + "/")) return;
+        pendingOAuthCallback = null;
+        webView.evaluateJavascript("window.dispatchEvent(new CustomEvent('yamaconvert-oauth-callback',{detail:" + JSONObject.quote(callback) + "}))", null);
+    }
+
+    private static String oauthCallback(Intent intent) {
+        if (intent == null || !Intent.ACTION_VIEW.equals(intent.getAction())) return null;
+        Uri uri = intent.getData();
+        if (uri == null || !OAUTH_SCHEME.equals(uri.getScheme()) || !OAUTH_HOST.equals(uri.getHost()) ||
+            uri.getPort() != -1 || uri.getUserInfo() != null || (uri.getPath() != null && !uri.getPath().isEmpty()) ||
+            uri.getFragment() != null || uri.toString().length() > 4096) return null;
+        Set<String> keys = uri.getQueryParameterNames();
+        if (keys.isEmpty() || keys.stream().anyMatch(key -> !Set.of("code", "error", "error_description", "error_code").contains(key))) return null;
+        java.util.List<String> codes = uri.getQueryParameters("code");
+        java.util.List<String> errors = uri.getQueryParameters("error");
+        boolean success = codes.size() == 1 && !codes.get(0).isEmpty() && errors.isEmpty();
+        boolean failure = errors.size() == 1 && !errors.get(0).isEmpty() && codes.isEmpty();
+        return success || failure ? uri.toString() : null;
     }
 
     private void checkForUpdate() {
@@ -417,4 +454,5 @@ public final class YamaConvertActivity extends Activity {
         super.onDestroy();
     }
 }
+
 

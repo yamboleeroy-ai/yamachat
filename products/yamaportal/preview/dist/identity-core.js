@@ -3,15 +3,18 @@
   const AUTHORITY='https://bxjvmjdppmqgbxfcowpf.supabase.co';
   const KNOWN=new Set(['google','azure','custom:seznam','apple','facebook','discord','github','custom:mojeid']);
   const PENDING='yamaportal-oauth-pending-v1';
+  const ANDROID_CALLBACK='yamaconvert://auth-callback';
   const LINK_HOSTS={google:['accounts.google.com'],azure:['login.microsoftonline.com'], 'custom:seznam':['login.seznam.cz'],apple:['appleid.apple.com'],facebook:['www.facebook.com','facebook.com'],discord:['discord.com'],github:['github.com'],'custom:mojeid':['mojeid.cz','www.mojeid.cz']};
   function validatePolicy(policy){if(policy?.schemaVersion!==1||policy.authorityUrl!==AUTHORITY||!Array.isArray(policy.providers)||!Array.isArray(policy.approvedCallbackUrls))throw new Error('Konfigurace přihlášení není platná.');const ids=new Set();for(const provider of policy.providers){if(!KNOWN.has(provider.id)||ids.has(provider.id))throw new Error('Nepodporovaná přihlašovací služba.');ids.add(provider.id);}return policy;}
-  function callbackFor(location,policy){const url=new URL('./auth-callback.html',location.href);if(!policy.approvedCallbackUrls.includes(url.href))return null;if(url.protocol!=='https:'&&!(url.protocol==='http:'&&['127.0.0.1','localhost'].includes(url.hostname)))return null;return url.href;}
+  function callbackFor(location,policy,override){if(override)return override===ANDROID_CALLBACK&&policy.approvedCallbackUrls.includes(override)?override:null;const url=new URL('./auth-callback.html',location.href);if(!policy.approvedCallbackUrls.includes(url.href))return null;if(url.protocol!=='https:'&&!(url.protocol==='http:'&&['127.0.0.1','localhost'].includes(url.hostname)))return null;return url.href;}
+  function callbackBase(url){return url.origin==='null'?`${url.protocol}//${url.host}${url.pathname}`:url.origin+url.pathname;}
   function availableProviders(policy,settings,callback,mode='signin'){return policy.providers.map(provider=>{const enabled=provider.id.startsWith('custom:')?provider.customProviderVerified===true&&settings?.external?.[provider.id]===true:settings?.external?.[provider.id]===true;const reason=!settings?'unavailable':!enabled?'setup':!callback?'callback':mode==='link'&&policy.manualLinkingVerified!==true?'linking':null;return {...provider,enabled,ready:reason===null,reason};});}
   class IdentityController{
-    constructor({client,policy,fetch,storage,location,now=Date.now}){this.client=client;this.policy=validatePolicy(policy);this.fetch=fetch;this.storage=storage;this.location=location;this.now=now;this.settings=null;this.busy=false;this.attempt=0;}
+    constructor({client,policy,fetch,storage,location,callbackUrl=null,now=Date.now}){this.client=client;this.policy=validatePolicy(policy);this.fetch=fetch;this.storage=storage;this.location=location;this.callbackUrl=callbackUrl;this.now=now;this.settings=null;this.busy=false;this.attempt=0;}
+    callback(){return callbackFor(this.location,this.policy,this.callbackUrl);}
     hasPending(){try{const item=JSON.parse(this.storage.getItem(PENDING));return !!item&&Number.isFinite(item.createdAt)&&this.now()>=item.createdAt&&this.now()-item.createdAt<600000;}catch{return false;}}
     async discover(){try{const response=await this.fetch(AUTHORITY+'/auth/v1/settings');if(!response.ok)throw new Error();this.settings=await response.json();}catch{this.settings=null;}return this.providers();}
-    providers(mode='signin'){return availableProviders(this.policy,this.settings,callbackFor(this.location,this.policy),mode);}
+    providers(mode='signin'){return availableProviders(this.policy,this.settings,this.callback(),mode);}
     async begin(providerId,mode='signin'){
       if(this.busy)throw new Error('Přihlášení už probíhá.');if(!['signin','link'].includes(mode))throw new Error('Neplatný způsob přihlášení.');
       const provider=this.providers(mode).find(item=>item.id===providerId);if(!provider?.ready)throw new Error('Tato možnost přihlášení se ještě připravuje.');
@@ -23,7 +26,7 @@
         if(identityError&&!['AuthSessionMissingError'].includes(identityError.name)&&identityError.code!=='session_not_found')throw new Error('Relaci se nepodařilo ověřit. Zkontroluj připojení a zkus to znovu.');
         if(mode==='link'&&(identityError||!identity?.user))throw new Error('Pro přidání služby se nejdřív přihlas ke svému účtu Yamaportal.');
         if(mode==='signin'&&identity?.user)throw new Error('Už jsi přihlášený. Další službu přidej v propojených účtech.');
-        const callback=callbackFor(this.location,this.policy);const options={redirectTo:callback,scopes:provider.scopes,skipBrowserRedirect:true};
+        const callback=this.callback();const options={redirectTo:callback,scopes:provider.scopes,skipBrowserRedirect:true};
         // Supabase SDK owns state and the PKCE verifier. Never create a client secret in a public app.
         this.storage.setItem(PENDING,JSON.stringify({provider:provider.id,mode,userId:mode==='link'?identity.user.id:null,createdAt:this.now(),callback}));
         const result=mode==='link'?await this.client.auth.linkIdentity({provider:provider.id,options}):await this.client.auth.signInWithOAuth({provider:provider.id,options});
@@ -34,8 +37,8 @@
       }catch(error){this.storage.removeItem(PENDING);throw error;}finally{this.busy=false;}
     }
     async finish(url){
-      const callback=callbackFor(this.location,this.policy);const current=new URL(url);const stored=this.storage.getItem(PENDING);let pending;try{pending=JSON.parse(stored);}catch{}
-      if(!pending||!callback||!(current.origin+current.pathname===callback||(callback.startsWith('https://')&&current.origin+current.pathname===callback.replace(/\.html$/,'')))||pending.callback!==callback||this.now()-pending.createdAt>600000||this.now()<pending.createdAt){this.storage.removeItem(PENDING);throw new Error('Přihlášení nelze ověřit. Spusť ho znovu v tomto prohlížeči.');}
+      const callback=this.callback();const current=new URL(url);const currentBase=callbackBase(current);const stored=this.storage.getItem(PENDING);let pending;try{pending=JSON.parse(stored);}catch{}
+      if(!pending||!callback||!(currentBase===callback||(callback.startsWith('https://')&&currentBase===callback.replace(/\.html$/,'')))||pending.callback!==callback||this.now()-pending.createdAt>600000||this.now()<pending.createdAt){this.storage.removeItem(PENDING);throw new Error('Přihlášení nelze ověřit. Spusť ho znovu v tomto prohlížeči.');}
       this.storage.removeItem(PENDING);
       if(current.searchParams.has('error')||!current.searchParams.get('code')||current.hash)throw new Error('Přihlášení bylo zrušené nebo odkaz není platný.');
       const {data,error}=await this.client.auth.exchangeCodeForSession(current.searchParams.get('code'));
@@ -47,5 +50,6 @@
     }
     cancel(){this.attempt++;this.storage.removeItem(PENDING);}
   }
-  return {IdentityController,validatePolicy,availableProviders,callbackFor,PENDING};
+  return {IdentityController,validatePolicy,availableProviders,callbackFor,PENDING,ANDROID_CALLBACK};
 });
+

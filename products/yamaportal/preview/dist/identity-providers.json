@@ -4,6 +4,7 @@
   "approvedCallbackUrls": [
     "http://127.0.0.1:4187/auth-callback.html",
     "http://127.0.0.1:4188/auth-callback.html",
+    "yamaconvert://auth-callback",
     "https://yamaportal-preview.pages.dev/auth-callback.html",
     "https://yamachat.eu/auth-callback.html"
   ],
@@ -59,3 +60,4 @@
     }
   ]
 }
+
