@@ -145,7 +145,7 @@ jobs:
 ) { throw 'Neplatná značka vydání YamaConvert.' }
             $version = $Matches.version
           } else {
-            $version = '0.0.0'
+            $version = "pr-$env:GITHUB_RUN_NUMBER"
           }
           "version=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
       - name: Build and test standalone desktop app, portable ZIP and setup EXE
@@ -256,6 +256,7 @@ jobs:
           if ($env:RELEASE_TAG -notmatch '^yamaconvert-v[0-9]+\.[0-9]+\.[0-9]+-[0-9]+$') { throw 'Neplatná značka vydání YamaConvert.' }
           gh release view $env:RELEASE_TAG --repo $env:GITHUB_REPOSITORY | Out-Null
           gh release upload $env:RELEASE_TAG $env:SETUP_PATH $env:PORTABLE_PATH $env:SUMS_PATH --repo $env:GITHUB_REPOSITORY --clobber
+
       - uses: actions/upload-artifact@v4
         with:
           name: yamaconvert-windows-${{ steps.release_version.outputs.version }}
@@ -293,24 +294,23 @@ jobs:
           test -n "${CLOUDFLARE_API_TOKEN:-}"
           test -n "${CLOUDFLARE_ACCOUNT_ID:-}"
           npx --yes wrangler@latest r2 bucket list | grep -q 'yamachat-releases'
-      - name: Prepare versioned download manifest and checksums
+      - name: Prepare Windows release manifest and checksums
         env:
           VERSION: ${{ needs.package.outputs.version }}
         run: |
           set -euo pipefail
           node - <<'NODE'
           const fs=require('node:fs');
-          const path=require('node:path');
           const crypto=require('node:crypto');
           const dir='release-assets';
           const files=['YamaConvert-Setup.exe','YamaConvert-Windows-Portable.zip'];
-          for(const file of files)if(!fs.statSync(path.join(dir,file)).size)throw new Error('Missing Windows release asset: '+file);
           const names={'YamaConvert-Setup.exe':`YamaConvert-Setup-${process.env.VERSION}.exe`,'YamaConvert-Windows-Portable.zip':`YamaConvert-Portable-${process.env.VERSION}.zip`};
-          const sums=files.map(file=>`${crypto.createHash('sha256').update(fs.readFileSync(path.join(dir,file))).digest('hex')}  ${names[file]}`).join('\n')+'\n';
-          fs.writeFileSync(path.join(dir,'SHA256SUMS.txt'),sums);
+          for(const file of files)if(!fs.statSync(`${dir}/${file}`).size)throw new Error('Missing Windows release asset: '+file);
+          const sums=files.map(file=>`${crypto.createHash('sha256').update(fs.readFileSync(`${dir}/${file}`)).digest('hex')}  ${names[file]}`).join('\\n')+'\\n';
+          fs.writeFileSync(`${dir}/SHA256SUMS.txt`,sums);
           const notes='YamaConvert pro Windows je dostupný jako instalační EXE a přenosný ZIP.';
           const manifest={product:'YamaConvert',version:process.env.VERSION,notes,installerUrl:'https://updates.yamachat.eu/yamaconvert/YamaConvert-Setup-latest.exe',portableUrl:'https://updates.yamachat.eu/yamaconvert/YamaConvert-Portable-latest.zip',publishedAt:new Date().toISOString()};
-          fs.writeFileSync(path.join(dir,'latest.json'),JSON.stringify(manifest,null,2)+'\n');
+          fs.writeFileSync(`${dir}/latest.json`,JSON.stringify(manifest,null,2)+'\\n');
           NODE
       - name: Publish YamaConvert Windows downloads to Cloudflare R2
         env:
@@ -346,9 +346,8 @@ jobs:
           set -euo pipefail
           node - <<'NODE'
           const fs=require('node:fs');
-          const version=process.env.VERSION;
           const notes='YamaConvert pro Windows je dostupný jako instalační EXE a přenosný ZIP. Soubory se stahují z oficiálního portálu aktualizací Yamachat.';
-          const entry={id:`yamaconvert:windows:${version}`,app:'yamaconvert',kind:'update',version,title:`YamaConvert Windows ${version}`,summary:notes,details:notes,releasedAt:new Date().toISOString(),platforms:['Windows instalátor (.exe)','Windows portable (.zip)']};
+          const entry={id:`yamaconvert:windows:${process.env.VERSION}`,app:'yamaconvert',kind:'update',version:process.env.VERSION,title:`YamaConvert Windows ${process.env.VERSION}`,summary:notes,details:notes,releasedAt:new Date().toISOString(),platforms:['Windows instalátor (.exe)','Windows portable (.zip)']};
           fs.writeFileSync('/tmp/yamaconvert-windows-release.json',JSON.stringify(entry));
           NODE
           git config user.name 'github-actions[bot]'
@@ -357,5 +356,5 @@ jobs:
           git checkout -B publish-main origin/main
           node scripts/record-portal-release.cjs /tmp/yamaconvert-windows-release.json
           git add release-feed.json
-          git diff --cached --quiet || git commit -m "Record YamaConvert Windows $VERSION release [skip ci]"
+          git diff --cached --quiet || git commit -m "Record YamaConvert Windows ${VERSION} release [skip ci]"
           git push origin HEAD:main
