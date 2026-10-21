@@ -32,10 +32,18 @@ jobs:
         working-directory: products/yamaconvert/android
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: ffmpegkit-maintained/yt-dlp-android
+          ref: 33a5b092896047f90f34c819926b0ac79683381f
+          path: products/yamaconvert/android/.ci/yt-dlp-android
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
@@ -46,6 +54,26 @@ jobs:
           test -x "$SDKMANAGER"
           yes | "$SDKMANAGER" --licenses >/dev/null || true
           "$SDKMANAGER" --install 'platforms;android-35' 'build-tools;35.0.0' 'ndk;27.2.12479018' 'cmake;3.22.1'
+      - name: Build yt-dlp Android runtime with current extractor
+        working-directory: products/yamaconvert/android/.ci/yt-dlp-android
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          build_file = Path("library/build.gradle")
+          source = build_file.read_text()
+          old = 'install "yt-dlp"'
+          new = 'install "yt-dlp==2026.08.19"'
+          if source.count(old) != 1:
+              raise SystemExit("Could not pin the yt-dlp package in the Android runtime source.")
+          source = source.replace(old, new)
+          signing = "    signAllPublications()\\n"
+          if source.count(signing) != 1:
+              raise SystemExit("Could not disable upstream Maven signing for local-only publication.")
+          build_file.write_text(source.replace(signing, ""))
+          PY
+          chmod +x gradlew
+          ./gradlew --no-daemon :library:publishToMavenLocal -PVERSION=2.0.3 -x test
       - name: Build the Android JavaScript runtime
         run: bash scripts/build-quickjs.sh
       - name: Verify product sources
