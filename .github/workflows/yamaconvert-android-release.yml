@@ -70,10 +70,15 @@ jobs:
           new = 'install "yt-dlp==2026.08.19"'
           if source.count(old) != 1:
               raise SystemExit("Could not pin the yt-dlp package in the Android runtime source.")
-          build_file.write_text(source.replace(old, new))
+          source = source.replace(old, new)
+          signing = "    signAllPublications()\n"
+          if source.count(signing) != 1:
+              raise SystemExit("Could not disable upstream Maven signing for local-only publication.")
+          build_file.write_text(source.replace(signing, ""))
+
           PY
           chmod +x gradlew
-          ./gradlew --no-daemon :library:publishToMavenLocal -PVERSION=2.0.3 -x test -x signMavenPublication
+          ./gradlew --no-daemon :library:publishToMavenLocal -PVERSION=2.0.3 -x test
       - name: Build the Android JavaScript runtime
         run: bash scripts/build-quickjs.sh
       - name: Test YamaConvert web and downloader
