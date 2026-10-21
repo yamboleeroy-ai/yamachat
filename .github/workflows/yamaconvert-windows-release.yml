@@ -160,15 +160,18 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Verify Cloudflare R2 access
+      - name: Verify Cloudflare R2 bucket access
         env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.CLOUDFLARE_R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.CLOUDFLARE_R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: |
           set -euo pipefail
-          test -n "${CLOUDFLARE_API_TOKEN:-}"
+          test -n "${AWS_ACCESS_KEY_ID:-}"
+          test -n "${AWS_SECRET_ACCESS_KEY:-}"
           test -n "${CLOUDFLARE_ACCOUNT_ID:-}"
-          npx --yes wrangler@latest r2 bucket list | grep -q 'yamachat-releases'
+          aws s3api head-bucket --bucket yamachat-releases --endpoint-url "https://${CLOUDFLARE_ACCOUNT_ID}.r2.cloudflarestorage.com"
       - name: Prepare Windows release manifest and checksums
         run: |
           set -euo pipefail
@@ -187,18 +190,20 @@ jobs:
           NODE
       - name: Publish YamaConvert Windows downloads to Cloudflare R2
         env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.CLOUDFLARE_R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.CLOUDFLARE_R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: |
           set -euo pipefail
-          W='npx --yes wrangler@latest'
-          BUCKET='yamachat-releases/yamaconvert'
-          $W r2 object put "$BUCKET/YamaConvert-Setup-1.0.3.exe" --file release-assets/YamaConvert-Setup.exe --content-type application/vnd.microsoft.portable-executable --content-disposition 'attachment; filename=YamaConvert-Setup-1.0.3.exe' --cache-control 'public, max-age=31536000, immutable' --remote
-          $W r2 object put "$BUCKET/YamaConvert-Portable-1.0.3.zip" --file release-assets/YamaConvert-Windows-Portable.zip --content-type application/zip --content-disposition 'attachment; filename=YamaConvert-Portable-1.0.3.zip' --cache-control 'public, max-age=31536000, immutable' --remote
-          $W r2 object put "$BUCKET/YamaConvert-Setup-latest.exe" --file release-assets/YamaConvert-Setup.exe --content-type application/vnd.microsoft.portable-executable --content-disposition 'attachment; filename=YamaConvert-Setup-latest.exe' --cache-control 'no-cache' --remote
-          $W r2 object put "$BUCKET/YamaConvert-Portable-latest.zip" --file release-assets/YamaConvert-Windows-Portable.zip --content-type application/zip --content-disposition 'attachment; filename=YamaConvert-Portable-latest.zip' --cache-control 'no-cache' --remote
-          $W r2 object put "$BUCKET/SHA256SUMS.txt" --file release-assets/SHA256SUMS.txt --content-type text/plain --cache-control 'no-cache' --remote
-          $W r2 object put "$BUCKET/latest.json" --file release-assets/latest.json --content-type application/json --cache-control 'no-cache, no-store' --remote
+          ENDPOINT="https://${CLOUDFLARE_ACCOUNT_ID}.r2.cloudflarestorage.com"
+          PREFIX='s3://yamachat-releases/yamaconvert'
+          aws s3 cp release-assets/YamaConvert-Setup.exe "$PREFIX/YamaConvert-Setup-1.0.3.exe" --endpoint-url "$ENDPOINT" --content-type application/vnd.microsoft.portable-executable --content-disposition 'attachment; filename=YamaConvert-Setup-1.0.3.exe' --cache-control 'public, max-age=31536000, immutable' --only-show-errors
+          aws s3 cp release-assets/YamaConvert-Windows-Portable.zip "$PREFIX/YamaConvert-Portable-1.0.3.zip" --endpoint-url "$ENDPOINT" --content-type application/zip --content-disposition 'attachment; filename=YamaConvert-Portable-1.0.3.zip' --cache-control 'public, max-age=31536000, immutable' --only-show-errors
+          aws s3 cp release-assets/YamaConvert-Setup.exe "$PREFIX/YamaConvert-Setup-latest.exe" --endpoint-url "$ENDPOINT" --content-type application/vnd.microsoft.portable-executable --content-disposition 'attachment; filename=YamaConvert-Setup-latest.exe' --cache-control 'no-cache' --only-show-errors
+          aws s3 cp release-assets/YamaConvert-Windows-Portable.zip "$PREFIX/YamaConvert-Portable-latest.zip" --endpoint-url "$ENDPOINT" --content-type application/zip --content-disposition 'attachment; filename=YamaConvert-Portable-latest.zip' --cache-control 'no-cache' --only-show-errors
+          aws s3 cp release-assets/SHA256SUMS.txt "$PREFIX/SHA256SUMS.txt" --endpoint-url "$ENDPOINT" --content-type text/plain --cache-control 'no-cache' --only-show-errors
+          aws s3 cp release-assets/latest.json "$PREFIX/latest.json" --endpoint-url "$ENDPOINT" --content-type application/json --cache-control 'no-cache, no-store' --only-show-errors
       - name: Verify public Windows downloads
         run: |
           set -euo pipefail
