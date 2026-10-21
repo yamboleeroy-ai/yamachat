@@ -15,54 +15,93 @@ permissions:
 jobs:
   package:
     runs-on: windows-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     permissions:
       contents: write
     steps:
       - uses: actions/checkout@v4
-      - name: Build portable ZIP and setup EXE
+      - name: Build and test standalone desktop app, portable ZIP and setup EXE
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
           $ProgressPreference = 'SilentlyContinue'
-          $version = '22.23.3'
-          $zipName = "node-v$version-win-x64.zip"
-          $base = "https://nodejs.org/dist/v$version"
+          $nodeVersion = '22.23.3'
           $work = Join-Path $env:RUNNER_TEMP 'yamaconvert-windows'
           $stage = Join-Path $work 'package'
-          New-Item -ItemType Directory -Path $stage -Force | Out-Null
-          $zip = Join-Path $work $zipName
-          Invoke-WebRequest -Uri "$base/$zipName" -OutFile $zip
-          $checksums = (Invoke-WebRequest -Uri "$base/SHASUMS256.txt").Content
-          $line = [regex]::Match($checksums, "(?m)^([0-9a-f]{64})\s+\*?$([regex]::Escape($zipName))$")
-          if (-not $line.Success) { throw 'Oficiální seznam Node.js neobsahuje kontrolní součet archivu.' }
-          $actual = (Get-FileHash -LiteralPath $zip -Algorithm SHA256).Hash
-          if ($actual -ine $line.Groups[1].Value) { throw 'Kontrolní součet Node.js nesouhlasí.' }
-          Expand-Archive -LiteralPath $zip -DestinationPath $work
-          $nodeDir = Join-Path $work "node-v$version-win-x64"
-          New-Item -ItemType Directory -Path (Join-Path $stage 'runtime') -Force | Out-Null
-          Copy-Item (Join-Path $nodeDir 'node.exe') (Join-Path $stage 'runtime\node.exe')
-          Copy-Item (Join-Path $nodeDir 'LICENSE') (Join-Path $stage 'runtime\NODE-LICENSE.txt')
-          Copy-Item 'products/yamaconvert/windows/*' $stage -Recurse -Force
+          $appDir = Join-Path $stage 'resources\app'
+          New-Item -ItemType Directory -Path $stage, $appDir -Force | Out-Null
 
-          $headers = @{ 'User-Agent' = 'YamaConvert-Windows-Packager' }
+          $nodeZipName = "node-v$nodeVersion-win-x64.zip"
+          $nodeBase = "https://nodejs.org/dist/v$nodeVersion"
+          $nodeZip = Join-Path $work $nodeZipName
+          Invoke-WebRequest -Uri "$nodeBase/$nodeZipName" -OutFile $nodeZip
+          $nodeChecksums = (Invoke-WebRequest -Uri "$nodeBase/SHASUMS256.txt").Content
+          $nodeLine = [regex]::Match($nodeChecksums, "(?m)^([0-9a-f]{64})\s+\*?$([regex]::Escape($nodeZipName))$")
+          if (-not $nodeLine.Success) { throw 'Oficiální seznam Node.js neobsahuje kontrolní součet archivu.' }
+          if ((Get-FileHash -LiteralPath $nodeZip -Algorithm SHA256).Hash -ine $nodeLine.Groups[1].Value) { throw 'Kontrolní součet Node.js nesouhlasí.' }
+          Expand-Archive -LiteralPath $nodeZip -DestinationPath $work
+          $nodeDir = Join-Path $work "node-v$nodeVersion-win-x64"
+          $runtimeDir = Join-Path $stage 'runtime'
+          New-Item -ItemType Directory -Path $runtimeDir -Force | Out-Null
+          Copy-Item (Join-Path $nodeDir 'node.exe') (Join-Path $runtimeDir 'node.exe')
+          Copy-Item (Join-Path $nodeDir 'LICENSE') (Join-Path $runtimeDir 'NODE-LICENSE.txt')
+
+          $headers = @{ 'User-Agent' = 'YamaConvert-Windows-Packager'; 'Accept' = 'application/vnd.github+json' }
+          $electronRelease = Invoke-RestMethod -Uri 'https://api.github.com/repos/electron/electron/releases/latest' -Headers $headers
+          $electronVersion = [string]$electronRelease.tag_name
+          if ($electronVersion -notmatch '^v[0-9]+\.[0-9]+\.[0-9]+$') { throw 'Electron API nevrátila stabilní verzi.' }
+          $electronZipName = "electron-$electronVersion-win32-x64.zip"
+          $electronAsset = $electronRelease.assets | Where-Object name -eq $electronZipName | Select-Object -First 1
+          if (-not $electronAsset) { throw "Oficiální Electron vydání neobsahuje $electronZipName." }
+          $electronHash = [regex]::Match([string]$electronAsset.digest, '^sha256:([0-9a-fA-F]{64})$')
+          if (-not $electronHash.Success) { throw 'GitHub API nevrátilo ověřitelný SHA-256 pro Electron.' }
+          $electronZip = Join-Path $work $electronZipName
+          Invoke-WebRequest -Uri $electronAsset.browser_download_url -OutFile $electronZip -Headers $headers
+          if ((Get-FileHash -LiteralPath $electronZip -Algorithm SHA256).Hash -ine $electronHash.Groups[1].Value) { throw 'Kontrolní součet Electronu nesouhlasí.' }
+          $electronDir = Join-Path $work 'electron'
+          Expand-Archive -LiteralPath $electronZip -DestinationPath $electronDir
+          Copy-Item (Join-Path $electronDir '*') $stage -Recurse -Force
+          $electronExe = Join-Path $stage 'electron.exe'
+          if (-not (Test-Path -LiteralPath $electronExe)) { throw 'Stažený Electron neobsahuje spustitelný soubor.' }
+          Move-Item -LiteralPath $electronExe -Destination (Join-Path $stage 'YamaConvert.exe')
+          $defaultApp = Join-Path $stage 'resources\default_app.asar'
+          if (Test-Path -LiteralPath $defaultApp) { Remove-Item -LiteralPath $defaultApp -Force }
+
+          $windowsSource = 'products/yamaconvert/windows'
+          Get-ChildItem -LiteralPath $windowsSource -Force | Where-Object { $_.Name -notin @('YamaConvert.iss', 'Start-YamaConvert.cmd', 'Stop-YamaConvert.cmd', 'Stop-YamaConvert.ps1', 'Start-YamaConvert.ps1', 'Install-YtDlp.ps1') } | ForEach-Object {
+            Copy-Item -LiteralPath $_.FullName -Destination $appDir -Recurse -Force
+          }
+          Copy-Item 'products/yamaconvert/windows/README-Windows.txt' (Join-Path $stage 'README-Windows.txt')
+          Copy-Item 'products/yamaconvert/windows/THIRD-PARTY-NOTICES.md' (Join-Path $stage 'THIRD-PARTY-NOTICES.md')
+
           $ytRelease = Invoke-RestMethod -Uri 'https://api.github.com/repos/yt-dlp/yt-dlp/releases/latest' -Headers $headers
           $ytBinary = $ytRelease.assets | Where-Object name -eq 'yt-dlp.exe' | Select-Object -First 1
-          if (-not $ytBinary) { throw 'Oficialni vydani yt-dlp neobsahuje program.' }
+          if (-not $ytBinary) { throw 'Oficiální vydání yt-dlp neobsahuje program.' }
           $ytTemp = Join-Path $work 'yt-dlp.exe'
-          Invoke-WebRequest -UseBasicParsing -Uri $ytBinary.browser_download_url -OutFile $ytTemp -Headers $headers
+          Invoke-WebRequest -Uri $ytBinary.browser_download_url -OutFile $ytTemp -Headers $headers
           $ytHash = [regex]::Match([string]$ytBinary.digest, '^sha256:([0-9a-fA-F]{64})$')
           if (-not $ytHash.Success) { throw 'GitHub API nevrátilo SHA-256 pro oficiální yt-dlp.exe.' }
-          $actualYtHash = (Get-FileHash -LiteralPath $ytTemp -Algorithm SHA256).Hash
-          if ($actualYtHash -ine $ytHash.Groups[1].Value) { throw 'Kontrolní součet yt-dlp nesouhlasí.' }
-          $ytDir = Join-Path $stage 'vendor\yt-dlp'
+          if ((Get-FileHash -LiteralPath $ytTemp -Algorithm SHA256).Hash -ine $ytHash.Groups[1].Value) { throw 'Kontrolní součet yt-dlp nesouhlasí.' }
+          $ytDir = Join-Path $appDir 'vendor\yt-dlp'
           New-Item -ItemType Directory -Path $ytDir -Force | Out-Null
           Move-Item -LiteralPath $ytTemp -Destination (Join-Path $ytDir 'yt-dlp.exe')
           & (Join-Path $ytDir 'yt-dlp.exe') --version
           if ($LASTEXITCODE -ne 0) { throw 'Přibalený yt-dlp se nepodařilo spustit.' }
 
-          if (-not (Test-Path (Join-Path $stage 'Start-YamaConvert.cmd'))) { throw 'Balíček neobsahuje spouštěč Windows.' }
-          if (-not (Test-Path (Join-Path $stage 'media-downloader.cjs'))) { throw 'Balíček neobsahuje místní downloader.' }
+          foreach ($required in @('YamaConvert.exe', 'runtime\node.exe', 'resources\app\main.cjs', 'resources\app\preview.cjs', 'resources\app\media-downloader.cjs', 'resources\app\vendor\yt-dlp\yt-dlp.exe')) {
+            if (-not (Test-Path (Join-Path $stage $required))) { throw "Balíčku chybí $required." }
+          }
+          $env:YAMACONVERT_SMOKE_TEST = '1'
+          $smoke = Start-Process -FilePath (Join-Path $stage 'YamaConvert.exe') -WorkingDirectory $stage -PassThru
+          $deadline = [DateTime]::UtcNow.AddSeconds(35)
+          while (-not $smoke.HasExited -and [DateTime]::UtcNow -lt $deadline) { Start-Sleep -Milliseconds 400; $smoke.Refresh() }
+          Remove-Item Env:YAMACONVERT_SMOKE_TEST -ErrorAction SilentlyContinue
+          if (-not $smoke.HasExited) {
+            Stop-Process -Id $smoke.Id -Force -ErrorAction SilentlyContinue
+            throw 'Test samostatného okna doběhl do limitu.'
+          }
+          if ($smoke.ExitCode -ne 0) { throw "Test samostatného okna selhal (exit code $($smoke.ExitCode))." }
+
           $portable = Join-Path $work 'YamaConvert-Windows-Portable.zip'
           Compress-Archive -Path (Join-Path $stage '*') -DestinationPath $portable -CompressionLevel Optimal
           if ((Get-Item $portable).Length -lt 100000) { throw 'Vytvořený ZIP je neúplný.' }
