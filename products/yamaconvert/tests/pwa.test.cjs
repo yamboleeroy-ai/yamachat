@@ -180,3 +180,9 @@ test('Android build packages a pinned QuickJS runtime for yt-dlp on both support
   assert.match(release,/bash scripts\/build-quickjs\.sh/);
 });
 
+test('social downloader front-end parses and exposes the conversion bridge',()=>{
+  const vm=require('node:vm');
+  const app=read('app.js');
+  assert.doesNotThrow(()=>new vm.Script(app));
+  assert.ok(app.includes('window.YamaApp=Object.freeze({addFiles,notify,convertDownloadedFile'));
+});
