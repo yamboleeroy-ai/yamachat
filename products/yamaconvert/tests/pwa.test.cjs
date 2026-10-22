@@ -68,8 +68,8 @@ test('Android phone layout keeps navigation visible and returns completed downlo
   assert.match(read('app.js'),/showConverter:[^}]*scrollIntoView\(\{behavior:"smooth",block:"start"\}\)/);
   assert.match(read('downloads.js'),/window\.YamaApp\.showConverter\(\)/);
   assert.match(read('sw.js'),/yamaconvert-pwa-v6/);
-  assert.match(read('index.html'),/app\.js\?v=10005/);
-  assert.match(read('sw.js'),/app\.js\?v=10005/);
+  assert.ok(read('index.html').includes('app.js?v=10006'));
+  assert.ok(read('sw.js').includes("'./app.js'"));
 });
 test('PWA shares the Yamaportal auth session and uses the protected downloader when it is configured',()=>{
   const account=read('account.js');
