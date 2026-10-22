@@ -2,6 +2,19 @@
   "schemaVersion": 1,
   "releases": [
     {
+      "id": "yamaconvert:android:10006",
+      "app": "yamaconvert",
+      "kind": "update",
+      "version": "1.0.8 (10006)",
+      "title": "YamaConvert Android 1.0.8",
+      "summary": "Opravy stahování a převodů; aktuální yt-dlp pro Android a Windows; obnovené ovládání Windows aplikace; nové stabilní stažení z Yamaportalu.",
+      "details": "Opravy stahování a převodů; aktuální yt-dlp pro Android a Windows; obnovené ovládání Windows aplikace; nové stabilní stažení z Yamaportalu.",
+      "releasedAt": "2026-10-22T22:29:18.167Z",
+      "platforms": [
+        "Android APK"
+      ]
+    },
+    {
       "id": "yamaconvert:windows:1.0.3",
       "app": "yamaconvert",
       "kind": "update",
