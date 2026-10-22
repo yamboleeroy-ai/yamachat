@@ -8,6 +8,7 @@ const path = require('node:path');
 
 const appDir = __dirname;
 const serverScript = path.join(appDir, 'preview.cjs');
+const appIcon = path.join(appDir, 'icons', 'yamaconvert.ico');
 const nodeExe = path.resolve(process.resourcesPath, '..', 'runtime', 'node.exe');
 const logsDir = app.getPath('userData');
 let serverProcess;
@@ -85,6 +86,7 @@ async function smokeTest() {
 }
 
 function createWindow() {
+  app.setAppUserModelId('eu.yamachat.yamaconvert');
   mainWindow = new BrowserWindow({
     width: 1280,
     height: 860,
@@ -94,6 +96,7 @@ function createWindow() {
     backgroundColor: '#080b18',
     autoHideMenuBar: true,
     title: 'YamaConvert',
+    icon: fs.existsSync(appIcon) ? appIcon : undefined,
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,

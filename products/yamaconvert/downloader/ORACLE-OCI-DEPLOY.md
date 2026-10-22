@@ -40,8 +40,11 @@ The VM, storage and data transfer must remain within Oracle's Always Free
 allowances. The documented outbound allowance is 10 TB/month. Oracle may have
 no free Ampere capacity in a chosen region; in that case, do not select a paid
 shape. Stop and remove any resource that the console does not mark Always Free.
-This downloader is intentionally capped at 10 jobs per signed-in account per
-day, 2 concurrent jobs, 100 MB per file and 10 minutes per job.
+The web/PWA downloader is capped at 100 MB of delivered files per signed-in
+account per UTC calendar day, 2 concurrent jobs, 100 MB per file and 10 minutes
+per job. The byte ledger is stored in the persistent `quota_data` container
+volume, so a container restart does not reset the daily amount. Keep this
+volume when rebuilding or updating the service.
 
 Oracle may reclaim an Always Free VM if it remains below the provider's idle
 usage thresholds for seven days. That means this option costs nothing within

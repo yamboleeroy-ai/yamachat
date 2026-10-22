@@ -67,9 +67,9 @@ test('Android phone layout keeps navigation visible and returns completed downlo
   assert.match(read('index.html'),/@media\(max-width:420px\)\{.*?\.nav\{display:grid;grid-template-columns:repeat\(2,minmax\(0,1fr\)\)/);
   assert.match(read('app.js'),/showConverter:[^}]*scrollIntoView\(\{behavior:"smooth",block:"start"\}\)/);
   assert.match(read('downloads.js'),/window\.YamaApp\.showConverter\(\)/);
-  assert.match(read('sw.js'),/yamaconvert-pwa-v7/);
-  assert.ok(read('index.html').includes('app.js?v=10007'));
-  assert.ok(read('sw.js').includes("./app.js?v=10007"));
+  assert.match(read('sw.js'),/yamaconvert-pwa-v8/);
+  assert.ok(read('index.html').includes('app.js?v=10008'));
+  assert.ok(read('sw.js').includes("./app.js?v=10008"));
 });
 test('completed conversions use the iOS share sheet in PWA and keep Android and browser saves',()=>{
   const app=read('app.js');
@@ -78,8 +78,8 @@ test('completed conversions use the iOS share sheet in PWA and keep Android and 
   assert.match(app,/navigator\.share\(\{files:\[file\],title:job\.outputName\}\)/);
   assert.match(app,/window\.YamaConvertAndroid\?\.isReady\?\.\(\).*?nativeSaveButton\(job\)/);
   assert.match(app,/download\.href=job\.outputUrl;download\.download=job\.outputName/);
-  assert.match(read('index.html'),/app\.js\?v=10007/);
-  assert.match(read('sw.js'),/yamaconvert-pwa-v7/);
+  assert.match(read('index.html'),/app\.js\?v=10008/);
+  assert.match(read('sw.js'),/yamaconvert-pwa-v8/);
 });
 
 test('PWA shares the Yamaportal auth session and uses the protected downloader when it is configured',()=>{
@@ -114,7 +114,7 @@ test('Yamaportal offers the native YamaConvert APK and web PWA with shared updat
   assert.match(catalog,/místním enginem v telefonu/);
   assert.match(catalog,/https:\/\/yamachat\.eu\/yamaconvert\//);
   assert.match(links,/https:\/\/yamachat\.eu\/yamaconvert\//);
-  assert.match(links,/releases\/latest\/download\/YamaConvert-Android\.apk/);
+  assert.match(links,/updates\.yamachat\.eu\/yamaconvert\/YamaConvert-Android-latest\.apk/);
   assert.match(links,/Otevřít Android PWA/);
   assert.match(links,/Instalátor pro Windows/);
   assert.match(links,/Windows portable/);
@@ -122,6 +122,20 @@ test('Yamaportal offers the native YamaConvert APK and web PWA with shared updat
   assert.ok(feed.releases.some(release=>release.id==='yamaconvert:1.0.1'&&release.app==='yamaconvert'));
   assert.ok(feed.releases.some(release=>release.id==='yamaconvert:1.0.2'&&release.app==='yamaconvert'));
   assert.ok(fs.existsSync(path.join(root,'products','yamaportal','preview','dist','assets','yamaconvert.png')));
+});
+
+test('web batch downloads use the shared download flow and display server-reported daily byte usage',()=>{
+  const index=read('index.html'),worker=read('sw.js'),downloads=read('downloads.js');
+  assert.match(index,/id="media-batch-urls"/);
+  assert.match(index,/id="start-media-batch"/);
+  assert.match(index,/id="download-quota"/);
+  assert.match(index,/YamaConvert-Android-latest\.apk/);
+  assert.match(index,/YamaConvert-Setup-latest\.exe/);
+  assert.match(worker,/batch-download\.js/);
+  assert.match(downloads,/\/api\/quota/);
+  assert.match(downloads,/usedBytes/);
+  assert.match(downloads,/remainingBytes/);
+  assert.match(downloads,/yama-auth-state/);
 });
 
 test('native Android project downloads on-device without source-site credentials',()=>{
@@ -173,7 +187,7 @@ test('Android and web downloader share the same expanded yt-dlp domain allow-lis
   assert.match(android,/supported-sites\.txt/);
   assert.match(gradle,/prepareYamaConvertSupportedSites/);
   assert.match(server,/supported-sites\.txt/);
-  assert.match(docker,/COPY server\.cjs supported-sites\.txt/);
+  assert.match(docker,/COPY server\.cjs daily-quota\.cjs supported-sites\.txt/);
   assert.match(read('index.html'),/supportedsites\.md/);
 });
 
@@ -196,6 +210,6 @@ test('social downloader front-end parses and exposes the conversion bridge',()=>
   const app=read('app.js');
   assert.doesNotThrow(()=>new vm.Script(app));
   assert.ok(app.includes('window.YamaApp=Object.freeze({addFiles,notify,convertDownloadedFile'));
-  assert.ok(read('index.html').includes('app.js?v=10007'));
-  assert.match(read('sw.js'),/yamaconvert-pwa-v7/);
+  assert.ok(read('index.html').includes('app.js?v=10008'));
+  assert.match(read('sw.js'),/yamaconvert-pwa-v8/);
 });

@@ -4,7 +4,7 @@ const SHELL = [
   './', './index.html', './manifest.webmanifest', './icons/yamaconvert.svg',
   './design/logo-reference.png', './image-formats.js', './vendor/lamejs/lame.min.js',
   './audio-formats.js', './document-formats.js', './video-formats.js',
-  './history.js', './app.js', './navigation.js', './downloads.js', './pwa.js'
+  './history.js', './app.js', './navigation.js', './downloads.js', './batch-download.js', './pwa.js'
 ];
 self.addEventListener('install', event => {
   event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(SHELL)).then(() => self.skipWaiting()));

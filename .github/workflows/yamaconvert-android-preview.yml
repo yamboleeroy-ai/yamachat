@@ -6,6 +6,7 @@ on:
     paths:
       - 'products/yamaconvert/android/**'
       - 'products/yamaconvert/pwa/downloads.js'
+      - 'products/yamaconvert/pwa/batch-download.js'
       - 'products/yamaconvert/tests/**'
       - '.github/workflows/yamaconvert-android-preview.yml'
   push:
@@ -13,6 +14,7 @@ on:
     paths:
       - 'products/yamaconvert/android/**'
       - 'products/yamaconvert/pwa/downloads.js'
+      - 'products/yamaconvert/pwa/batch-download.js'
       - 'products/yamaconvert/tests/**'
       - '.github/workflows/yamaconvert-android-preview.yml'
 
@@ -81,6 +83,7 @@ jobs:
         working-directory: .
         run: |
           node --check products/yamaconvert/pwa/downloads.js
+          node --check products/yamaconvert/pwa/batch-download.js
           node --test products/yamaconvert/tests/*.test.cjs products/yamaconvert/downloader/tests/*.test.cjs
       - name: Build installable preview APK
         run: gradle --no-daemon :app:assembleDebug

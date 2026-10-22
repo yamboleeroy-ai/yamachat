@@ -65,7 +65,7 @@ test('status endpoint exposes the bounded service and reflects only the configur
   const response = await request(handler, { headers: { origin } });
   assert.equal(response.status, 200);
   assert.equal(response.headers['access-control-allow-origin'], origin);
-  assert.deepEqual(JSON.parse(response.body), { socialDownloads: true, maxBytes: 100 * 1024 * 1024 });
+  assert.deepEqual(JSON.parse(response.body), { socialDownloads: true, maxBytes: 100 * 1024 * 1024, dailyQuotaBytes: 100 * 1024 * 1024 });
   const denied = await request(handler, { headers: { origin: 'https://other.example' } });
   assert.equal(denied.status, 403);
 });
@@ -121,6 +121,18 @@ test('download returns the converted bytes, preserves format selection, and remo
   assert.ok(spawnArgs.includes('bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best'));
   await new Promise(resolve => setTimeout(resolve, 30));
   await assert.rejects(fs.access(workingDirectory));
+});
+
+test('quota endpoint requires Yamaportal authorization and reports current bytes', async () => {
+  const handler = makeHandler({ env, fetchImpl: authFetch });
+  const response = await request(handler, { url: '/api/quota', headers: { origin, authorization: 'Bearer fake-access-token-12345678' } });
+  assert.equal(response.status, 200);
+  const snapshot = JSON.parse(response.body);
+  assert.equal(snapshot.limitBytes, 100 * 1024 * 1024);
+  assert.equal(snapshot.usedBytes, 0);
+  assert.equal(snapshot.remainingBytes, 100 * 1024 * 1024);
+  const anonymous = await request(handler, { url: '/api/quota', headers: { origin } });
+  assert.equal(anonymous.status, 401);
 });
 
 test('download reports automated-access checks separately from private content', async () => {

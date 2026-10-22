@@ -6,11 +6,11 @@ const os = require('node:os');
 const path = require('node:path');
 const crypto = require('node:crypto');
 const { spawn } = require('node:child_process');
+const { DAILY_BYTES, createDailyQuotaStore } = require('./daily-quota.cjs');
 
 const MAX_BYTES = 100 * 1024 * 1024;
 const MAX_BODY = 16 * 1024;
 const MAX_ACTIVE = 2;
-const DAILY_LIMIT = 10;
 const TIMEOUT_MS = 10 * 60 * 1000;
 const HOSTS = fs.readFileSync(path.join(__dirname, 'supported-sites.txt'), 'utf8')
   .split(/\r?\n/).map(line => line.trim()).filter(line => line && !line.startsWith('#'));
@@ -91,11 +91,11 @@ async function verifyUser(token, env, fetchImpl) {
   } finally { clearTimeout(timer); }
 }
 
-function makeHandler({ env = process.env, fetchImpl = fetch, spawnImpl = spawn } = {}) {
+function makeHandler({ env = process.env, fetchImpl = fetch, spawnImpl = spawn, quotaStore } = {}) {
   const allowedOrigins = new Set((env.ALLOWED_ORIGINS || '').split(',').map(value => value.trim()).filter(Boolean));
   const activeUsers = new Set();
   const activeRequests = new Set();
-  const dailyUse = new Map();
+  const quota = quotaStore || createDailyQuotaStore({ filePath: env.YAMACONVERT_QUOTA_FILE || (env.NODE_ENV === 'production' ? '/data/daily-quota.json' : '') });
 
   async function handle(req, res) {
     const origin = req.headers.origin || '';
@@ -116,18 +116,30 @@ function makeHandler({ env = process.env, fetchImpl = fetch, spawnImpl = spawn }
     const pathname = new URL(req.url, 'http://localhost').pathname;
     if (req.method === 'GET' && pathname === '/api/status') {
       const ready = Boolean(env.SUPABASE_URL && env.SUPABASE_PUBLISHABLE_KEY);
-      send(res, 200, { socialDownloads: ready, maxBytes: MAX_BYTES }, allowedOrigin);
+      if (!ready) { send(res, 503, { socialDownloads: false }, allowedOrigin); return; }
+      try { await quota.get('__healthcheck__'); }
+      catch { send(res, 503, { socialDownloads: false, error: 'Úložiště denního limitu není dostupné.' }, allowedOrigin); return; }
+      send(res, 200, { socialDownloads: true, maxBytes: MAX_BYTES, dailyQuotaBytes: DAILY_BYTES }, allowedOrigin);
       return;
     }
-    if (req.method !== 'POST' || pathname !== '/api/social-download') {
+    if (!['GET', 'POST'].includes(req.method) || !['/api/social-download', '/api/quota'].includes(pathname) || (pathname === '/api/quota' && req.method !== 'GET') || (pathname === '/api/social-download' && req.method !== 'POST')) {
       send(res, 404, { error: 'Požadovaná funkce nebyla nalezena.' }, allowedOrigin);
       return;
     }
 
     const bearer = /^Bearer ([^\s]{20,8192})$/.exec(req.headers.authorization || '');
     if (!bearer) { send(res, 401, { error: 'Přihlas se přes Yamaportal.' }, allowedOrigin); return; }
-    if (!/^application\/json(?:\s*;|$)/i.test(req.headers['content-type'] || '')) {
+    if (pathname === '/api/social-download' && !/^application\/json(?:\s*;|$)/i.test(req.headers['content-type'] || '')) {
       send(res, 415, { error: 'Požadavek musí mít formát JSON.' }, allowedOrigin);
+      return;
+    }
+
+    if (pathname === '/api/quota') {
+      let userId;
+      try { userId = await verifyUser(bearer[1], env, fetchImpl); }
+      catch (error) { send(res, error.status || 503, { error: error.message }, allowedOrigin); return; }
+      try { send(res, 200, await quota.get(userId), allowedOrigin); }
+      catch { send(res, 503, { error: 'Denní limit se nepodařilo načíst.' }, allowedOrigin); }
       return;
     }
 
@@ -154,22 +166,24 @@ function makeHandler({ env = process.env, fetchImpl = fetch, spawnImpl = spawn }
     let userId;
     try { userId = await verifyUser(bearer[1], env, fetchImpl); }
     catch (error) { send(res, error.status || 503, { error: error.message }, allowedOrigin); return; }
-    const now = Date.now();
-    const windowStart = now - 24 * 60 * 60 * 1000;
-    const usage = (dailyUse.get(userId) || []).filter(item => item > windowStart);
-    dailyUse.set(userId, usage);
+    let quotaSnapshot;
+    try { quotaSnapshot = await quota.get(userId); }
+    catch { send(res, 503, { error: 'Denní limit se nepodařilo načíst.' }, allowedOrigin); return; }
     if (activeUsers.has(userId)) { send(res, 429, { error: 'Už pro tebe probíhá jedno stahování.' }, allowedOrigin); return; }
     if (activeRequests.size >= MAX_ACTIVE) { send(res, 429, { error: 'Stahovací služba je vytížená. Zkus to později.' }, allowedOrigin); return; }
-    if (usage.length >= DAILY_LIMIT) { send(res, 429, { error: 'Dosáhl jsi denního limitu 10 stažení.' }, allowedOrigin); return; }
+    if (quotaSnapshot.remainingBytes <= 0) { send(res, 429, { error: 'Dosáhl jsi denního limitu 100 MB. Objem se obnoví o půlnoci UTC.', quota: quotaSnapshot }, allowedOrigin); return; }
 
     const id = crypto.randomUUID();
     const dir = path.join(os.tmpdir(), `yamaconvert-${id}`);
-    try { await fs.promises.mkdir(dir, { recursive: false, mode: 0o700 }); }
-    catch { send(res, 500, { error: 'Dočasný adresář se nepodařilo připravit.' }, allowedOrigin); return; }
     activeUsers.add(userId);
     activeRequests.add(id);
-    usage.push(now);
-    dailyUse.set(userId, usage);
+    try { await fs.promises.mkdir(dir, { recursive: false, mode: 0o700 }); }
+    catch {
+      activeUsers.delete(userId);
+      activeRequests.delete(id);
+      send(res, 500, { error: 'Dočasný adresář se nepodařilo připravit.' }, allowedOrigin);
+      return;
+    }
 
     const isAudio = requestedFormat === 'audio/mpeg';
     const selector = isAudio
@@ -285,6 +299,13 @@ function makeHandler({ env = process.env, fetchImpl = fetch, spawnImpl = spawn }
           send(res, 415, { error: 'Zdrojový formát se nepodařilo bezpečně předat převodníku.' }, allowedOrigin);
           return;
         }
+        let reservation;
+        try { reservation = await quota.reserve(userId, stat.size); }
+        catch { send(res, 503, { error: 'Denní limit se nepodařilo uložit.' }, allowedOrigin); return; }
+        if (!reservation.ok) {
+          send(res, 429, { error: 'Soubor je větší než zbývající denní limit 100 MB.', quota: reservation.quota }, allowedOrigin);
+          return;
+        }
         const mime = ({ mp4: 'video/mp4', m4v: 'video/mp4', webm: 'video/webm', mkv: 'video/x-matroska', mov: 'video/quicktime', mp3: 'audio/mpeg' })[ext];
         res.writeHead(200, {
           'Access-Control-Allow-Origin': allowedOrigin,
@@ -298,9 +319,24 @@ function makeHandler({ env = process.env, fetchImpl = fetch, spawnImpl = spawn }
           'X-Content-Type-Options': 'nosniff',
         });
         const stream = fs.createReadStream(filepath);
+        let transferred = 0;
+        let settled = false;
+        const settleQuota = async () => {
+          if (settled) return;
+          settled = true;
+          await quota.settle(userId, reservation.id, transferred).catch(() => {});
+        };
+        stream.on('data', chunk => {
+          stream.pause();
+          res.write(chunk, error => {
+            if (!error) transferred += chunk.length;
+            if (!res.destroyed) stream.resume();
+          });
+        });
         stream.once('error', () => { if (!res.destroyed) res.destroy(); });
-        stream.once('close', () => { void cleanup(); });
-        stream.pipe(res);
+        stream.once('close', () => { void settleQuota().finally(cleanup); });
+        stream.once('end', () => { if (!res.destroyed) res.end(); });
+        res.once('close', () => { if (!res.writableEnded) stream.destroy(); });
       } catch {
         send(res, 500, { error: 'Při přípravě staženého souboru došlo k chybě.' }, allowedOrigin);
       } finally {
@@ -324,5 +360,5 @@ if (require.main === module) {
   server.listen(port, '0.0.0.0', () => process.stdout.write(`YamaConvert downloader listening on ${port}\n`));
 }
 
-module.exports = { DAILY_LIMIT, HOSTS, MAX_BYTES, MAX_ACTIVE, makeHandler, parseUrl };
+module.exports = { HOSTS, MAX_BYTES, MAX_ACTIVE, makeHandler, parseUrl };
 

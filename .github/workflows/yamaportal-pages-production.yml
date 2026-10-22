@@ -1,6 +1,11 @@
 name: Publish Yamaportal to Cloudflare Pages
 on:
   workflow_dispatch:
+    inputs:
+      release_id:
+        description: 'Optional release-feed entry ID to verify after deployment'
+        required: false
+        type: string
   push:
     branches: [main]
     paths:
@@ -28,6 +33,8 @@ jobs:
         with:
           node-version: '22'
       - name: Build and verify the production web package
+        env:
+          RELEASE_ID: ${{ inputs.release_id }}
         run: |
           set -euo pipefail
           node scripts/build-web.mjs
@@ -52,6 +59,8 @@ jobs:
           if(convert.name!=='YamaConvert'||convert.start_url!=='./'||convert.scope!=='./'||convert.display!=='standalone') throw Error('YamaConvert Android PWA manifest is invalid');
           const chat=fs.readFileSync('web-dist/yamachat.html','utf8');
           if(!/<title>Yamachat<\/title>/i.test(chat)) throw Error('Standalone Yamachat entry is missing');
+          const expected=process.env.RELEASE_ID||'';
+          if(expected&&!feed.releases.some(item=>item.id===expected)) throw Error(`Expected release-feed entry is missing: ${expected}`);
           NODE
       - name: Resolve the existing production Pages project for yamachat.eu
         id: project
@@ -74,10 +83,12 @@ jobs:
       - name: Deploy to the existing production project
         run: npx --yes wrangler@latest pages deploy web-dist --project-name "${{ steps.project.outputs.name }}" --branch main
       - name: Verify production release feed and existing Yamachat path
+        env:
+          RELEASE_ID: ${{ inputs.release_id }}
         run: |
           set -euo pipefail
           for attempt in $(seq 1 18); do
-            if curl -fsS "https://yamachat.eu/release-feed.json?release-check=$GITHUB_RUN_ID-$attempt" | grep -q 'yamaportal:v0.2.0'; then break; fi
+            if curl -fsS "https://yamachat.eu/release-feed.json?release-check=$GITHUB_RUN_ID-$attempt" | grep -Fq 'yamaportal:v0.2.0' && { test -z "$RELEASE_ID" || curl -fsS "https://yamachat.eu/release-feed.json?release-check=$GITHUB_RUN_ID-$attempt" | grep -Fq "$RELEASE_ID"; }; then break; fi
             if [ "$attempt" -eq 18 ]; then echo 'Production release feed did not become available'; exit 1; fi
             sleep 10
           done
