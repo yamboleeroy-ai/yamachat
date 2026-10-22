@@ -67,7 +67,7 @@ test('Android phone layout keeps navigation visible and returns completed downlo
   assert.match(read('index.html'),/@media\(max-width:420px\)\{.*?\.nav\{display:grid;grid-template-columns:repeat\(2,minmax\(0,1fr\)\)/);
   assert.match(read('app.js'),/showConverter:[^}]*scrollIntoView\(\{behavior:"smooth",block:"start"\}\)/);
   assert.match(read('downloads.js'),/window\.YamaApp\.showConverter\(\)/);
-  assert.match(read('sw.js'),/yamaconvert-pwa-v5/);
+  assert.match(read('sw.js'),/yamaconvert-pwa-v6/);
   assert.match(read('index.html'),/app\.js\?v=10005/);
   assert.match(read('sw.js'),/app\.js\?v=10005/);
 });
@@ -185,4 +185,4 @@ test('social downloader front-end parses and exposes the conversion bridge',()=>
   const app=read('app.js');
   assert.doesNotThrow(()=>new vm.Script(app));
   assert.ok(app.includes('window.YamaApp=Object.freeze({addFiles,notify,convertDownloadedFile'));
-});
+\n  assert.match(read('index.html'),/app\\.js\\?v=10006/);\n  assert.match(read('sw.js'),/yamaconvert-pwa-v6/);});
