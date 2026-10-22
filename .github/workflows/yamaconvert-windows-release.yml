@@ -10,7 +10,7 @@ on:
       release_tag:
         description: Existing YamaConvert release tag to attach the Windows packages to
         required: true
-        default: yamaconvert-v1.0.0-10000
+        default: yamaconvert-v1.0.8-10006
         type: string
 
 permissions:
@@ -22,8 +22,11 @@ jobs:
     timeout-minutes: 30
     permissions:
       contents: write
+      actions: write
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - name: Build and test standalone desktop app, portable ZIP and setup EXE
         shell: pwsh
         env:
@@ -80,6 +83,13 @@ jobs:
           Copy-Item 'products/yamaconvert/windows/README-Windows.txt' (Join-Path $stage 'README-Windows.txt')
           Copy-Item 'products/yamaconvert/windows/THIRD-PARTY-NOTICES.md' (Join-Path $stage 'THIRD-PARTY-NOTICES.md')
 
+          $resourceEditor = Join-Path $work 'rcedit-x64.exe'
+          Invoke-WebRequest -Uri 'https://github.com/electron/rcedit/releases/download/v2.0.0/rcedit-x64.exe' -OutFile $resourceEditor
+          $resourceEditorHash = (Get-FileHash -LiteralPath $resourceEditor -Algorithm SHA256).Hash
+          if ($resourceEditorHash -ine '3E7801DB1A5EDBEC91B49A24A094AAD776CB4515488EA5A4CA2289C400EADE2A') { throw 'Kontrolní součet nástroje pro ikonu EXE nesouhlasí.' }
+          & $resourceEditor (Join-Path $stage 'YamaConvert.exe') --set-icon (Join-Path $appDir 'icons\yamaconvert.ico')
+          if ($LASTEXITCODE -ne 0) { throw 'Logo se nepodařilo vložit do souboru YamaConvert.exe.' }
+
           $ytRelease = Invoke-RestMethod -Uri 'https://api.github.com/repos/yt-dlp/yt-dlp/releases/latest' -Headers $headers
           $ytBinary = $ytRelease.assets | Where-Object name -eq 'yt-dlp.exe' | Select-Object -First 1
           if (-not $ytBinary) { throw 'Oficiální vydání yt-dlp neobsahuje program.' }
@@ -94,7 +104,7 @@ jobs:
           & (Join-Path $ytDir 'yt-dlp.exe') --version
           if ($LASTEXITCODE -ne 0) { throw 'Přibalený yt-dlp se nepodařilo spustit.' }
 
-          foreach ($required in @('YamaConvert.exe', 'runtime\node.exe', 'resources\app\main.cjs', 'resources\app\preview.cjs', 'resources\app\media-downloader.cjs', 'resources\app\vendor\yt-dlp\yt-dlp.exe')) {
+          foreach ($required in @('YamaConvert.exe', 'runtime\node.exe', 'resources\app\main.cjs', 'resources\app\preview.cjs', 'resources\app\media-downloader.cjs', 'resources\app\icons\yamaconvert.ico', 'resources\app\vendor\yt-dlp\yt-dlp.exe')) {
             if (-not (Test-Path (Join-Path $stage $required))) { throw "Balíčku chybí $required." }
           }
           $env:YAMACONVERT_SMOKE_TEST = '1'
@@ -134,4 +144,93 @@ jobs:
           if ($env:RELEASE_TAG -notmatch '^yamaconvert-v[0-9]+\.[0-9]+\.[0-9]+-[0-9]+$') { throw 'Neplatná značka vydání YamaConvert.' }
           gh release view $env:RELEASE_TAG --repo $env:GITHUB_REPOSITORY | Out-Null
           gh release upload $env:RELEASE_TAG $env:SETUP_PATH $env:PORTABLE_PATH $env:SUMS_PATH --repo $env:GITHUB_REPOSITORY --clobber
+
+      - name: Publish Windows downloads to Yamaportal
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          RELEASE_TAG: ${{ inputs.release_tag }}
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          if (-not $env:CLOUDFLARE_API_TOKEN -or -not $env:CLOUDFLARE_ACCOUNT_ID) { throw 'Chybí ověření úložiště Yamaportalu.' }
+          $version = [regex]::Match($env:RELEASE_TAG, '^yamaconvert-v([0-9]+\.[0-9]+\.[0-9]+)-[0-9]+$').Groups[1].Value
+          if (-not $version) { throw 'Verzi nelze bezpečně určit ze značky vydání.' }
+          $expectedSetup = (Get-FileHash -LiteralPath $env:SETUP_PATH -Algorithm SHA256).Hash.ToLowerInvariant()
+          $expectedPortable = (Get-FileHash -LiteralPath $env:PORTABLE_PATH -Algorithm SHA256).Hash.ToLowerInvariant()
+          $base = 'https://updates.yamachat.eu/yamaconvert'
+          $versioned = @(
+            @{ source=$env:SETUP_PATH; key="YamaConvert-Setup-$version.exe"; contentType='application/vnd.microsoft.portable-executable'; hash=$expectedSetup },
+            @{ source=$env:PORTABLE_PATH; key="YamaConvert-Portable-$version.zip"; contentType='application/zip'; hash=$expectedPortable }
+          )
+          foreach ($asset in $versioned) {
+            $temp = Join-Path $env:RUNNER_TEMP $asset.key
+            $status = (& curl.exe --silent --show-error --max-time 30 --output $temp --write-out '%{http_code}' "$base/$($asset.key)?preflight=$env:GITHUB_RUN_ID-$env:GITHUB_RUN_ATTEMPT")
+            if ($LASTEXITCODE -ne 0) { throw "Nepodařilo se ověřit $($asset.key)." }
+            if ($status -eq '200') {
+              if ((Get-FileHash -LiteralPath $temp -Algorithm SHA256).Hash.ToLowerInvariant() -ne $asset.hash) { throw "Odmítám přepsat neměnný soubor $($asset.key)." }
+            } elseif ($status -eq '404') {
+              $source = (Resolve-Path -LiteralPath $asset.source).Path
+              npx --yes wrangler@latest r2 object put "yamachat-releases/yamaconvert/$($asset.key)" --file $source --content-type $asset.contentType --content-disposition "attachment; filename=$($asset.key)" --cache-control 'public, max-age=31536000, immutable' --remote
+              if ($LASTEXITCODE -ne 0) { throw "Nahrání $($asset.key) selhalo." }
+            } else { throw "Nelze ověřit původní soubor $($asset.key) (HTTP $status)." }
+            $verified = Join-Path $env:RUNNER_TEMP "verified-$($asset.key)"
+            for ($attempt=1; $attempt -le 20; $attempt++) {
+              & curl.exe --fail --silent --show-error --max-time 45 "$base/$($asset.key)?verify=$env:GITHUB_RUN_ID-$env:GITHUB_RUN_ATTEMPT-$attempt" --output $verified
+              if ($LASTEXITCODE -eq 0 -and (Get-FileHash -LiteralPath $verified -Algorithm SHA256).Hash.ToLowerInvariant() -eq $asset.hash) { break }
+              if ($attempt -eq 20) { throw "Kontrola souboru $($asset.key) selhala." }
+              Start-Sleep -Seconds 10
+            }
+          }
+          $latest = @(
+            @{ source=$env:SETUP_PATH; key='YamaConvert-Setup-latest.exe'; contentType='application/vnd.microsoft.portable-executable' },
+            @{ source=$env:PORTABLE_PATH; key='YamaConvert-Portable-latest.zip'; contentType='application/zip' }
+          )
+          foreach ($asset in $latest) {
+            $source = (Resolve-Path -LiteralPath $asset.source).Path
+            npx --yes wrangler@latest r2 object put "yamachat-releases/yamaconvert/$($asset.key)" --file $source --content-type $asset.contentType --content-disposition "attachment; filename=$($asset.key)" --cache-control 'no-cache, no-store' --remote
+            if ($LASTEXITCODE -ne 0) { throw "Aktualizace odkazu $($asset.key) selhala." }
+            $verified = Join-Path $env:RUNNER_TEMP "latest-$($asset.key)"
+            & curl.exe --fail --silent --show-error --max-time 45 "$base/$($asset.key)?verify=$env:GITHUB_RUN_ID-$env:GITHUB_RUN_ATTEMPT" --output $verified
+            if ($LASTEXITCODE -ne 0 -or (Get-FileHash -LiteralPath $verified -Algorithm SHA256).Hash.ToLowerInvariant() -ne (Get-FileHash -LiteralPath $asset.source -Algorithm SHA256).Hash.ToLowerInvariant()) { throw "Odkaz $($asset.key) nevrací správný soubor." }
+          }
+
+      - name: Add the verified Windows release to Yamaportal history
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.release_tag }}
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $version = [regex]::Match($env:RELEASE_TAG, '^yamaconvert-v([0-9]+\.[0-9]+\.[0-9]+)-[0-9]+$').Groups[1].Value
+          $release = gh release view $env:RELEASE_TAG --repo $env:GITHUB_REPOSITORY --json body | ConvertFrom-Json
+          $notes = [string]$release.body
+          if (-not $version -or -not $notes.Trim()) { throw 'Chybí ověřená verze nebo poznámky vydání.' }
+          $entry = @{ id="yamaconvert:windows:$version"; app='yamaconvert'; kind='update'; version=$version; title="YamaConvert Windows $version"; summary=($notes -split "`n")[0].Trim(); details=$notes.Trim(); releasedAt=[DateTime]::UtcNow.ToString('o'); platforms=@('Windows instalátor (.exe)','Windows portable (.zip)') } | ConvertTo-Json -Compress
+          $entryPath = Join-Path $env:RUNNER_TEMP 'portal-release-entry.json'
+          Set-Content -LiteralPath $entryPath -Value $entry -Encoding utf8NoBOM
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git fetch origin main
+          git checkout -B publish-main origin/main
+          node scripts/record-portal-release.cjs $entryPath
+          git add release-feed.json
+          git diff --cached --quiet
+          if ($LASTEXITCODE -ne 0) { git commit -m "Record YamaConvert Windows $version release [skip ci]" }
+          git push origin HEAD:main
+          $previous = gh run list --workflow yamaportal-pages-production.yml --repo $env:GITHUB_REPOSITORY --event workflow_dispatch --branch main --limit 1 --json databaseId --jq '.[0].databaseId // empty'
+          $releaseId = "yamaconvert:windows:$version"
+          gh workflow run yamaportal-pages-production.yml --repo $env:GITHUB_REPOSITORY --ref main -f "release_id=$releaseId"
+          if ($LASTEXITCODE -ne 0) { throw 'Spuštění vydání Yamaportalu selhalo.' }
+          $runId = ''
+          for ($attempt=1; $attempt -le 30; $attempt++) {
+            $runId = gh run list --workflow yamaportal-pages-production.yml --repo $env:GITHUB_REPOSITORY --event workflow_dispatch --branch main --limit 5 --json databaseId --jq '.[0].databaseId // empty'
+            if ($runId -and $runId -ne $previous) { break }
+            Start-Sleep -Seconds 2
+          }
+          if (-not $runId -or $runId -eq $previous) { throw 'Nepodařilo se najít běh nasazení Yamaportalu.' }
+          gh run watch $runId --repo $env:GITHUB_REPOSITORY --exit-status
+          if ($LASTEXITCODE -ne 0) { throw 'Nasazení nebo kontrola Yamaportalu selhala.' }
 

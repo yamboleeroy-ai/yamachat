@@ -7,12 +7,13 @@ ENV NODE_ENV=production \
 RUN apt-get update \
     && apt-get install -y --no-install-recommends ca-certificates ffmpeg python3 python3-venv \
     && python3 -m venv /opt/yt-dlp \
-    && /opt/yt-dlp/bin/pip install --no-cache-dir "yt-dlp[default]==2026.08.19" \
+    && /opt/yt-dlp/bin/pip install --no-cache-dir "yt-dlp[default]==2026.10.21" \
     && apt-get purge -y --auto-remove python3-venv \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
-COPY server.cjs supported-sites.txt ./
+COPY server.cjs daily-quota.cjs supported-sites.txt ./
+RUN mkdir -p /data && chown node:node /data
 USER node
 EXPOSE 3000
 CMD ["node", "server.cjs"]

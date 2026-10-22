@@ -24,6 +24,8 @@ SolidCompression=yes
 WizardStyle=modern
 UninstallDisplayName=YamaConvert
 CloseApplications=yes
+SetupIconFile={#SourceDir}\resources\app\icons\yamaconvert.ico
+UninstallDisplayIcon={app}\YamaConvert.exe
 
 [Tasks]
 Name: "desktopicon"; Description: "Vytvořit zástupce na ploše"; GroupDescription: "Další možnosti:"
@@ -32,5 +34,5 @@ Name: "desktopicon"; Description: "Vytvořit zástupce na ploše"; GroupDescript
 Source: "{#SourceDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
-Name: "{autoprograms}\YamaConvert"; Filename: "{app}\YamaConvert.exe"; WorkingDir: "{app}"
-Name: "{autodesktop}\YamaConvert"; Filename: "{app}\YamaConvert.exe"; WorkingDir: "{app}"; Tasks: desktopicon
+Name: "{autoprograms}\YamaConvert"; Filename: "{app}\YamaConvert.exe"; WorkingDir: "{app}"; IconFilename: "{app}\resources\app\icons\yamaconvert.ico"
+Name: "{autodesktop}\YamaConvert"; Filename: "{app}\YamaConvert.exe"; WorkingDir: "{app}"; IconFilename: "{app}\resources\app\icons\yamaconvert.ico"; Tasks: desktopicon

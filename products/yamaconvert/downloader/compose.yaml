@@ -4,6 +4,10 @@ services:
       context: .
     restart: unless-stopped
     env_file: .env
+    environment:
+      YAMACONVERT_QUOTA_FILE: /data/daily-quota.json
+    volumes:
+      - quota_data:/data
     expose:
       - "3000"
     healthcheck:
@@ -33,3 +37,4 @@ services:
 volumes:
   caddy_data:
   caddy_config:
+  quota_data:
