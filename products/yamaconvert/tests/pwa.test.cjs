@@ -67,10 +67,21 @@ test('Android phone layout keeps navigation visible and returns completed downlo
   assert.match(read('index.html'),/@media\(max-width:420px\)\{.*?\.nav\{display:grid;grid-template-columns:repeat\(2,minmax\(0,1fr\)\)/);
   assert.match(read('app.js'),/showConverter:[^}]*scrollIntoView\(\{behavior:"smooth",block:"start"\}\)/);
   assert.match(read('downloads.js'),/window\.YamaApp\.showConverter\(\)/);
-  assert.match(read('sw.js'),/yamaconvert-pwa-v6/);
-  assert.ok(read('index.html').includes('app.js?v=10006'));
-  assert.ok(read('sw.js').includes("./app.js?v=10006"));
+  assert.match(read('sw.js'),/yamaconvert-pwa-v7/);
+  assert.ok(read('index.html').includes('app.js?v=10007'));
+  assert.ok(read('sw.js').includes("./app.js?v=10007"));
 });
+test('completed conversions use the iOS share sheet in PWA and keep Android and browser saves',()=>{
+  const app=read('app.js');
+  assert.match(app,/function iosShareDownloadButton\(job\)/);
+  assert.match(app,/navigator\.canShare\(\{files:\[file\]\}\)/);
+  assert.match(app,/navigator\.share\(\{files:\[file\],title:job\.outputName\}\)/);
+  assert.match(app,/window\.YamaConvertAndroid\?\.isReady\?\.\(\).*?nativeSaveButton\(job\)/);
+  assert.match(app,/download\.href=job\.outputUrl;download\.download=job\.outputName/);
+  assert.match(read('index.html'),/app\.js\?v=10007/);
+  assert.match(read('sw.js'),/yamaconvert-pwa-v7/);
+});
+
 test('PWA shares the Yamaportal auth session and uses the protected downloader when it is configured',()=>{
   const account=read('account.js');
   const portalAuth=fs.readFileSync(path.join(root,'products','yamaportal','preview','dist','account-ui.js'),'utf8');
@@ -185,6 +196,6 @@ test('social downloader front-end parses and exposes the conversion bridge',()=>
   const app=read('app.js');
   assert.doesNotThrow(()=>new vm.Script(app));
   assert.ok(app.includes('window.YamaApp=Object.freeze({addFiles,notify,convertDownloadedFile'));
-  assert.ok(read('index.html').includes('app.js?v=10006'));
-  assert.match(read('sw.js'),/yamaconvert-pwa-v6/);
+  assert.ok(read('index.html').includes('app.js?v=10007'));
+  assert.match(read('sw.js'),/yamaconvert-pwa-v7/);
 });

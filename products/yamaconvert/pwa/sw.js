@@ -1,5 +1,5 @@
 'use strict';
-const CACHE = 'yamaconvert-pwa-v6';
+const CACHE = 'yamaconvert-pwa-v7';
 const SHARE_DB = 'yamaconvert-share-inbox-v1';
 const SHARE_STORE = 'shares';
 const SHARE_MAX_BYTES = 100 * 1024 * 1024;
@@ -9,7 +9,7 @@ const SHELL = [
   './icons/yamaconvert-192.png', './icons/yamaconvert-512.png',
   './design/logo-reference.png', './account.js', './image-formats.js', './vendor/lamejs/lame.min.js',
   './audio-formats.js', './document-formats.js', './video-formats.js',
-  './history.js', './app.js?v=10006', './navigation.js', './download-config.js', './downloads.js', './share-inbox.js', './pwa.js'
+  './history.js', './app.js?v=10007', './navigation.js', './download-config.js', './downloads.js', './share-inbox.js', './pwa.js'
 ];
 self.addEventListener('install', event => {
   event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(SHELL)).then(() => self.skipWaiting()));
