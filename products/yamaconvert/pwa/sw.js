@@ -9,7 +9,7 @@ const SHELL = [
   './icons/yamaconvert-192.png', './icons/yamaconvert-512.png',
   './design/logo-reference.png', './account.js', './image-formats.js', './vendor/lamejs/lame.min.js',
   './audio-formats.js', './document-formats.js', './video-formats.js',
-  './history.js', './app.js?v=10005', './navigation.js', './download-config.js', './downloads.js', './share-inbox.js', './pwa.js'
+  './history.js', './app.js?v=10006', './navigation.js', './download-config.js', './downloads.js', './share-inbox.js', './pwa.js'
 ];
 self.addEventListener('install', event => {
   event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(SHELL)).then(() => self.skipWaiting()));
