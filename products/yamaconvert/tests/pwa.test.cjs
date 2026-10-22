@@ -185,4 +185,6 @@ test('social downloader front-end parses and exposes the conversion bridge',()=>
   const app=read('app.js');
   assert.doesNotThrow(()=>new vm.Script(app));
   assert.ok(app.includes('window.YamaApp=Object.freeze({addFiles,notify,convertDownloadedFile'));
-\n  assert.match(read('index.html'),/app\\.js\\?v=10006/);\n  assert.match(read('sw.js'),/yamaconvert-pwa-v6/);});
+  assert.ok(read('index.html').includes('app.js?v=10006'));
+  assert.match(read('sw.js'),/yamaconvert-pwa-v6/);
+});
