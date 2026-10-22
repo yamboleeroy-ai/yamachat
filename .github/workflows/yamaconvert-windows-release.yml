@@ -148,13 +148,15 @@ jobs:
       - name: Publish Windows downloads to Yamaportal
         if: github.event_name == 'workflow_dispatch'
         env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.CLOUDFLARE_R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.CLOUDFLARE_R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           RELEASE_TAG: ${{ inputs.release_tag }}
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          if (-not $env:CLOUDFLARE_API_TOKEN -or -not $env:CLOUDFLARE_ACCOUNT_ID) { throw 'Chybí ověření úložiště Yamaportalu.' }
+          if (-not $env:AWS_ACCESS_KEY_ID -or -not $env:AWS_SECRET_ACCESS_KEY -or -not $env:CLOUDFLARE_ACCOUNT_ID) { throw 'Chybí ověření úložiště Yamaportalu.' }
           $version = [regex]::Match($env:RELEASE_TAG, '^yamaconvert-v([0-9]+\.[0-9]+\.[0-9]+)-[0-9]+$').Groups[1].Value
           if (-not $version) { throw 'Verzi nelze bezpečně určit ze značky vydání.' }
           $expectedSetup = (Get-FileHash -LiteralPath $env:SETUP_PATH -Algorithm SHA256).Hash.ToLowerInvariant()
@@ -172,7 +174,7 @@ jobs:
               if ((Get-FileHash -LiteralPath $temp -Algorithm SHA256).Hash.ToLowerInvariant() -ne $asset.hash) { throw "Odmítám přepsat neměnný soubor $($asset.key)." }
             } elseif ($status -eq '404') {
               $source = (Resolve-Path -LiteralPath $asset.source).Path
-              npx --yes wrangler@latest r2 object put "yamachat-releases/yamaconvert/$($asset.key)" --file $source --content-type $asset.contentType --content-disposition "attachment; filename=$($asset.key)" --cache-control 'public, max-age=31536000, immutable' --remote
+              aws s3api put-object --bucket yamachat-releases --key "yamaconvert/$($asset.key)" --body $source --content-type $asset.contentType --content-disposition "attachment; filename=$($asset.key)" --cache-control 'public, max-age=31536000, immutable' --endpoint-url "https://$env:CLOUDFLARE_ACCOUNT_ID.r2.cloudflarestorage.com" --no-cli-pager
               if ($LASTEXITCODE -ne 0) { throw "Nahrání $($asset.key) selhalo." }
             } else { throw "Nelze ověřit původní soubor $($asset.key) (HTTP $status)." }
             $verified = Join-Path $env:RUNNER_TEMP "verified-$($asset.key)"
@@ -189,7 +191,7 @@ jobs:
           )
           foreach ($asset in $latest) {
             $source = (Resolve-Path -LiteralPath $asset.source).Path
-            npx --yes wrangler@latest r2 object put "yamachat-releases/yamaconvert/$($asset.key)" --file $source --content-type $asset.contentType --content-disposition "attachment; filename=$($asset.key)" --cache-control 'no-cache, no-store' --remote
+            aws s3api put-object --bucket yamachat-releases --key "yamaconvert/$($asset.key)" --body $source --content-type $asset.contentType --content-disposition "attachment; filename=$($asset.key)" --cache-control 'no-cache, no-store' --endpoint-url "https://$env:CLOUDFLARE_ACCOUNT_ID.r2.cloudflarestorage.com" --no-cli-pager
             if ($LASTEXITCODE -ne 0) { throw "Aktualizace odkazu $($asset.key) selhala." }
             $verified = Join-Path $env:RUNNER_TEMP "latest-$($asset.key)"
             & curl.exe --fail --silent --show-error --max-time 45 "$base/$($asset.key)?verify=$env:GITHUB_RUN_ID-$env:GITHUB_RUN_ATTEMPT" --output $verified
