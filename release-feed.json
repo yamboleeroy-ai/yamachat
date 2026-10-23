@@ -2,6 +2,21 @@
   "schemaVersion": 1,
   "releases": [
     {
+      "id": "yamaview:1.6.8",
+      "app": "yamaview",
+      "kind": "update",
+      "version": "1.6.8",
+      "title": "YamaView 1.6.8",
+      "summary": "Vydané balíčky Windows a Android s přihlášením přes YamaPortal.",
+      "details": "YamaView 1.6.8 je nahraný jako instalační Windows balíček, portable ZIP a Android APK. Vydání uvádí automatické přihlášení přes YamaPortal, návrat do aplikace a výchozí Yama server pro Windows i Android. Upload logy potvrzují nahrání všech tří balíčků do oficiálního úložiště.",
+      "releasedAt": "2026-10-23T09:59:51.000Z",
+      "platforms": [
+        "Windows instalátor",
+        "Windows portable",
+        "Android APK"
+      ]
+    },
+    {
       "id": "yamaportal:v0.2.1",
       "app": "yamaportal",
       "kind": "update",
