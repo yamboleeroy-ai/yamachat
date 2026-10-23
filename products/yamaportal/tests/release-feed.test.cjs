@@ -50,7 +50,8 @@ test('application cards take their platform versions from the published release 
 
 test('updates page reflects the released YamaView Windows build',()=>{
   const updates=app.match(/if\(active==='aktualizace'\)\{page\.innerHTML=([\s\S]*?);void YamaDownloads\.render\(\);\}/)?.[1]||'';
-  assert.match(app,/id:'view'.*status:'Windows 1\.6\.3 · Android 1\.6\.7 \(emulátor\)'/);
+  assert.match(app,/id:'view'.*status:'Windows 1\.6\.8 · Android 1\.6\.8'/);
+  assert.ok(app.includes('YamaView 1.6.8 má nahraný instalační Windows balíček'));
   assert.doesNotMatch(updates,/YamaView se připravují/);
   assert.match(updates,/YamaMaker se připravuje/);
 });

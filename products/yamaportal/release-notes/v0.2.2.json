@@ -1,0 +1,10 @@
+{
+  "kind": "update",
+  "title": "Yamaportal 0.2.2",
+  "summary": "Karta YamaView nyní uvádí vydané balíčky Windows a Android 1.6.8.",
+  "details": "YamaView 1.6.8 je uveden s instalačním balíčkem pro Windows, portable ZIP a Android APK. Vydání YamaView uvádí automatické přihlášení přes YamaPortal, návrat do aplikace a výchozí Yama server pro Windows i Android. Yamaportal zobrazuje odkazy na konkrétní verzi po ověřeném nahrání souborů a zachovává samostatné vydávání ostatních aplikací.",
+  "platforms": [
+    "Web / PWA",
+    "Windows"
+  ]
+}
