@@ -10,9 +10,7 @@
       "summary": "Opravené zobrazení upozornění v kartách: počet zůstává v názvu stránky, kompaktní červená tečka u favicony označí nové upozornění a po otevření karty zmizí. Tlačítko zavření karty zůstává dostupné.",
       "details": "Opravené zobrazení upozornění v kartách: počet zůstává v názvu stránky, kompaktní červená tečka u favicony označí nové upozornění a po otevření karty zmizí. Tlačítko zavření karty zůstává dostupné.",
       "releasedAt": "2026-10-23T20:19:00.616Z",
-      "platforms": [
-        "Windows"
-      ]
+      "platforms": ["Windows"]
     },
     {
       "id": "yamaportal:v0.2.2",
