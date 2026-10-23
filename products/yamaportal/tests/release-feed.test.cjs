@@ -48,6 +48,13 @@ test('application cards take their platform versions from the published release 
   assert.match(app,/active==='domu'\|\|active==='aplikace'\).*YamaReleaseFeed\?\.render\(\)/);
 });
 
+test('updates page reflects the released YamaView Windows build',()=>{
+  const updates=app.match(/if\(active==='aktualizace'\)\{page\.innerHTML=([\s\S]*?);void YamaDownloads\.render\(\);\}/)?.[1]||'';
+  assert.match(app,/id:'view'.*status:'Vydání 1\.6\.3'/);
+  assert.doesNotMatch(updates,/YamaView se připravují/);
+  assert.match(updates,/YamaMaker se připravuje/);
+});
+
 test('direct Applications route updates cards even when the home-only release list is absent',async()=>{
   const card={textContent:'old',title:'',setAttribute(){}};
   const modal={querySelector:()=>({addEventListener(){}}),showModal(){}};
