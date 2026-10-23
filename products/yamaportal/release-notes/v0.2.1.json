@@ -1,0 +1,7 @@
+{
+  "kind": "update",
+  "title": "Yamaportal 0.2.1",
+  "summary": "Yamaportal sjednocuje rychlý přístup k aplikacím a zpřehledňuje jejich skutečnou dostupnost.",
+  "details": "Domovská obrazovka nabízí rychlý přístup k Yamachatu, YamaSearch, YamaHelp, YamaView a YamaConvert. Karta každé aplikace uvádí jen ověřené možnosti; YamaView Android 1.6.7 je označen jako otestovaný v emulátoru podle uživatelského testu a veřejné stažení APK se nenabízí. Web/PWA i Windows Yamaportal používají společnou verzi z package.json. Windows vydávací postup ověřuje poznámky, vytváří instalační a portable balíčky, publikuje manifest latest.json a po úspěšném zveřejnění aktualizuje společný přehled. Produkční web se nasazuje až po přidání ověřeného záznamu vydání, aby se nezobrazil nefunkční odkaz na stažení.",
+  "platforms": ["Web / PWA", "Windows"]
+}

@@ -1,8 +1,8 @@
 const {app,BrowserWindow,ipcMain,dialog,Menu,shell,safeStorage,globalShortcut}=require('electron');const fs=require('node:fs');const path=require('node:path');
 const {createPortalServer}=require('../preview/server.cjs');const launcher=require('./launcher.cjs');
 const {DesktopOAuth}=require('./oauth.cjs');
-const {installDisplayPicker}=require('./media.cjs');
-let win,server,origin,desktopOAuth,selected={};
+const {installDisplayPicker}=require('./media.cjs');const {createAuthSessionStore}=require('./auth-session-store.cjs');
+let win,server,origin,desktopOAuth,selected={},authSessionStore;
 const returnToken=require('node:crypto').randomBytes(32).toString('hex');
 const smoke=process.argv.includes('--smoke-test');
 // Separate profile directory: never reuse Yamachat/Search app data.
@@ -12,6 +12,7 @@ app.on('second-instance',()=>{win?.show();win?.focus();});
 app.whenReady().then(async()=>{
  let nativeBridgeReady=false,resolveNativeBridge;const nativeBridgePromise=new Promise(resolve=>{resolveNativeBridge=resolve;});
  const settings=path.join(app.getPath('userData'),'app-paths.json');try{selected=JSON.parse(fs.readFileSync(settings,'utf8'));}catch{}
+ authSessionStore=createAuthSessionStore({userDataPath:app.getPath('userData'),safeStorage});
  const serverOptions={publicDownloads:!smoke,oauthCallback:url=>desktopOAuth?.receive(url)===true,returnToken,onPortalReturn:()=>{if(win?.isMinimized())win.restore();win?.show();win?.focus();}};server=createPortalServer(serverOptions);await new Promise((resolve,reject)=>{server.once('error',reject);server.listen(smoke?0:4188,'127.0.0.1',resolve);});origin='http://127.0.0.1:'+server.address().port;serverOptions.origin=origin;
  win=new BrowserWindow({icon:path.join(__dirname,'../preview/dist/assets/yamaportal.png'),frame:false,show:!smoke,title:'Yamaportal',width:1250,height:860,backgroundColor:'#050c1b',webPreferences:{preload:path.join(__dirname,'preload.cjs'),nodeIntegration:false,contextIsolation:true,sandbox:true,webSecurity:true}});
  installDisplayPicker({win,origin,desktopCapturer:require('electron').desktopCapturer,dialog,smoke});
@@ -24,7 +25,8 @@ app.whenReady().then(async()=>{
  desktopOAuth=new DesktopOAuth({origin,policy,openExternal:url=>shell.openExternal(url),deliver:url=>{win.webContents.send('portal:oauth-callback',url);if(win.isMinimized())win.restore();win.show();win.focus();}});
  ipcMain.handle('portal:oauth-begin',(event,url,callback)=>{trusted(event);return desktopOAuth.begin(url,callback);});
  ipcMain.handle('portal:oauth-cancel',event=>{trusted(event);desktopOAuth.cancel();});
- ipcMain.handle('portal:storage',(event,action,key,value)=>{trusted(event);if(!/^yamaportal-auth-v1(?:-code-verifier|-user)?$/.test(key))throw new Error('Neplatné úložiště.');if(!safeStorage.isEncryptionAvailable())throw new Error('Zabezpečené úložiště není dostupné.');const file=path.join(app.getPath('userData'),key+'.encrypted');if(action==='get'){try{return safeStorage.decryptString(fs.readFileSync(file));}catch{return null;}}if(action==='set'){if(typeof value!=='string'||value.length>100000)throw new Error('Neplatná relace.');fs.writeFileSync(file,safeStorage.encryptString(value));return;}if(action==='remove'){fs.rmSync(file,{force:true});return;}throw new Error('Neplatná operace.');});
+ ipcMain.handle('portal:remember',async(event,action,value)=>{trusted(event);if(action==='get')return authSessionStore.getRemember();if(action==='set')return authSessionStore.setRemember(value);throw new Error('Neplatné nastavení přihlášení.');});
+ipcMain.handle('portal:storage',(event,action,key,value)=>{trusted(event);if(action==='get')return authSessionStore.get(key);if(action==='set')return authSessionStore.set(key,value);if(action==='remove')return authSessionStore.remove(key);throw new Error('Neplatná operace.');});
  ipcMain.handle('portal:apps',event=>{trusted(event);nativeBridgeReady=true;resolveNativeBridge();return Object.keys(launcher.names).map(key=>({id:key,installed:!!launcher.detect(key,selected[key])}));});
  ipcMain.handle('portal:choose',async(event,key)=>{trusted(event);id(key);const result=await dialog.showOpenDialog(win,{title:'Vyber '+launcher.names[key],properties:['openFile'],filters:[{name:launcher.names[key],extensions:['exe']}]});if(result.canceled)return {cancelled:true};selected[key]=launcher.validate(key,result.filePaths[0]);fs.writeFileSync(settings,JSON.stringify(selected,null,2));return {selected:true};});
  ipcMain.handle('portal:launch',async(event,key)=>{trusted(event);id(key);const file=launcher.detect(key,selected[key]);if(!file)throw new Error('Nejdřív vyber nainstalovanou nebo portable aplikaci.');return launcher.launch(key,file,key==='search'?{YAMAPORTAL_ACCOUNT:'central',YAMAPORTAL_RETURN_ORIGIN:origin,YAMAPORTAL_RETURN_TOKEN:returnToken}:{});});

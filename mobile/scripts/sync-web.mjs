@@ -7,6 +7,7 @@ const out=path.join(root,'mobile/www');
 fs.mkdirSync(out,{recursive:true});
 // Do not package previous APKs or source archives.
 for(const asset of ['icons','audio','vendor','build','boot-guard.js','favicon.ico'])fs.cpSync(path.join(root,asset),path.join(out,asset),{recursive:true});
+fs.copyFileSync(path.join(root,'products/yamaportal/preview/dist/auth-session-storage.js'),path.join(out,'auth-session-storage.js'));
 const legalFiles=["LICENSE","TERMS_OF_USE.md","PRIVACY_POLICY.md","BRAND-NOTICE.md","PROVENANCE.md","THIRD_PARTY_NOTICES.md","LEGAL-BASELINE.md","ASSET-MANIFEST.md"];
 const legalOut=path.join(out,'legal');
 fs.mkdirSync(legalOut,{recursive:true});

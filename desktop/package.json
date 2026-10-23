@@ -40,6 +40,7 @@
       "notification-preload.js",
       "desktop.html",
       "desktop-client.html",
+      "auth-session-storage.js",
       "boot-guard.js",
       "audio/**/*",
       "build/**/*",

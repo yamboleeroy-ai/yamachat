@@ -40,7 +40,7 @@ test('application cards take their platform versions from the published release 
   vm.runInNewContext(ui,context);
   const summary=context.window.YamaReleaseFeed.versionSummary('yamaconvert',manifest.releases);
   assert.equal(summary,'Android APK 1.0.9 (10007) · Windows 1.0.8 · Web/PWA 1.0.3');
-  assert.match(app,/platform:'Windows instalátor\/portable · Android APK · Web\/PWA'/);
+  assert.match(app,/platform:'Android APK · Android PWA · Windows PWA · Web'/);
   assert.match(app,/status:'Windows 0\.3\.22'/);
   assert.match(app,/status:'Windows 1\.0\.85'/);
   const availability=JSON.parse(fs.readFileSync(path.join(__dirname,'..','preview','dist','app-availability.json'),'utf8'));
@@ -50,7 +50,7 @@ test('application cards take their platform versions from the published release 
 
 test('updates page reflects the released YamaView Windows build',()=>{
   const updates=app.match(/if\(active==='aktualizace'\)\{page\.innerHTML=([\s\S]*?);void YamaDownloads\.render\(\);\}/)?.[1]||'';
-  assert.match(app,/id:'view'.*status:'Vydání 1\.6\.3'/);
+  assert.match(app,/id:'view'.*status:'Windows 1\.6\.3 · Android 1\.6\.7 \(emulátor\)'/);
   assert.doesNotMatch(updates,/YamaView se připravují/);
   assert.match(updates,/YamaMaker se připravuje/);
 });

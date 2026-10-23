@@ -60,6 +60,8 @@
 .quick-action>b{margin-left:auto;font-size:21px;font-weight:400}
 .quick-search{background:linear-gradient(100deg,#075879,#102b5a)}
 .quick-help{background:linear-gradient(100deg,#402269,#172e55)}
+.quick-view{background:linear-gradient(100deg,#073d68,#34215f)}
+.quick-convert{background:linear-gradient(100deg,#075c68,#17345b)}
 .activity-empty{min-height:92px;display:flex;align-items:center;gap:12px;padding:13px;border:1px dashed #31506a;border-radius:12px;background:#07182a70;color:var(--muted)}
 .activity-empty>span{font-size:24px;color:#69dff0}
 .activity-empty p{margin:0;font-size:12px;line-height:1.5}

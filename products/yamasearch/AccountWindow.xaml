@@ -81,6 +81,10 @@
               <StackPanel x:Name="SignInProvidersPanel"/>
               <TextBlock x:Name="NoProvidersText" Text="Na odděleném serveru YamaSearch zatím není aktivní žádný podporovaný poskytovatel."
                          Style="{StaticResource YamaSubtleText}" Visibility="Collapsed"/>
+              <CheckBox x:Name="RememberSessionCheckBox" Content="Zůstat přihlášen na tomto zařízení"
+                        Foreground="#D7E9F8" Margin="0,14,0,0" Checked="RememberSession_Changed" Unchecked="RememberSession_Changed"/>
+              <TextBlock Text="Vypnuto: po zavření aplikace se relace neobnoví. Zapnuto: obnovovací token je uložený ve Windows Credential Manageru."
+                         Style="{StaticResource YamaSubtleText}" Margin="0,5,0,0" TextWrapping="Wrap"/>
             </StackPanel>
           </Border>
 
@@ -111,6 +115,8 @@
               <TextBlock Text="Relace a soukromí" Style="{StaticResource YamaSectionTitle}"/>
               <TextBlock Text="Odhlášení odstraní obnovovací token z tohoto zařízení. Běžné prohlížení a místní data zůstanou zachována."
                          Style="{StaticResource YamaSubtleText}" Margin="0,8,0,12"/>
+              <CheckBox x:Name="RememberSessionActiveCheckBox" Content="Zůstat přihlášen na tomto zařízení"
+                        Foreground="#D7E9F8" Margin="0,0,0,12" Checked="RememberSession_Changed" Unchecked="RememberSession_Changed"/>
               <Button Content="Odhlásit toto zařízení" Style="{StaticResource YamaDangerButton}" HorizontalAlignment="Left" Click="SignOut_Click"/>
             </StackPanel>
           </Border>
