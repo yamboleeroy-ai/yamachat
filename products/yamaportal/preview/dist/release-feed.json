@@ -1,4 +1,159 @@
 {
   "schemaVersion": 1,
-  "releases": []
+  "releases": [
+    {
+      "id": "yamaview:1.6.8",
+      "app": "yamaview",
+      "kind": "update",
+      "version": "1.6.8",
+      "title": "YamaView 1.6.8",
+      "summary": "Vydané balíčky Windows a Android s přihlášením přes YamaPortal.",
+      "details": "YamaView 1.6.8 je nahraný jako instalační Windows balíček, portable ZIP a Android APK. Vydání uvádí automatické přihlášení přes YamaPortal, návrat do aplikace a výchozí Yama server pro Windows i Android. Upload logy potvrzují nahrání všech tří balíčků do oficiálního úložiště.",
+      "releasedAt": "2026-10-23T09:59:51.000Z",
+      "platforms": [
+        "Windows instalátor",
+        "Windows portable",
+        "Android APK"
+      ]
+    },
+    {
+      "id": "yamaportal:v0.2.1",
+      "app": "yamaportal",
+      "kind": "update",
+      "version": "0.2.1",
+      "title": "Yamaportal 0.2.1",
+      "summary": "Yamaportal sjednocuje rychlý přístup k aplikacím a zpřehledňuje jejich skutečnou dostupnost.",
+      "details": "Domovská obrazovka nabízí rychlý přístup k Yamachatu, YamaSearch, YamaHelp, YamaView a YamaConvert. Karta každé aplikace uvádí jen ověřené možnosti; YamaView Android 1.6.7 je označen jako otestovaný v emulátoru podle uživatelského testu a veřejné stažení APK se nenabízí. Web/PWA i Windows Yamaportal používají společnou verzi z package.json. Windows vydávací postup ověřuje poznámky, vytváří instalační a portable balíčky, publikuje manifest latest.json a po úspěšném zveřejnění aktualizuje společný přehled. Produkční web se nasazuje až po přidání ověřeného záznamu vydání, aby se nezobrazil nefunkční odkaz na stažení.",
+      "releasedAt": "2026-10-23T09:37:32.009Z",
+      "platforms": [
+        "Web / PWA",
+        "Windows"
+      ]
+    },
+    {
+      "id": "yamaconvert:android:10007",
+      "app": "yamaconvert",
+      "kind": "update",
+      "version": "1.0.9 (10007)",
+      "title": "YamaConvert Android 1.0.9",
+      "summary": "Opravené rozhraní: převod, stahování médií a společná fronta na jedné stránce.",
+      "details": "Opravené rozhraní: převod, stahování médií a společná fronta na jedné stránce.",
+      "releasedAt": "2026-10-23T07:18:55.297Z",
+      "platforms": [
+        "Android APK"
+      ]
+    },
+    {
+      "id": "yamaconvert:windows:1.0.8",
+      "app": "yamaconvert",
+      "kind": "update",
+      "version": "1.0.8",
+      "title": "YamaConvert Windows 1.0.8",
+      "summary": "Opravy stahování a převodů; aktuální yt-dlp pro Android a Windows; obnovené ovládání Windows aplikace; nové stabilní stažení z Yamaportalu.",
+      "details": "Opravy stahování a převodů; aktuální yt-dlp pro Android a Windows; obnovené ovládání Windows aplikace; nové stabilní stažení z Yamaportalu.",
+      "releasedAt": "2026-10-23T06:24:43.628Z",
+      "platforms": [
+        "Windows instalátor (.exe)",
+        "Windows portable (.zip)"
+      ]
+    },
+    {
+      "id": "yamaconvert:android:10006",
+      "app": "yamaconvert",
+      "kind": "update",
+      "version": "1.0.8 (10006)",
+      "title": "YamaConvert Android 1.0.8",
+      "summary": "Opravy stahování a převodů; aktuální yt-dlp pro Android a Windows; obnovené ovládání Windows aplikace; nové stabilní stažení z Yamaportalu.",
+      "details": "Opravy stahování a převodů; aktuální yt-dlp pro Android a Windows; obnovené ovládání Windows aplikace; nové stabilní stažení z Yamaportalu.",
+      "releasedAt": "2026-10-22T22:29:18.167Z",
+      "platforms": [
+        "Android APK"
+      ]
+    },
+    {
+      "id": "yamaconvert:windows:1.0.3",
+      "app": "yamaconvert",
+      "kind": "update",
+      "version": "1.0.3",
+      "title": "YamaConvert Windows 1.0.3",
+      "summary": "YamaConvert pro Windows je dostupný jako instalační EXE a přenosný ZIP. Soubory se stahují z oficiálního portálu aktualizací Yamachat.",
+      "details": "YamaConvert pro Windows je dostupný jako instalační EXE a přenosný ZIP. Soubory se stahují z oficiálního portálu aktualizací Yamachat.",
+      "releasedAt": "2026-10-21T10:34:52.205Z",
+      "platforms": [
+        "Windows instalátor (.exe)",
+        "Windows portable (.zip)"
+      ]
+    },
+    {
+      "id": "yamaconvert:1.0.3",
+      "app": "yamaconvert",
+      "kind": "update",
+      "version": "1.0.3",
+      "title": "YamaConvert 1.0.3",
+      "summary": "Přehlednější rozhraní Androidu a spolehlivější aktualizace; stahování a převody zůstávají zachované.",
+      "details": "Android nyní zobrazuje všechny hlavní části v přehledné navigaci pro telefon. Po dokončení stažení a převodu otevře aplikace frontu souborů. Kontrola aktualizací vyhledává vydání YamaConvert samostatně, takže ji nezakryjí vydání jiných aplikací Yamachat. Přihlášení přes Yamaportal a stahování přímo v telefonu zůstávají zachované.",
+      "releasedAt": "2026-10-21T09:58:53Z",
+      "platforms": [
+        "Android APK",
+        "Android PWA",
+        "Web"
+      ]
+    },
+    {
+      "id": "yamaconvert:1.0.2",
+      "app": "yamaconvert",
+      "kind": "update",
+      "version": "1.0.2",
+      "title": "YamaConvert 1.0.2",
+      "summary": "Stahování veřejných odkazů a převod do MP3, MP4 nebo WEBM na webu i Androidu.",
+      "details": "YamaConvert nyní používá stejnou stahovací službu na webu i v Android PWA. Přihlas se přes Yamaportal, vlož veřejný odkaz a vyber MP3, MP4 nebo WEBM. Každé stažení vyžaduje potvrzení oprávnění; limit je 100 MB a 10 stažení za 24 hodin na účet. Přihlášení ke zdrojovým sociálním sítím, soukromý či placený obsah a DRM služba nepodporuje.",
+      "releasedAt": "2026-10-20T12:00:00Z",
+      "platforms": [
+        "Android",
+        "Web / PWA"
+      ]
+    },
+    {
+      "id": "yamaconvert:1.0.1",
+      "app": "yamaconvert",
+      "kind": "update",
+      "version": "1.0.1",
+      "title": "YamaConvert 1.0.1",
+      "summary": "Android může převzít uložené audio/video ze systémové nabídky Sdílet.",
+      "details": "YamaConvert se nyní zobrazí v androidovské nabídce Sdílet pro audio a video. Vyber soubor uložený funkcí platformy a aplikace ho přidá do místní fronty pro převod na zvolený formát. Sdílené soubory zůstávají v zařízení.\n\nSamotný odkaz na sociální síť médium nestahuje; otevře původní stránku. Dostupnost ukládání určuje daná platforma.",
+      "releasedAt": "2026-10-20T09:24:50Z",
+      "platforms": [
+        "Android",
+        "Web / PWA"
+      ]
+    },
+    {
+      "id": "yamaconvert:1.0.0",
+      "app": "yamaconvert",
+      "kind": "new-app",
+      "version": "1.0.0",
+      "title": "YamaConvert 1.0.0",
+      "summary": "První instalovatelná verze YamaConvert pro Android a web.",
+      "details": "YamaConvert je dostupný jako instalovatelná PWA. V Android Chrome ho lze přidat na plochu; webové soubory se aktualizují automaticky při spuštění aplikace. Přihlášení sdílí relaci Yamaportalu.\n\nPřevody souborů běží lokálně v zařízení. Stahování odkazů ze sociálních sítí vyžaduje místní službu ve Windows a v této PWA není dostupné.",
+      "releasedAt": "2026-10-20T08:45:25Z",
+      "platforms": [
+        "Android",
+        "Web / PWA"
+      ]
+    },
+    {
+      "id": "yamaportal:v0.2.0",
+      "app": "yamaportal",
+      "kind": "new-app",
+      "version": "0.2.0",
+      "title": "Yamaportal 0.2.0",
+      "summary": "První vydání centrálního rozcestníku Yamaportal se společným Yama účtem.",
+      "details": "Yamaportal přináší společný účet založený na stávajícím přihlášení Yamachat, přehled Yama aplikací a odkazy na jejich oficiální verze.\n\nDo Portalu přibyly živý chat a fórum, které jsou dostupné pouze po přihlášení. Uživatelé mohou zakládat témata a přidávat do nich odpovědi.\n\nVydání zahrnuje responzivní web/PWA a samostatnou Windows instalaci i portable balíček. Jednotlivé Yama aplikace si zachovávají vlastní funkce a distribuci.",
+      "releasedAt": "2026-10-20T07:35:15.386Z",
+      "platforms": [
+        "Web / PWA",
+        "Windows"
+      ]
+    }
+  ]
 }
