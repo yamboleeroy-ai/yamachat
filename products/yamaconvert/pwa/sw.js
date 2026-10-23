@@ -1,5 +1,5 @@
 'use strict';
-const CACHE = 'yamaconvert-pwa-v8';
+const CACHE = 'yamaconvert-pwa-v9';
 const SHARE_DB = 'yamaconvert-share-inbox-v1';
 const SHARE_STORE = 'shares';
 const SHARE_MAX_BYTES = 100 * 1024 * 1024;
