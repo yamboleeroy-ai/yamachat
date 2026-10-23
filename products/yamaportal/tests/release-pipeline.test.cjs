@@ -30,6 +30,8 @@ test('Windows release names and latest manifest use the package version and publ
   assert.match(releaseWorkflow,/Yamaportal-\$kind-\$VERSION-x64\.exe/);
   assert.match(releaseWorkflow,/version,publishedAt:releasedAt/);
   assert.match(releaseWorkflow,/\.release\.id == \("yamaportal:v" \+ \$v\)/);
+  assert.ok(releaseWorkflow.includes('Smoke-test the packaged Windows application'));
+  assert.ok(releaseWorkflow.includes("ArgumentList '--smoke-test'"));
   assert.doesNotMatch(releaseWorkflow,/Yamaportal-Setup-0\.2\.0-x64\.exe/);
   assert.doesNotMatch(releaseWorkflow,/"version":"0\.2\.0"/);
 });

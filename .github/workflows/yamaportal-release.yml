@@ -57,6 +57,22 @@ jobs:
         working-directory: products/yamaportal
       - run: npx electron-builder --config electron-builder.json --win --publish never
         working-directory: products/yamaportal
+      - name: Smoke-test the packaged Windows application
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $app = Join-Path $env:GITHUB_WORKSPACE 'products/yamaportal/artifacts/win-unpacked/Yamaportal.exe'
+          $report = Join-Path $env:RUNNER_TEMP 'yamaportal-smoke-report.json'
+          if (-not (Test-Path -LiteralPath $app)) { throw 'Sestavení Yamaportal neobsahuje spustitelnou aplikaci.' }
+          $env:YAMAPORTAL_SMOKE_REPORT = $report
+          $process = Start-Process -FilePath $app -ArgumentList '--smoke-test' -PassThru
+          $deadline = [DateTime]::UtcNow.AddSeconds(35)
+          while (-not $process.HasExited -and [DateTime]::UtcNow -lt $deadline) { Start-Sleep -Milliseconds 300; $process.Refresh() }
+          if (-not $process.HasExited) { Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue; throw 'Windows aplikace se při smoke testu neukončila.' }
+          if ($process.ExitCode -ne 0) { throw "Windows aplikace skončila s kódem $($process.ExitCode)." }
+          if (-not (Test-Path -LiteralPath $report)) { throw 'Windows aplikace se nespustila až k načtení svého rozhraní.' }
+          $result = Get-Content -LiteralPath $report -Raw | ConvertFrom-Json
+          if (-not $result.desktopLoaded -or -not $result.nativeBridgeReady) { throw 'Windows rozhraní nebo systémový most se nepodařilo inicializovat.' }
       - uses: actions/upload-artifact@v4
         with:
           name: yamaportal-windows
