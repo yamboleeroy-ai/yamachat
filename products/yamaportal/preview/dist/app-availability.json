@@ -82,24 +82,27 @@
     },
     {
       "id": "view-installer",
-      "url": "https://updates.yamachat.eu/yamaview/YamaView-Setup-1.6.3.exe",
+      "url": "https://updates.yamachat.eu/yamaview/YamaView-Setup-1.6.8.exe",
       "status": 200,
       "type": "application/vnd.microsoft.portable-executable",
-      "available": true
+      "available": true,
+      "verifiedAt": "2026-10-23T09:59:31.000Z"
     },
     {
       "id": "view-portable",
-      "url": "https://updates.yamachat.eu/yamaview/YamaView-Portable-1.6.3.zip",
+      "url": "https://updates.yamachat.eu/yamaview/YamaView-Portable-1.6.8.zip",
       "status": 200,
       "type": "application/zip",
-      "available": true
+      "available": true,
+      "verifiedAt": "2026-10-23T09:59:48.000Z"
     },
     {
-      "id": "view-android-test",
-      "url": "https://updates.yamachat.eu/yamaview/YamaView-Android-1.6.0-test.apk",
+      "id": "view-android",
+      "url": "https://updates.yamachat.eu/yamaview/YamaView-Android-1.6.8.apk",
       "status": 200,
       "type": "application/vnd.android.package-archive",
-      "available": true
+      "available": true,
+      "verifiedAt": "2026-10-23T09:59:51.000Z"
     }
   ]
 }
