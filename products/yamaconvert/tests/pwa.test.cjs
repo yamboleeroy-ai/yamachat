@@ -69,7 +69,7 @@ test('social downloads and conversion queue share one page with inline batch con
  assert.match(navigation,/formatNote\.after\(downloads\)/);
  assert.match(navigation,/downloads\.after\(queueTitle,queue\)/);
  assert.match(downloads,/window\.YamaNavigation\.showDownloads\(\)/);
- assert.match(worker,/yamaconvert-pwa-v9/);
+ assert.match(worker,/yamaconvert-pwa-v10/);
 });
 
 test('completed conversions use the iOS share sheet in PWA and keep Android and browser saves',()=>{
@@ -80,7 +80,7 @@ test('completed conversions use the iOS share sheet in PWA and keep Android and 
   assert.match(app,/window\.YamaConvertAndroid\?\.isReady\?\.\(\).*?nativeSaveButton\(job\)/);
   assert.match(app,/download\.href=job\.outputUrl;download\.download=job\.outputName/);
   assert.match(read('index.html'),/app\.js\?v=10008/);
-  assert.match(read('sw.js'),/yamaconvert-pwa-v9/);
+  assert.match(read('sw.js'),/yamaconvert-pwa-v10/);
 });
 
 test('PWA shares the Yamaportal auth session and uses the protected downloader when it is configured',()=>{
@@ -125,19 +125,19 @@ test('Yamaportal offers the native YamaConvert APK and web PWA with shared updat
   assert.ok(fs.existsSync(path.join(root,'products','yamaportal','preview','dist','assets','yamaconvert.png')));
 });
 
-test('web batch downloads use the shared download flow and display server-reported daily byte usage',()=>{
+test('social downloads keep one link input and the shared queue without a batch downloader',()=>{
   const index=read('index.html'),worker=read('sw.js'),downloads=read('downloads.js');
-  assert.match(index,/id="media-batch-urls"/);
-  assert.match(index,/id="start-media-batch"/);
+  assert.doesNotMatch(index,/media-batch-urls|start-media-batch|batch-download\.js/);
+  assert.doesNotMatch(worker,/batch-download\.js/);
   assert.match(index,/id="download-quota"/);
   assert.match(index,/YamaConvert-Android-latest\.apk/);
   assert.match(index,/YamaConvert-Setup-latest\.exe/);
-  assert.match(worker,/batch-download\.js/);
   assert.match(downloads,/\/api\/quota/);
   assert.match(downloads,/usedBytes/);
   assert.match(downloads,/remainingBytes/);
   assert.match(downloads,/yama-auth-state/);
 });
+
 
 test('native Android project downloads on-device without source-site credentials',()=>{
   const android=path.join(root,'products','yamaconvert','android');
@@ -212,5 +212,5 @@ test('social downloader front-end parses and exposes the conversion bridge',()=>
   assert.doesNotThrow(()=>new vm.Script(app));
   assert.ok(app.includes('window.YamaApp=Object.freeze({addFiles,notify,convertDownloadedFile'));
   assert.ok(read('index.html').includes('app.js?v=10008'));
-  assert.match(read('sw.js'),/yamaconvert-pwa-v9/);
+  assert.match(read('sw.js'),/yamaconvert-pwa-v10/);
 });
