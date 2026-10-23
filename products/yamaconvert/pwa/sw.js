@@ -1,5 +1,5 @@
 'use strict';
-const CACHE = 'yamaconvert-pwa-v10';
+const CACHE = 'yamaconvert-pwa-v11';
 const SHARE_DB = 'yamaconvert-share-inbox-v1';
 const SHARE_STORE = 'shares';
 const SHARE_MAX_BYTES = 100 * 1024 * 1024;
@@ -7,7 +7,7 @@ const SHARE_MAX_TOTAL_BYTES = 100 * 1024 * 1024;
 const SHELL = [
   './', './index.html', './manifest.webmanifest', './icons/yamaconvert.svg',
   './icons/yamaconvert-192.png', './icons/yamaconvert-512.png',
-  './design/logo-reference.png', './account.js', './image-formats.js', './vendor/lamejs/lame.min.js',
+  './design/logo-reference.png', './account.js', '../auth-session-storage.js', './image-formats.js', './vendor/lamejs/lame.min.js',
   './audio-formats.js', './document-formats.js', './video-formats.js',
   './history.js', './app.js?v=10008', './navigation.js', './download-config.js', './downloads.js', './share-inbox.js', './pwa.js'
 ];

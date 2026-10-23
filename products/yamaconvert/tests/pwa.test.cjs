@@ -69,7 +69,7 @@ test('social downloads and conversion queue share one page with inline batch con
  assert.match(navigation,/formatNote\.after\(downloads\)/);
  assert.match(navigation,/downloads\.after\(queueTitle,queue\)/);
  assert.match(downloads,/window\.YamaNavigation\.showDownloads\(\)/);
- assert.match(worker,/yamaconvert-pwa-v10/);
+ assert.match(worker,/yamaconvert-pwa-v11/);
 });
 
 test('completed conversions use the iOS share sheet in PWA and keep Android and browser saves',()=>{
@@ -80,7 +80,7 @@ test('completed conversions use the iOS share sheet in PWA and keep Android and 
   assert.match(app,/window\.YamaConvertAndroid\?\.isReady\?\.\(\).*?nativeSaveButton\(job\)/);
   assert.match(app,/download\.href=job\.outputUrl;download\.download=job\.outputName/);
   assert.match(read('index.html'),/app\.js\?v=10008/);
-  assert.match(read('sw.js'),/yamaconvert-pwa-v10/);
+  assert.match(read('sw.js'),/yamaconvert-pwa-v11/);
 });
 
 test('PWA shares the Yamaportal auth session and uses the protected downloader when it is configured',()=>{
@@ -212,5 +212,5 @@ test('social downloader front-end parses and exposes the conversion bridge',()=>
   assert.doesNotThrow(()=>new vm.Script(app));
   assert.ok(app.includes('window.YamaApp=Object.freeze({addFiles,notify,convertDownloadedFile'));
   assert.ok(read('index.html').includes('app.js?v=10008'));
-  assert.match(read('sw.js'),/yamaconvert-pwa-v10/);
+  assert.match(read('sw.js'),/yamaconvert-pwa-v11/);
 });

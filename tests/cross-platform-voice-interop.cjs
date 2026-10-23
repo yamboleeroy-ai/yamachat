@@ -82,6 +82,7 @@ assert(pkg.build.files.includes('boot-guard.js'),'Windows package must contain b
 const boot=read('boot-guard.js');
 assert(boot.includes('isTransientNetworkRejection'),'Boot guard transient-network classification missing');
 const sw=read('sw.js');
-assert(sw.includes("const CACHE='yamachat-web-voice-recovery-20260928-103';"),'PWA cache was not bumped for the recovery fix');
+assert(sw.includes("const CACHE='yamachat-web-voice-recovery-20260928-104';"),'PWA cache was not bumped for the shared-account storage asset');
+assert(sw.includes("'./auth-session-storage.js'"),'Shared account storage is missing from the offline shell cache');
 
 console.log('PASS cross-platform voice interop: Windows, Web/PWA, Android and iOS share signaling/ICE/session/reconnect invariants.');

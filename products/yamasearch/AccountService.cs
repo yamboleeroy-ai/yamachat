@@ -68,6 +68,7 @@ public sealed class AccountService
     private bool _usePortalAccount;
     public AccountService(bool? usePortalAccount = null) { _usePortalAccount = usePortalAccount ?? AccountModeStore.Read(); }
     public bool UsesPortalAccount => _usePortalAccount;
+    public bool RememberSession => AccountSessionPreferenceStore.Read(_usePortalAccount);
     private AccountSnapshot _snapshot = AccountSnapshot.NotConfigured;
 
     public AccountSnapshot Snapshot => _snapshot;
@@ -140,7 +141,13 @@ public sealed class AccountService
                 return;
             }
 
-            cachedProfile = AccountProfileCache.Read(_usePortalAccount);
+            var rememberSession = RememberSession;
+            if (!rememberSession)
+            {
+                WindowsCredentialStore.Delete(CredentialTarget());
+                AccountProfileCache.Delete(_usePortalAccount);
+            }
+            cachedProfile = rememberSession ? AccountProfileCache.Read(_usePortalAccount) : null;
 
             try
             {
@@ -148,11 +155,13 @@ public sealed class AccountService
             }
             catch (Exception error) when (IsNetworkFailure(error))
             {
-                Publish(OfflineSnapshot(cachedProfile, [], "Server účtu je momentálně nedostupný. Uložené přihlášení zůstává zachované."));
+                Publish(OfflineSnapshot(cachedProfile, [], rememberSession
+                    ? "Server účtu je momentálně nedostupný. Uložené přihlášení zůstává zachované."
+                    : "Server účtu je momentálně nedostupný. Trvalé přihlášení je vypnuté."));
                 return;
             }
 
-            var refreshToken = WindowsCredentialStore.Read(CredentialTarget());
+            var refreshToken = RememberSession ? WindowsCredentialStore.Read(CredentialTarget()) : null;
             if (string.IsNullOrWhiteSpace(refreshToken))
             {
                 Publish(SignedOutSnapshot(discoveredProviders));
@@ -215,7 +224,7 @@ public sealed class AccountService
             }
 
             discoveredProviders = await DiscoverProvidersAsync(cancellationToken);
-            var refreshToken = WindowsCredentialStore.Read(CredentialTarget());
+            var refreshToken = RememberSession ? WindowsCredentialStore.Read(CredentialTarget()) : null;
             if (string.IsNullOrWhiteSpace(refreshToken))
             {
                 Publish(SignedOutSnapshot(discoveredProviders));
@@ -374,6 +383,27 @@ public sealed class AccountService
         }
     }
 
+    public void SetRememberSession(bool remember)
+    {
+        AccountSessionPreferenceStore.Write(_usePortalAccount, remember);
+        var target = CredentialTarget();
+        if (!remember)
+        {
+            WindowsCredentialStore.Delete(target);
+            AccountProfileCache.Delete(_usePortalAccount);
+        }
+        else if (_session is not null)
+        {
+            WindowsCredentialStore.Write(target, _session.RefreshToken);
+            AccountProfileCache.Write(_snapshot, _usePortalAccount);
+        }
+
+        if (_snapshot.IsSignedIn)
+            Publish(_snapshot with { StatusText = remember
+                ? "Relace se bezpečně obnoví při dalším spuštění tohoto zařízení."
+                : "Trvalé přihlášení je vypnuté. Po zavření YamaSearch se budeš muset znovu přihlásit." });
+    }
+
     private async Task EnsureSessionAsync(CancellationToken cancellationToken)
     {
         await _stateGate.WaitAsync(cancellationToken);
@@ -384,7 +414,7 @@ public sealed class AccountService
     private async Task EnsureSessionCoreAsync(CancellationToken cancellationToken)
     {
         if (_session is not null && _session.ExpiresAt > DateTimeOffset.UtcNow.AddMinutes(1)) return;
-        var refreshToken = _session?.RefreshToken ?? WindowsCredentialStore.Read(CredentialTarget());
+        var refreshToken = _session?.RefreshToken ?? (RememberSession ? WindowsCredentialStore.Read(CredentialTarget()) : null);
         if (string.IsNullOrWhiteSpace(refreshToken))
         {
             _session = null;
@@ -601,7 +631,7 @@ public sealed class AccountService
             }, cancellationToken);
             if (!lockTaken) throw new TimeoutException("Obnovení relace blokuje jiný proces YamaSearch.");
 
-            refreshToken = WindowsCredentialStore.Read(CredentialTarget()) ?? refreshToken;
+            if (RememberSession) refreshToken = WindowsCredentialStore.Read(CredentialTarget()) ?? refreshToken;
             using var request = CreateRequest(HttpMethod.Post, "token?grant_type=refresh_token");
             request.Content = JsonContent.Create(new { refresh_token = refreshToken });
             using var response = await Client.SendAsync(request, cancellationToken);
@@ -680,13 +710,19 @@ public sealed class AccountService
             ? DateTimeOffset.FromUnixTimeSeconds(token.ExpiresAt.Value)
             : DateTimeOffset.UtcNow.AddSeconds(Math.Max(60, token.ExpiresIn));
         _session = new AccountSession(token.AccessToken, token.RefreshToken, expiresAt, token.User);
-        WindowsCredentialStore.Write(CredentialTarget(), token.RefreshToken);
-        var status = "Účet je přihlášený a relace je bezpečně uložená ve Windows.";
+        var rememberSession = RememberSession;
+        if (rememberSession) WindowsCredentialStore.Write(CredentialTarget(), token.RefreshToken);
+        else WindowsCredentialStore.Delete(CredentialTarget());
+        var status = rememberSession
+            ? "Účet je přihlášený a relace je bezpečně uložená ve Windows."
+            : "Účet je přihlášený. Trvalé přihlášení je vypnuté.";
         if (_usePortalAccount)
         {
             try { await LoadPortalProfileAsync(token.User, token.AccessToken, cancellationToken); }
             catch (Exception error) when (error is AccountApiException or HttpRequestException or IOException or TaskCanceledException or JsonException)
-            { status = "Přihlášení je ověřené. Společný profil teď není dostupný; uložená relace zůstává zachovaná."; }
+            { status = rememberSession
+                ? "Přihlášení je ověřené. Společný profil teď není dostupný; uložená relace zůstává zachovaná."
+                : "Přihlášení je ověřené. Společný profil teď není dostupný; trvalé přihlášení je vypnuté."; }
             catch
             {
                 _session = null;
@@ -695,7 +731,8 @@ public sealed class AccountService
             }
         }
         var snapshot = CreateSignedInSnapshot(_session, providers, status);
-        AccountProfileCache.Write(snapshot, _usePortalAccount);
+        if (rememberSession) AccountProfileCache.Write(snapshot, _usePortalAccount);
+        else AccountProfileCache.Delete(_usePortalAccount);
         Publish(snapshot);
     }
 

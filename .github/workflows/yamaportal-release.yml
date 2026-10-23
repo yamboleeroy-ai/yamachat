@@ -5,9 +5,10 @@ on:
     paths: ['products/yamaportal/**', '.github/workflows/yamaportal-release.yml']
   push:
     branches: [main]
-    paths: ['products/yamaportal/package.json', 'products/yamaportal/tests/offline-browser.cjs', '.github/workflows/yamaportal-release.yml']
+    paths: ['products/yamaportal/package.json', 'products/yamaportal/package-lock.json', 'products/yamaportal/release-notes/**', 'products/yamaportal/tests/offline-browser.cjs', '.github/workflows/yamaportal-release.yml']
 permissions:
   contents: write
+  actions: write
 concurrency:
   group: yamaportal-release
   cancel-in-progress: false
@@ -31,8 +32,22 @@ jobs:
     needs: check
     runs-on: windows-latest
     timeout-minutes: 30
+    outputs:
+      version: ${{ steps.portal-version.outputs.version }}
     steps:
       - uses: actions/checkout@v4
+      - name: Validate Yamaportal release metadata
+        id: portal-version
+        shell: pwsh
+        run: |
+          $package = Get-Content products/yamaportal/package.json -Raw | ConvertFrom-Json
+          if ($package.version -notmatch '^\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$') { throw 'Invalid Yamaportal package version.' }
+          $notesPath = "products/yamaportal/release-notes/v$($package.version).json"
+          if (-not (Test-Path $notesPath)) { throw "Missing release notes for Yamaportal $($package.version)." }
+          $notes = Get-Content $notesPath -Raw | ConvertFrom-Json
+          foreach ($field in @('kind','title','summary','details','platforms')) { if ($null -eq $notes.$field -or "$($notes.$field)".Trim().Length -eq 0) { throw "Release notes require $field." } }
+          if ($notes.kind -notin @('new-app','update') -or $notes.platforms.Count -lt 1) { throw 'Invalid Yamaportal release kind or platforms.' }
+          "version=$($package.version)" >> $env:GITHUB_OUTPUT
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
@@ -42,6 +57,22 @@ jobs:
         working-directory: products/yamaportal
       - run: npx electron-builder --config electron-builder.json --win --publish never
         working-directory: products/yamaportal
+      - name: Smoke-test the packaged Windows application
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $app = Join-Path $env:GITHUB_WORKSPACE 'products/yamaportal/artifacts/win-unpacked/Yamaportal.exe'
+          $report = Join-Path $env:RUNNER_TEMP 'yamaportal-smoke-report.json'
+          if (-not (Test-Path -LiteralPath $app)) { throw 'Sestavení Yamaportal neobsahuje spustitelnou aplikaci.' }
+          $env:YAMAPORTAL_SMOKE_REPORT = $report
+          $process = Start-Process -FilePath $app -ArgumentList '--smoke-test' -PassThru
+          $deadline = [DateTime]::UtcNow.AddSeconds(35)
+          while (-not $process.HasExited -and [DateTime]::UtcNow -lt $deadline) { Start-Sleep -Milliseconds 300; $process.Refresh() }
+          if (-not $process.HasExited) { Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue; throw 'Windows aplikace se při smoke testu neukončila.' }
+          if ($process.ExitCode -ne 0) { throw "Windows aplikace skončila s kódem $($process.ExitCode)." }
+          if (-not (Test-Path -LiteralPath $report)) { throw 'Windows aplikace se nespustila až k načtení svého rozhraní.' }
+          $result = Get-Content -LiteralPath $report -Raw | ConvertFrom-Json
+          if (-not $result.desktopLoaded -or -not $result.nativeBridgeReady) { throw 'Windows rozhraní nebo systémový most se nepodařilo inicializovat.' }
       - uses: actions/upload-artifact@v4
         with:
           name: yamaportal-windows
@@ -67,6 +98,7 @@ jobs:
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          VERSION: ${{ needs.build.outputs.version }}
         run: |
           set -euo pipefail
           test -n "$CLOUDFLARE_API_TOKEN"
@@ -76,32 +108,47 @@ jobs:
           cd release-assets
           sha256sum *.exe > SHA256SUMS.txt
           for kind in Setup Portable; do
-            file="Yamaportal-$kind-0.2.0-x64.exe"
+            file="Yamaportal-$kind-$VERSION-x64.exe"
             test -s "$file"
             $W r2 object put "yamachat-releases/yamaportal/$file" --file "$file" --content-type application/vnd.microsoft.portable-executable --cache-control 'public,max-age=31536000,immutable' --remote
             $W r2 object put "yamachat-releases/yamaportal/Yamaportal-$kind-latest.exe" --file "$file" --content-type application/vnd.microsoft.portable-executable --cache-control no-cache --remote
           done
           $W r2 object put yamachat-releases/yamaportal/SHA256SUMS.txt --file SHA256SUMS.txt --content-type text/plain --cache-control no-cache --remote
+          node - <<'NODE'
+          const fs=require('node:fs');
+          const path=require('node:path');
+          const version=process.env.VERSION;
+          const root=process.env.GITHUB_WORKSPACE;
+          const notes=JSON.parse(fs.readFileSync(path.join(root,`products/yamaportal/release-notes/v${version}.json`),'utf8'));
+          const releasedAt=new Date().toISOString();
+          const release={...notes,id:`yamaportal:v${version}`,app:'yamaportal',version,releasedAt};
+          const latest={product:'Yamaportal',version,publishedAt:releasedAt,installerUrl:'https://updates.yamachat.eu/yamaportal/Yamaportal-Setup-latest.exe',portableUrl:'https://updates.yamachat.eu/yamaportal/Yamaportal-Portable-latest.exe',notes:release.summary,release};
+          fs.writeFileSync('latest.json',JSON.stringify(latest,null,2)+'\n');
+          fs.writeFileSync('/tmp/portal-release-entry.json',JSON.stringify(release));
+          NODE
           curl -fsSI --retry 5 --retry-delay 10 https://updates.yamachat.eu/yamaportal/Yamaportal-Setup-latest.exe
           curl -fsSI --retry 5 --retry-delay 10 https://updates.yamachat.eu/yamaportal/Yamaportal-Portable-latest.exe
-          printf '%s\n' '{"product":"Yamaportal","version":"0.2.0","installerUrl":"https://updates.yamachat.eu/yamaportal/Yamaportal-Setup-latest.exe","portableUrl":"https://updates.yamachat.eu/yamaportal/Yamaportal-Portable-latest.exe"}' > latest.json
           $W r2 object put yamachat-releases/yamaportal/latest.json --file latest.json --content-type application/json --cache-control 'no-cache,no-store' --remote
+          curl -fsS --retry 5 --retry-delay 10 https://updates.yamachat.eu/yamaportal/latest.json | jq -e --arg v "$VERSION" '.product == "Yamaportal" and .version == $v and .release.id == ("yamaportal:v" + $v)' >/dev/null
       - name: Record this published Yamaportal release on the Portal
+        env:
+          VERSION: ${{ needs.build.outputs.version }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          export VERSION="$(node -p "require('./products/yamaportal/package.json').version")"
-          node - <<'NODE'
-          const fs=require('fs');
-          const path=`products/yamaportal/release-notes/v${process.env.VERSION}.json`;
-          const notes=JSON.parse(fs.readFileSync(path,'utf8'));
-          const entry={...notes,id:`yamaportal:v${process.env.VERSION}`,app:'yamaportal',version:process.env.VERSION,releasedAt:new Date().toISOString()};
-          fs.writeFileSync('/tmp/portal-release-entry.json',JSON.stringify(entry));
-          NODE
+          test -s /tmp/portal-release-entry.json
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git fetch origin main
           git checkout -B publish-main origin/main
           node scripts/record-portal-release.cjs /tmp/portal-release-entry.json
           git add release-feed.json
-          git diff --cached --quiet || git commit -m "Record Yamaportal $VERSION release [skip ci]"
+          git diff --cached --quiet || git commit -m "Record Yamaportal $VERSION release"
           git push origin HEAD:main
+          curl -fsS -X POST "https://api.github.com/repos/$GITHUB_REPOSITORY/actions/workflows/yamaportal-pages-production.yml/dispatches" \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H 'Accept: application/vnd.github+json' \
+            -H 'X-GitHub-Api-Version: 2022-11-28' \
+            --data-binary @- <<JSON
+          {"ref":"main","inputs":{"release_id":"yamaportal:v${VERSION}"}}
+          JSON

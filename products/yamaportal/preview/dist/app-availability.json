@@ -38,7 +38,7 @@
       "status": 200,
       "type": "application/json",
       "available": true,
-      "version": "0.3.21",
+      "version": "0.3.22",
       "installerUrl": "https://updates.yamachat.eu/yamasearch/YamaSearch-Setup-latest.exe",
       "portableUrl": "https://updates.yamachat.eu/yamasearch/YamaSearch-Portable-latest.zip"
     },

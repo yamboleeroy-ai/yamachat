@@ -12,6 +12,7 @@ public partial class AccountWindow : Window
     private readonly CancellationTokenSource _lifetime = new();
     private int _avatarVersion;
     private bool _renderingAccountSystem;
+    private bool _renderingRememberSession;
 
     public AccountWindow(AccountService accounts, SettingsStore settings, bool privateWindow)
     {
@@ -45,6 +46,10 @@ public partial class AccountWindow : Window
         _renderingAccountSystem = true;
         AccountSystemSelector.SelectedIndex = _accounts.UsesPortalAccount ? 0 : 1;
         AccountSystemSelector.IsEnabled = snapshot.State != AccountConnectionState.SigningIn;
+        _renderingRememberSession = true;
+        RememberSessionCheckBox.IsChecked = _accounts.RememberSession;
+        RememberSessionActiveCheckBox.IsChecked = _accounts.RememberSession;
+        _renderingRememberSession = false;
         AccountSystemPanel.Visibility = _privateWindow ? Visibility.Collapsed : Visibility.Visible;
         var testSuffix = Environment.GetCommandLineArgs().Contains("--portal-account-test", StringComparer.Ordinal) ? " · TEST 19-B" : "";
         AccountSystemTitle.Text = (_accounts.UsesPortalAccount ? "Účet Yamaportal" : "Původní účet YamaSearch") + testSuffix;
@@ -237,6 +242,25 @@ public partial class AccountWindow : Window
         _settings.Data.PreferredAccountProvider = identity.Provider;
         _settings.Save();
         Render(_accounts.Snapshot);
+    }
+
+    private void RememberSession_Changed(object sender, RoutedEventArgs e)
+    {
+        if (_renderingRememberSession) return;
+        try
+        {
+            var remember = sender is CheckBox checkbox ? checkbox.IsChecked == true : RememberSessionCheckBox.IsChecked == true;
+            _accounts.SetRememberSession(remember);
+        }
+        catch (Exception error)
+        {
+            StatusText.Text = error.Message;
+            _renderingRememberSession = true;
+            if (sender is CheckBox checkbox) checkbox.IsChecked = _accounts.RememberSession;
+            RememberSessionCheckBox.IsChecked = _accounts.RememberSession;
+            RememberSessionActiveCheckBox.IsChecked = _accounts.RememberSession;
+            _renderingRememberSession = false;
+        }
     }
 
     private async void Retry_Click(object sender, RoutedEventArgs e)

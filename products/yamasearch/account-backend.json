@@ -50,7 +50,7 @@
       "id": "custom:seznam",
       "displayName": "Seznam.cz",
       "scopes": "identity",
-      "enabled": false,
+      "enabled": true,
       "serverVerified": false
     }
   ]

@@ -78,6 +78,8 @@ fs.writeFileSync(path.join(dist,'_headers'),[
   '  Cache-Control: no-cache, must-revalidate',
   '/update-manifest.json',
   '  Cache-Control: no-cache, must-revalidate',
+  '/portal-version.json',
+  '  Cache-Control: no-cache, must-revalidate',
   '/yamasearch/index.html',
   '  Cache-Control: no-cache, must-revalidate',
   '/yamasearch/sw.js',
@@ -99,6 +101,9 @@ fs.copyFileSync(path.join(dist,'index.html'),path.join(dist,'yamachat.html'));
 const portal=path.join(root,'products/yamaportal/preview/dist');
 if(!fs.existsSync(path.join(portal,'index.html')))throw Error('Missing Yamaportal entry');
 fs.cpSync(portal,dist,{recursive:true});
+const portalPackage=JSON.parse(fs.readFileSync(path.join(root,'products/yamaportal/package.json'),'utf8'));
+if(!/^\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$/.test(portalPackage.version))throw new Error('Yamaportal package version is invalid.');
+fs.writeFileSync(path.join(dist,'portal-version.json'),JSON.stringify({schemaVersion:1,product:'Yamaportal',version:portalPackage.version},null,2)+'\n');
 // The Portal bundle carries an empty preview feed. Keep the verified root
 // release history for production instead of overwriting it with that preview.
 fs.copyFileSync(path.join(root,'release-feed.json'),path.join(dist,'release-feed.json'));

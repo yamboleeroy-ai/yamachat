@@ -8,6 +8,7 @@
   <ItemGroup>
     <Compile Include="..\..\AccountService.cs" Link="AccountService.cs" />
     <Compile Include="..\..\AccountProfileCache.cs" Link="AccountProfileCache.cs" />
+    <Compile Include="..\..\AccountSessionPreferenceStore.cs" Link="AccountSessionPreferenceStore.cs" />
     <Compile Include="..\..\WindowsCredentialStore.cs" Link="WindowsCredentialStore.cs" />
     <Content Include="..\..\account-backend.json" Link="account-backend.json" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
