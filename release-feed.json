@@ -2,6 +2,19 @@
   "schemaVersion": 1,
   "releases": [
     {
+      "id": "yamaconvert:android:10007",
+      "app": "yamaconvert",
+      "kind": "update",
+      "version": "1.0.9 (10007)",
+      "title": "YamaConvert Android 1.0.9",
+      "summary": "Opravené rozhraní: převod, stahování médií a společná fronta na jedné stránce.",
+      "details": "Opravené rozhraní: převod, stahování médií a společná fronta na jedné stránce.",
+      "releasedAt": "2026-10-23T07:18:55.297Z",
+      "platforms": [
+        "Android APK"
+      ]
+    },
+    {
       "id": "yamaconvert:windows:1.0.8",
       "app": "yamaconvert",
       "kind": "update",
