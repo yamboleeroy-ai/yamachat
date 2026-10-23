@@ -4,6 +4,7 @@ const fs=require('node:fs');
 const path=require('node:path');
 const os=require('node:os');
 const cp=require('node:child_process');
+const vm=require('node:vm');
 const root=path.join(__dirname,'..','..','..');
 const ui=fs.readFileSync(path.join(__dirname,'..','preview','dist','release-feed-ui.js'),'utf8');
 const app=fs.readFileSync(path.join(__dirname,'..','preview','dist','app.js'),'utf8');
@@ -31,6 +32,30 @@ test('release entries are validated, ordered, icon-branded and open details safe
   assert.match(ui,/modal\.showModal\(\)/);
   assert.match(app,/YamaReleaseFeed\?\.render\(\)/);
   assert.match(index,/release-feed-ui\.js/);
+});
+
+test('application cards take their platform versions from the published release feed',()=>{
+  const modal={querySelector:()=>({addEventListener(){}}),showModal(){}};
+  const context={window:{},document:{querySelector:selector=>selector==='#release-detail'?modal:null,addEventListener(){}},Intl};
+  vm.runInNewContext(ui,context);
+  const summary=context.window.YamaReleaseFeed.versionSummary('yamaconvert',manifest.releases);
+  assert.equal(summary,'Android APK 1.0.9 (10007) · Windows 1.0.8 · Web/PWA 1.0.3');
+  assert.match(app,/platform:'Windows instalátor\/portable · Android APK · Web\/PWA'/);
+  assert.match(app,/status:'Windows 0\.3\.22'/);
+  assert.match(app,/status:'Windows 1\.0\.85'/);
+  const availability=JSON.parse(fs.readFileSync(path.join(__dirname,'..','preview','dist','app-availability.json'),'utf8'));
+  assert.equal(availability.results.find(item=>item.id==='search-feed').version,'0.3.22');
+  assert.match(app,/active==='domu'\|\|active==='aplikace'\).*YamaReleaseFeed\?\.render\(\)/);
+});
+
+test('direct Applications route updates cards even when the home-only release list is absent',async()=>{
+  const card={textContent:'old',title:'',setAttribute(){}};
+  const modal={querySelector:()=>({addEventListener(){}}),showModal(){}};
+  const context={window:{},document:{querySelector:selector=>selector==='#release-detail'?modal:null,querySelectorAll:selector=>selector.includes('app-yamaconvert')?[card]:[],addEventListener(){}},Intl,fetch:async()=>({ok:true,json:async()=>manifest})};
+  vm.runInNewContext(ui,context);
+  await context.window.YamaReleaseFeed.render();
+  assert.equal(card.textContent,'Android APK 1.0.9 (10007) · Windows 1.0.8 · Web/PWA 1.0.3');
+  assert.equal(context.window.YamaReleaseFeed.allItems.length,manifest.releases.length);
 });
 
 test('release recorder accepts only complete, timestamped release records and deduplicates tags',()=>{
