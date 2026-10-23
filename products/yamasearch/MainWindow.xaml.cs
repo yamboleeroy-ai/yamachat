@@ -1293,6 +1293,9 @@ public partial class MainWindow : Window
             CancelPendingSitePermissionRequest(_active);
         _siteInfoRenderVersion++;
         SiteInfoPopup.IsOpen = false;
+        // Selecting the tab is the acknowledgement. Keep any count supplied by
+        // the page in its title, but remove YamaSearch's unread marker.
+        tab.HasWebNotification = false;
         _active = tab; BrowserHost.Children.Clear(); BrowserHost.Children.Add(tab.View);
         SetAddressText(tab.IsYamaNewTab ? "" : tab.View.CoreWebView2?.Source ?? "");
         UpdateSiteInformationButton(tab);
@@ -1400,31 +1403,36 @@ public partial class MainWindow : Window
         foreach (var tab in _tabs)
         {
             var header = new StackPanel { Orientation = Orientation.Horizontal };
-            header.Children.Add(new Image
+            var faviconHost = new Grid
             {
-                Source = tab.Favicon ?? new BitmapImage(new Uri("pack://application:,,,/Assets/YamaSearch-symbol-64.png")),
                 Width = 16,
                 Height = 16,
                 Margin = new Thickness(0, 0, iconOnly ? 0 : 7, 0)
-            });
-
-            var showAudioButton = !compact && (tab.IsPlayingAudio || tab.IsMuted);
-
-            if (tab.HasWebNotification || tab.NotificationCount is > 0)
+            };
+            faviconHost.Children.Add(new Image
             {
-                header.Children.Add(new Border
+                Source = tab.Favicon ?? new BitmapImage(new Uri("pack://application:,,,/Assets/YamaSearch-symbol-64.png")),
+                Width = 16,
+                Height = 16
+            });
+            if (tab.HasWebNotification)
+            {
+                faviconHost.Children.Add(new System.Windows.Shapes.Ellipse
                 {
-                    Width = tab.NotificationCount is > 0 ? 20 : 9,
-                    Height = 18,
-                    CornerRadius = new CornerRadius(9),
-                    Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#F05270")),
-                    Margin = new Thickness(iconOnly ? 0 : 0, 0, 5, 0),
-                    Child = tab.NotificationCount is > 0
-                        ? new TextBlock { Text = tab.NotificationCount > 9 ? "9+" : tab.NotificationCount.ToString(), Foreground = Brushes.White, FontSize = 10, FontWeight = FontWeights.Bold, TextAlignment = TextAlignment.Center, VerticalAlignment = VerticalAlignment.Center }
-                        : null,
-                    ToolTip = tab.NotificationCount is > 0 ? "Počet zobrazený samotnou stránkou" : "Nové webové oznámení"
+                    Width = 6,
+                    Height = 6,
+                    Fill = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#F05270")),
+                    Stroke = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#101B2B")),
+                    StrokeThickness = 1,
+                    HorizontalAlignment = HorizontalAlignment.Right,
+                    VerticalAlignment = VerticalAlignment.Top,
+                    Margin = new Thickness(0, -2, -2, 0),
+                    ToolTip = "Nové upozornění"
                 });
             }
+            header.Children.Add(faviconHost);
+
+            var showAudioButton = !compact && (tab.IsPlayingAudio || tab.IsMuted);
 
             if (!iconOnly)
             {
@@ -2010,10 +2018,22 @@ public partial class MainWindow : Window
             return;
 
         var title = observedTitle ?? tab.View.CoreWebView2?.DocumentTitle;
+        var previousCount = tab.NotificationCount;
         tab.Title = tab.IsYamaNewTab
             ? "YamaSearch"
             : string.IsNullOrWhiteSpace(title) ? "Nová karta" : title;
-        tab.NotificationCount = TryGetNotificationCount(tab.Title);
+        var currentCount = TryGetNotificationCount(tab.Title);
+        tab.NotificationCount = currentCount;
+        if (previousCount is > 0 && currentCount is (null or 0))
+        {
+            tab.HasWebNotification = false;
+        }
+        else if (_settings.Data.EnableTabNotificationIndicators
+                 && !ReferenceEquals(tab, _active)
+                 && (previousCount is null or 0 || currentCount > previousCount))
+        {
+            tab.HasWebNotification = true;
+        }
         RenderTabs();
     }
 
@@ -2049,7 +2069,9 @@ public partial class MainWindow : Window
     {
         if (_settings.Data.EnableTabNotificationIndicators)
         {
-            tab.HasWebNotification = true;
+            // An event raised by the page currently being viewed is already
+            // visible to the user and must not immediately recreate the dot.
+            tab.HasWebNotification = !ReferenceEquals(tab, _active);
             Dispatcher.BeginInvoke(RenderTabs);
         }
 

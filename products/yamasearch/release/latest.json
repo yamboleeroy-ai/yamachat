@@ -1,7 +1,7 @@
 {
   "product": "YamaSearch",
-  "version": "0.3.22",
-  "notes": "Volitelný společný účet Yamaportal, Google/Microsoft/Discord a sdílený profil včetně Discord avatara. Původní účet i prohlížení bez účtu zůstávají dostupné. Návrat do běžícího Yamaportalu.",
+  "version": "0.3.23",
+  "notes": "Opravené zobrazení upozornění v kartách: počet zůstává v názvu stránky, kompaktní červená tečka u favicony označí nové upozornění a po otevření karty zmizí. Tlačítko zavření karty zůstává dostupné.",
   "portableUrl": "https://updates.yamachat.eu/yamasearch/YamaSearch-Portable-latest.zip",
   "installerUrl": "https://updates.yamachat.eu/yamasearch/YamaSearch-Setup-latest.exe"
 }
