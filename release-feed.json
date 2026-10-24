@@ -2,6 +2,20 @@
   "schemaVersion": 1,
   "releases": [
     {
+      "id": "yamahost:0.1.2",
+      "app": "yamahost",
+      "kind": "update",
+      "version": "0.1.2",
+      "title": "YamaHost: opravené párování počítačů",
+      "summary": "Odstraněn limit tří propojených počítačů. Právo hostovat stačí i pro server sdílený kamarádem.",
+      "details": "Propojení více počítačů již neblokuje chybný limit tří zařízení. Omezení tří platí jen pro vlastní servery, nikoli pro počítače nebo počet sdílených serverů. Staré zneplatněné testovací záznamy se nezobrazují ve výběru počítačů. Nový launcher rozlišuje vypršelý kód, příliš mnoho pokusů a výpadek služby namísto jedné zavádějící hlášky. Existující propojení i světy zůstávají zachované; pro opravu limitu není nutné znovu stahovat launcher.",
+      "releasedAt": "2026-10-24T23:50:21.867Z",
+      "platforms": [
+        "Web",
+        "Windows"
+      ]
+    },
+    {
       "id": "yamahost:0.1.1",
       "app": "yamahost",
       "kind": "update",
