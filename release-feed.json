@@ -8,7 +8,7 @@
       "version": "0.1.1",
       "title": "YamaHost: 200 MB na účet a správa záloh",
       "summary": "Společné cloudové úložiště 200 MB pro až tři servery, ukazatel využití a tři historické zálohy na server.",
-      "details": "Limit účtu je přesně 200 000 000 bajtů bez předběžné rezervace. Aktuální svět se započítává pouze jednou; vedle něj zůstávají nejvýše tři historické zálohy. Přehled ukazuje využité a volné místo i spotřebu jednotlivých serverů. Historické zálohy lze stáhnout, odstranit a obnovit podle oprávnění. Komprimované přenosy již nemají původní limit 8 MiB; větší zálohy vyžadují aktuální launcher 0.1.1. Ověřeno na skutečném Oracle v odděleném úložišti včetně přenosu přes HTTP, integrity, rotace a smazání. Připojování hráčů a předání hostitele se v této aktualizaci znovu netestovalo. Tlačítko Propojit launcher je nad konzolí vedle Návod a stažení launcheru. YamaHost má vlastní ikonu v navigaci a přehledu aktualizací.",
+      "details": "Limit účtu je přesně 200 000 000 bajtů bez předběžné rezervace. Aktuální svět se započítává pouze jednou; vedle něj zůstávají nejvýše tři historické zálohy. Přehled ukazuje využité a volné místo i spotřebu jednotlivých serverů. Historické zálohy lze stáhnout, odstranit a obnovit podle oprávnění. Komprimované přenosy již nemají původní limit 8 MiB; větší zálohy vyžadují aktuální launcher 0.1.1. Ověřeno na skutečném Oracle v odděleném úložišti včetně přenosu přes HTTP, integrity, rotace a smazání. Připojování hráčů a předání hostitele se v této aktualizaci znovu netestovalo. Tlačítko Propojit launcher je nad konzolí vedle Návod a stažení launcheru. Barevné logo YamaHostu je v přehledu aktualizací; navigace používá jednoduchou ikonu serveru.",
       "releasedAt": "2026-10-24T22:09:09.639Z",
       "platforms": [
         "Web",
@@ -225,4 +225,3 @@
     }
   ]
 }
-
