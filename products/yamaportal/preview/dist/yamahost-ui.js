@@ -190,9 +190,10 @@
 
   function show(){clearInterval(timer);if(location.hash!=='#yamahost')return;selectHostNavigation();window.YamaModuleHost?.hide();shell();seq=0;void load();timer=setInterval(()=>{if(location.hash==='#yamahost')void load();else clearInterval(timer);},5000);}
   window.YamaHostPanel={show};
-  const nav=document.querySelector('nav');if(nav&&!nav.querySelector('[href="#yamahost"]')){const link=document.createElement('a');link.href='#yamahost';link.textContent='♧ YamaHost';nav.append(link);}
+  const nav=document.querySelector('nav');if(nav&&!nav.querySelector('[href="#yamahost"]')){const link=document.createElement('a');link.href='#yamahost';link.innerHTML='<img class="yh-nav-icon" src="assets/yamahost.png" alt="" width="22" height="22"><span>YamaHost</span>';nav.append(link);}
   // Existing Portal renderer remains authoritative for all other routes.
   window.addEventListener('hashchange',()=>{if(location.hash==='#yamahost')show();else clearInterval(timer);});
   document.addEventListener('yama-account-state',()=>{if(location.hash==='#yamahost'){selected=null;show();}});
   if(location.hash==='#yamahost')show();
 })();
+

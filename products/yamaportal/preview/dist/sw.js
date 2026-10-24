@@ -1,6 +1,6 @@
 'use strict';
-const CACHE='yamaportal-shell-v30';
-const SHELL=['./','./index.html','./style.css','./account.css','./app.js','./yamahost-ui.js','./yamahost.css','./downloads.js','./consent-core.js','./consent-ui.js','./app-links.js','./module-host.js','./native-ui.js','./account-core.js','./identity-core.js','./auth-session-storage.js','./account-ui.js','./community-ui.js','./release-feed-ui.js','./pwa.js','./portal-version.json','./vendor/supabase.js','./manifest.webmanifest','./assets/yamaportal.png','./assets/yamaportal-180.png','./assets/yamaportal-192.png','./assets/yamaportal-512.png','./assets/yamachat.png','./assets/yamasearch.png','./assets/yamahelp.png','./assets/providers/google.svg','./assets/providers/microsoft.svg','./assets/providers/apple.svg','./assets/providers/facebook.svg','./assets/providers/discord.svg','./assets/providers/github.svg'];
+const CACHE='yamaportal-shell-v31';
+const SHELL=['./','./index.html','./style.css','./account.css','./app.js','./yamahost-ui.js','./yamahost.css','./downloads.js','./consent-core.js','./consent-ui.js','./app-links.js','./module-host.js','./native-ui.js','./account-core.js','./identity-core.js','./auth-session-storage.js','./account-ui.js','./community-ui.js','./release-feed-ui.js','./pwa.js','./portal-version.json','./vendor/supabase.js','./manifest.webmanifest','./assets/yamaportal.png','./assets/yamahost.png','./assets/yamaportal-180.png','./assets/yamaportal-192.png','./assets/yamaportal-512.png','./assets/yamachat.png','./assets/yamasearch.png','./assets/yamahelp.png','./assets/providers/google.svg','./assets/providers/microsoft.svg','./assets/providers/apple.svg','./assets/providers/facebook.svg','./assets/providers/discord.svg','./assets/providers/github.svg'];
 const allowed=new Set(SHELL.map(path=>new URL(path,self.registration.scope).href));
 self.addEventListener('install',event=>event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(SHELL)).then(()=>self.skipWaiting())));
 self.addEventListener('activate',event=>event.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(key=>key.startsWith('yamaportal-shell-')&&key!==CACHE).map(key=>caches.delete(key)))).then(()=>self.clients.claim())));
@@ -16,3 +16,4 @@ self.addEventListener('fetch',event=>{
   const cachedRequest=publicEntry?new URL('./index.html',scope).href:request;
   event.respondWith(fetch(request).catch(()=>caches.match(cachedRequest).then(response=>response||new Response('Yamaportal není dostupný offline. Nejdřív ho otevři s připojením a vyčkej na přípravu offline režimu.',{status:503,headers:{'Content-Type':'text/plain; charset=utf-8'}}))));
 });
+
