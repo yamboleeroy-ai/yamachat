@@ -1,7 +1,7 @@
 {
   "product": "YamaSearch",
-  "version": "0.3.23",
-  "notes": "Opravené zobrazení upozornění v kartách: počet zůstává v názvu stránky, kompaktní červená tečka u favicony označí nové upozornění a po otevření karty zmizí. Tlačítko zavření karty zůstává dostupné.",
+  "version": "0.3.24",
+  "notes": "Opravená stabilita platebních a přihlašovacích vyskakovacích oken: rychlé zavření popupu už neukončí celý YamaSearch. Sdílení obrazovky v Yamachatu nově zachová také zvuk z dalších karet YamaSearch, pokud uživatel ve Windows povolí sdílení zvuku.",
   "portableUrl": "https://updates.yamachat.eu/yamasearch/YamaSearch-Portable-latest.zip",
   "installerUrl": "https://updates.yamachat.eu/yamasearch/YamaSearch-Setup-latest.exe"
 }
