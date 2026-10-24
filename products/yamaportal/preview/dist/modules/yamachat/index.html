@@ -3096,7 +3096,7 @@ async function startScreenShare(){
   const discard=stream=>{try{stream?.getTracks?.().forEach(t=>{t.onended=null;try{t.stop()}catch{}})}catch{}}
   const media=getScreenMediaDevices();if(!media?.getDisplayMedia){toast('Tento prohlížeč nepodporuje sdílení obrazovky.',true);return}
   let stream
-  try{stream=await media.getDisplayMedia({video:{width:{ideal:ycScreenShareProfile().width,max:ycScreenShareProfile().width},height:{ideal:ycScreenShareProfile().height,max:ycScreenShareProfile().height},frameRate:{ideal:ycScreenShareProfile().fps,max:ycScreenShareProfile().fps}},audio:{restrictOwnAudio:true},systemAudio:'include',surfaceSwitching:'include'})}catch(e){if(current()&&e?.name!=='NotAllowedError')toast('Sdílení obrazovky se nepodařilo spustit: '+(e?.message||e),true);return}
+  try{stream=await media.getDisplayMedia({video:{width:{ideal:ycScreenShareProfile().width,max:ycScreenShareProfile().width},height:{ideal:ycScreenShareProfile().height,max:ycScreenShareProfile().height},frameRate:{ideal:ycScreenShareProfile().fps,max:ycScreenShareProfile().fps}},audio:{restrictOwnAudio:false,suppressLocalAudioPlayback:false},systemAudio:'include',windowAudio:'system',surfaceSwitching:'include'})}catch(e){if(current()&&e?.name!=='NotAllowedError')toast('Sdílení obrazovky se nepodařilo spustit: '+(e?.message||e),true);return}
   if(!current()){discard(stream);return}
   const track=stream.getVideoTracks()[0];if(!track){discard(stream);toast('Nebyl vybrán žádný obraz.',true);return}
   screenShareStream=stream;screenShareActive=true;screenShareViewers.clear()

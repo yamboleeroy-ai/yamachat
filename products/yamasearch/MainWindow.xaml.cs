@@ -351,10 +351,10 @@ public partial class MainWindow : Window
         File.Move(partialPath, targetPath);
     }
 
-    private async Task<BrowserTab?> CreateTabAsync(string? address = null, bool deferNavigationToNewWindow = false)
+    private async Task<BrowserTab?> CreateTabAsync(string? address = null, bool deferNavigationToNewWindow = false, bool isScriptPopup = false)
     {
         if (_isClosing) return null;
-        var tab = new BrowserTab();
+        var tab = new BrowserTab { IsScriptPopup = isScriptPopup };
         if (_isPrivateWindow)
         {
             tab.PrivateSession = GetPrivateWebSessionForNewTab();
@@ -468,6 +468,8 @@ public partial class MainWindow : Window
         await RefreshYamaBlockBootstrapAsync(tab);
         await InstallTabTitleWatcherAsync(tab);
         await InstallMediaUsageWatcherAsync(tab);
+        if (tab.IsScriptPopup)
+            await InstallScriptPopupCloseBridgeAsync(tab);
         core.WebMessageReceived += (_, e) => tab.Owner?.HandleNewTabMessage(tab, e);
         core.NavigationStarting += (_, e) =>
         {
@@ -565,18 +567,31 @@ public partial class MainWindow : Window
         core.PermissionRequested += (_, e) => tab.Owner?.HandlePermissionRequest(tab, e);
         core.NewWindowRequested += async (_, e) =>
         {
-            var owner = tab.Owner;
-            if (owner is null)
+            try
             {
-                e.Handled = true;
-                return;
+                var owner = tab.Owner;
+                if (owner is null)
+                {
+                    e.Handled = true;
+                    return;
+                }
+                await owner.HandleNewWindowRequestedAsync(e);
             }
-            await owner.HandleNewWindowRequestedAsync(e);
+            catch (Exception exception)
+            {
+                // EventHandler is async void. This final boundary prevents any
+                // unexpected popup/COM cleanup failure from terminating WPF.
+                Debug.WriteLine($"YamaSearch popup event failed: {exception.GetType().Name}: {exception.Message}");
+                try { e.Handled = true; } catch { }
+            }
         };
         core.WindowCloseRequested += (_, _) => tab.Owner?.Dispatcher.BeginInvoke(() =>
         {
             var owner = tab.Owner;
-            if (owner is null || !owner._tabs.Contains(tab)) return;
+            // Match normal browser behavior: window.close() may close only a tab
+            // that was created for window.open(). It must never close an ordinary
+            // source tab or the last application window.
+            if (owner is null || !tab.IsScriptPopup || !owner._tabs.Contains(tab)) return;
             owner.CloseTab(tab);
         });
         core.DownloadStarting += (_, e) => tab.Owner?.HandleDownloadStarting(e);
@@ -584,10 +599,13 @@ public partial class MainWindow : Window
 
     private async Task HandleNewWindowRequestedAsync(CoreWebView2NewWindowRequestedEventArgs args)
     {
-        var deferral = args.GetDeferral();
+        CoreWebView2Deferral? deferral = null;
+        BrowserTab? popupTab = null;
+        var previousActiveTab = _active;
         try
         {
-            var popupTab = await CreateTabAsync(deferNavigationToNewWindow: true);
+            deferral = args.GetDeferral();
+            popupTab = await CreateTabAsync(deferNavigationToNewWindow: true, isScriptPopup: true);
             if (popupTab?.View.CoreWebView2 is { } popupCore)
             {
                 // Hand the real target WebView2 back to Chromium. OAuth popups then
@@ -601,9 +619,42 @@ public partial class MainWindow : Window
             if (!string.IsNullOrWhiteSpace(args.Uri))
                 await CreateTabAsync(args.Uri);
         }
+        catch (Exception exception)
+        {
+            // Payment and identity providers often close or replace their popup
+            // while the target WebView is still being initialized. WebView2 then
+            // invalidates the COM event args. An exception from this async event
+            // handler must never escape onto WPF's dispatcher and terminate every
+            // browser window.
+            try { args.Handled = true; } catch { }
+
+            try
+            {
+                if (popupTab is not null && _tabs.Remove(popupTab))
+                {
+                    DisposeBrowserTab(popupTab);
+                    if (previousActiveTab is not null && _tabs.Contains(previousActiveTab))
+                        SelectTab(previousActiveTab);
+                    else if (_tabs.Count > 0)
+                        SelectTab(_tabs[^1]);
+                }
+            }
+            catch (Exception cleanupException)
+            {
+                Debug.WriteLine($"YamaSearch popup cleanup failed: {cleanupException.GetType().Name}: {cleanupException.Message}");
+            }
+
+            Debug.WriteLine($"YamaSearch popup request failed: {exception.GetType().Name}: {exception.Message}");
+            if (!_isClosing)
+                StatusText.Text = "Vyskakovací okno se nepodařilo otevřít. Původní stránka zůstala zachována.";
+        }
         finally
         {
-            deferral.Complete();
+            // The requesting document may already have closed. Completing an
+            // invalidated deferral can itself throw a COM exception and is no
+            // longer actionable, so contain it as part of the same popup request.
+            try { deferral?.Complete(); }
+            catch (Exception exception) { Debug.WriteLine($"YamaSearch popup deferral completion failed: {exception.GetType().Name}"); }
         }
     }
 
@@ -623,6 +674,28 @@ public partial class MainWindow : Window
               };
               new MutationObserver(publish).observe(document, { subtree: true, childList: true, characterData: true });
               publish();
+            })();
+            """;
+
+        await tab.View.CoreWebView2.AddScriptToExecuteOnDocumentCreatedAsync(script);
+    }
+
+    private static async Task InstallScriptPopupCloseBridgeAsync(BrowserTab tab)
+    {
+        // A WebView hosted as a browser tab still has a top-level native window.
+        // Letting a payment popup call the native window.close() can therefore
+        // close the whole WPF browser. Replace it before page script runs and let
+        // the host close only the WebView tab that belongs to this popup.
+        const string script = """
+            (() => {
+              const requestClose = () => {
+                try { chrome.webview.postMessage(JSON.stringify({ action: 'closeScriptPopup' })); } catch { }
+              };
+              try {
+                Object.defineProperty(window, 'close', { configurable: true, writable: false, value: requestClose });
+              } catch {
+                try { window.close = requestClose; } catch { }
+              }
             })();
             """;
 
@@ -2147,7 +2220,29 @@ public partial class MainWindow : Window
         }
     }
 
-    private void CloseTab(BrowserTab tab) { if (_tabs.Count == 1) { _ = NavigateAsync(tab, _settings.Data.HomePage); return; } var index = _tabs.IndexOf(tab); _tabs.Remove(tab); DisposeBrowserTab(tab); SelectTab(_tabs[Math.Max(0, index - 1)]); }
+    private void CloseTab(BrowserTab tab)
+    {
+        if (_tabs.Count == 1)
+        {
+            _ = NavigateAsync(tab, _settings.Data.HomePage);
+            return;
+        }
+
+        var index = _tabs.IndexOf(tab);
+        if (index < 0) return;
+        var wasActive = ReferenceEquals(_active, tab);
+        _tabs.RemoveAt(index);
+
+        // Detach an active WebView from the visual tree before disposing its
+        // native controller. Fast-closing payment popups otherwise risk tearing
+        // down the host window together with their still-attached controller.
+        if (wasActive)
+            SelectTab(_tabs[Math.Max(0, index - 1)]);
+        else
+            RenderTabs();
+
+        DisposeBrowserTab(tab);
+    }
     private void CloseOtherTabs(BrowserTab keep)
     {
         foreach (var tab in _tabs.Where(tab => tab != keep).ToList()) { _tabs.Remove(tab); DisposeBrowserTab(tab); }
@@ -3813,6 +3908,13 @@ public partial class MainWindow : Window
             if (!root.TryGetProperty("action", out var actionElement)) return;
 
             var action = actionElement.GetString();
+            if (string.Equals(action, "closeScriptPopup", StringComparison.Ordinal))
+            {
+                if (tab.IsScriptPopup && _tabs.Contains(tab))
+                    Dispatcher.BeginInvoke(() => CloseTab(tab));
+                return;
+            }
+
             if (string.Equals(action, "yamaBlockLog", StringComparison.Ordinal))
             {
                 var status = root.TryGetProperty("status", out var statusElement)
@@ -5354,6 +5456,7 @@ public sealed class BrowserTab
     public bool IsMuted { get; set; }
     public bool HasWebNotification { get; set; }
     public int? NotificationCount { get; set; }
+    public bool IsScriptPopup { get; set; }
 }
 public sealed record TabDragPayload(MainWindow Source, BrowserTab Tab)
 {

@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="cs">
+<meta charset="utf-8">
+<title>YamaSearch popup race test</title>
+<body>
+  <button id="open">Otevřít a ihned zavřít testovací popup</button>
+  <p id="status">Připraveno</p>
+  <script>
+    const parameters = new URLSearchParams(location.search);
+    const run = () => {
+      const popup = window.open('/?child=1', 'payment-popup-smoke', 'width=480,height=640');
+      document.querySelector('#status').textContent = popup ? 'Popup předán prohlížeči' : 'Popup nebyl vytvořen';
+    };
+    document.querySelector('#open').addEventListener('click', run);
+    if (parameters.has('child')) {
+      document.querySelector('#status').textContent = 'Popup se zavře sám';
+      setTimeout(() => window.close(), 100);
+    } else if (parameters.has('auto')) {
+      setTimeout(run, 100);
+    }
+  </script>
+</body>
+</html>
