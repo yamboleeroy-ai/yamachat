@@ -2,6 +2,20 @@
   "schemaVersion": 1,
   "releases": [
     {
+      "id": "yamahost:0.1.0-rc.1",
+      "app": "yamahost",
+      "kind": "new-app",
+      "version": "0.1.0-rc.1",
+      "title": "YamaHost: komunitní Valheim hosting",
+      "summary": "YamaHost je dostupný všem účtům YamaPortalu. Vlastní a sdílené světy, hosting na počítači člena skupiny, oprávnění a posledních pět cloudových záloh.",
+      "details": "Ověřeno skutečné hraní se zachovaným světem pod dvěma účty, průběžná záloha během hraní, kontrolní obnova z Oracle a bezpečné ukončení. Hostitel používá launcher pro Windows; ostatním hráčům stačí Valheim, připojovací kód a heslo. Předání mezi dvěma fyzickými počítači zatím nebylo ověřeno. Valheim vanilla zde podporuje čtení logu a ovládání přes tlačítka; textové příkazy nejsou dostupné. Bezplatný provoz má limity: tři servery na účet, pět záloh a 8 MiB na balíček zálohy.",
+      "releasedAt": "2026-10-24T19:29:48.027Z",
+      "platforms": [
+        "Web",
+        "Windows"
+      ]
+    },
+    {
       "id": "yamasearch:windows:0.3.24",
       "app": "yamasearch",
       "kind": "update",
