@@ -92,10 +92,13 @@ jobs:
           set -euo pipefail
           PORTAL_RELEASE_ID="yamaportal:v$(node -p "require('./products/yamaportal/package.json').version")"
           for attempt in $(seq 1 18); do
-            if curl -fsS "https://yamachat.eu/release-feed.json?release-check=$GITHUB_RUN_ID-$attempt" | grep -Fq "$PORTAL_RELEASE_ID" && { test -z "$RELEASE_ID" || curl -fsS "https://yamachat.eu/release-feed.json?release-check=$GITHUB_RUN_ID-$attempt" | grep -Fq "$RELEASE_ID"; }; then break; fi
+            if curl -fsS "https://yamachat.eu/release-feed.json?release-check=$GITHUB_RUN_ID-$attempt" -o "$RUNNER_TEMP/yamaportal-release-check.json" && grep -Fq "$PORTAL_RELEASE_ID" "$RUNNER_TEMP/yamaportal-release-check.json" && { test -z "$RELEASE_ID" || grep -Fq "$RELEASE_ID" "$RUNNER_TEMP/yamaportal-release-check.json"; }; then break; fi
             if [ "$attempt" -eq 18 ]; then echo 'Production release feed did not become available'; exit 1; fi
             sleep 10
           done
-          curl -fsSIL https://yamachat.eu/yamachat.html | grep -Eq '^HTTP/[0-9.]+ 200'
-          curl -fsSIL https://yamachat.eu/reset-password.html | grep -Eq '^HTTP/[0-9.]+ 200'
-          curl -fsSIL https://yamachat.eu/yamasearch/ | grep -Eq '^HTTP/[0-9.]+ 200'
+          curl -fsSIL https://yamachat.eu/yamachat.html > "$RUNNER_TEMP/yamaportal-route-check.headers"
+          grep -Eq '^HTTP/[0-9.]+ 200' "$RUNNER_TEMP/yamaportal-route-check.headers"
+          curl -fsSIL https://yamachat.eu/reset-password.html > "$RUNNER_TEMP/yamaportal-route-check.headers"
+          grep -Eq '^HTTP/[0-9.]+ 200' "$RUNNER_TEMP/yamaportal-route-check.headers"
+          curl -fsSIL https://yamachat.eu/yamasearch/ > "$RUNNER_TEMP/yamaportal-route-check.headers"
+          grep -Eq '^HTTP/[0-9.]+ 200' "$RUNNER_TEMP/yamaportal-route-check.headers"
