@@ -2,6 +2,20 @@
   "schemaVersion": 1,
   "releases": [
     {
+      "id": "yamahost:0.4.1",
+      "app": "yamahost",
+      "kind": "update",
+      "version": "0.4.1",
+      "title": "YamaHost: podrobné nastavení a samostatná práva pro 7 Days to Die",
+      "summary": "185 voleb ve skupinách a oddělená správa pravidel, hostování a záloh pro konkrétní server.",
+      "details": "Nastavení 7 Days to Die rozšiřuje 165 herních pravidel o dvacet serverových voleb: spolupráce a PvP, ochrana začátečníků, postele, pozemky a výkon hostitele. Každá volba má český název, vysvětlení a výchozí hodnotu. Samostatné oprávnění dovoluje měnit nastavení tohoto serveru bez práva hostovat nebo spravovat zálohy; vlastník přístup zachovává a dosavadní správci nepřijdou o původní práva. Oprávnění se nepřenášejí mezi servery ani hrami. 97 testů a spuštění, uložení a bezpečné vypnutí skutečného herního serveru prošly. Ukládání postav a inventářů z verze 0.4.0 zůstává zachované. Pro hostování 7 Days to Die použij launcher 0.4.1; už stažený Dedicated Server se používá znovu. Instalace modů je odložená.",
+      "releasedAt": "2026-10-25T15:47:44.301Z",
+      "platforms": [
+        "Web",
+        "Windows"
+      ]
+    },
+    {
       "id": "yamahost:0.4.0",
       "app": "yamahost",
       "kind": "update",
