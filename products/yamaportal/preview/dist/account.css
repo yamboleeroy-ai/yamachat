@@ -65,3 +65,15 @@
 .admin-user-storage progress::-webkit-progress-bar{background:#304155;border-radius:8px}.admin-user-storage progress::-webkit-progress-value{background:#22c69c;border-radius:8px}.admin-user-storage progress::-moz-progress-bar{background:#22c69c;border-radius:8px}
 .admin-user-storage.unavailable{border-color:rgba(245,174,82,.35);background:rgba(94,58,15,.14)}
 .admin-user-storage.unavailable strong{color:#f5c37e}
+
+/* Owner-only YamaHost server controls */
+.admin-host-toggle{width:100%;min-height:40px}
+.admin-host-servers{display:grid;gap:8px}
+.admin-host-server{display:grid;gap:8px;padding:11px;border:1px solid rgba(84,169,205,.28);border-radius:11px;background:rgba(3,15,28,.48)}
+.admin-host-server>div:first-child{display:grid;gap:3px}
+.admin-host-server>div:first-child span,.admin-host-server small{color:#9ab7ce;font-size:11px}
+.admin-host-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}
+.admin-host-actions button{min-width:0;padding:8px;white-space:normal;line-height:1.3}
+.admin-host-actions button:disabled{opacity:.55;cursor:not-allowed}
+@media(max-width:430px){.admin-host-actions{grid-template-columns:1fr}}
+.admin-host-servers[hidden]{display:none!important}
