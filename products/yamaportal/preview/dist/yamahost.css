@@ -29,3 +29,5 @@
 .yh-pz-search-label { display:block; margin:1rem 0; font-weight:600; }
 .yh-pz-search-label input { display:block; width:100%; margin-top:.5rem; }
 .yh-game-settings [hidden] { display:none !important; }
+
+.yh-palworld-route{padding:18px;border:1px solid #2dc6d3;border-radius:15px;background:linear-gradient(120deg,#0a3041,#181d3d);margin:16px 0}.yh-palworld-route h3{margin:12px 0}.yh-palworld-route .yh-connection-address{display:block;width:fit-content;max-width:100%;box-sizing:border-box;font-size:1.35rem;margin-bottom:14px}.yh-palworld-host-note{padding:15px 18px;border-left:3px solid #7964d8;background:#101d31;border-radius:8px;margin:16px 0}.yh-palworld-host-note h4{margin:0 0 8px}.yh-palworld-connect details{padding:12px 0}.yh-palworld-connect p{line-height:1.65}

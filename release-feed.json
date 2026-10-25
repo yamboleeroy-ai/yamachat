@@ -2,6 +2,20 @@
   "schemaVersion": 1,
   "releases": [
     {
+      "id": "yamahost:v0.7.1",
+      "app": "yamahost",
+      "kind": "update",
+      "version": "0.7.1",
+      "title": "YamaHost 0.7.1 – veřejná brána Palworld TEST",
+      "summary": "Palworld dostává automatický tunel přes samostatnou síťovou bránu. Hráči zadávají IP a port bez dalšího programu.",
+      "details": "Hra a svět dál běží na PC hostitele. Společný launcher 0.7.1 naváže šifrované FRP spojení s vyhrazenou Oracle bránou a panel ukáže adresu až po potvrzeném připojení tunelu. Hráči potřebují pouze Palworld a herní heslo. První ověřovací provoz má jeden veřejný UDP port 8211; další souběžné tunely jsou do změření kapacity omezené. Port nelze převzít cizímu serveru. Vzdálené hraní přes novou bránu se ještě ověřuje, proto zůstává TEST. Aktualizujte launcher při vypnutém serveru do stejné složky a zachovejte launcher/runtime, game-files a r. Ostatní hry, světy a dosavadní limity se nemění.",
+      "releasedAt": "2026-10-25T23:15:26.476Z",
+      "platforms": [
+        "Web / PWA",
+        "Windows"
+      ]
+    },
+    {
       "id": "yamahost:v0.7.0",
       "app": "yamahost",
       "kind": "update",
