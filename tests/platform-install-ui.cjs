@@ -29,12 +29,13 @@ function inside(b,w,h){return b&&b.width>0&&b.height>0&&b.x>=-1&&b.y>=-1&&b.x+b.
  try{
   for(const [w,h,mobile] of [[1440,900,false],[390,844,true],[844,390,true],[320,568,true]]){
    const {page,errors}=await boot(browser,w,h,mobile);
-   const forgot=page.locator('#ycForgotPassword'),row=page.locator('.yc-platform-login'),legal=page.locator('.yc-auth-legal-links');
+   const fallbackSummary=page.locator('.yc-auth-fallback > summary'),row=page.locator('.yc-platform-login'),legal=page.locator('.yc-auth-legal-links');
+   await fallbackSummary.waitFor({state:'visible'});
    await row.waitFor({state:'visible'});
    await row.scrollIntoViewIfNeeded();
-   const fb=await forgot.boundingBox(),rb=await row.boundingBox(),lb=await legal.boundingBox();
-   const order=await page.evaluate(()=>['#ycForgotPassword','.yc-platform-login','.yc-auth-legal-links'].map(selector=>document.querySelector(selector)?.getBoundingClientRect().top??-1));
-   assert(fb&&rb&&lb&&order[0]<order[1]&&order[1]<order[2],'Platform row must be between forgot password and legal links');
+   const sb=await fallbackSummary.boundingBox(),rb=await row.boundingBox(),lb=await legal.boundingBox();
+   const order=await page.evaluate(()=>['.yc-auth-fallback > summary','.yc-platform-login','.yc-auth-legal-links'].map(selector=>document.querySelector(selector)?.getBoundingClientRect().top??-1));
+   assert(sb&&rb&&lb&&order[0]<order[1]&&order[1]<order[2],'Platform row must be between the collapsed email fallback and legal links');
    assert(inside(rb,w,h),`Platform row must be reachable inside scrollable auth viewport at ${w}x${h}`);
    assert.equal(await page.locator('.yc-yamahelp-login').count(),0,'Standalone Yamachat login must not list YamaHelp downloads');
    assert.equal(await page.locator('.yc-yamasearch-login').count(),0,'Standalone Yamachat login must not list YamaSearch downloads');
