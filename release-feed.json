@@ -2,6 +2,20 @@
   "schemaVersion": 1,
   "releases": [
     {
+      "id": "yamahost:0.1.3",
+      "app": "yamahost",
+      "kind": "update",
+      "version": "0.1.3",
+      "title": "YamaHost: návod a přehlednější launcher",
+      "summary": "Šest kroků od založení po bezpečné uložení. Skutečný průběh přípravy a ukončení pomocí Ctrl+C.",
+      "details": "Nová karta Jak založit server v přehledu i detailu, stručná nápověda při vytváření a rozložení pro mobil. Launcher rozlišuje přípravu, instalaci SteamCMD, registraci hry a potvrzený přenos uloženého světa. Ctrl+C bezpečně vypne Valheim, odešle svět a ukončí launcher bez dotazu na ukončení dávky. Párování zachovává jednorázové kódy a zobrazí název vybraného serveru. Účty, světy, oprávnění a limity 200 MB zůstávají zachované.",
+      "releasedAt": "2026-10-25T01:56:07.762Z",
+      "platforms": [
+        "Web",
+        "Windows"
+      ]
+    },
+    {
       "id": "yamahost:0.1.2",
       "app": "yamahost",
       "kind": "update",
