@@ -37,6 +37,8 @@ function authFixture(){
    await page.waitForFunction(()=>window.__ycClientReady,{},{timeout:20000});
    await page.waitForSelector('#auth:not(.hidden)');
    assert(await page.locator('#app').evaluate(el=>el.classList.contains('hidden')),cfg.platform+' app visible before login');
+   const emailFallback=page.locator('.yc-auth-fallback > summary');
+   if(await emailFallback.count())await emailFallback.click();
    await page.locator('#email').fill('journey@example.test');
    await page.locator('#password').fill('StrongPass123!');
    await page.locator('#authSubmit').click();
