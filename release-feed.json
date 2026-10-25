@@ -2,6 +2,20 @@
   "schemaVersion": 1,
   "releases": [
     {
+      "id": "yamahost:0.2.0",
+      "app": "yamahost",
+      "kind": "update",
+      "version": "0.2.0",
+      "title": "YamaHost: 7 Days to Die — TEST",
+      "summary": "Nová hra ve veřejném testu: PC, Navezgane a automatické zálohy. Připojení z jiné sítě se ještě ověřuje.",
+      "details": "7 Days to Die je dostupné pod viditelným označením TEST. Ověřené je místní hraní skutečného hráče, průběžné uložení při běžící hře, bezpečné vypnutí, obnova stejného světa a skutečné zálohy v Oracle. Připojení z jiné internetové sítě bez veřejné IP zatím nebylo ověřeno; podporu konzolí a modů tato testovací verze neslibuje. Pro hostování nové hry stáhni launcher 0.2.0, při vypnutém serveru zachovej soukromou složku launcher/runtime. Valheim i stávající světy zůstávají zachované. Limit účtu je společných 200 MB, tři vlastní servery a nejvýše tři historické zálohy na server.",
+      "releasedAt": "2026-10-25T06:30:11.137Z",
+      "platforms": [
+        "Web",
+        "Windows"
+      ]
+    },
+    {
       "id": "yamachat:android:200799",
       "app": "yamachat",
       "kind": "update",
