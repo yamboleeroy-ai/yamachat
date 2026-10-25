@@ -2,6 +2,20 @@
   "schemaVersion": 1,
   "releases": [
     {
+      "id": "yamahost:0.4.0",
+      "app": "yamahost",
+      "kind": "update",
+      "version": "0.4.0",
+      "title": "YamaHost: nastavení 7 Days to Die, mapy a oprava ukládání postav",
+      "summary": "165 voleb v osmi skupinách, pět map a 0–3 historické zálohy pro každý server.",
+      "details": "Launcher zkracuje pracovní cesty, aby 7 Days to Die mohl ukládat postavy a inventáře. Při chybě zápisu postavy nepotvrdí bezpečné uložení. Již staženou instalaci serveru používá znovu i po aktualizaci launcheru. Konfigurace obsahuje 165 českých herních voleb s vyhledáváním a výběr pěti předpřipravených map při založení. Rozehraná mapa zůstává chráněná. Vlastník i člen s právem hostovat mohou nastavit 0–3 historické zálohy; aktuální svět zůstává zachovaný. 94 automatických testů a skutečné spuštění, uložení a ukončení hry prošly. Ověření inventáře skutečného hráče po restartu ještě čeká. Vlastní mody a generované mapy zatím nejsou součástí panelu. 7 Days to Die a The Forest zůstávají TEST.",
+      "releasedAt": "2026-10-25T15:06:19.528Z",
+      "platforms": [
+        "Web",
+        "Windows"
+      ]
+    },
+    {
       "id": "yamahost:0.3.2",
       "app": "yamahost",
       "kind": "update",
