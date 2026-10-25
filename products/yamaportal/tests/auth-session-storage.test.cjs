@@ -3,6 +3,7 @@ const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const path=require('node:path');
 const {create}=require('../preview/dist/auth-session-storage.js');
+const root=path.resolve(__dirname,'../../..');
 class MemoryStorage{
   constructor(){this.values=new Map();}
   get length(){return this.values.size;}
@@ -40,4 +41,15 @@ portal.setRemember(false);
 assert.equal(portal.getRemember(),false);assert.equal(chat.getRemember(),false,'the preference stays consistent for all clients');
 assert.equal(sharedLocal.getItem('sb-chat-auth-token'),null,'other clients also remove persistent tokens');
 assert.equal(sharedSession.getItem('sb-chat-auth-token'),'chat-session','other clients retain only the current session');
+const sharedTabStorage=new MemoryStorage(),sharedPortalTabStorage=new MemoryStorage();
+sharedPortalTabStorage.setItem('yamaportal-auth-v1','portal-session-for-web');
+const portalTab=create('yamaportal-auth-v1',{localStorage:sharedPortalTabStorage,sessionStorage:new MemoryStorage()});
+const yamachatTab=create('yamaportal-auth-v1',{localStorage:sharedPortalTabStorage,sessionStorage:sharedTabStorage});
+assert.equal(yamachatTab.getItem('yamaportal-auth-v1'),portalTab.getItem('yamaportal-auth-v1'),'standalone Yamachat and Yamaportal read the same browser session key');
+const web=fs.readFileSync(path.join(root,'index.html'),'utf8');
+assert.match(web,/id="ycPortalSignIn" href="\/#profil"/,'Web sign-in directs users to the central Yamaportal account');
+assert.match(web,/storageKey:'yamaportal-auth-v1',storage:ycPortalStorage/,'Standalone web auth uses the shared Portal session');
+assert.match(web,/class="yc-auth-fallback"><summary>Přihlásit se e-mailem/,'Email login remains available as a secondary fallback');
+const desktop=fs.readFileSync(path.join(root,'desktop','desktop-client.html'),'utf8');
+assert.doesNotMatch(desktop,/ycPortalSignIn|yc-auth-fallback/,'The Windows authentication experience is unchanged');
 console.log('Web auth session preference storage passed.');

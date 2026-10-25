@@ -420,3 +420,6 @@
 .yc-portal-signin a{display:block;padding:12px 16px;border-radius:10px;background:linear-gradient(100deg,#087fbb,#7041c8);color:#fff;text-align:center;text-decoration:none;font-weight:700}
 .yc-portal-signin a:hover,.yc-portal-signin a:focus-visible{filter:brightness(1.12);outline:2px solid #55ddff;outline-offset:2px}
 .yc-portal-signin p{margin:9px 2px 0;color:#b7d2e6;font-size:13px;line-height:1.5}
+.yc-auth-fallback{margin:0 0 14px;text-align:left}
+.yc-auth-fallback summary{cursor:pointer;padding:10px 12px;border:1px solid rgba(77,208,255,.28);border-radius:10px;color:#b7d2e6;font-size:13px}
+.yc-auth-fallback[open] summary{margin-bottom:12px}

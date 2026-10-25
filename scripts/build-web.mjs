@@ -212,8 +212,11 @@ if(!html.includes('src="./auth-session-storage.js"')) html=html.replace('</body>
 // origin. Keep the desktop and Android authentication sources untouched.
 if(!html.includes('id="ycPortalSignIn"')) html=html.replace(
   '    <div class="tabs"><button id="loginTab"',
-  '    <section class="yc-portal-signin"><a id="ycPortalSignIn" href="/#profil" target="_blank" rel="noopener noreferrer">Přihlásit se přes Yamaportal</a><p>Google, Microsoft a další způsoby přihlášení spravuje Yamaportal. Po přihlášení se Yamachat na tomto webu připojí ke stejnému účtu.</p></section>\n    <div class="tabs"><button id="loginTab"'
+  '    <section class="yc-portal-signin"><a id="ycPortalSignIn" href="/#profil" target="_blank" rel="noopener noreferrer">Přihlásit se nebo vytvořit účet v Yamaportalu</a><p>Google, Microsoft a další způsoby přihlášení spravuje Yamaportal. Po přihlášení se Yamachat na tomto webu automaticky připojí ke stejnému účtu.</p></section>\n    <details class="yc-auth-fallback"><summary>Přihlásit se e-mailem · záložní možnost</summary>\n    <div class="tabs"><button id="loginTab"'
 );
+if(!html.includes('class="yc-auth-fallback"')) throw Error('Missing Yamachat fallback sign-in insertion point');
+html=html.replace('Zapomenuté heslo?</button><div class="yc-platform-login"','Zapomenuté heslo?</button></details><div class="yc-platform-login"');
+if(!html.includes('Zapomenuté heslo?</button></details><div class="yc-platform-login"')) throw Error('Could not close Yamachat fallback sign-in panel');
 html=html.replace(
   'const sb=createClient(SUPABASE_URL,SUPABASE_KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true},realtime:{worker:true,heartbeatCallback:()=>{}}})',
   `const ycPortalStorage=window.YamaAuthStorage?.create('yamaportal-auth-v1');
