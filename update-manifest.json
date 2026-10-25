@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "publishedAt": "2026-10-25T05:20:28.462Z",
+  "publishedAt": "2026-10-25T05:20:00.000Z",
   "windows": {
     "latestVersion": "1.0.129",
     "required": true,
@@ -9,15 +9,15 @@
     "installerUrl": "https://updates.yamachat.eu/windows/Yamachat-Setup-1.0.129.exe"
   },
   "android": {
-    "latestVersion": "1.1.0.798",
-    "latestVersionCode": 200798,
+    "latestVersion": "1.1.0.799",
+    "latestVersionCode": 200799,
     "required": true,
-    "apkUrl": "https://updates.yamachat.eu/android/Yamachat-Android-200798.apk",
-    "sha256": "a4c47d025ca6fb2f6d1116ce436243a65f6437ea53ac1a047f910d0dc22c03cc",
+    "apkUrl": "https://updates.yamachat.eu/android/Yamachat-Android-200799.apk",
+    "sha256": "1d5ede89ada060bd10f0d95b11f2a5abb20a3a96edbeae0ed6e64e28ce3291bc",
     "notes": [
-      "Deep stability audit: voice, stream, WebRTC, reconnect a cleanup lifecycle byly zpevněné.",
-      "Android zachovává současné mobilní rozložení, Microsoft Natural Voices a interoperabilitu s webem a Windows.",
-      "Windows i Android veřejná distribuce běží přes Cloudflare R2 a nevyžaduje GitHub Releases."
+      "Opravy přihlášení přes společný účet Yamaportal a obnovy profilu.",
+      "Stabilizační úpravy a ověřené podepsané sestavení Android APK.",
+      "Fyzický test na Android telefonu nebyl proveden."
     ]
   }
 }
