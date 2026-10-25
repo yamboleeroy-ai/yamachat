@@ -180,33 +180,6 @@ html=withDeadCodeCleanup(html);
 html=withVoiceHotPathCleanup(html);
  html=withEgressHardening(html);
 html=withAuthProfileResilience(html);
-// YamaHelp is inserted by the desktop source at DOMContentLoaded. Add the
-// YamaSearch download card in the generated client after that callback so both
-// products share the exact same login-card styling and layout.
-// Android stays visibly pending until an approved, signed APK exists at this URL.
-const yamaSearchAndroidPublished=JSON.parse(read('products/yamasearch/release/android-mobile.json')).published===true;
-const yamaSearchAndroidHref='https://updates.yamachat.eu/yamasearch/YamaSearch-Android-latest.apk';
-const yamaSearchAndroidLink=yamaSearchAndroidPublished
-  ? 'href="'+yamaSearchAndroidHref+'" download'
-  : 'aria-disabled="true" tabindex="-1" style="opacity:.68;cursor:not-allowed"';
-const yamaSearchAndroidCaption=yamaSearchAndroidPublished
-  ? 'Stáhnout aplikaci pro Android (.apk).'
-  : 'Android APK se připravuje a testuje.';
-const yamaSearchAndroidNote=yamaSearchAndroidPublished
-  ? 'Android APK stahujte pouze z této oficiální adresy.'
-  : 'Android APK se připravuje a testuje.';
-// iOS launch page is enabled only after the Cloudflare HTTPS path is deployed and verified.
-// iOS PWA is shipped inside the same versioned Cloudflare Pages output.
-const yamaSearchIosPublished=true;
-const yamaSearchIosUrl='https://yamachat.eu/yamasearch/';
-const yamaSearchIosLink=yamaSearchIosPublished
-  ? 'href="'+yamaSearchIosUrl+'" target="_blank" rel="noopener noreferrer"'
-  : 'aria-disabled="true" tabindex="-1" style="opacity:.68;cursor:not-allowed"';
-const yamaSearchIosCaption=yamaSearchIosPublished
-  ? 'Otevřít a přidat na plochu iPhonu.'
-  : 'PWA pro iPhone/iPad se připravuje a testuje.';
-const yamaSearchLoginDownloads=`<script id="ycYamaSearchLoginDownloads">(()=>{const add=()=>{const legal=document.querySelector('.yc-auth-legal-links');if(!legal||document.querySelector('.yc-yamasearch-login'))return;legal.insertAdjacentHTML('beforebegin','<section class="yc-yamahelp-login yc-yamasearch-login" aria-label="YamaSearch ke stažení"><div class="yc-yamahelp-login-title">YamaSearch ke stažení</div><p class="yc-yamahelp-login-copy">Soukromější prohlížení s YamaBlock a YamaShield.</p><div class="yc-yamahelp-login-grid"><a class="yc-yamahelp-login-btn" ${yamaSearchAndroidLink}><strong>YamaSearch Android</strong><small>${yamaSearchAndroidCaption}</small></a><a class="yc-yamahelp-login-btn" href="https://updates.yamachat.eu/yamasearch/YamaSearch-Setup-latest.exe" download><strong>YamaSearch Installer</strong><small>Instalační verze pro Windows.</small></a><a class="yc-yamahelp-login-btn" ${yamaSearchIosLink}><strong>YamaSearch iPhone / iPad</strong><small>${yamaSearchIosCaption}</small></a></div><p class="yc-yamahelp-login-note">YamaSearch pro Windows, Android a iPhone/iPad. ${yamaSearchAndroidNote} iOS PWA otevři v Safari a přidej na plochu.</p></section>')};document.readyState==='loading'?document.addEventListener('DOMContentLoaded',add,{once:true}):add()})();</script>`;
-if(!html.includes('ycYamaSearchLoginDownloads')) html=html.replace('</body>',yamaSearchLoginDownloads+'\n</body>');
 if(!html.includes('src="./auth-session-storage.js"')) html=html.replace('</body>','<script src="./auth-session-storage.js"></script>\n</body>');
 // The standalone web app shares the Yamaportal browser session on the same
 // origin. Keep the desktop and Android authentication sources untouched.
