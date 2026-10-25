@@ -2,6 +2,20 @@
   "schemaVersion": 1,
   "releases": [
     {
+      "id": "yamahost:0.5.0",
+      "app": "yamahost",
+      "kind": "update",
+      "version": "0.5.0",
+      "title": "YamaHost: samostatná konfigurace Valheimu",
+      "summary": "Předvolby a vlastní pravidla Valheimu s oddělenými oprávněními pro každý server.",
+      "details": "Valheim má vlastní formulář a vlastní backendové ověřování: interval ukládání, zveřejnění v seznamu, herní předvolby, obtížnost soubojů a smrti, suroviny, nájezdy, portály a volitelné vlastnosti světa. Výchozí režim Zachovat současná pravidla světa nepřepisuje pravidla rozehraného serveru. Vlastní režim nastavuje celou sadu modifikátorů; svět a postup pokračují dál. Samostatné právo měnit nastavení platí pro vybraný server Valheimu. Práva ani hodnoty se nepřenášejí mezi servery či hrami. Nastavení 7 Days to Die a The Forest zůstává oddělené. 104 automatických testů prošlo. Skutečný Valheim server ověřil vlastní modifikátory, bezpečné uložení a další spuštění stejného světa bez resetu pravidel. K použití nové konfigurace je potřeba launcher 0.5.0; uložené světy, propojení a již stažené herní soubory zůstávají zachované.",
+      "releasedAt": "2026-10-25T16:40:04.792Z",
+      "platforms": [
+        "Web",
+        "Windows"
+      ]
+    },
+    {
       "id": "yamahost:0.4.2",
       "app": "yamahost",
       "kind": "update",
