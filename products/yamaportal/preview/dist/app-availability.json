@@ -98,11 +98,11 @@
     },
     {
       "id": "view-android",
-      "url": "https://updates.yamachat.eu/yamaview/YamaView-Android-1.6.8.apk",
+      "url": "https://updates.yamachat.eu/yamaview/YamaView-Android-1.6.9.apk",
       "status": 200,
       "type": "application/vnd.android.package-archive",
       "available": true,
-      "verifiedAt": "2026-10-23T09:59:51.000Z"
+      "verifiedAt": "2026-10-23T12:55:43.000Z"
     }
   ]
 }

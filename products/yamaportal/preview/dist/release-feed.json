@@ -2,6 +2,115 @@
   "schemaVersion": 1,
   "releases": [
     {
+      "id": "yamahost:0.1.3",
+      "app": "yamahost",
+      "kind": "update",
+      "version": "0.1.3",
+      "title": "YamaHost: návod a přehlednější launcher",
+      "summary": "Šest kroků od založení po bezpečné uložení. Skutečný průběh přípravy a ukončení pomocí Ctrl+C.",
+      "details": "Nová karta Jak založit server v přehledu i detailu, stručná nápověda při vytváření a rozložení pro mobil. Launcher rozlišuje přípravu, instalaci SteamCMD, registraci hry a potvrzený přenos uloženého světa. Ctrl+C bezpečně vypne Valheim, odešle svět a ukončí launcher bez dotazu na ukončení dávky. Párování zachovává jednorázové kódy a zobrazí název vybraného serveru. Účty, světy, oprávnění a limity 200 MB zůstávají zachované.",
+      "releasedAt": "2026-10-25T01:56:07.762Z",
+      "platforms": [
+        "Web",
+        "Windows"
+      ]
+    },
+    {
+      "id": "yamahost:0.1.2",
+      "app": "yamahost",
+      "kind": "update",
+      "version": "0.1.2",
+      "title": "YamaHost: opravené párování počítačů",
+      "summary": "Odstraněn limit tří propojených počítačů. Právo hostovat stačí i pro server sdílený kamarádem.",
+      "details": "Propojení více počítačů již neblokuje chybný limit tří zařízení. Omezení tří platí jen pro vlastní servery, nikoli pro počítače nebo počet sdílených serverů. Staré zneplatněné testovací záznamy se nezobrazují ve výběru počítačů. Nový launcher rozlišuje vypršelý kód, příliš mnoho pokusů a výpadek služby namísto jedné zavádějící hlášky. Existující propojení i světy zůstávají zachované; pro opravu limitu není nutné znovu stahovat launcher.",
+      "releasedAt": "2026-10-24T23:50:21.867Z",
+      "platforms": [
+        "Web",
+        "Windows"
+      ]
+    },
+    {
+      "id": "yamahost:0.1.1",
+      "app": "yamahost",
+      "kind": "update",
+      "version": "0.1.1",
+      "title": "YamaHost: 200 MB na účet a správa záloh",
+      "summary": "Společné cloudové úložiště 200 MB pro až tři servery, ukazatel využití a tři historické zálohy na server.",
+      "details": "Limit účtu je přesně 200 000 000 bajtů bez předběžné rezervace. Aktuální svět se započítává pouze jednou; vedle něj zůstávají nejvýše tři historické zálohy. Přehled ukazuje využité a volné místo i spotřebu jednotlivých serverů. Historické zálohy lze stáhnout, odstranit a obnovit podle oprávnění. Komprimované přenosy již nemají původní limit 8 MiB; větší zálohy vyžadují aktuální launcher 0.1.1. Ověřeno na skutečném Oracle v odděleném úložišti včetně přenosu přes HTTP, integrity, rotace a smazání. Připojování hráčů a předání hostitele se v této aktualizaci znovu netestovalo. Tlačítko Propojit launcher je nad konzolí vedle Návod a stažení launcheru. Barevné logo YamaHostu je v přehledu aktualizací; navigace používá jednoduchou ikonu serveru.",
+      "releasedAt": "2026-10-24T22:09:09.639Z",
+      "platforms": [
+        "Web",
+        "Windows"
+      ]
+    },
+    {
+      "id": "yamahost:0.1.0-rc.1",
+      "app": "yamahost",
+      "kind": "new-app",
+      "version": "0.1.0-rc.1",
+      "title": "YamaHost: komunitní Valheim hosting",
+      "summary": "YamaHost je dostupný všem účtům YamaPortalu. Vlastní a sdílené světy, hosting na počítači člena skupiny, oprávnění a posledních pět cloudových záloh.",
+      "details": "Ověřeno skutečné hraní se zachovaným světem pod dvěma účty, průběžná záloha během hraní, kontrolní obnova z Oracle a bezpečné ukončení. Hostitel používá launcher pro Windows; ostatním hráčům stačí Valheim, připojovací kód a heslo. Předání mezi dvěma fyzickými počítači zatím nebylo ověřeno. Valheim vanilla zde podporuje čtení logu a ovládání přes tlačítka; textové příkazy nejsou dostupné. Bezplatný provoz má limity: tři servery na účet, pět záloh a 8 MiB na balíček zálohy.",
+      "releasedAt": "2026-10-24T19:29:48.027Z",
+      "platforms": [
+        "Web",
+        "Windows"
+      ]
+    },
+    {
+      "id": "yamasearch:windows:0.3.24",
+      "app": "yamasearch",
+      "kind": "update",
+      "version": "0.3.24",
+      "title": "YamaSearch 0.3.24",
+      "summary": "Opravená stabilita platebních a přihlašovacích vyskakovacích oken: rychlé zavření popupu už neukončí celý YamaSearch. Sdílení obrazovky v Yamachatu nově zachová také zvuk z dalších karet YamaSearch, pokud uživatel ve Windows povolí sdílení zvuku.",
+      "details": "Opravená stabilita platebních a přihlašovacích vyskakovacích oken: rychlé zavření popupu už neukončí celý YamaSearch. Sdílení obrazovky v Yamachatu nově zachová také zvuk z dalších karet YamaSearch, pokud uživatel ve Windows povolí sdílení zvuku.",
+      "releasedAt": "2026-10-24T17:20:21.011Z",
+      "platforms": [
+        "Windows"
+      ]
+    },
+    {
+      "id": "yamasearch:windows:0.3.23",
+      "app": "yamasearch",
+      "kind": "update",
+      "version": "0.3.23",
+      "title": "YamaSearch 0.3.23",
+      "summary": "Opravené zobrazení upozornění v kartách: počet zůstává v názvu stránky, kompaktní červená tečka u favicony označí nové upozornění a po otevření karty zmizí. Tlačítko zavření karty zůstává dostupné.",
+      "details": "Opravené zobrazení upozornění v kartách: počet zůstává v názvu stránky, kompaktní červená tečka u favicony označí nové upozornění a po otevření karty zmizí. Tlačítko zavření karty zůstává dostupné.",
+      "releasedAt": "2026-10-23T20:19:00.616Z",
+      "platforms": [
+        "Windows"
+      ]
+    },
+    {
+      "id": "yamaview:1.6.9",
+      "app": "yamaview",
+      "kind": "update",
+      "version": "1.6.9",
+      "title": "YamaView Android 1.6.9",
+      "summary": "Ruční přihlášení společným účtem a bezpečnější návrat z přihlášení.",
+      "details": "Android APK 1.6.9 přidává ruční přihlášení e-mailem a heslem k účtu Yamaportal a bezpečný návrat z OAuth přihlášení. Heslo se neukládá do aplikace; odešle se přímo do Supabase Auth. Windows instalátor a portable ZIP zůstávají na verzi 1.6.8. APK bylo sestaveno a podepsáno stejným certifikátem jako 1.6.8. Fyzický Android test a ověření vzdáleného spojení na telefonu dosud neproběhly.",
+      "releasedAt": "2026-10-23T12:55:43.000Z",
+      "platforms": [
+        "Android APK"
+      ]
+    },
+    {
+      "id": "yamaportal:v0.2.2",
+      "app": "yamaportal",
+      "kind": "update",
+      "version": "0.2.2",
+      "title": "Yamaportal 0.2.2",
+      "summary": "Karta YamaView nyní uvádí vydané balíčky Windows a Android 1.6.8.",
+      "details": "YamaView 1.6.8 je uveden s instalačním balíčkem pro Windows, portable ZIP a Android APK. Vydání YamaView uvádí automatické přihlášení přes YamaPortal, návrat do aplikace a výchozí Yama server pro Windows i Android. Yamaportal zobrazuje odkazy na konkrétní verzi po ověřeném nahrání souborů a zachovává samostatné vydávání ostatních aplikací.",
+      "releasedAt": "2026-10-23T10:39:57.305Z",
+      "platforms": [
+        "Web / PWA",
+        "Windows"
+      ]
+    },
+    {
       "id": "yamaview:1.6.8",
       "app": "yamaview",
       "kind": "update",

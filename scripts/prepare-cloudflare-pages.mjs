@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
+import {withAuthProfileResilience} from './auth-profile-resilience.mjs';
 
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
 const dist=path.join(root,'web-dist');
@@ -101,6 +102,16 @@ fs.copyFileSync(path.join(dist,'index.html'),path.join(dist,'yamachat.html'));
 const portal=path.join(root,'products/yamaportal/preview/dist');
 if(!fs.existsSync(path.join(portal,'index.html')))throw Error('Missing Yamaportal entry');
 fs.cpSync(portal,dist,{recursive:true});
+const portalChat=path.join(dist,'modules/yamachat/index.html');
+let portalChatHtml=withAuthProfileResilience(fs.readFileSync(portalChat,'utf8'));
+// Yamachat's standalone login stays focused on signing in. Product downloads
+// belong in Yamaportal's app directory, not as unrelated cards below login.
+portalChatHtml=portalChatHtml
+  .replace(/<section class="yc-yamahelp-login" aria-label="YamaHelp pro Windows">[\s\S]*?<\/section>/,'')
+  .replace(/<script id="ycYamaSearchLoginDownloads">[\s\S]*?<\/script>/,'')
+  .replace(/\.yc-yamahelp-login\{[\s\S]*?(?=\.yc-platform-back\{)/,'')
+  .replace(/,\.yc-yamahelp-login-grid\{grid-template-columns:1fr\}/g,'');
+fs.writeFileSync(portalChat,portalChatHtml);
 const portalPackage=JSON.parse(fs.readFileSync(path.join(root,'products/yamaportal/package.json'),'utf8'));
 if(!/^\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$/.test(portalPackage.version))throw new Error('Yamaportal package version is invalid.');
 fs.writeFileSync(path.join(dist,'portal-version.json'),JSON.stringify({schemaVersion:1,product:'Yamaportal',version:portalPackage.version},null,2)+'\n');

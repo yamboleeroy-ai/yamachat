@@ -2570,6 +2570,8 @@ $('logoutBtn').onclick=async()=>{await ycPrepareExplicitAuthExit();await ycPrese
 $('profileBtn').onclick=()=>openProfile()
 $('mobileMenu').onclick=()=>$('side').classList.toggle('mobile-open')
 function ycHideBootSplash(){$('ycBootSplash')?.classList.add('hidden')}function ycShowBootSplash(){$('ycBootSplash')?.classList.remove('hidden')}function ycRevealApp(){window.YamachatBootGuard?.ready();$('auth').classList.add('hidden');$('app').classList.remove('hidden');ycHideBootSplash()}function showAuth(){window.YamachatBootGuard?.ready();ycAbortChatMediaLoad();++ycAuthGeneration;++ycChannelSelectSeq;++ycCommunitySelectSeq;++voiceActionSeq;clearChat("Pro zobrazení zpráv se přihlas.");currentChannel=currentThread=currentCommunity=null;currentRole=null;communities=[];dmThreads=[];pendingFile=null;$("messageInput").value="";$("fileInput").value="";$("pendingFile").classList.add("hidden");ycChatSignedUrlCache.clear();ycChatAttachmentCache.clear();ycChatAttachmentKnown.clear();ycChatAttachmentDirty.clear();ycChatRolePackCache.clear();cleanupVoiceRooms();if(communityRealtimeSub){sb.removeChannel(communityRealtimeSub);communityRealtimeSub=null}if(userRealtimeSub){sb.removeChannel(userRealtimeSub);userRealtimeSub=null}session=user=profile=null;$('app').classList.add('hidden');$('auth').classList.remove('hidden');ycHideBootSplash()}
+
+function ycShowProfileLoadRetry(){window.YamachatBootGuard?.ready();$('auth').classList.add('hidden');$('app').classList.add('hidden');ycShowBootSplash();const note=$('ycBootSplash')?.querySelector('small');if(note)note.textContent='Společný účet je přihlášený, ale profil se teď nepodařilo načíst. Zkus to znovu.';let button=$('ycBootRetry');if(!button){button=document.createElement('button');button.id='ycBootRetry';button.type='button';button.className='secondary';button.textContent='Zkusit znovu';button.style.marginTop='14px';$('ycBootSplash')?.append(button);button.addEventListener('click',()=>{if(!session?.user){button.hidden=true;showAuth();return}button.disabled=true;const note=$('ycBootSplash')?.querySelector('small');if(note)note.textContent='Znovu načítám profil…';void initApp(session).finally(()=>{button.disabled=false})})}button.hidden=false}
 async function initApp(s){
   window.YamachatBootGuard?.begin();
   const generation=++ycAuthGeneration,uid=s.user.id,authActive=()=>generation===ycAuthGeneration;
@@ -2578,14 +2580,17 @@ async function initApp(s){
   session=s;user=s.user;const active=()=>generation===ycAuthGeneration&&user?.id===uid;$('auth').classList.add('hidden');$('app').classList.add('hidden');ycShowBootSplash();
   if(innerWidth<=720)$('mobileMenu').classList.remove('hidden');
   try {
-    const {data,error}=await sb.from('profiles').select('*').eq('id',uid).single();
-    if(!active())return false;if(error)throw error;if(!data)throw Error('Profil nebyl nalezen.');profile=data;
+    let {data,error}=await sb.from('profiles').select('*').eq('id',uid).maybeSingle();
+    if(!active())return false;if(error)throw error;
+    if(!data){const {error:provisionError}=await sb.rpc('yamachat_ensure_my_profile');if(!active())return false;if(provisionError)throw provisionError;
+      const restored=await sb.from('profiles').select('*').eq('id',uid).maybeSingle();if(!active())return false;if(restored.error)throw restored.error;data=restored.data}
+    if(!data)throw Error('Profil se nepodařilo bezpečně vytvořit.');profile=data;
     await loadMyStats();if(!active())return false;
     subscribeUserRealtime();renderMe();await maybeJoinFromUrl();if(!active())return false;
     await Promise.all([loadCommunities(),loadDmThreads()]);if(!active())return false;
     if(currentCommunity)await selectCommunity(currentCommunity.id);else if(dmThreads.length)await selectThread(dmThreads[0].id);else renderRight();
     if(!active())return false;return true;
-  }catch(error){if(active()){showAuth();$('authMsg').textContent='Načtení profilu selhalo: '+(error.message||error)}return false}
+  }catch(error){if(active()){console.warn('Yamachat profile startup failed',error);ycShowProfileLoadRetry()}return false}
 }
 function renderMe(){const rank=rankForXP(myStats.xp),rc=rank.toLowerCase(),label=(profile.display_name||profile.username)+' · '+rank,top=$('topName');if(top&&top.textContent!==label)top.textContent=label;const av=avatarUrl(profile),sig=[rank,av||'',profile.display_name||'',profile.username||''].join('|'),inner=av?'<img id="topAvatar" class="avatar" src="'+esc(av)+'" alt="">':'<div id="topAvatar" class="avatar">'+esc(initials(profile.display_name||profile.username))+'</div>';const old=$('topAvatar'),holder=old?.closest('.rank-crest')||old;if(holder&&holder.dataset.ycMeSig!==sig)holder.outerHTML='<span class="rank-crest rank-'+rc+' rank-crest-top" data-yc-me-sig="'+esc(sig)+'" title="'+esc(rank)+'">'+inner+'</span>';ycRefreshOwnPresenceUi()}
 async function loadCommunities(){const adminPreview=window.__ycAdminPreviewCommunity||null;const {data:mem,error}=await sb.from('community_members').select('community_id,role').eq('user_id',user.id);if(error){toast(error.message,true);return}if(!mem?.length){communities=adminPreview?[adminPreview]:[];currentCommunity=adminPreview||null;renderRail();renderChannels([]);return}const ids=mem.map(x=>x.community_id);const {data,error:e2}=await sb.from('communities').select('*').in('id',ids).order('created_at');if(e2){toast(e2.message,true);return}communities=(data||[]).map(c=>({...c,role:mem.find(m=>m.community_id===c.id)?.role||'member'}));if(adminPreview){const i=communities.findIndex(c=>c.id===adminPreview.id);if(i>=0)communities[i]={...communities[i],...adminPreview,role:'owner',__platformAdmin:true};else communities.push(adminPreview)}if(currentCommunity)currentCommunity=communities.find(c=>c.id===currentCommunity.id)||null;if(!currentCommunity&&communities.length)currentCommunity=communities[0];renderRail()}

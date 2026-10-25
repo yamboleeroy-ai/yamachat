@@ -95,6 +95,7 @@ function fixture(){
     const file=path.resolve(root,'.'+decodeURIComponent(u.pathname));if(!file.startsWith(root+path.sep)||!fs.existsSync(file)||fs.statSync(file).isDirectory())return route.fulfill({status:404,body:''});return route.fulfill({path:file});
    });
    await page.goto('http://127.0.0.1/');await page.waitForFunction(()=>window.__ycClientReady,{},{timeout:20000});await page.waitForSelector('#auth:not(.hidden)');
+   const emailFallback=page.locator('.yc-auth-fallback > summary');if(await emailFallback.count())await emailFallback.click();
    const snapshots=[];
    for(let cycle=0;cycle<5;cycle++){
     await page.locator('#email').fill('audit@example.test');await page.locator('#password').fill('StrongPass123!');await page.locator('#authSubmit').click();await page.waitForSelector('#app:not(.hidden)',{timeout:20000});

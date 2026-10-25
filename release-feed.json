@@ -84,6 +84,19 @@
       ]
     },
     {
+      "id": "yamaview:1.6.9",
+      "app": "yamaview",
+      "kind": "update",
+      "version": "1.6.9",
+      "title": "YamaView Android 1.6.9",
+      "summary": "Ruční přihlášení společným účtem a bezpečnější návrat z přihlášení.",
+      "details": "Android APK 1.6.9 přidává ruční přihlášení e-mailem a heslem k účtu Yamaportal a bezpečný návrat z OAuth přihlášení. Heslo se neukládá do aplikace; odešle se přímo do Supabase Auth. Windows instalátor a portable ZIP zůstávají na verzi 1.6.8. APK bylo sestaveno a podepsáno stejným certifikátem jako 1.6.8. Fyzický Android test a ověření vzdáleného spojení na telefonu dosud neproběhly.",
+      "releasedAt": "2026-10-23T12:55:43.000Z",
+      "platforms": [
+        "Android APK"
+      ]
+    },
+    {
       "id": "yamaportal:v0.2.2",
       "app": "yamaportal",
       "kind": "update",

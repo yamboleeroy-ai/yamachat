@@ -1,0 +1,10 @@
+{
+  "kind": "update",
+  "title": "Yamaportal 0.2.3",
+  "summary": "Karta YamaView rozlišuje Android 1.6.9 a Windows 1.6.8; připravené jsou nové funkce správy účtů a úložiště.",
+  "details": "Yamaportal nabízí ověřený odkaz na YamaView Android 1.6.9 a zachovává Windows instalátor i portable ZIP ve verzi 1.6.8. Připravena je rozšířená administrace účtů a úložiště s auditní stopou. Nasazení serverových funkcí a fyzický Android test je třeba ověřit před vydáním.",
+  "platforms": [
+    "Web / PWA",
+    "Windows"
+  ]
+}
