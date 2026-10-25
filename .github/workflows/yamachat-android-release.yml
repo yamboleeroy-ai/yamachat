@@ -75,6 +75,7 @@ jobs:
           git checkout -B publish-main origin/main
           python - <<'PY'
           import json
+          import os
           from datetime import datetime, timezone
           from pathlib import Path
           artifact=json.loads(Path('/tmp/android-artifact.json').read_text())['artifact']
