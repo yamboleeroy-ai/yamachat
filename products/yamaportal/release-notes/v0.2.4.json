@@ -1,0 +1,10 @@
+{
+  "kind": "update",
+  "title": "Yamaportal 0.2.4",
+  "summary": "YamaHost správa serverů v administračních kartách účtů, auditované bezpečné vypnutí a restart.",
+  "details": "Yamaportal 0.2.4 přidává vlastnický přehled YamaHost serverů přímo u uživatelských účtů. Zobrazuje pouze bezpečná metadata a dovoluje zařadit auditované bezpečné vypnutí nebo restart s potvrzením a důvodem. Mazání světů ani záloh se z této karty neprovádí. Součástí je i přehlednější rozložení přihlášení a administrační karty.",
+  "platforms": [
+    "Web / PWA",
+    "Windows"
+  ]
+}
