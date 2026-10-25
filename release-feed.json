@@ -2,6 +2,19 @@
   "schemaVersion": 1,
   "releases": [
     {
+      "id": "yamahost:0.4.2",
+      "app": "yamahost",
+      "kind": "update",
+      "version": "0.4.2",
+      "title": "YamaHost: počet záloh už při založení serveru",
+      "summary": "Při vytváření každého herního serveru lze zvolit 0–3 historické zálohy.",
+      "details": "Do formuláře založení serveru přibyla přehledná sekce Zálohování serveru. Výchozí jsou tři historické zálohy; volba nula uchovává aktuální svět bez starších kopií. Nastavení platí pro konkrétní server a lze ho později upravit v Zálohy a stažení. Backend ověřuje celý počet v rozsahu 0–3 ještě před vytvořením serveru. Ověřeno pro Valheim, 7 Days to Die a The Forest; 99 testů prošlo. Stávající servery se nemění a kvůli této změně není nutné aktualizovat launcher 0.4.1.",
+      "releasedAt": "2026-10-25T16:19:26.825Z",
+      "platforms": [
+        "Web"
+      ]
+    },
+    {
       "id": "yamahost:0.4.1",
       "app": "yamahost",
       "kind": "update",
