@@ -2,6 +2,20 @@
   "schemaVersion": 1,
   "releases": [
     {
+      "id": "yamahost:v0.6.0",
+      "app": "yamahost",
+      "kind": "update",
+      "version": "0.6.0",
+      "title": "YamaHost 0.6.0 – Palworld TEST a ověřené 7 Days to Die",
+      "summary": "Palworld přibyl jako TEST do společného launcheru. U 7 Days to Die končí označení TEST.",
+      "details": "Palworld má vlastní nastavení, oprávnění pro hostování a správu hry, bezpečné ukládání, průběžné zálohy a obnovení postavy i inventáře. Místní připojení a obnova byly ověřené; připojení z jiné internetové sítě bez veřejné IP zatím není zajištěné a může vyžadovat dostupný UDP port nebo soukromé síťové propojení. Palworld proto zůstává TEST. Připojovací návod vysvětluje adresu, port a Enter password. U 7 Days to Die je po dokončeném testu odstraněné označení TEST. Jeden launcher podporuje všechny čtyři hry; aktualizujte jej při vypnutém serveru ve stejné složce se zachováním launcher/runtime, game-files a r. Platí dosavadní kvóta 200 MB, 3 servery na účet a 0–3 historické zálohy na server.",
+      "releasedAt": "2026-10-25T19:51:38.850Z",
+      "platforms": [
+        "Web / PWA",
+        "Windows"
+      ]
+    },
+    {
       "id": "yamaportal:v0.2.5",
       "app": "yamaportal",
       "kind": "update",
