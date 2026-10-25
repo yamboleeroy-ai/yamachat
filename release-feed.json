@@ -2,6 +2,20 @@
   "schemaVersion": 1,
   "releases": [
     {
+      "id": "yamahost:0.3.1",
+      "app": "yamahost",
+      "kind": "update",
+      "version": "0.3.1",
+      "title": "YamaHost: oprava instalace ve složkách s diakritikou",
+      "summary": "Launcher připravuje SteamCMD a soubory 7 Days to Die i The Forest v kompatibilní uživatelské složce.",
+      "details": "Opravena instalace serverů, kterou SteamCMD blokoval při spuštění z cesty s českými znaky. Launcher může zůstat ve zvolené složce; nástroje Steamu a serverové soubory těchto her se připravují odděleně v uživatelské mezipaměti Windows. Účty s nekompatibilní cestou používají ověřenou krátkou cestu, pokud ji systém poskytuje; jinak se zobrazí konkrétní chyba. Ověřen skutečný SteamCMD po přesunu do kompatibilní cesty a načtení obou serverových aplikací; 87 testů prošlo. Propojení launcheru, světy, oprávnění a cloudové zálohy se nemění. Při aktualizaci zachovej launcher/runtime. Tato oprava nemění neověřený stav internetového připojení testovacích her.",
+      "releasedAt": "2026-10-25T08:44:26.499Z",
+      "platforms": [
+        "Web",
+        "Windows"
+      ]
+    },
+    {
       "id": "yamahost:0.3.0",
       "app": "yamahost",
       "kind": "update",
