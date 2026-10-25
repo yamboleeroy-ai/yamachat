@@ -2,6 +2,20 @@
   "schemaVersion": 1,
   "releases": [
     {
+      "id": "yamaportal:v0.2.4",
+      "app": "yamaportal",
+      "kind": "update",
+      "version": "0.2.4",
+      "title": "Yamaportal 0.2.4",
+      "summary": "Přehlednější přihlášení a správa účtů; vlastník vidí využití úložiště YamaHost po uživatelích.",
+      "details": "Upravené rozložení profilu odděluje obnovu hesla a vytvoření účtu. Správa uživatelů se zobrazuje v přehledných responzivních kartách s pohodlnými ovládacími prvky a filtrováním. Vlastník může zobrazit ověřenou spotřebu úložiště YamaHost podle účtů; nedostupné údaje jsou jasně označené. Vydání zahrnuje web/PWA a Windows aplikaci. Fyzický Android telefon nebyl při této kontrole testován.",
+      "releasedAt": "2026-10-25T08:49:31.718Z",
+      "platforms": [
+        "Web / PWA",
+        "Windows"
+      ]
+    },
+    {
       "id": "yamahost:0.3.1",
       "app": "yamahost",
       "kind": "update",
