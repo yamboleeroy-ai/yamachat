@@ -2,6 +2,20 @@
   "schemaVersion": 1,
   "releases": [
     {
+      "id": "yamahost:v0.7.0",
+      "app": "yamahost",
+      "kind": "update",
+      "version": "0.7.0",
+      "title": "YamaHost 0.7.0 – Project Zomboid TEST",
+      "summary": "Project Zomboid přibyl do společného launcheru s vlastním přehledným nastavením.",
+      "details": "Project Zomboid — TEST nabízí 304 voleb v 18 skupinách s vyhledáváním, vlastní oprávnění a bezpečné zálohy světa i hráčských účtů. Místní připojení a návrat stejné postavy, inventáře i polohy po uložení a novém spuštění byly ověřené. Připojení z jiné internetové sítě bez veřejné IP a předání mezi různými PC zatím nejsou ověřené. Hráčské jméno a heslo ve hře jsou samostatné od Portalu i společného hesla serveru. Mody zatím nejsou součástí nabídky. Společný launcher podporuje pět her; aktualizujte jej při vypnutém serveru do stejné složky se zachováním launcher/runtime, game-files a r. Stažené instalace se použijí znovu. Dosavadní limity 200 MB na účet, tři servery a 0–3 historické zálohy zůstávají.",
+      "releasedAt": "2026-10-25T21:06:18.603Z",
+      "platforms": [
+        "Web / PWA",
+        "Windows"
+      ]
+    },
+    {
       "id": "yamahost:v0.6.0",
       "app": "yamahost",
       "kind": "update",

@@ -26,3 +26,6 @@
 .yh-palworld-connect li { margin: .55rem 0; }
 .yh-connection-address { display:inline-block; margin-top:.6rem; padding:.55rem .8rem; border:1px solid #35cbd1; border-radius:.6rem; background:#071c2a; color:#9df6ef; font-size:1.35rem; font-weight:700; letter-spacing:.03em; overflow-wrap:anywhere; }
 .yh-palworld-connect summary { cursor:pointer; font-weight:600; }
+.yh-pz-search-label { display:block; margin:1rem 0; font-weight:600; }
+.yh-pz-search-label input { display:block; width:100%; margin-top:.5rem; }
+.yh-game-settings [hidden] { display:none !important; }
