@@ -2,6 +2,19 @@
   "schemaVersion": 1,
   "releases": [
     {
+      "id": "yamachat:android:200799",
+      "app": "yamachat",
+      "kind": "update",
+      "version": "1.1.0.799 (200799)",
+      "title": "Yamachat Android 1.1.0.799",
+      "summary": "Opravy přihlášení přes společný účet Yamaportal a obnovy profilu; stabilizační úpravy.",
+      "details": "Nové podepsané Android APK opravuje přihlášení přes společný účet Yamaportal a obnovu profilu a obsahuje stabilizační úpravy. APK bylo sestaveno a prošlo kontrolou podpisu, zarovnání i porovnáním s předchozí verzí; veřejný soubor je ověřen na Cloudflare R2. Fyzický Android telefon nebyl při této kontrole k dispozici, proto tento test neoznačujeme za provedený.",
+      "releasedAt": "2026-10-25T05:20:00.000Z",
+      "platforms": [
+        "Android APK"
+      ]
+    },
+    {
       "id": "yamaportal:v0.2.3",
       "app": "yamaportal",
       "kind": "update",
