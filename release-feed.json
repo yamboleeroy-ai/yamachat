@@ -2,6 +2,20 @@
   "schemaVersion": 1,
   "releases": [
     {
+      "id": "yamaportal:v0.2.5",
+      "app": "yamaportal",
+      "kind": "update",
+      "version": "0.2.5",
+      "title": "Yamaportal 0.2.5",
+      "summary": "Vlastník má přehled YamaHost serverů u účtů a může server bezpečně vypnout nebo restartovat.",
+      "details": "Karta uživatele ukazuje přehled připojených YamaHost serverů. Vlastník může načíst metadata serveru a po uvedení důvodu bezpečně požádat o vypnutí nebo restart; každá akce se zaznamená do historie YamaHostu. Mazání serverů, světů ani záloh z portálu dostupné není. Zároveň zůstává zachována správa účtů a jejich rolí, ověřená spotřeba úložiště, audit a stávající funkce jednotlivých aplikací. Vydání cílí na web/PWA a Windows. Fyzický Android test nebyl proveden.",
+      "releasedAt": "2026-10-25T19:31:07.796Z",
+      "platforms": [
+        "Web / PWA",
+        "Windows"
+      ]
+    },
+    {
       "id": "yamahost:0.5.0",
       "app": "yamahost",
       "kind": "update",
