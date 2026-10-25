@@ -2,6 +2,20 @@
   "schemaVersion": 1,
   "releases": [
     {
+      "id": "yamahost:0.3.2",
+      "app": "yamahost",
+      "kind": "update",
+      "version": "0.3.2",
+      "title": "YamaHost: oprava startu her ze složek s diakritikou",
+      "summary": "Vedle instalace opravuje launcher také cesty ke konfiguraci, logům a pracovním datům her.",
+      "details": "Navazuje na opravu instalace 0.3.1. Na stejném PC bylo ověřeno, že 7 Days to Die v cestě bez českých znaků nastartuje, zatímco české znaky v cestě ke konfiguraci a logu způsobí okamžité ukončení. Launcher proto pro 7 Days to Die a The Forest používá kompatibilní uživatelskou cestu i pro pracovní data serveru. Původní složka launcheru, propojení, dřívější soubory a cloudové zálohy zůstávají zachované; už stažené hry se nestahují znovu. Pracovní data jsou oddělená podle řídicí služby, profilu a serveru. 87 testů prošlo. Oprava nemění testovací stav vzdáleného připojení těchto her.",
+      "releasedAt": "2026-10-25T09:25:40.737Z",
+      "platforms": [
+        "Web",
+        "Windows"
+      ]
+    },
+    {
       "id": "yamaportal:v0.2.4",
       "app": "yamaportal",
       "kind": "update",
