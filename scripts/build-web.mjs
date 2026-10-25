@@ -26,6 +26,7 @@ import {withPlatformInstallUi} from './platform-install-ui.mjs';
 import {withDeadCodeCleanup} from './dead-code-cleanup.mjs';
 import {withIosPwaMicrophone} from './ios-pwa-microphone.mjs';
 import {withEgressHardening} from './egress-hardening.mjs';
+import {withAuthProfileResilience} from './auth-profile-resilience.mjs';
 
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
 const read=p=>fs.readFileSync(path.join(root,p),'utf8');
@@ -178,6 +179,7 @@ html=withPlatformInstallUi(html);
 html=withDeadCodeCleanup(html);
 html=withVoiceHotPathCleanup(html);
  html=withEgressHardening(html);
+html=withAuthProfileResilience(html);
 // YamaHelp is inserted by the desktop source at DOMContentLoaded. Add the
 // YamaSearch download card in the generated client after that callback so both
 // products share the exact same login-card styling and layout.
@@ -206,6 +208,7 @@ const yamaSearchIosCaption=yamaSearchIosPublished
 const yamaSearchLoginDownloads=`<script id="ycYamaSearchLoginDownloads">(()=>{const add=()=>{const legal=document.querySelector('.yc-auth-legal-links');if(!legal||document.querySelector('.yc-yamasearch-login'))return;legal.insertAdjacentHTML('beforebegin','<section class="yc-yamahelp-login yc-yamasearch-login" aria-label="YamaSearch ke stažení"><div class="yc-yamahelp-login-title">YamaSearch ke stažení</div><p class="yc-yamahelp-login-copy">Soukromější prohlížení s YamaBlock a YamaShield.</p><div class="yc-yamahelp-login-grid"><a class="yc-yamahelp-login-btn" ${yamaSearchAndroidLink}><strong>YamaSearch Android</strong><small>${yamaSearchAndroidCaption}</small></a><a class="yc-yamahelp-login-btn" href="https://updates.yamachat.eu/yamasearch/YamaSearch-Setup-latest.exe" download><strong>YamaSearch Installer</strong><small>Instalační verze pro Windows.</small></a><a class="yc-yamahelp-login-btn" ${yamaSearchIosLink}><strong>YamaSearch iPhone / iPad</strong><small>${yamaSearchIosCaption}</small></a></div><p class="yc-yamahelp-login-note">YamaSearch pro Windows, Android a iPhone/iPad. ${yamaSearchAndroidNote} iOS PWA otevři v Safari a přidej na plochu.</p></section>')};document.readyState==='loading'?document.addEventListener('DOMContentLoaded',add,{once:true}):add()})();</script>`;
 if(!html.includes('ycYamaSearchLoginDownloads')) html=html.replace('</body>',yamaSearchLoginDownloads+'\n</body>');
 if(!html.includes('src="./auth-session-storage.js"')) html=html.replace('</body>','<script src="./auth-session-storage.js"></script>\n</body>');
+html=withAuthProfileResilience(html);
 fs.writeFileSync(path.join(root,'index.html'),html);
 console.log('Web generated from verified desktop 1.0.78 reference; desktop files were not modified.');
 
