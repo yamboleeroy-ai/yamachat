@@ -1040,6 +1040,7 @@ html body .yc-ss-note{
   <div class="auth-card">
     <div class="brand yc-brand-image-wrap"><img class="yc-brand-logo" src="./build/yamachat-logo-ui.webp" alt="Yamachat"></div>
     <h1>Vítej v Yamachatu</h1><div class="sub">Lidi · hlasy · komunity. Vlastní prostor pro hraní, chat a přátele.</div>
+    <section class="yc-portal-signin"><a id="ycPortalSignIn" href="/#profil" target="_blank" rel="noopener noreferrer">Přihlásit se přes Yamaportal</a><p>Google, Microsoft a další způsoby přihlášení spravuje Yamaportal. Po přihlášení se Yamachat na tomto webu připojí ke stejnému účtu.</p></section>
     <div class="tabs"><button id="loginTab" class="active">Přihlášení</button><button id="registerTab">Registrace</button></div>
     <form id="authForm">
       <div id="usernameField" class="field hidden"><label>Uživatelské jméno</label><input id="username" minlength="3" maxlength="32" autocomplete="username" placeholder="Yamboleeroy" /></div>
@@ -2297,7 +2298,16 @@ window.YamachatDesktopAppearance=Object.freeze({
 const { createClient } = window.supabase
 const SUPABASE_URL='https://bxjvmjdppmqgbxfcowpf.supabase.co'
 const SUPABASE_KEY='sb_publishable_LCIW_v-MjpfTu1hHRfdxng_wvvuYSEY'
-const sb=createClient(SUPABASE_URL,SUPABASE_KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true},realtime:{worker:true,heartbeatCallback:()=>{}}})
+const ycPortalStorage=window.YamaAuthStorage?.create('yamaportal-auth-v1');
+if(!ycPortalStorage)throw new Error('Společné přihlášení Yamaportal není dostupné.');
+// Preserve an existing standalone Yamachat web session only when the shared
+// Yamaportal account does not already have a session on this browser.
+const ycLegacyAuthKey='sb-bxjvmjdppmqgbxfcowpf-auth-token';
+if(!ycPortalStorage.getItem('yamaportal-auth-v1')){
+  const ycLegacySession=localStorage.getItem(ycLegacyAuthKey)||sessionStorage.getItem(ycLegacyAuthKey);
+  if(ycLegacySession)ycPortalStorage.setItem('yamaportal-auth-v1',ycLegacySession);
+}
+const sb=createClient(SUPABASE_URL,SUPABASE_KEY,{auth:{storageKey:'yamaportal-auth-v1',storage:ycPortalStorage,persistSession:true,autoRefreshToken:true,detectSessionInUrl:true},realtime:{worker:true,heartbeatCallback:()=>{}}})
 // WEB PARITY STABILITY v3.0.20 — keep browser Realtime alive across background/minimize/network recovery.
 function ycEnsureRealtime(){return false}
 window.addEventListener('online',()=>setTimeout(ycEnsureRealtime,120))
@@ -9083,6 +9093,10 @@ body .yc-v3-ribbon .server[data-community]{
     padding-bottom:max(24px,env(safe-area-inset-bottom))!important;
   }
 }
+.yc-portal-signin{margin:16px 0;padding:14px 16px;border:1px solid rgba(77,208,255,.35);border-radius:14px;background:linear-gradient(135deg,rgba(10,121,161,.18),rgba(106,58,188,.2));text-align:left}
+.yc-portal-signin a{display:block;padding:12px 16px;border-radius:10px;background:linear-gradient(100deg,#087fbb,#7041c8);color:#fff;text-align:center;text-decoration:none;font-weight:700}
+.yc-portal-signin a:hover,.yc-portal-signin a:focus-visible{filter:brightness(1.12);outline:2px solid #55ddff;outline-offset:2px}
+.yc-portal-signin p{margin:9px 2px 0;color:#b7d2e6;font-size:13px;line-height:1.5}
 
 /* Platform adaptation only; desktop reference files are never edited. */
 :root{--yc-viewport-height:100dvh}

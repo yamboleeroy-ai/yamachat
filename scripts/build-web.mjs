@@ -208,6 +208,27 @@ const yamaSearchIosCaption=yamaSearchIosPublished
 const yamaSearchLoginDownloads=`<script id="ycYamaSearchLoginDownloads">(()=>{const add=()=>{const legal=document.querySelector('.yc-auth-legal-links');if(!legal||document.querySelector('.yc-yamasearch-login'))return;legal.insertAdjacentHTML('beforebegin','<section class="yc-yamahelp-login yc-yamasearch-login" aria-label="YamaSearch ke stažení"><div class="yc-yamahelp-login-title">YamaSearch ke stažení</div><p class="yc-yamahelp-login-copy">Soukromější prohlížení s YamaBlock a YamaShield.</p><div class="yc-yamahelp-login-grid"><a class="yc-yamahelp-login-btn" ${yamaSearchAndroidLink}><strong>YamaSearch Android</strong><small>${yamaSearchAndroidCaption}</small></a><a class="yc-yamahelp-login-btn" href="https://updates.yamachat.eu/yamasearch/YamaSearch-Setup-latest.exe" download><strong>YamaSearch Installer</strong><small>Instalační verze pro Windows.</small></a><a class="yc-yamahelp-login-btn" ${yamaSearchIosLink}><strong>YamaSearch iPhone / iPad</strong><small>${yamaSearchIosCaption}</small></a></div><p class="yc-yamahelp-login-note">YamaSearch pro Windows, Android a iPhone/iPad. ${yamaSearchAndroidNote} iOS PWA otevři v Safari a přidej na plochu.</p></section>')};document.readyState==='loading'?document.addEventListener('DOMContentLoaded',add,{once:true}):add()})();</script>`;
 if(!html.includes('ycYamaSearchLoginDownloads')) html=html.replace('</body>',yamaSearchLoginDownloads+'\n</body>');
 if(!html.includes('src="./auth-session-storage.js"')) html=html.replace('</body>','<script src="./auth-session-storage.js"></script>\n</body>');
+// The standalone web app shares the Yamaportal browser session on the same
+// origin. Keep the desktop and Android authentication sources untouched.
+if(!html.includes('id="ycPortalSignIn"')) html=html.replace(
+  '    <div class="tabs"><button id="loginTab"',
+  '    <section class="yc-portal-signin"><a id="ycPortalSignIn" href="/#profil" target="_blank" rel="noopener noreferrer">Přihlásit se přes Yamaportal</a><p>Google, Microsoft a další způsoby přihlášení spravuje Yamaportal. Po přihlášení se Yamachat na tomto webu připojí ke stejnému účtu.</p></section>\n    <div class="tabs"><button id="loginTab"'
+);
+html=html.replace(
+  'const sb=createClient(SUPABASE_URL,SUPABASE_KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true},realtime:{worker:true,heartbeatCallback:()=>{}}})',
+  `const ycPortalStorage=window.YamaAuthStorage?.create('yamaportal-auth-v1');
+if(!ycPortalStorage)throw new Error('Společné přihlášení Yamaportal není dostupné.');
+// Preserve an existing standalone Yamachat web session only when the shared
+// Yamaportal account does not already have a session on this browser.
+const ycLegacyAuthKey='sb-bxjvmjdppmqgbxfcowpf-auth-token';
+if(!ycPortalStorage.getItem('yamaportal-auth-v1')){
+  const ycLegacySession=localStorage.getItem(ycLegacyAuthKey)||sessionStorage.getItem(ycLegacyAuthKey);
+  if(ycLegacySession)ycPortalStorage.setItem('yamaportal-auth-v1',ycLegacySession);
+}
+const sb=createClient(SUPABASE_URL,SUPABASE_KEY,{auth:{storageKey:'yamaportal-auth-v1',storage:ycPortalStorage,persistSession:true,autoRefreshToken:true,detectSessionInUrl:true},realtime:{worker:true,heartbeatCallback:()=>{}}})`
+);
+if(!html.includes('class="yc-portal-signin"')) throw Error('Missing Yamaportal sign-in insertion point');
+if(!html.includes("storageKey:'yamaportal-auth-v1',storage:ycPortalStorage")) throw Error('Could not configure Yamachat web to share the Yamaportal session');
 html=withAuthProfileResilience(html);
 fs.writeFileSync(path.join(root,'index.html'),html);
 console.log('Web generated from verified desktop 1.0.78 reference; desktop files were not modified.');
