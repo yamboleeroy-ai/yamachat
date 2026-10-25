@@ -113,7 +113,7 @@
     host.querySelector('#yh-unavailable-stop')?.remove();
     if(s.state==='host-unreachable'&&(s.permissions.host||s.permissions.manage)){
       const fallback=document.createElement('div');fallback.id='yh-unavailable-stop';fallback.className='yh-runtime-actions';
-      fallback.innerHTML='<button class="yh-stop" disabled><span aria-hidden="true">⏹</span> Ukončit a bezpečně uložit</button><p class="caption">Launcher není dostupný, proto nelze potvrdit bezpečné uložení. Další postup najdeš ve zvýrazněném upozornění nahoře.</p>';
+      fallback.innerHTML='<button class="yh-stop" disabled><span aria-hidden="true">⏹</span> Ukončit a bezpečně uložit</button>'+(s.permissions.owner?'<button class="secondary yh-recovery-action" data-yh="recover"><span aria-hidden="true">↻</span> Obnovit po výpadku hostitele</button>':'')+'<p class="caption">Launcher není dostupný, proto nelze potvrdit bezpečné uložení. Další postup najdeš ve zvýrazněném upozornění nahoře.</p>';
       host.querySelector('#yh-console').after(fallback);
     }
     if(s.state==='hosting')host.querySelector('#yh-console').after(controls);else host.querySelector('.yh-launcher-setup').append(controls);
