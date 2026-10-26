@@ -1,19 +1,21 @@
 {
-  "checkedAt": "2026-10-21T09:10:00.000Z",
+  "checkedAt": "2026-10-26T21:34:20.814Z",
   "results": [
     {
       "id": "search-android",
       "url": "https://updates.yamachat.eu/yamasearch/YamaSearch-Android-latest.apk",
       "status": 200,
       "type": "application/vnd.android.package-archive",
-      "available": true
+      "available": true,
+      "verifiedAt": "2026-10-21T09:10:00.000Z"
     },
     {
       "id": "search-ios",
       "url": "https://yamachat.eu/yamasearch/",
       "status": 200,
       "type": "text/html; charset=utf-8",
-      "available": true
+      "available": true,
+      "verifiedAt": "2026-10-21T09:10:00.000Z"
     },
     {
       "id": "chat-web",
@@ -23,14 +25,16 @@
       "available": true,
       "hasChat": true,
       "framePolicy": null,
-      "csp": null
+      "csp": null,
+      "verifiedAt": "2026-10-21T09:10:00.000Z"
     },
     {
       "id": "chat-download",
       "url": "https://yamachat.eu/download/",
       "status": 200,
       "type": "text/html; charset=utf-8",
-      "available": true
+      "available": true,
+      "verifiedAt": "2026-10-21T09:10:00.000Z"
     },
     {
       "id": "search-feed",
@@ -40,7 +44,8 @@
       "available": true,
       "version": "0.3.22",
       "installerUrl": "https://updates.yamachat.eu/yamasearch/YamaSearch-Setup-latest.exe",
-      "portableUrl": "https://updates.yamachat.eu/yamasearch/YamaSearch-Portable-latest.zip"
+      "portableUrl": "https://updates.yamachat.eu/yamasearch/YamaSearch-Portable-latest.zip",
+      "verifiedAt": "2026-10-21T09:10:00.000Z"
     },
     {
       "id": "help-feed",
@@ -50,35 +55,40 @@
       "available": true,
       "version": "1.0.85",
       "installerUrl": "https://updates.yamachat.eu/yamahelp/YamaHelp-Setup-v85.exe",
-      "portableUrl": "https://updates.yamachat.eu/yamahelp/YamaHelp-Portable-v85-x64.zip"
+      "portableUrl": "https://updates.yamachat.eu/yamahelp/YamaHelp-Portable-v85-x64.zip",
+      "verifiedAt": "2026-10-21T09:10:00.000Z"
     },
     {
       "id": "search-installer",
       "url": "https://updates.yamachat.eu/yamasearch/YamaSearch-Setup-latest.exe",
       "status": 200,
       "type": "application/vnd.microsoft.portable-executable",
-      "available": true
+      "available": true,
+      "verifiedAt": "2026-10-21T09:10:00.000Z"
     },
     {
       "id": "search-portable",
       "url": "https://updates.yamachat.eu/yamasearch/YamaSearch-Portable-latest.zip",
       "status": 200,
       "type": "application/zip",
-      "available": true
+      "available": true,
+      "verifiedAt": "2026-10-21T09:10:00.000Z"
     },
     {
       "id": "help-installer",
       "url": "https://updates.yamachat.eu/yamahelp/YamaHelp-Setup-latest.exe",
       "status": 200,
       "type": "application/x-msdownload",
-      "available": true
+      "available": true,
+      "verifiedAt": "2026-10-21T09:10:00.000Z"
     },
     {
       "id": "help-portable",
       "url": "https://updates.yamachat.eu/yamahelp/YamaHelp-Portable-latest.zip",
       "status": 200,
       "type": "application/x-zip-compressed",
-      "available": true
+      "available": true,
+      "verifiedAt": "2026-10-21T09:10:00.000Z"
     },
     {
       "id": "view-installer",
@@ -110,10 +120,10 @@
       "status": 200,
       "type": "application/zip",
       "available": true,
-      "verifiedAt": "2026-10-26T20:21:42.003Z",
-      "version": "0.8.0-beta.6",
-      "bytes": 196080491,
-      "sha256": "3acc21453d2f0d9efac0e8347767c07597206e2a2470c49e74aa2908c2622a53"
+      "verifiedAt": "2026-10-26T21:34:20.814Z",
+      "version": "0.9.0-beta.1",
+      "bytes": 196081311,
+      "sha256": "8d4b2d618a4340d99a5b57fdfef5afde47356046125ab27f778bc7ec98ff3f05"
     }
   ]
 }
