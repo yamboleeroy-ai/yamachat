@@ -1,0 +1,11 @@
+{
+  "kind": "update",
+  "title": "Yamaportal 0.2.6",
+  "summary": "Yama Admin Center získá auditované mazání účtů a vypnutých YamaHost serverů.",
+  "details": "Vlastník může po několika potvrzeních trvale odstranit účet Yamachat/Yamaportal nebo vypnutý YamaHost server. Mazání serveru odstraňuje celý svět, jeho uložené verze a cloudové zálohy. Účet vlastníka a účty správců či moderátorů jsou chráněné; účet s vlastní komunitou nebo serverem je třeba nejdřív převést nebo odstranit. Operace vyžadují důvod, přesné potvrzení názvu/ID a uložený audit. Pokud Supabase odmítne odstranění kvůli vlastněným souborům či navázaným záznamům, účet zůstane zachovaný a správce dostane zprávu. Vydání cílí na web/PWA a Windows; fyzický Android test nebyl proveden.",
+  "platforms": [
+    "Web / PWA",
+    "Windows"
+  ]
+}
+
