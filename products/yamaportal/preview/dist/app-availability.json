@@ -1,5 +1,5 @@
 {
-  "checkedAt": "2026-10-26T21:34:20.814Z",
+  "checkedAt": "2026-10-27T19:47:15.808Z",
   "results": [
     {
       "id": "search-android",
@@ -120,10 +120,11 @@
       "status": 200,
       "type": "application/zip",
       "available": true,
-      "verifiedAt": "2026-10-26T21:34:20.814Z",
-      "version": "0.9.0-beta.1",
-      "bytes": 196081311,
-      "sha256": "8d4b2d618a4340d99a5b57fdfef5afde47356046125ab27f778bc7ec98ff3f05"
+      "verifiedAt": "2026-10-27T19:47:15.808Z",
+      "version": "0.10.0-beta.1",
+      "bytes": 196099649,
+      "sha256": "51cb757f75a29e0098f8bafc62bd988e3e3b01c2fbe0940cc6a7b685e2ba3a99"
     }
   ]
 }
+
