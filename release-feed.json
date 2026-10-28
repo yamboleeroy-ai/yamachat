@@ -2,6 +2,20 @@
   "schemaVersion": 1,
   "releases": [
     {
+      "id": "yamahost:0.12.3-beta.1",
+      "app": "yamahost",
+      "kind": "update",
+      "version": "0.12.3-beta.1",
+      "title": "YamaHost: kontrola CoD4 před hostováním a import archivů",
+      "summary": "Ověření součástí před startem, doplnění chybějícího modu a import ZIP, RAR nebo 7z.",
+      "details": "Příprava využívá vybranou vlastní instalaci a opakovaně používá hotové serverové soubory. Ověřené chybějící součásti se doplní do oddělené serverové kopie. Import přijímá známé součásti podpory a Promodu 2.20, ověřuje velikost a kontrolní součty a nespouští cizí instalátory. Oficiální patche do původní hry potvrzuje uživatel sám. Nastavení ostatních her, světy a propojení zůstávají zachované.",
+      "releasedAt": "2026-10-28T13:13:03.588Z",
+      "platforms": [
+        "Web",
+        "Windows"
+      ]
+    },
+    {
       "id": "yamahost:0.12.2-beta.1",
       "app": "yamahost",
       "kind": "update",
