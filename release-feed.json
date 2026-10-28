@@ -2,6 +2,20 @@
   "schemaVersion": 1,
   "releases": [
     {
+      "id": "yamahost:0.13.2-beta.1",
+      "app": "yamahost",
+      "kind": "update",
+      "version": "0.13.2-beta.1",
+      "title": "YamaHost: oprava aktualizace Promodu",
+      "summary": "Opravený formát rozšíření pro kompatibilitu se starším aktualizátorem.",
+      "details": "Aktualizátor předchozí verze odmítal nové serverové skripty a mohl ponechat starý launcher, který odmítal nastavení Promodu s boty. Opravený podepsaný balíček je ověřený původním aktualizátorem 0.13.0. Stažené hry, světy a propojení zůstávají zachované. Příprava nepřipravené hráčské instalace vyžaduje dokončit původní instalátory patchů a CoD4X; Promod se doplní z ověřené serverové kopie.",
+      "releasedAt": "2026-10-28T23:08:20.967Z",
+      "platforms": [
+        "Windows",
+        "Web"
+      ]
+    },
+    {
       "id": "yamahost:0.13.1-beta.1",
       "app": "yamahost",
       "kind": "update",
