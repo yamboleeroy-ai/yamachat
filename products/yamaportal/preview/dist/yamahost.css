@@ -58,3 +58,7 @@
 @media(max-width:480px){[data-co-settings] .yh-cod4-rotation-row{grid-template-columns:minmax(0,1fr)}}
 
 #yh-dialog [data-co-settings] .yh-cod4-rotation-row label{margin:0}
+
+.yh-launcher-connected{display:flex;align-items:center;justify-content:center;gap:9px;border:1px solid #379b80;border-radius:10px;background:#123d34;color:#a0efd3;padding:12px 16px;font-weight:700;min-height:48px}.yh-launcher-connected>span{font-size:20px}
+
+#yh-launcher-actions .yh-launcher-connected{background:#123d34;border-color:#379b80;color:#a0efd3}.yh-cod4-guide{margin:16px 0;padding:16px 18px;border:1px solid #2b526c;border-radius:12px;background:#0b1b2d}.yh-cod4-guide summary{cursor:pointer;font-weight:700;color:#a4dce6}.yh-cod4-guide li{margin:10px 0;line-height:1.65}
