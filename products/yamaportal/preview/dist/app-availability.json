@@ -121,7 +121,7 @@
       "type": "application/zip",
       "available": true,
       "verifiedAt": "2026-10-28T18:07:56.041Z",
-      "version": "0.13.0-beta.1",
+      "version": "0.13.1-beta.1",
       "bytes": 196244921,
       "sha256": "5cfc7916b3960156025f7ecd85f4a0699956bdc6cfc9d54da4bb0a0303dfdfee"
     }
