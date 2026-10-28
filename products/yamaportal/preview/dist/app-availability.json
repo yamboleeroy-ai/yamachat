@@ -120,10 +120,10 @@
       "status": 200,
       "type": "application/zip",
       "available": true,
-      "verifiedAt": "2026-10-28T13:13:21.251Z",
-      "version": "0.12.3-beta.1",
-      "bytes": 196239387,
-      "sha256": "d492b74fa116108a93e2d8b8ea44809ab8ad6412e35c3797f7412d34eea90269"
+      "verifiedAt": "2026-10-28T13:44:53.028Z",
+      "version": "0.12.4-beta.1",
+      "bytes": 196244568,
+      "sha256": "435797ed4ae0eeacaf8e94a836cfbeea9868cb04c7787f876a21ddbea3a27acf"
     }
   ]
 }
