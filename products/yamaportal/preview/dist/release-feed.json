@@ -2,6 +2,20 @@
   "schemaVersion": 1,
   "releases": [
     {
+      "id": "yamahost:0.11.0-beta.1",
+      "app": "yamahost",
+      "kind": "update",
+      "version": "0.11.0-beta.1",
+      "title": "YamaHost: CoD4X, Promod, boti a zombie — TEST",
+      "summary": "CoD4 v jednotném panelu a launcheru. Pět samostatných veřejných portů, Promod LIVE 2.20, Bot Warfare a zombie RotU.",
+      "details": "Hostitel používá svou vlastní instalaci původního CoD4; YamaHost ji nesdílí. Nastavení, rotace map, členové a zálohy jsou oddělené pro každý server. Pozvaní členové CoD4 mají standardně hostování a nastavení; vlastník může práva upravit. Veřejná Oracle brána přiděluje port jen aktivnímu serveru a blokuje veřejné RCON příkazy. Skutečný start, log a bezpečné vypnutí všech tří modů i veřejný síťový průchod byly ověřeny. Hraní z druhé domácnosti zatím ověřené není, proto zůstává označení TEST. Malá podepsaná aktualizace zachovává stažené hry, světy a propojení.",
+      "releasedAt": "2026-10-28T06:03:13.212Z",
+      "platforms": [
+        "Web",
+        "Windows"
+      ]
+    },
+    {
       "id": "yamahost:0.1.3",
       "app": "yamahost",
       "kind": "update",
