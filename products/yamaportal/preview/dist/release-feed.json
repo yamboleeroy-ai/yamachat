@@ -2,6 +2,20 @@
   "schemaVersion": 1,
   "releases": [
     {
+      "id": "yamahost:0.13.0-beta.1",
+      "app": "yamahost",
+      "kind": "update",
+      "version": "0.13.0-beta.1",
+      "title": "YamaHost: veřejné servery a přístupnost",
+      "summary": "Veřejný přehled serverů, oddělená viditelnost a herní heslo, jednotné kopírování připojení.",
+      "details": "Existující servery zůstávají soukromé. Zveřejnění vyžaduje výslovný souhlas správce. Přehled zobrazuje pouze aktuálně dostupná potvrzená připojení a nezveřejňuje hesla. Volba bez herního hesla závisí na adaptéru hry; Minecraft zachovává osobní přihlášení a Valheim nadále vyžaduje heslo. Aktualizace launcheru zachovává stažené hry, světy a propojení. Admin Centrum nově obsahuje globální zprávu a režim údržby: pozastaví nové starty, požádá dostupné hostitele o bezpečné uložení a umožní obnovení provozu. Síťová brána CoD4 odesílá malé pakety bez zbytečného čekání; pevný maximální herní ping se nezaručuje.",
+      "releasedAt": "2026-10-28T18:07:56.026Z",
+      "platforms": [
+        "Web",
+        "Windows"
+      ]
+    },
+    {
       "id": "yamahost:0.12.4-beta.1",
       "app": "yamahost",
       "kind": "update",
