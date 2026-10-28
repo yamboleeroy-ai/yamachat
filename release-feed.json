@@ -2,6 +2,20 @@
   "schemaVersion": 1,
   "releases": [
     {
+      "id": "yamahost:0.12.2-beta.1",
+      "app": "yamahost",
+      "kind": "update",
+      "version": "0.12.2-beta.1",
+      "title": "YamaHost: dobrovolná příprava staré CD verze CoD4",
+      "summary": "Vlastní připravenou hru stačí vybrat. Pro starou CD verzi je volitelný balíček patchů, CoD4X a Promodu 2.20.",
+      "details": "Návod CoD4 nabízí nepovinné stažení přípravy klienta o velikosti přibližně 351 MB. Balíček neobsahuje základní hru, CD klíč ani uživatelské profily. Instalační kroky a podmínky potvrzuje uživatel sám; hotové kroky může přeskočit. Launcher při první přípravě nabídne volbu vlastní složky nebo stažení pomocného balíčku. Instalace samotného Promodu zachová předchozí složku modu jako zálohu a nemění základní hru. Hosting a pravidla serveru dál řídí jeho karta v YamaHostu.",
+      "releasedAt": "2026-10-28T10:18:43.930Z",
+      "platforms": [
+        "Web",
+        "Windows"
+      ]
+    },
+    {
       "id": "yamahost:0.12.1-beta.1",
       "app": "yamahost",
       "kind": "update",
