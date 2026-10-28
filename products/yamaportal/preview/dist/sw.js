@@ -1,5 +1,5 @@
 'use strict';
-const CACHE='yamaportal-shell-v71';
+const CACHE='yamaportal-shell-v72';
 const SHELL=['./','./index.html','./style.css','./account.css','./app.js','./yamahost-ui.js','./yamahost.css','./downloads.js','./consent-core.js','./consent-ui.js','./app-links.js','./module-host.js','./native-ui.js','./account-core.js','./identity-core.js','./auth-session-storage.js','./account-ui.js','./community-ui.js','./release-feed-ui.js','./pwa.js','./portal-version.json','./vendor/supabase.js','./manifest.webmanifest','./assets/yamaportal.png','./assets/yamahost.png','./assets/games/cod4.png','./assets/games/valheim.jpg','./assets/games/7dtd.jpg','./assets/games/forest.jpg','./assets/games/palworld.jpg','./assets/games/zomboid.jpg','./assets/yamaportal-180.png','./assets/yamaportal-192.png','./assets/yamaportal-512.png','./assets/yamachat.png','./assets/yamasearch.png','./assets/yamahelp.png','./assets/providers/google.svg','./assets/providers/microsoft.svg','./assets/providers/apple.svg','./assets/providers/facebook.svg','./assets/providers/discord.svg','./assets/providers/github.svg'];
 const allowed=new Set(SHELL.map(path=>new URL(path,self.registration.scope).href));
 self.addEventListener('install',event=>event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(SHELL)).then(()=>self.skipWaiting())));
