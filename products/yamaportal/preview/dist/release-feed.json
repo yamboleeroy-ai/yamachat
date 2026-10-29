@@ -2,6 +2,20 @@
   "schemaVersion": 1,
   "releases": [
     {
+      "id": "yamahost:0.13.3-beta.1",
+      "app": "yamahost",
+      "kind": "update",
+      "version": "0.13.3-beta.1",
+      "title": "YamaHost: další režimy Promodu s boty",
+      "summary": "Boti pro TDM, Free for All, Search & Destroy, Domination, Headquarters a Sabotage ve veřejném Promodu.",
+      "details": "Veřejný profil Promodu podporuje šest herních režimů s volitelným počtem a obtížností botů. Opravené opětovné vyzbrojení po novém kole a kontrola upuštěné bomby v Sabotage. Počet 0 zachová čistý Promod. Pro další režimy je potřeba aktualizovat launcher; herní instalace a světy se nestahují znovu. Promod zobrazuje fialový odkaz www.yamachat.eu; ostatní varianty jej mají v informacích serveru a zombie i v uvítání. Síťová brána ani ostatní hry se nemění.",
+      "releasedAt": "2026-10-29T13:54:16.723Z",
+      "platforms": [
+        "Windows",
+        "Web"
+      ]
+    },
+    {
       "id": "yamahost:0.13.2-beta.1",
       "app": "yamahost",
       "kind": "update",
