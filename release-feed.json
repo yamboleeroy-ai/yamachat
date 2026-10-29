@@ -2,6 +2,20 @@
   "schemaVersion": 1,
   "releases": [
     {
+      "id": "yamahost:0.13.5-beta.1",
+      "app": "yamahost",
+      "kind": "update",
+      "version": "0.13.5-beta.1",
+      "title": "YamaHost: důslednější příprava CoD4",
+      "summary": "Kontrola CoD4X ve vybrané hře a doplnění správné složky Promodu s boty.",
+      "details": "Před hostováním se ověřují patche, základní soubory a spouštěč CoD4X právě v uvedené instalaci. Samotná přítomnost CoD4X z jiné hry nestačí. Průvodce znovu ověří každý instalační krok, rozliší potřebné patche a nabídne první spuštění CoD4X, pokud jeho součást ještě chybí. Při přípravě patchů musí být hra zavřená. Zvolený mod se doplní také do správné hráčské složky, včetně pml220_yh_bots. Ověřené instalátory se stahují zvlášť a používají znovu; herní instalace a světy zůstávají zachované.",
+      "releasedAt": "2026-10-29T16:10:31.415Z",
+      "platforms": [
+        "Windows",
+        "Web"
+      ]
+    },
+    {
       "id": "yamahost:0.13.4-beta.1",
       "app": "yamahost",
       "kind": "update",
