@@ -2,6 +2,20 @@
   "schemaVersion": 1,
   "releases": [
     {
+      "id": "yamahost:0.13.4-beta.1",
+      "app": "yamahost",
+      "kind": "update",
+      "version": "0.13.4-beta.1",
+      "title": "YamaHost: oprava spodního odkazu v Promodu",
+      "summary": "Fialové www.yamachat.eu nyní zachová i vlastní veřejné pravidlo Promodu.",
+      "details": "Opravené přepisování spodního odkazu z custom_public pravidel. Změna se aplikuje při přípravě Promodu a zůstává po novém načtení mapy. Původní modové archivy, herní instalace, světy a propojení zůstávají zachované. U již připojeného hráče se nový text načte po opětovném připojení. Aktualizace nevyžaduje restart společné služby.",
+      "releasedAt": "2026-10-29T15:45:38.420Z",
+      "platforms": [
+        "Windows",
+        "Web"
+      ]
+    },
+    {
       "id": "yamahost:0.13.3-beta.1",
       "app": "yamahost",
       "kind": "update",
