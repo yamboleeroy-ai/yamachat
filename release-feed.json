@@ -2,6 +2,19 @@
   "schemaVersion": 1,
   "releases": [
     {
+      "id": "yamahost:v0.13.5-beta.12",
+      "app": "yamahost",
+      "kind": "update",
+      "version": "0.13.5-beta.12",
+      "title": "YamaHost beta 12 — pozvánky pro členy",
+      "summary": "Vlastník může delegovat právo zvát členy; pozvaný předá dál pouze práva, která sám má.",
+      "details": "Pozvání dalších členů lze delegovat samostatně pro každý server a hru. Člen s právem zvát může udělit jen ta oprávnění, která má sám; řídicí služba to vynucuje i při přímém API požadavku. Vlastník může právo kdykoli odebrat. Ostatní servery, světy, zálohy a hostování zůstávají beze změny.",
+      "releasedAt": "2026-10-31T00:00:00.000Z",
+      "platforms": [
+        "Web"
+      ]
+    },
+    {
       "id": "yamahost:0.13.5-beta.1",
       "app": "yamahost",
       "kind": "update",
