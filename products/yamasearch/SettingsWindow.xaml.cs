@@ -55,6 +55,7 @@ public partial class SettingsWindow : Window
         EnableNativeNotifications.IsChecked = settings.Data.EnableNativeNotifications;
         EnableNotificationSound.IsChecked = settings.Data.EnableNotificationSound;
         EnableTabNotificationIndicators.IsChecked = settings.Data.EnableTabNotificationIndicators;
+        RestorePreviousSession.IsChecked = settings.Data.RestorePreviousSession;
         RenderAccountSummary();
     }
 
@@ -148,6 +149,12 @@ public partial class SettingsWindow : Window
         _settings.Data.EnableNativeNotifications = EnableNativeNotifications.IsChecked == true;
         _settings.Data.EnableNotificationSound = EnableNotificationSound.IsChecked == true;
         _settings.Data.EnableTabNotificationIndicators = EnableTabNotificationIndicators.IsChecked == true;
+        _settings.Data.RestorePreviousSession = RestorePreviousSession.IsChecked == true;
+        if (!_settings.Data.RestorePreviousSession)
+        {
+            _settings.Data.LastSessionTabs = [];
+            _settings.Data.LastSessionActiveIndex = 0;
+        }
         RestartRequired = _settings.Data.HardwareAccelerationEnabled != _originalHardwareAcceleration;
         DialogResult = true;
     }

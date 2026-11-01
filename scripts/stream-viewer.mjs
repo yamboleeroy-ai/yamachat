@@ -86,14 +86,17 @@ export function withStreamViewer(input,{desktop=false}={}) {
   );
   if(!html.includes("if(voicePeers.get(peerId)!==pc)return;const laterWatching"))throw Error('Delayed screen audio peer guard missing');
 
-  // Never feed Yamachat's own voice playback back into a shared stream.
-  // Chromium/Electron honors restrictOwnAudio by excluding the capturing app's
-  // playback from loopback while keeping the selected display/window audio request.
+  // The native desktop client attaches process-loopback audio separately and must
+  // exclude Yamachat's own voice. In a regular browser, however, restricting own
+  // audio also removes Discord/YouTube playing in another tab of the same browser.
+  const captureAudioConstraint=desktop
+    ? "audio:{restrictOwnAudio:true},systemAudio:'include',windowAudio:'system',surfaceSwitching:'include'"
+    : "audio:{restrictOwnAudio:false,suppressLocalAudioPlayback:false},systemAudio:'include',windowAudio:'system',surfaceSwitching:'include'";
   html=html.replace(
     "audio:true,systemAudio:'include',surfaceSwitching:'include'",
-    "audio:{restrictOwnAudio:true},systemAudio:'include',surfaceSwitching:'include'"
+    captureAudioConstraint
   );
-  if(!html.includes("audio:{restrictOwnAudio:true},systemAudio:'include'"))throw Error('Own-audio exclusion constraint missing');
+  if(!html.includes(captureAudioConstraint))throw Error('Platform screen-audio constraint missing');
 
   // A stream track can briefly mute during network recovery. Keep the same
   // MediaStream/video binding; the pending state owns retry/timeout instead.

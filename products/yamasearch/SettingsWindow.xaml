@@ -75,6 +75,11 @@
                 <ComboBoxItem Content="Seznam"/><ComboBoxItem Content="Vlastní URL"/>
               </ComboBox>
               <TextBox x:Name="CustomHome" Text="https://" Style="{StaticResource YamaTextBox}" Margin="0,8,0,0"/>
+              <CheckBox x:Name="RestorePreviousSession" Style="{StaticResource YamaCheckBox}"
+                        Content="Po spuštění obnovit karty z posledního zavření"
+                        Margin="0,16,0,6"/>
+              <TextBlock Text="Volba ukládá pouze adresy běžných karet v tomto zařízení. Anonymní okna ani vyskakovací platební okna se neobnovují."
+                         Style="{StaticResource YamaSubtleText}" TextWrapping="Wrap"/>
             </StackPanel>
           </Border>
 

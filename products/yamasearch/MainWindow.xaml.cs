@@ -54,6 +54,7 @@ public partial class MainWindow : Window
     private System.Windows.Controls.Primitives.Popup? _tabDragPreview;
     private static readonly HashSet<System.Windows.Controls.Primitives.Popup> ActiveTabDragPreviews = [];
     private readonly bool _startEmpty;
+    private readonly bool _restorePreviousSession;
     private readonly Guid _windowId = Guid.NewGuid();
     private bool _isClosing;
     private bool _suppressTabClick;
@@ -99,6 +100,12 @@ public partial class MainWindow : Window
         _manageAppId = manageAppId;
         _isPrivateWindow = privateWindow;
         _startEmpty = startEmpty;
+        _restorePreviousSession = !privateWindow
+            && !siteAppMode
+            && !startEmpty
+            && string.IsNullOrWhiteSpace(startupUrl)
+            && _settings.Data.RestorePreviousSession
+            && (_settings.Data.LastSessionTabs?.Count ?? 0) > 0;
         if (_isPrivateWindow)
             _privateWebSession = new PrivateWebSession();
         _siteAppEntry = !string.IsNullOrWhiteSpace(siteAppId)
@@ -110,6 +117,7 @@ public partial class MainWindow : Window
         Loaded += (_, _) => TabWindowRegistry.Register(_windowId, this);
         Closing += (_, _) =>
         {
+            SavePreviousSessionSnapshot();
             _isClosing = true;
             foreach (var tab in _tabs.ToArray()) CancelPendingSitePermissionRequest(tab);
         };
@@ -167,7 +175,12 @@ public partial class MainWindow : Window
             _settings.Save();
         }
         if (!_startEmpty)
-            await CreateTabAsync(_startupUrl);
+        {
+            if (_restorePreviousSession)
+                await RestorePreviousSessionAsync();
+            else
+                await CreateTabAsync(_startupUrl);
+        }
 
         if (!string.IsNullOrWhiteSpace(_manageAppId))
         {
@@ -178,6 +191,62 @@ public partial class MainWindow : Window
         if (!_siteAppMode)
             _ = CheckForYamaSearchUpdateAsync();
     }
+
+    private async Task RestorePreviousSessionAsync()
+    {
+        var urls = (_settings.Data.LastSessionTabs ?? [])
+            .Take(50)
+            .Where(IsRestorableSessionUrl)
+            .ToList();
+        if (urls.Count == 0)
+        {
+            await CreateTabAsync(_startupUrl);
+            return;
+        }
+
+        var restored = new List<BrowserTab>();
+        foreach (var url in urls)
+        {
+            var tab = await CreateTabAsync(url);
+            if (tab is not null) restored.Add(tab);
+        }
+
+        if (restored.Count == 0)
+        {
+            await CreateTabAsync(_startupUrl);
+            return;
+        }
+
+        var activeIndex = Math.Clamp(_settings.Data.LastSessionActiveIndex, 0, restored.Count - 1);
+        SelectTab(restored[activeIndex]);
+    }
+
+    private void SavePreviousSessionSnapshot()
+    {
+        if (_isPrivateWindow || _siteAppMode || !_settings.Data.RestorePreviousSession) return;
+
+        var restorableTabs = _tabs
+            .Where(tab => !tab.IsScriptPopup)
+            .Select(tab => new
+            {
+                Tab = tab,
+                Url = tab.IsYamaNewTab ? "yamasearch://newtab" : tab.View.CoreWebView2?.Source ?? ""
+            })
+            .Where(item => IsRestorableSessionUrl(item.Url))
+            .Take(50)
+            .ToList();
+        if (restorableTabs.Count == 0) return;
+
+        _settings.Data.LastSessionTabs = restorableTabs.Select(item => item.Url).ToList();
+        var activeIndex = restorableTabs.FindIndex(item => ReferenceEquals(item.Tab, _active));
+        _settings.Data.LastSessionActiveIndex = activeIndex >= 0 ? activeIndex : 0;
+        _settings.Save();
+    }
+
+    private static bool IsRestorableSessionUrl(string? url)
+        => string.Equals(url, "yamasearch://newtab", StringComparison.OrdinalIgnoreCase)
+           || (Uri.TryCreate(url, UriKind.Absolute, out var page)
+               && page.Scheme is "http" or "https");
 
     private sealed record YamaSearchUpdate(string? Version, string? Notes, string? PortableUrl, string? InstallerUrl);
 
@@ -547,7 +616,16 @@ public partial class MainWindow : Window
             });
         };
 
-        core.ContainsFullScreenElementChanged += (_, _) => tab.Owner?.Dispatcher.Invoke(() => tab.Owner?.SetVideoFullScreen(core.ContainsFullScreenElement));
+        core.ContainsFullScreenElementChanged += (_, _) =>
+        {
+            var owner = tab.Owner;
+            if (owner is null) return;
+            owner.Dispatcher.BeginInvoke(() =>
+            {
+                if (owner._isClosing || !ReferenceEquals(owner._active, tab)) return;
+                owner.SetVideoFullScreen(core.ContainsFullScreenElement);
+            });
+        };
         core.SourceChanged += (_, e) =>
         {
             var owner = tab.Owner;
@@ -1362,6 +1440,8 @@ public partial class MainWindow : Window
         // Letting it survive a tab switch would make it appear next to another
         // page's lock and could lead the user to allow a permission for the wrong
         // web. The pending WebView2 deferral is completed without persistence.
+        if (!ReferenceEquals(_active, tab) && _videoFullScreen)
+            SetVideoFullScreen(false);
         if (!ReferenceEquals(_active, tab) && _active is not null)
             CancelPendingSitePermissionRequest(_active);
         _siteInfoRenderVersion++;
@@ -4783,6 +4863,8 @@ public partial class MainWindow : Window
             rows[1].Height = new GridLength(0);
             rows[2].Height = new GridLength(0);
             rows[4].Height = new GridLength(0);
+            BrowserHost.UpdateLayout();
+            _active?.View.UpdateLayout();
 
             WindowState = WindowState.Normal;
             ResizeMode = ResizeMode.NoResize;
@@ -4807,6 +4889,8 @@ public partial class MainWindow : Window
             rows[2].Height = GridLength.Auto;
             rows[4].Height = new GridLength(30);
             FavoritesBar.Visibility = _settings.Data.FavoritesBarVisible ? Visibility.Visible : Visibility.Collapsed;
+            BrowserHost.UpdateLayout();
+            _active?.View.UpdateLayout();
 
             if (_sidePanelWasVisibleBeforeVideo)
             {
@@ -4842,6 +4926,10 @@ public partial class MainWindow : Window
                 if (!_videoFullScreen) return;
                 Topmost = true;
                 ApplyMonitorBounds(useWorkingArea: false, forceTopmost: true);
+                BrowserHost.InvalidateMeasure();
+                BrowserHost.UpdateLayout();
+                _active?.View.InvalidateVisual();
+                _active?.View.UpdateLayout();
                 Activate();
             }, System.Windows.Threading.DispatcherPriority.Send);
         }
@@ -5517,7 +5605,7 @@ public sealed class SiteAppEntry
     public bool StartOnLogin { get; set; }
 }
 
-public sealed class AppData { public string Theme { get; set; } = "dark"; public string HomePage { get; set; } = "yamasearch://newtab"; public string SearchEngine { get; set; } = "DuckDuckGo"; public string CustomSearchEndpoint { get; set; } = ""; public bool OnboardingCompleted { get; set; } = false; public bool FavoritesBarVisible { get; set; } = false; public bool HardwareAccelerationEnabled { get; set; } = true; public BlockMode BlockMode { get; set; } = BlockMode.Standard; public bool EnableYouTubeAdBlock { get; set; } = true; public bool EnableCosmeticBlocking { get; set; } = true; public bool EnableTrackerBlocking { get; set; } = true; public SecurityLevel SecurityLevel { get; set; } = SecurityLevel.Recommended; public bool EnableSmartScreen { get; set; } = true; public bool OfferPasswordSave { get; set; } = true; public bool EnableGeneralAutofill { get; set; } = true; public bool BlockNewNotificationRequests { get; set; } = false; public bool EnableNativeNotifications { get; set; } = true; public bool EnableNotificationSound { get; set; } = true; public bool EnableTabNotificationIndicators { get; set; } = true; public string PreferredAccountProvider { get; set; } = ""; public List<string> Whitelist { get; set; } = []; public List<string> Bookmarks { get; set; } = []; public List<HistoryEntry> History { get; set; } = []; public List<DownloadEntry> Downloads { get; set; } = []; public List<SiteAppEntry> InstalledApps { get; set; } = []; }
+public sealed class AppData { public string Theme { get; set; } = "dark"; public string HomePage { get; set; } = "yamasearch://newtab"; public string SearchEngine { get; set; } = "DuckDuckGo"; public string CustomSearchEndpoint { get; set; } = ""; public bool OnboardingCompleted { get; set; } = false; public bool FavoritesBarVisible { get; set; } = false; public bool HardwareAccelerationEnabled { get; set; } = true; public bool RestorePreviousSession { get; set; } = false; public List<string> LastSessionTabs { get; set; } = []; public int LastSessionActiveIndex { get; set; } = 0; public BlockMode BlockMode { get; set; } = BlockMode.Standard; public bool EnableYouTubeAdBlock { get; set; } = true; public bool EnableCosmeticBlocking { get; set; } = true; public bool EnableTrackerBlocking { get; set; } = true; public SecurityLevel SecurityLevel { get; set; } = SecurityLevel.Recommended; public bool EnableSmartScreen { get; set; } = true; public bool OfferPasswordSave { get; set; } = true; public bool EnableGeneralAutofill { get; set; } = true; public bool BlockNewNotificationRequests { get; set; } = false; public bool EnableNativeNotifications { get; set; } = true; public bool EnableNotificationSound { get; set; } = true; public bool EnableTabNotificationIndicators { get; set; } = true; public string PreferredAccountProvider { get; set; } = ""; public List<string> Whitelist { get; set; } = []; public List<string> Bookmarks { get; set; } = []; public List<HistoryEntry> History { get; set; } = []; public List<DownloadEntry> Downloads { get; set; } = []; public List<SiteAppEntry> InstalledApps { get; set; } = []; }
 public sealed class HistoryEntry { public string Url { get; set; } = ""; public string Title { get; set; } = ""; public string FaviconUrl { get; set; } = ""; public DateTimeOffset VisitedAt { get; set; } }
 public sealed class DownloadEntry
 {

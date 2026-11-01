@@ -1,0 +1,24 @@
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+
+const main = fs.readFileSync('products/yamasearch/MainWindow.xaml.cs', 'utf8');
+const settings = fs.readFileSync('products/yamasearch/SettingsWindow.xaml.cs', 'utf8');
+const settingsView = fs.readFileSync('products/yamasearch/SettingsWindow.xaml', 'utf8');
+
+assert.match(main, /RestorePreviousSessionAsync\(\)/, 'startup must have a session restore path');
+assert.match(main, /SavePreviousSessionSnapshot\(\)/, 'window close must save the opted-in session');
+assert.match(main, /!tab\.IsScriptPopup/, 'script/payment popups must not enter session restore data');
+assert.match(main, /_isPrivateWindow \|\| _siteAppMode/, 'private and installed-app windows must not persist sessions');
+assert.match(main, /LastSessionActiveIndex/, 'the selected tab must be restored');
+assert.match(settingsView, /x:Name="RestorePreviousSession"/, 'settings must expose the session option');
+assert.match(settings, /RestorePreviousSession\.IsChecked/, 'settings must load and save the session option');
+
+const fullscreenStart = main.indexOf('core.ContainsFullScreenElementChanged');
+const fullscreenEnd = main.indexOf('core.SourceChanged', fullscreenStart);
+const fullscreenEvent = main.slice(fullscreenStart, fullscreenEnd);
+assert.match(fullscreenEvent, /Dispatcher\.BeginInvoke/, 'fullscreen callback must not synchronously re-enter WebView2');
+assert.match(fullscreenEvent, /ReferenceEquals\(owner\._active, tab\)/, 'only the visible tab may change window fullscreen');
+assert.match(main, /BrowserHost\.UpdateLayout\(\)/, 'fullscreen must immediately resize the browser host');
+assert.match(main, /if \(!ReferenceEquals\(_active, tab\) && _videoFullScreen\)\s*SetVideoFullScreen\(false\)/, 'switching tabs must leave stale fullscreen');
+
+console.log('YamaSearch session restore and fullscreen contracts verified.');

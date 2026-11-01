@@ -49,6 +49,9 @@ for(const [name,before,after] of [['web',baseline,fs.readFileSync('index.html','
  }
  for(const old of ['screenShareStage','ycShareOverlay','__ycMultiStreamViewerInstalled','__ycSafeStreamVolumeInstalled','__ycDeadShareCleanup','__ycStreamResizeInstalled'])assert(!after.includes(old),name+' old UI remains '+old);
  assert.equal((after.match(/const ycStreamViewer=/g)||[]).length,1);
- assert(after.includes("audio:{restrictOwnAudio:true},systemAudio:'include'"),name+' does not exclude Yamachat playback from stream audio');
- console.log('PASS '+name+': protected voice/screen transport functions unchanged except reviewed desktop stream-audio routing; Yamachat playback excluded from stream audio; one viewer; old UI absent.');
+ const expectedAudio=name==='desktop'
+  ? "audio:{restrictOwnAudio:true},systemAudio:'include',windowAudio:'system'"
+  : "audio:{restrictOwnAudio:false,suppressLocalAudioPlayback:false},systemAudio:'include',windowAudio:'system'";
+ assert(after.includes(expectedAudio),name+' has incorrect platform screen-audio capture constraints');
+ console.log('PASS '+name+': protected voice/screen transport functions unchanged; platform-specific stream audio policy verified; one viewer; old UI absent.');
 }
