@@ -29,5 +29,9 @@ const applyBoundsEnd = main.indexOf('private void SetWindowTopmostState', applyB
 const applyBounds = main.slice(applyBoundsStart, applyBoundsEnd);
 assert.match(applyBounds, /var flags = SwpFrameChanged \| SwpShowWindow \| SwpNoActivate/, 'native fullscreen resizing must never activate the parent window');
 assert.doesNotMatch(applyBounds, /BringWindowToTop|SetForegroundWindow|SetActiveWindow/, 'fullscreen bounds updates must not steal focus from WebView2');
+assert.match(main, /InstallFullscreenVideoControlsBridgeAsync\(tab\)/, 'every WebView must install the fullscreen video controls bridge');
+assert.match(main, /vjs-user-inactive[\s\S]*vjs-user-active/, 'Video.js controls bridge must restore active controls after pointer input');
+assert.match(main, /document\.addEventListener\('pointermove', revealControls, true\)/, 'Video.js controls bridge must react to pointer hover without clicks');
+assert.match(main, /performance\.now\(\) - fullscreenEnteredAt < 750/, 'the controls bridge must ignore synthetic pointer motion during the fullscreen transition');
 
 console.log('YamaSearch session restore and fullscreen contracts verified.');

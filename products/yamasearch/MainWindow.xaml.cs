@@ -537,6 +537,7 @@ public partial class MainWindow : Window
         await RefreshYamaBlockBootstrapAsync(tab);
         await InstallTabTitleWatcherAsync(tab);
         await InstallMediaUsageWatcherAsync(tab);
+        await InstallFullscreenVideoControlsBridgeAsync(tab);
         if (tab.IsScriptPopup)
             await InstallScriptPopupCloseBridgeAsync(tab);
         core.WebMessageReceived += (_, e) => tab.Owner?.HandleNewTabMessage(tab, e);
@@ -677,6 +678,61 @@ public partial class MainWindow : Window
             owner.CloseTab(tab);
         });
         core.DownloadStarting += (_, e) => tab.Owner?.HandleDownloadStarting(e);
+    }
+
+    private static async Task InstallFullscreenVideoControlsBridgeAsync(BrowserTab tab)
+    {
+        const string script = """
+            (() => {
+              if (window.__yamaFullscreenVideoControlsInstalled) return;
+              window.__yamaFullscreenVideoControlsInstalled = true;
+              let fullscreenEnteredAt = 0;
+
+              const style = document.createElement('style');
+              style.textContent = `
+                .video-js.vjs-user-active:fullscreen .vjs-control-bar,
+                :fullscreen .video-js.vjs-user-active .vjs-control-bar {
+                  display: flex !important;
+                  visibility: visible !important;
+                  opacity: 1 !important;
+                  pointer-events: auto !important;
+                }
+              `;
+
+              const attachStyle = () => {
+                if (!style.isConnected) (document.head || document.documentElement).appendChild(style);
+              };
+              attachStyle();
+              document.addEventListener('DOMContentLoaded', attachStyle, { once: true });
+
+              const findVideoJsPlayer = () => {
+                const fullscreen = document.fullscreenElement;
+                if (!fullscreen) return null;
+                if (fullscreen.classList?.contains('video-js')) return fullscreen;
+                return fullscreen.closest?.('.video-js') || fullscreen.querySelector?.('.video-js') || null;
+              };
+
+              const revealControls = () => {
+                const player = findVideoJsPlayer();
+                if (!player) return;
+                if (performance.now() - fullscreenEnteredAt < 750) return;
+                requestAnimationFrame(() => {
+                  if (!document.fullscreenElement || !player.isConnected) return;
+                  player.classList.remove('vjs-user-inactive');
+                  player.classList.add('vjs-user-active');
+                });
+              };
+
+              document.addEventListener('pointermove', revealControls, true);
+              document.addEventListener('mousemove', revealControls, true);
+              document.addEventListener('pointerdown', revealControls, true);
+              document.addEventListener('fullscreenchange', () => {
+                fullscreenEnteredAt = document.fullscreenElement ? performance.now() : 0;
+              }, true);
+            })();
+            """;
+
+        await tab.View.CoreWebView2.AddScriptToExecuteOnDocumentCreatedAsync(script);
     }
 
     private async Task HandleNewWindowRequestedAsync(CoreWebView2NewWindowRequestedEventArgs args)
