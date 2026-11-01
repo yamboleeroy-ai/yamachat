@@ -2,6 +2,19 @@
   "schemaVersion": 1,
   "releases": [
     {
+      "id": "yamasearch:windows:0.3.26",
+      "app": "yamasearch",
+      "kind": "update",
+      "version": "0.3.26",
+      "title": "YamaSearch 0.3.26",
+      "summary": "Zvuk webových videí a dalších karet se nyní přehrává přímo přes YamaSearch, takže jej Discord při sdílení okna dokáže zachytit. Opraveno také trvalé zobrazení ovládací lišty videa ve fullscreen režimu.",
+      "details": "Zvuk webových videí a dalších karet se nyní přehrává přímo přes YamaSearch, takže jej Discord při sdílení okna dokáže zachytit. Opraveno také trvalé zobrazení ovládací lišty videa ve fullscreen režimu.",
+      "releasedAt": "2026-11-01T19:53:56.855Z",
+      "platforms": [
+        "Windows"
+      ]
+    },
+    {
       "id": "yamahost:0.13.6-beta.1",
       "app": "yamahost",
       "kind": "update",
