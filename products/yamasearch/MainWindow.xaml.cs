@@ -75,6 +75,7 @@ public partial class MainWindow : Window
     private readonly SemaphoreSlim _permissionPromptGate = new(1, 1);
     private static readonly object WebViewEnvironmentLock = new();
     private static Task<CoreWebView2Environment>? _normalWebViewEnvironmentTask;
+    private static readonly Dictionary<int, WebViewAudioRelay> WebViewAudioRelays = [];
     private readonly HashSet<string> _adHosts = new(StringComparer.OrdinalIgnoreCase)
     {
         "doubleclick.net", "googlesyndication.com", "googleadservices.com", "adservice.google.com",
@@ -527,6 +528,7 @@ public partial class MainWindow : Window
     {
         tab.Owner = this;
         var core = tab.View.CoreWebView2;
+        StartWebViewAudioRelay((int)core.BrowserProcessId);
         core.Settings.AreDevToolsEnabled = false;
         core.Settings.IsStatusBarEnabled = false;
         core.Settings.IsReputationCheckingRequired = _settings.Data.EnableSmartScreen;
@@ -537,6 +539,7 @@ public partial class MainWindow : Window
         await RefreshYamaBlockBootstrapAsync(tab);
         await InstallTabTitleWatcherAsync(tab);
         await InstallMediaUsageWatcherAsync(tab);
+        await InstallFullscreenVideoControlsBridgeAsync(tab);
         if (tab.IsScriptPopup)
             await InstallScriptPopupCloseBridgeAsync(tab);
         core.WebMessageReceived += (_, e) => tab.Owner?.HandleNewTabMessage(tab, e);
@@ -620,10 +623,14 @@ public partial class MainWindow : Window
         {
             var owner = tab.Owner;
             if (owner is null) return;
+            // Capture the value while handling the WebView2 event. Reading the property
+            // later from the dispatcher can observe a newer transition and collapse a
+            // just-entered fullscreen element before the queued enter is applied.
+            var containsFullScreenElement = core.ContainsFullScreenElement;
             owner.Dispatcher.BeginInvoke(() =>
             {
                 if (owner._isClosing || !ReferenceEquals(owner._active, tab)) return;
-                owner.SetVideoFullScreen(core.ContainsFullScreenElement);
+                owner.SetVideoFullScreen(containsFullScreenElement);
             });
         };
         core.SourceChanged += (_, e) =>
@@ -673,6 +680,52 @@ public partial class MainWindow : Window
             owner.CloseTab(tab);
         });
         core.DownloadStarting += (_, e) => tab.Owner?.HandleDownloadStarting(e);
+    }
+
+    private static async Task InstallFullscreenVideoControlsBridgeAsync(BrowserTab tab)
+    {
+        const string script = """
+            (() => {
+              if (window.__yamaFullscreenVideoControlsInstalled) return;
+              window.__yamaFullscreenVideoControlsInstalled = true;
+
+              const style = document.createElement('style');
+              style.textContent = `
+                .video-js:fullscreen .vjs-control-bar,
+                .video-js.vjs-fullscreen .vjs-control-bar,
+                :fullscreen .video-js .vjs-control-bar,
+                html.yama-video-fullscreen .video-js .vjs-control-bar {
+                  display: flex !important;
+                  visibility: visible !important;
+                  opacity: 1 !important;
+                  pointer-events: auto !important;
+                  transition: none !important;
+                }
+              `;
+
+              const attachStyle = () => {
+                if (!style.isConnected) (document.head || document.documentElement).appendChild(style);
+              };
+              attachStyle();
+              document.addEventListener('DOMContentLoaded', attachStyle, { once: true });
+
+              const syncFullscreenState = () => {
+                const videoJsFullscreen = document.querySelector('.video-js.vjs-fullscreen');
+                document.documentElement.classList.toggle(
+                  'yama-video-fullscreen',
+                  !!document.fullscreenElement || !!videoJsFullscreen);
+              };
+              document.addEventListener('fullscreenchange', syncFullscreenState, true);
+              new MutationObserver(syncFullscreenState).observe(document.documentElement, {
+                subtree: true,
+                attributes: true,
+                attributeFilter: ['class']
+              });
+              syncFullscreenState();
+            })();
+            """;
+
+        await tab.View.CoreWebView2.AddScriptToExecuteOnDocumentCreatedAsync(script);
     }
 
     private async Task HandleNewWindowRequestedAsync(CoreWebView2NewWindowRequestedEventArgs args)
@@ -957,6 +1010,29 @@ public partial class MainWindow : Window
         }
 
         environment.BrowserProcessExited += NormalWebViewEnvironment_BrowserProcessExited;
+    }
+
+    private static void StartWebViewAudioRelay(int pid)
+    {
+        lock (WebViewEnvironmentLock)
+        {
+            if (pid > 0 && !WebViewAudioRelays.ContainsKey(pid))
+            {
+                WebViewAudioRelays[pid] = new WebViewAudioRelay(pid);
+                try
+                {
+                    var browser = Process.GetProcessById(pid);
+                    browser.EnableRaisingEvents = true;
+                    browser.Exited += (_, _) =>
+                    {
+                        lock (WebViewEnvironmentLock)
+                            if (WebViewAudioRelays.Remove(pid, out var relay)) relay.Dispose();
+                        browser.Dispose();
+                    };
+                }
+                catch { }
+            }
+        }
     }
 
     private static void NormalWebViewEnvironment_BrowserProcessExited(object? sender, CoreWebView2BrowserProcessExitedEventArgs e)
@@ -4872,9 +4948,9 @@ public partial class MainWindow : Window
             Topmost = true;
             ApplyMonitorBounds(useWorkingArea: false, forceTopmost: true);
 
-            // WebView2/YouTube and the Windows shell can both touch the z-order while
-            // entering fullscreen. Re-assert the real monitor bounds a few times after
-            // the transition so the video remains above the Windows taskbar as well.
+            // WebView2 and the Windows shell can both update the window bounds while
+            // entering fullscreen. Re-assert the monitor bounds without activating the
+            // WPF window so pointer hover continues to reveal the player's controls.
             _ = ReassertVideoFullscreenAsync();
         }
         else
@@ -4930,7 +5006,6 @@ public partial class MainWindow : Window
                 BrowserHost.UpdateLayout();
                 _active?.View.InvalidateVisual();
                 _active?.View.UpdateLayout();
-                Activate();
             }, System.Windows.Threading.DispatcherPriority.Send);
         }
     }
@@ -4953,10 +5028,10 @@ public partial class MainWindow : Window
         const uint SwpFrameChanged = 0x0020;
         const uint SwpShowWindow = 0x0040;
         var insertAfter = forceTopmost ? new IntPtr(-1) : IntPtr.Zero; // HWND_TOPMOST
-        var flags = SwpFrameChanged | SwpShowWindow;
+        var flags = SwpFrameChanged | SwpShowWindow | SwpNoActivate;
 
         if (!forceTopmost)
-            flags |= SwpNoActivate | SwpNoZOrder;
+            flags |= SwpNoZOrder;
 
         SetWindowPos(
             handle,
@@ -4967,12 +5042,6 @@ public partial class MainWindow : Window
             rect.Bottom - rect.Top,
             flags);
 
-        if (forceTopmost)
-        {
-            BringWindowToTop(handle);
-            SetForegroundWindow(handle);
-            SetActiveWindow(handle);
-        }
     }
 
     private void SetWindowTopmostState(bool topmost)

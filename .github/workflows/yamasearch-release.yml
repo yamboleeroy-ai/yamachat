@@ -67,6 +67,7 @@ jobs:
       - name: Build and verify YamaSearch artifacts
         shell: pwsh
         run: |
+          ./scripts/build-windows-process-audio.ps1 -Destination products/yamasearch/process-audio
           ./products/yamasearch/scripts/verify-release-contract.ps1 -Version $env:VERSION
           ./products/yamasearch/scripts/build-release.ps1 -Version $env:VERSION -Notes $env:NOTES
           $dir='products/yamasearch/artifacts'
