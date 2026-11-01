@@ -1,5 +1,5 @@
 {
-  "checkedAt": "2026-10-27T19:47:15.808Z",
+  "checkedAt": "2026-11-01T14:24:52.251Z",
   "results": [
     {
       "id": "search-android",
@@ -7,7 +7,8 @@
       "status": 200,
       "type": "application/vnd.android.package-archive",
       "available": true,
-      "verifiedAt": "2026-10-21T09:10:00.000Z"
+      "verifiedAt": "2026-11-01T14:24:50.330Z",
+      "bytes": 8033734
     },
     {
       "id": "search-ios",
@@ -15,7 +16,8 @@
       "status": 200,
       "type": "text/html; charset=utf-8",
       "available": true,
-      "verifiedAt": "2026-10-21T09:10:00.000Z"
+      "verifiedAt": "2026-11-01T14:24:50.210Z",
+      "bytes": 0
     },
     {
       "id": "chat-web",
@@ -26,7 +28,8 @@
       "hasChat": true,
       "framePolicy": null,
       "csp": null,
-      "verifiedAt": "2026-10-21T09:10:00.000Z"
+      "verifiedAt": "2026-11-01T14:24:50.347Z",
+      "bytes": 0
     },
     {
       "id": "chat-download",
@@ -34,7 +37,8 @@
       "status": 200,
       "type": "text/html; charset=utf-8",
       "available": true,
-      "verifiedAt": "2026-10-21T09:10:00.000Z"
+      "verifiedAt": "2026-11-01T14:24:50.264Z",
+      "bytes": 0
     },
     {
       "id": "search-feed",
@@ -64,7 +68,8 @@
       "status": 200,
       "type": "application/vnd.microsoft.portable-executable",
       "available": true,
-      "verifiedAt": "2026-10-21T09:10:00.000Z"
+      "verifiedAt": "2026-11-01T14:24:50.717Z",
+      "bytes": 9245154
     },
     {
       "id": "search-portable",
@@ -72,7 +77,8 @@
       "status": 200,
       "type": "application/zip",
       "available": true,
-      "verifiedAt": "2026-10-21T09:10:00.000Z"
+      "verifiedAt": "2026-11-01T14:24:50.834Z",
+      "bytes": 12691363
     },
     {
       "id": "help-installer",
@@ -80,7 +86,8 @@
       "status": 200,
       "type": "application/x-msdownload",
       "available": true,
-      "verifiedAt": "2026-10-21T09:10:00.000Z"
+      "verifiedAt": "2026-11-01T14:24:50.727Z",
+      "bytes": 52775005
     },
     {
       "id": "help-portable",
@@ -88,7 +95,8 @@
       "status": 200,
       "type": "application/x-zip-compressed",
       "available": true,
-      "verifiedAt": "2026-10-21T09:10:00.000Z"
+      "verifiedAt": "2026-11-01T14:24:50.777Z",
+      "bytes": 72118930
     },
     {
       "id": "view-installer",
@@ -96,7 +104,8 @@
       "status": 200,
       "type": "application/vnd.microsoft.portable-executable",
       "available": true,
-      "verifiedAt": "2026-10-23T09:59:31.000Z"
+      "verifiedAt": "2026-11-01T14:24:51.316Z",
+      "bytes": 200748104
     },
     {
       "id": "view-portable",
@@ -104,7 +113,8 @@
       "status": 200,
       "type": "application/zip",
       "available": true,
-      "verifiedAt": "2026-10-23T09:59:48.000Z"
+      "verifiedAt": "2026-11-01T14:24:51.340Z",
+      "bytes": 35645539
     },
     {
       "id": "view-android",
@@ -112,7 +122,8 @@
       "status": 200,
       "type": "application/vnd.android.package-archive",
       "available": true,
-      "verifiedAt": "2026-10-23T12:55:43.000Z"
+      "verifiedAt": "2026-11-01T14:24:51.388Z",
+      "bytes": 68510003
     },
     {
       "id": "yamahost-desktop",
@@ -120,10 +131,8 @@
       "status": 200,
       "type": "application/zip",
       "available": true,
-      "verifiedAt": "2026-10-28T18:07:56.041Z",
-      "version": "0.13.5-beta.1",
-      "bytes": 196244921,
-      "sha256": "5cfc7916b3960156025f7ecd85f4a0699956bdc6cfc9d54da4bb0a0303dfdfee"
+      "verifiedAt": "2026-11-01T14:24:50.933Z",
+      "bytes": 196309744
     }
   ]
 }
