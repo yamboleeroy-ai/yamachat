@@ -2,6 +2,19 @@
   "schemaVersion": 1,
   "releases": [
     {
+      "id": "yamasearch:windows:0.3.25",
+      "app": "yamasearch",
+      "kind": "update",
+      "version": "0.3.25",
+      "title": "YamaSearch 0.3.25",
+      "summary": "Opravené sdílení zvuku z Discordu, YouTube a dalších karet ve stejném YamaSearch. Spolehlivější zobrazení webových videí na celé obrazovce. V nastavení je nová volitelná obnova karet a naposledy aktivní stránky po opětovném spuštění prohlížeče; anonymní okna a platební popupy se neukládají.",
+      "details": "Opravené sdílení zvuku z Discordu, YouTube a dalších karet ve stejném YamaSearch. Spolehlivější zobrazení webových videí na celé obrazovce. V nastavení je nová volitelná obnova karet a naposledy aktivní stránky po opětovném spuštění prohlížeče; anonymní okna a platební popupy se neukládají.",
+      "releasedAt": "2026-11-01T14:48:44.555Z",
+      "platforms": [
+        "Windows"
+      ]
+    },
+    {
       "id": "yamahost:v0.13.5-beta.12",
       "app": "yamahost",
       "kind": "update",
