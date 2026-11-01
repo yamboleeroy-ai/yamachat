@@ -1,7 +1,7 @@
 {
   "product": "YamaSearch",
-  "version": "0.3.24",
-  "notes": "Opravená stabilita platebních a přihlašovacích vyskakovacích oken: rychlé zavření popupu už neukončí celý YamaSearch. Sdílení obrazovky v Yamachatu nově zachová také zvuk z dalších karet YamaSearch, pokud uživatel ve Windows povolí sdílení zvuku.",
+  "version": "0.3.25",
+  "notes": "Opravené sdílení zvuku z Discordu, YouTube a dalších karet ve stejném YamaSearch. Spolehlivější zobrazení webových videí na celé obrazovce. V nastavení je nová volitelná obnova karet a naposledy aktivní stránky po opětovném spuštění prohlížeče; anonymní okna a platební popupy se neukládají.",
   "portableUrl": "https://updates.yamachat.eu/yamasearch/YamaSearch-Portable-latest.zip",
   "installerUrl": "https://updates.yamachat.eu/yamasearch/YamaSearch-Setup-latest.exe"
 }
