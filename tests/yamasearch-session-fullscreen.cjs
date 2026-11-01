@@ -18,7 +18,11 @@ const fullscreenEnd = main.indexOf('core.SourceChanged', fullscreenStart);
 const fullscreenEvent = main.slice(fullscreenStart, fullscreenEnd);
 assert.match(fullscreenEvent, /Dispatcher\.BeginInvoke/, 'fullscreen callback must not synchronously re-enter WebView2');
 assert.match(fullscreenEvent, /ReferenceEquals\(owner\._active, tab\)/, 'only the visible tab may change window fullscreen');
+assert.match(fullscreenEvent, /var containsFullScreenElement = core\.ContainsFullScreenElement[\s\S]*SetVideoFullScreen\(containsFullScreenElement\)/, 'fullscreen state must be captured before dispatching to avoid transition races');
 assert.match(main, /BrowserHost\.UpdateLayout\(\)/, 'fullscreen must immediately resize the browser host');
 assert.match(main, /if \(!ReferenceEquals\(_active, tab\) && _videoFullScreen\)\s*SetVideoFullScreen\(false\)/, 'switching tabs must leave stale fullscreen');
+const reassertStart = main.indexOf('private async Task ReassertVideoFullscreenAsync');
+const reassertEnd = main.indexOf('private void ApplyMonitorBounds', reassertStart);
+assert.doesNotMatch(main.slice(reassertStart, reassertEnd), /\bActivate\(\)/, 'fullscreen reassertion must not steal focus from iframe video players');
 
 console.log('YamaSearch session restore and fullscreen contracts verified.');

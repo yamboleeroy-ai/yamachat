@@ -620,10 +620,14 @@ public partial class MainWindow : Window
         {
             var owner = tab.Owner;
             if (owner is null) return;
+            // Capture the value while handling the WebView2 event. Reading the property
+            // later from the dispatcher can observe a newer transition and collapse a
+            // just-entered fullscreen element before the queued enter is applied.
+            var containsFullScreenElement = core.ContainsFullScreenElement;
             owner.Dispatcher.BeginInvoke(() =>
             {
                 if (owner._isClosing || !ReferenceEquals(owner._active, tab)) return;
-                owner.SetVideoFullScreen(core.ContainsFullScreenElement);
+                owner.SetVideoFullScreen(containsFullScreenElement);
             });
         };
         core.SourceChanged += (_, e) =>
@@ -4872,9 +4876,10 @@ public partial class MainWindow : Window
             Topmost = true;
             ApplyMonitorBounds(useWorkingArea: false, forceTopmost: true);
 
-            // WebView2/YouTube and the Windows shell can both touch the z-order while
-            // entering fullscreen. Re-assert the real monitor bounds a few times after
-            // the transition so the video remains above the Windows taskbar as well.
+            // WebView2 and the Windows shell can both update the window bounds while
+            // entering fullscreen. Re-assert the monitor bounds without activating the
+            // WPF window: stealing focus here makes some iframe players immediately
+            // leave their HTML fullscreen state.
             _ = ReassertVideoFullscreenAsync();
         }
         else
@@ -4930,7 +4935,6 @@ public partial class MainWindow : Window
                 BrowserHost.UpdateLayout();
                 _active?.View.InvalidateVisual();
                 _active?.View.UpdateLayout();
-                Activate();
             }, System.Windows.Threading.DispatcherPriority.Send);
         }
     }
