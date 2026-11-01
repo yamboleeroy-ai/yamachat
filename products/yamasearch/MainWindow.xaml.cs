@@ -4878,8 +4878,7 @@ public partial class MainWindow : Window
 
             // WebView2 and the Windows shell can both update the window bounds while
             // entering fullscreen. Re-assert the monitor bounds without activating the
-            // WPF window: stealing focus here makes some iframe players immediately
-            // leave their HTML fullscreen state.
+            // WPF window so pointer hover continues to reveal the player's controls.
             _ = ReassertVideoFullscreenAsync();
         }
         else
@@ -4957,10 +4956,10 @@ public partial class MainWindow : Window
         const uint SwpFrameChanged = 0x0020;
         const uint SwpShowWindow = 0x0040;
         var insertAfter = forceTopmost ? new IntPtr(-1) : IntPtr.Zero; // HWND_TOPMOST
-        var flags = SwpFrameChanged | SwpShowWindow;
+        var flags = SwpFrameChanged | SwpShowWindow | SwpNoActivate;
 
         if (!forceTopmost)
-            flags |= SwpNoActivate | SwpNoZOrder;
+            flags |= SwpNoZOrder;
 
         SetWindowPos(
             handle,
@@ -4971,12 +4970,6 @@ public partial class MainWindow : Window
             rect.Bottom - rect.Top,
             flags);
 
-        if (forceTopmost)
-        {
-            BringWindowToTop(handle);
-            SetForegroundWindow(handle);
-            SetActiveWindow(handle);
-        }
     }
 
     private void SetWindowTopmostState(bool topmost)

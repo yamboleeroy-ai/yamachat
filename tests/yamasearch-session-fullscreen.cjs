@@ -24,5 +24,10 @@ assert.match(main, /if \(!ReferenceEquals\(_active, tab\) && _videoFullScreen\)\
 const reassertStart = main.indexOf('private async Task ReassertVideoFullscreenAsync');
 const reassertEnd = main.indexOf('private void ApplyMonitorBounds', reassertStart);
 assert.doesNotMatch(main.slice(reassertStart, reassertEnd), /\bActivate\(\)/, 'fullscreen reassertion must not steal focus from iframe video players');
+const applyBoundsStart = main.indexOf('private void ApplyMonitorBounds');
+const applyBoundsEnd = main.indexOf('private void SetWindowTopmostState', applyBoundsStart);
+const applyBounds = main.slice(applyBoundsStart, applyBoundsEnd);
+assert.match(applyBounds, /var flags = SwpFrameChanged \| SwpShowWindow \| SwpNoActivate/, 'native fullscreen resizing must never activate the parent window');
+assert.doesNotMatch(applyBounds, /BringWindowToTop|SetForegroundWindow|SetActiveWindow/, 'fullscreen bounds updates must not steal focus from WebView2');
 
 console.log('YamaSearch session restore and fullscreen contracts verified.');
