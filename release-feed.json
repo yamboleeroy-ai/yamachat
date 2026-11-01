@@ -2,6 +2,20 @@
   "schemaVersion": 1,
   "releases": [
     {
+      "id": "yamahost:0.13.6-beta.1",
+      "app": "yamahost",
+      "kind": "update",
+      "version": "0.13.6-beta.1",
+      "title": "YamaHost: rozšířené nastavení Minecraftu",
+      "summary": "Inventář po smrti, čas, počasí, mobové, hranice světa a další volby výkonu přehledně na jednom místě.",
+      "details": "Rozšířené nastavení Minecraft serverů má bezpečné výchozí hodnoty, vysvětlivky a ověřené použití pravidel při spuštění. Dosavadní svět a jeho pravidla se bez výslovné volby nepřepisují. Formulář vysvětluje resource packy a uvádí běžnou velikost hranice světa i příklady. Minecraft a CoD4 při zakládání serveru již nemají označení TEST. Pro nové volby aktualizuj launcher; stažené hry, propojení a světy zůstanou zachované.",
+      "releasedAt": "2026-11-01T16:09:18.063Z",
+      "platforms": [
+        "Web",
+        "Windows"
+      ]
+    },
+    {
       "id": "yamasearch:windows:0.3.25",
       "app": "yamasearch",
       "kind": "update",
