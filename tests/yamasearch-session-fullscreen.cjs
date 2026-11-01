@@ -30,8 +30,10 @@ const applyBounds = main.slice(applyBoundsStart, applyBoundsEnd);
 assert.match(applyBounds, /var flags = SwpFrameChanged \| SwpShowWindow \| SwpNoActivate/, 'native fullscreen resizing must never activate the parent window');
 assert.doesNotMatch(applyBounds, /BringWindowToTop|SetForegroundWindow|SetActiveWindow/, 'fullscreen bounds updates must not steal focus from WebView2');
 assert.match(main, /InstallFullscreenVideoControlsBridgeAsync\(tab\)/, 'every WebView must install the fullscreen video controls bridge');
-assert.match(main, /vjs-user-inactive[\s\S]*vjs-user-active/, 'Video.js controls bridge must restore active controls after pointer input');
-assert.match(main, /document\.addEventListener\('pointermove', revealControls, true\)/, 'Video.js controls bridge must react to pointer hover without clicks');
-assert.match(main, /performance\.now\(\) - fullscreenEnteredAt < 750/, 'the controls bridge must ignore synthetic pointer motion during the fullscreen transition');
+assert.match(main, /\.video-js:fullscreen \.vjs-control-bar/, 'Video.js fullscreen controls must remain visible even when pointer activity is not forwarded');
+assert.match(main, /\.video-js\.vjs-fullscreen \.vjs-control-bar/, 'Video.js class-based fullscreen mode must keep controls visible');
+assert.match(main, /document\.addEventListener\('fullscreenchange', syncFullscreenState/, 'fullscreen changes must refresh the stable control visibility marker');
+assert.match(main, /classList\.toggle\([\s\S]*'yama-video-fullscreen'/, 'fullscreen state must keep a stable document-level control visibility marker');
+assert.match(main, /visibility: visible !important;[\s\S]*opacity: 1 !important;/, 'fullscreen Video.js controls must be visibly rendered');
 
 console.log('YamaSearch session restore and fullscreen contracts verified.');

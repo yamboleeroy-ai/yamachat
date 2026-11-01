@@ -75,6 +75,7 @@ public partial class MainWindow : Window
     private readonly SemaphoreSlim _permissionPromptGate = new(1, 1);
     private static readonly object WebViewEnvironmentLock = new();
     private static Task<CoreWebView2Environment>? _normalWebViewEnvironmentTask;
+    private static readonly Dictionary<int, WebViewAudioRelay> WebViewAudioRelays = [];
     private readonly HashSet<string> _adHosts = new(StringComparer.OrdinalIgnoreCase)
     {
         "doubleclick.net", "googlesyndication.com", "googleadservices.com", "adservice.google.com",
@@ -527,6 +528,7 @@ public partial class MainWindow : Window
     {
         tab.Owner = this;
         var core = tab.View.CoreWebView2;
+        StartWebViewAudioRelay((int)core.BrowserProcessId);
         core.Settings.AreDevToolsEnabled = false;
         core.Settings.IsStatusBarEnabled = false;
         core.Settings.IsReputationCheckingRequired = _settings.Data.EnableSmartScreen;
@@ -686,16 +688,18 @@ public partial class MainWindow : Window
             (() => {
               if (window.__yamaFullscreenVideoControlsInstalled) return;
               window.__yamaFullscreenVideoControlsInstalled = true;
-              let fullscreenEnteredAt = 0;
 
               const style = document.createElement('style');
               style.textContent = `
-                .video-js.vjs-user-active:fullscreen .vjs-control-bar,
-                :fullscreen .video-js.vjs-user-active .vjs-control-bar {
+                .video-js:fullscreen .vjs-control-bar,
+                .video-js.vjs-fullscreen .vjs-control-bar,
+                :fullscreen .video-js .vjs-control-bar,
+                html.yama-video-fullscreen .video-js .vjs-control-bar {
                   display: flex !important;
                   visibility: visible !important;
                   opacity: 1 !important;
                   pointer-events: auto !important;
+                  transition: none !important;
                 }
               `;
 
@@ -705,30 +709,19 @@ public partial class MainWindow : Window
               attachStyle();
               document.addEventListener('DOMContentLoaded', attachStyle, { once: true });
 
-              const findVideoJsPlayer = () => {
-                const fullscreen = document.fullscreenElement;
-                if (!fullscreen) return null;
-                if (fullscreen.classList?.contains('video-js')) return fullscreen;
-                return fullscreen.closest?.('.video-js') || fullscreen.querySelector?.('.video-js') || null;
+              const syncFullscreenState = () => {
+                const videoJsFullscreen = document.querySelector('.video-js.vjs-fullscreen');
+                document.documentElement.classList.toggle(
+                  'yama-video-fullscreen',
+                  !!document.fullscreenElement || !!videoJsFullscreen);
               };
-
-              const revealControls = () => {
-                const player = findVideoJsPlayer();
-                if (!player) return;
-                if (performance.now() - fullscreenEnteredAt < 750) return;
-                requestAnimationFrame(() => {
-                  if (!document.fullscreenElement || !player.isConnected) return;
-                  player.classList.remove('vjs-user-inactive');
-                  player.classList.add('vjs-user-active');
-                });
-              };
-
-              document.addEventListener('pointermove', revealControls, true);
-              document.addEventListener('mousemove', revealControls, true);
-              document.addEventListener('pointerdown', revealControls, true);
-              document.addEventListener('fullscreenchange', () => {
-                fullscreenEnteredAt = document.fullscreenElement ? performance.now() : 0;
-              }, true);
+              document.addEventListener('fullscreenchange', syncFullscreenState, true);
+              new MutationObserver(syncFullscreenState).observe(document.documentElement, {
+                subtree: true,
+                attributes: true,
+                attributeFilter: ['class']
+              });
+              syncFullscreenState();
             })();
             """;
 
@@ -1017,6 +1010,29 @@ public partial class MainWindow : Window
         }
 
         environment.BrowserProcessExited += NormalWebViewEnvironment_BrowserProcessExited;
+    }
+
+    private static void StartWebViewAudioRelay(int pid)
+    {
+        lock (WebViewEnvironmentLock)
+        {
+            if (pid > 0 && !WebViewAudioRelays.ContainsKey(pid))
+            {
+                WebViewAudioRelays[pid] = new WebViewAudioRelay(pid);
+                try
+                {
+                    var browser = Process.GetProcessById(pid);
+                    browser.EnableRaisingEvents = true;
+                    browser.Exited += (_, _) =>
+                    {
+                        lock (WebViewEnvironmentLock)
+                            if (WebViewAudioRelays.Remove(pid, out var relay)) relay.Dispose();
+                        browser.Dispose();
+                    };
+                }
+                catch { }
+            }
+        }
     }
 
     private static void NormalWebViewEnvironment_BrowserProcessExited(object? sender, CoreWebView2BrowserProcessExitedEventArgs e)

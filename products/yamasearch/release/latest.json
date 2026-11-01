@@ -1,7 +1,7 @@
 {
   "product": "YamaSearch",
-  "version": "0.3.25",
-  "notes": "Opravené sdílení zvuku z Discordu, YouTube a dalších karet ve stejném YamaSearch. Spolehlivější zobrazení webových videí na celé obrazovce. V nastavení je nová volitelná obnova karet a naposledy aktivní stránky po opětovném spuštění prohlížeče; anonymní okna a platební popupy se neukládají.",
+  "version": "0.3.26",
+  "notes": "Zvuk webových videí a dalších karet se nyní přehrává přímo přes YamaSearch, takže jej Discord při sdílení okna dokáže zachytit. Opraveno také trvalé zobrazení ovládací lišty videa ve fullscreen režimu.",
   "portableUrl": "https://updates.yamachat.eu/yamasearch/YamaSearch-Portable-latest.zip",
   "installerUrl": "https://updates.yamachat.eu/yamasearch/YamaSearch-Setup-latest.exe"
 }
