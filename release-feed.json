@@ -2,6 +2,19 @@
   "schemaVersion": 1,
   "releases": [
     {
+      "id": "yamasearch:windows:0.3.27",
+      "app": "yamasearch",
+      "kind": "update",
+      "version": "0.3.27",
+      "title": "YamaSearch 0.3.27",
+      "summary": "Nouzová oprava zvuku: odstraněno vadné přesměrování přes AudioCapture. WebView2 znovu přehrává zvuk přímo, karty se samovolně neztlumí a pomocný AudioCapture proces se nespouští. Zachována oprava ovládací lišty videa ve fullscreen režimu.",
+      "details": "Nouzová oprava zvuku: odstraněno vadné přesměrování přes AudioCapture. WebView2 znovu přehrává zvuk přímo, karty se samovolně neztlumí a pomocný AudioCapture proces se nespouští. Zachována oprava ovládací lišty videa ve fullscreen režimu.",
+      "releasedAt": "2026-11-02T00:27:35.746Z",
+      "platforms": [
+        "Windows"
+      ]
+    },
+    {
       "id": "yamasearch:windows:0.3.26",
       "app": "yamasearch",
       "kind": "update",
