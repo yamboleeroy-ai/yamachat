@@ -1,7 +1,7 @@
 {
   "product": "YamaSearch",
-  "version": "0.3.26",
-  "notes": "Zvuk webových videí a dalších karet se nyní přehrává přímo přes YamaSearch, takže jej Discord při sdílení okna dokáže zachytit. Opraveno také trvalé zobrazení ovládací lišty videa ve fullscreen režimu.",
+  "version": "0.3.27",
+  "notes": "Nouzová oprava zvuku: odstraněno vadné přesměrování přes AudioCapture. WebView2 znovu přehrává zvuk přímo, karty se samovolně neztlumí a pomocný AudioCapture proces se nespouští. Zachována oprava ovládací lišty videa ve fullscreen režimu.",
   "portableUrl": "https://updates.yamachat.eu/yamasearch/YamaSearch-Portable-latest.zip",
   "installerUrl": "https://updates.yamachat.eu/yamasearch/YamaSearch-Setup-latest.exe"
 }

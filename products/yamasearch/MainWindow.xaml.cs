@@ -75,7 +75,6 @@ public partial class MainWindow : Window
     private readonly SemaphoreSlim _permissionPromptGate = new(1, 1);
     private static readonly object WebViewEnvironmentLock = new();
     private static Task<CoreWebView2Environment>? _normalWebViewEnvironmentTask;
-    private static readonly Dictionary<int, WebViewAudioRelay> WebViewAudioRelays = [];
     private readonly HashSet<string> _adHosts = new(StringComparer.OrdinalIgnoreCase)
     {
         "doubleclick.net", "googlesyndication.com", "googleadservices.com", "adservice.google.com",
@@ -528,7 +527,6 @@ public partial class MainWindow : Window
     {
         tab.Owner = this;
         var core = tab.View.CoreWebView2;
-        StartWebViewAudioRelay((int)core.BrowserProcessId);
         core.Settings.AreDevToolsEnabled = false;
         core.Settings.IsStatusBarEnabled = false;
         core.Settings.IsReputationCheckingRequired = _settings.Data.EnableSmartScreen;
@@ -1010,29 +1008,6 @@ public partial class MainWindow : Window
         }
 
         environment.BrowserProcessExited += NormalWebViewEnvironment_BrowserProcessExited;
-    }
-
-    private static void StartWebViewAudioRelay(int pid)
-    {
-        lock (WebViewEnvironmentLock)
-        {
-            if (pid > 0 && !WebViewAudioRelays.ContainsKey(pid))
-            {
-                WebViewAudioRelays[pid] = new WebViewAudioRelay(pid);
-                try
-                {
-                    var browser = Process.GetProcessById(pid);
-                    browser.EnableRaisingEvents = true;
-                    browser.Exited += (_, _) =>
-                    {
-                        lock (WebViewEnvironmentLock)
-                            if (WebViewAudioRelays.Remove(pid, out var relay)) relay.Dispose();
-                        browser.Dispose();
-                    };
-                }
-                catch { }
-            }
-        }
     }
 
     private static void NormalWebViewEnvironment_BrowserProcessExited(object? sender, CoreWebView2BrowserProcessExitedEventArgs e)
