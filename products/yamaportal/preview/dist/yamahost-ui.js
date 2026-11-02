@@ -247,7 +247,7 @@
   document.addEventListener('click',event=>{const b=event.target.closest('[data-yh]');if(!b)return;b.disabled=true;void action(b).catch(e=>{const out=document.querySelector('#yh-dialog[open] .yh-form-error');if(out)out.textContent=e.message;else notify(e.message);}).finally(()=>{b.disabled=false;});});
   document.addEventListener('input',event=>{if(event.target.id!=='yh-member-search')return;const query=event.target.value.trim().toLocaleLowerCase('cs');let visible=0;for(const row of document.querySelectorAll('[data-member-search]')){row.hidden=!row.dataset.memberSearch.includes(query);if(!row.hidden)visible++;}const empty=document.querySelector('#yh-members-empty');if(empty)empty.hidden=visible>0;});
   document.addEventListener('input',event=>{if(event.target.matches('[data-yh-settings-search]')){const q=event.target.value.toLocaleLowerCase('cs-CZ').normalize('NFD').replace(/[\u0300-\u036f]/g,'');for(const group of event.target.closest('.yh-game-settings').querySelectorAll('.yh-settings-group')){let count=0;for(const field of group.querySelectorAll('.yh-setting')){field.hidden=!field.dataset.settingSearch.normalize('NFD').replace(/[\u0300-\u036f]/g,'').includes(q);if(!field.hidden)count++;}group.hidden=!count;if(q&&count)group.open=true;}return;}const form=event.target.closest('#yh-delete');if(!form)return;const field=form.querySelector('[name=name]');form.querySelector('[type=submit]').disabled=field.value!==field.dataset.expected;});
-  document.addEventListener('submit',event=>{const f=event.target;if(!f.id.startsWith('yh-'))return;event.preventDefault();const values=Object.fromEntries(new FormData(f));collectAccess(f,values);collectCod4Options(values,f);collectGameOptions(values);collectValheimOptions(values);collectPalworldOptions(values);collectZomboidOptions(values);collectMinecraftOptions(values);const submit=f.querySelector('button');submit.disabled=true;void(async()=>{
+  document.addEventListener('submit',event=>{const f=event.target;if(!f.id.startsWith('yh-'))return;event.preventDefault();const values=Object.fromEntries(new FormData(f));collectAccess(f,values);collectCod4Options(values,f);collectGameOptions(values);collectValheimOptions(values);collectPalworldOptions(values);collectZomboidOptions(values);collectMinecraftOptions(values,f);const submit=f.querySelector('button');submit.disabled=true;void(async()=>{
     if(f.id==='yh-access'){const result=await api('servers/'+selected+'/access',values.access);document.querySelector('#yh-dialog').close();await detail(selected);notify(result.restartRequired?'Přístupnost uložena. Nové zabezpečení se použije při příštím spuštění.':'Přístupnost uložena bez restartu serveru.');return;}
     if(f.id==='yh-create'){values.historicalBackups=Number(values.historicalBackups);if(!values.access?.passwordEnabled){values.password='';values.confirmation='';}if(values.password!==values.confirmation)throw new Error('Hesla se neshodují.');const s=await api('servers',values);selected=s.id;await load();await setupWizard(s.id);return;}
     if(f.id==='yh-delete'){await api(`servers/${selected}/delete`,{name:values.name,confirmed:true});document.querySelector('#yh-dialog').close();clearInterval(timer);document.querySelector('#yh-detail').innerHTML='<section class="yh-detail"><h2>Server byl trvale odstraněn</h2><p>Server už není dostupný.</p><a class="secondary" href="/#yamahost">← Přehled serverů</a></section>';selected=null;return;}
@@ -303,7 +303,14 @@
 
   let minecraftSchema=null;
   async function loadMinecraftSchema(){return minecraftSchema||=(await api('game-options/minecraft'));}
+  let minecraftPreservedOptions={};
+  let minecraftDatapackRowCounter=0;
+  function minecraftDatapackRow(item={}){
+    const id=esc(item.id||('datapack-'+Date.now().toString(36)+'-'+(++minecraftDatapackRowCounter).toString(36)));
+    return '<fieldset data-mc-datapack-row data-id="'+id+'" style="border:1px solid #284c68;border-radius:10px;padding:14px;margin:10px 0"><legend>Datapack</legend><button type="button" class="secondary" data-mc-datapack-remove>Odebrat</button><label>Název<input data-mc-datapack-field="name" maxlength="60" required value="'+esc(item.name||'')+'" placeholder="Například Terralith"></label><label>Přímý HTTPS odkaz na ZIP<input data-mc-datapack-field="url" type="url" maxlength="2048" required value="'+esc(item.url||'')+'" placeholder="https://…/datapack.zip"></label><label>SHA-256 (volitelně)<input data-mc-datapack-field="sha256" maxlength="64" pattern="[a-fA-F0-9]{64}" value="'+esc(item.sha256||'')+'" placeholder="64 znaků"></label></fieldset>';
+  }
   function minecraftSettings(config={},creating=false){
+    minecraftPreservedOptions=creating?{}:{...(config.gameOptions||{})};
     const values={...minecraftSchema.defaults,...config.gameOptions};
     const groups=[...new Set(minecraftSchema.fields.map(f=>f.group))];
     const names={peaceful:'Mírumilovná',easy:'Lehká',normal:'Normální',hard:'Těžká',survival:'Přežití',creative:'Kreativní',adventure:'Dobrodružství',spectator:'Pozorovatel','minecraft:normal':'Běžný svět','minecraft:flat':'Plochý svět','minecraft:large_biomes':'Velké biomy','minecraft:amplified':'Zesílený terén'};
@@ -316,12 +323,39 @@
       const constraints=numeric?' min="'+f.min+'" max="'+f.max+'" step="1" '+(f.type==='integer'?'required':'placeholder="Ponechat dosavadní"'):f.type==='https-url'?' maxlength="2048" placeholder="https://…"':' maxlength="64"';
       return '<label><span>'+esc(f.label)+'</span><input name="'+name+'" type="'+type+'" value="'+esc(v)+'"'+constraints+(locked?' readonly':'')+'>'+hint+'</label>';
     });
-    const sections=groups.map(group=>'<details '+(['Pravidla hry','Smrt a přežití','Hráči a výkon'].includes(group)?'open':'')+'><summary>'+esc(group)+'</summary><div class="yh-settings-grid">'+minecraftSchema.fields.filter(f=>f.group===group).map(f=>fields[minecraftSchema.fields.indexOf(f)]).join('')+'</div></details>').join('');
+    const datapacks=Array.isArray(config.gameOptions?.datapacks)?config.gameOptions.datapacks:[];
+    const datapackSection='<section class="yh-minecraft-datapacks"><h3>Datapacky světa</h3><p class="caption">Datapacky se při příštím spuštění stáhnou a ověří na počítači hostitele. Hráči je nemusí instalovat ručně. Při opakovaném hostování se nezměněný ZIP z místní mezipaměti znovu použije. Resource packy zůstávají ve vlastní sekci „Balíček zdrojů“.</p><div data-mc-datapack-list>'+(datapacks.map(minecraftDatapackRow).join('')||'<p class="caption" data-mc-datapack-empty>Zatím není uložený žádný datapack.</p>')+'</div><button type="button" class="secondary" data-mc-datapack-add>Přidat datapack</button><p class="caption">Nejvýše 10 datapacků. Odkaz musí být přímý HTTPS odkaz na ZIP kompatibilní s verzí serveru.</p></section>';
+    const sections=groups.map(group=>'<details '+(['Pravidla hry','Smrt a přežití','Hráči a výkon'].includes(group)?'open':'')+'><summary>'+esc(group)+'</summary><div class="yh-settings-grid">'+minecraftSchema.fields.filter(f=>f.group===group).map(f=>fields[minecraftSchema.fields.indexOf(f)]).join('')+'</div></details>'+(group==='Svět'?datapackSection:'')).join('');
     return '<section class="yh-game-settings"><div class="yh-settings-heading"><span class="yh-role">Minecraft Java · nastavení serveru</span><h3>⚙ Nastavení Minecraft serveru</h3><p>Nastavení upravuj při bezpečně vypnutém serveru. Použije se při dalším spuštění; svět, inventáře a registrace pokračují. Nové volby ve stavu „Ponechat nastavení světa“ nic nepřepisují. Dohled, simulace a paměť ovlivňují výkon hostitele. Seed a generování patří pouze novému světu.</p><p class="notice">Pro rozšířená pravidla je potřeba aktualizovaný launcher. Přihlášení hráčů, zálohy a připojení spravuje YamaHost automaticky.</p></div>'+sections+(creating?'<label><input type="checkbox" name="minecraftEulaAccepted" value="true" required> Jako vlastník serveru souhlasím s <a href="https://www.minecraft.net/eula" target="_blank" rel="noopener">Minecraft EULA</a>.</label>':'')+'</section>';
   }
   function minecraftCreationFields(){syncAccessFields(document.querySelector('#yh-create'));}
   document.addEventListener('change',e=>{if(e.target.matches?.('#yh-create [name=game]'))minecraftCreationFields();});
-  function collectMinecraftOptions(values){if(!Object.keys(values).some(k=>k.startsWith('mc:')))return;const options={};for(const f of minecraftSchema.fields){const key='mc:'+f.key;if(Object.hasOwn(values,key)){options[f.key]=['integer','optional-integer'].includes(f.type)?(values[key]===''&&f.type==='optional-integer'?'':Number(values[key])):f.type==='boolean'?values[key]==='true':values[key];delete values[key];}}values.gameOptions=options;if(values.minecraftEulaAccepted!==undefined)values.minecraftEulaAccepted=values.minecraftEulaAccepted==='true';}
+  document.addEventListener('click',event=>{
+    const remove=event.target.closest?.('[data-mc-datapack-remove]');
+    if(remove){const row=remove.closest('[data-mc-datapack-row]'),list=row?.parentElement;row?.remove();if(list&&!list.querySelector('[data-mc-datapack-row]'))list.innerHTML='<p class="caption" data-mc-datapack-empty>Zatím není uložený žádný datapack.</p>';return;}
+    const add=event.target.closest?.('[data-mc-datapack-add]');if(!add)return;
+    const list=add.parentElement.querySelector('[data-mc-datapack-list]');
+    if(list.querySelectorAll('[data-mc-datapack-row]').length>=10){notify('Na jeden svět lze uložit nejvýše 10 datapacků.');return;}
+    list.querySelector('[data-mc-datapack-empty]')?.remove();
+    list.insertAdjacentHTML('beforeend',minecraftDatapackRow({id:'datapack-'+Date.now().toString(36)+'-'+(++minecraftDatapackRowCounter).toString(36)}));
+  });
+  function collectMinecraftOptions(values,form){
+    if(!Object.keys(values).some(k=>k.startsWith('mc:')))return;
+    const options={...minecraftPreservedOptions};
+    for(const f of minecraftSchema.fields){const key='mc:'+f.key;if(Object.hasOwn(values,key)){options[f.key]=['integer','optional-integer'].includes(f.type)?(values[key]===''&&f.type==='optional-integer'?'':Number(values[key])):f.type==='boolean'?values[key]==='true':values[key];delete values[key];}}
+    const root=form?.querySelector('[data-mc-settings]')||form;
+    const datapacks=[...root.querySelectorAll('[data-mc-datapack-row]')].map(row=>{
+      const read=key=>row.querySelector('[data-mc-datapack-field="'+key+'"]')?.value.trim()||'';
+      const id=row.dataset.id,name=read('name'),url=read('url'),sha256=read('sha256');
+      if(!/^[a-z0-9-]{1,40}$/i.test(id||''))throw new Error('Neplatné označení datapacku.');
+      if(!name||name.length>60||!/^https:\/\//i.test(url)||url.length>2048)throw new Error('Každý datapack potřebuje název a přímý HTTPS odkaz na ZIP.');
+      if(sha256&&!/^[a-f0-9]{64}$/i.test(sha256))throw new Error('SHA-256 datapacku musí mít 64 znaků 0–9 nebo A–F.');
+      return{id,name,url,sha256};
+    });
+    if(datapacks.length>10)throw new Error('Na jeden svět lze uložit nejvýše 10 datapacků.');
+    options.datapacks=datapacks;values.gameOptions=options;
+    if(values.minecraftEulaAccepted!==undefined)values.minecraftEulaAccepted=values.minecraftEulaAccepted==='true';
+  }
   function zomboidJoinHelp(port){return '<p>Na hostujícím PC: <code class="yh-connection-address">127.0.0.1:'+Number(port)+'</code></p><ol><li>Ve hře otevři <strong>Join / Připojit</strong> a přidej server do oblíbených.</li><li>Zadej IP <strong>127.0.0.1</strong>, port <strong>'+Number(port)+'</strong> a heslo serveru z tohoto panelu.</li><li>Zvol vlastní hráčské jméno a heslo postavy. Při dalších připojeních používej stejný hráčský účet, aby se načetla stejná postava.</li></ol><p class="caption">Hráčský účet ve hře je samostatný od účtu YamaPortal. Nepoužívej heslo YamaPortalu. Na jiném PC zadej dostupnou adresu hostitele místo 127.0.0.1. Připojení bez veřejné IP se teprve ověřuje.</p>';}
   let zomboidSchema=null;
   async function loadZomboidSchema(){return zomboidSchema||=(await api('game-options/zomboid'));}
