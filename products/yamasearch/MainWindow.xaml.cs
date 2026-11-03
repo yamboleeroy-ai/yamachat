@@ -677,7 +677,18 @@ public partial class MainWindow : Window
             if (owner is null || !tab.IsScriptPopup || !owner._tabs.Contains(tab)) return;
             owner.CloseTab(tab);
         });
-        core.DownloadStarting += (_, e) => tab.Owner?.HandleDownloadStarting(e);
+        core.DownloadStarting += (_, e) =>
+        {
+            // DownloadStarting is raised on the WebView UI thread. A site may
+            // destroy its popup/document immediately after starting a download,
+            // which can invalidate the COM operation while this callback is
+            // still running. Never let download UI bookkeeping terminate WPF.
+            try { tab.Owner?.HandleDownloadStarting(e); }
+            catch (Exception exception)
+            {
+                Debug.WriteLine($"YamaSearch download start failed: {exception.GetType().Name}: {exception.Message}");
+            }
+        };
     }
 
     private static async Task InstallFullscreenVideoControlsBridgeAsync(BrowserTab tab)
@@ -2905,14 +2916,54 @@ public partial class MainWindow : Window
         _settings.Data.Downloads.Insert(0, entry);
         if (_settings.Data.Downloads.Count > 300)
             _settings.Data.Downloads.RemoveRange(300, _settings.Data.Downloads.Count - 300);
-        _settings.Save();
+        TrySaveDownloadHistory();
 
         _activeDownloads[operation] = entry;
-        operation.BytesReceivedChanged += (_, _) => Dispatcher.BeginInvoke(() => UpdateDownloadEntry(operation, entry, false));
-        operation.StateChanged += (_, _) => Dispatcher.BeginInvoke(() => UpdateDownloadEntry(operation, entry, true));
+        operation.BytesReceivedChanged += (_, _) => QueueDownloadEntryUpdate(operation, entry, false);
+        operation.StateChanged += (_, _) => QueueDownloadEntryUpdate(operation, entry, true);
 
-        StatusText.Text = $"Stahování: {entry.FileName}";
-        UpdateDownloadEntry(operation, entry, false);
+        if (!_isClosing)
+            StatusText.Text = $"Stahování: {entry.FileName}";
+        TryUpdateDownloadEntry(operation, entry, false);
+    }
+
+    private void QueueDownloadEntryUpdate(CoreWebView2DownloadOperation operation, DownloadEntry entry, bool persist)
+    {
+        if (_isClosing || Dispatcher.HasShutdownStarted || Dispatcher.HasShutdownFinished) return;
+
+        try
+        {
+            _ = Dispatcher.BeginInvoke(new Action(() => TryUpdateDownloadEntry(operation, entry, persist)));
+        }
+        catch (Exception exception)
+        {
+            Debug.WriteLine($"YamaSearch download update queue failed: {exception.GetType().Name}: {exception.Message}");
+        }
+    }
+
+    private void TryUpdateDownloadEntry(CoreWebView2DownloadOperation operation, DownloadEntry entry, bool persist)
+    {
+        if (_isClosing) return;
+        try { UpdateDownloadEntry(operation, entry, persist); }
+        catch (Exception exception)
+        {
+            // A popup-based download can outlive its source WebView. Accessing
+            // the invalidated COM operation then throws; the file download is
+            // owned by WebView2 and must not be cancelled because our UI missed
+            // a progress update.
+            Debug.WriteLine($"YamaSearch download update failed: {exception.GetType().Name}: {exception.Message}");
+            QueueDownloadUiRefresh();
+        }
+    }
+
+    private void TrySaveDownloadHistory()
+    {
+        try { _settings.Save(); }
+        catch (Exception exception)
+        {
+            // Disk/profile failures must not abort a download or close windows.
+            Debug.WriteLine($"YamaSearch download history save failed: {exception.GetType().Name}: {exception.Message}");
+        }
     }
 
     private void UpdateDownloadEntry(CoreWebView2DownloadOperation operation, DownloadEntry entry, bool persist)
@@ -2945,24 +2996,40 @@ public partial class MainWindow : Window
             persist = true;
         }
 
-        if (persist) _settings.Save();
+        if (persist) TrySaveDownloadHistory();
         QueueDownloadUiRefresh();
     }
 
     private void QueueDownloadUiRefresh()
     {
-        if (_downloadUiRefreshQueued) return;
+        if (_isClosing || Dispatcher.HasShutdownStarted || Dispatcher.HasShutdownFinished || _downloadUiRefreshQueued) return;
         _downloadUiRefreshQueued = true;
-        _ = Dispatcher.BeginInvoke(
-            System.Windows.Threading.DispatcherPriority.ContextIdle,
-            new Action(() =>
-            {
-                _downloadUiRefreshQueued = false;
-                UpdateDownloadToolbar();
-                if (DownloadPopup.IsOpen) RenderDownloadQuickPopup();
-                if (SidePanel.Visibility == Visibility.Visible && PanelTitle.Text == "Stahování")
-                    ShowDownloadsPanel();
-            }));
+        try
+        {
+            _ = Dispatcher.BeginInvoke(
+                System.Windows.Threading.DispatcherPriority.ContextIdle,
+                new Action(() =>
+                {
+                    _downloadUiRefreshQueued = false;
+                    if (_isClosing) return;
+                    try
+                    {
+                        UpdateDownloadToolbar();
+                        if (DownloadPopup.IsOpen) RenderDownloadQuickPopup();
+                        if (SidePanel.Visibility == Visibility.Visible && PanelTitle.Text == "Stahování")
+                            ShowDownloadsPanel();
+                    }
+                    catch (Exception exception)
+                    {
+                        Debug.WriteLine($"YamaSearch download UI refresh failed: {exception.GetType().Name}: {exception.Message}");
+                    }
+                }));
+        }
+        catch (Exception exception)
+        {
+            _downloadUiRefreshQueued = false;
+            Debug.WriteLine($"YamaSearch download UI queue failed: {exception.GetType().Name}: {exception.Message}");
+        }
     }
 
     private void UpdateDownloadToolbar()

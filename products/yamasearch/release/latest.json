@@ -1,7 +1,7 @@
 {
   "product": "YamaSearch",
-  "version": "0.3.27",
-  "notes": "Nouzová oprava zvuku: odstraněno vadné přesměrování přes AudioCapture. WebView2 znovu přehrává zvuk přímo, karty se samovolně neztlumí a pomocný AudioCapture proces se nespouští. Zachována oprava ovládací lišty videa ve fullscreen režimu.",
+  "version": "0.3.28",
+  "notes": "Oprava stability stahování: zahájení stahování z popupů a stránek, které rychle zavřou zdrojové okno, už neukončí YamaSearch. Chyby panelu nebo historie stahování jsou bezpečně oddělené od samotného stahování.",
   "portableUrl": "https://updates.yamachat.eu/yamasearch/YamaSearch-Portable-latest.zip",
   "installerUrl": "https://updates.yamachat.eu/yamasearch/YamaSearch-Setup-latest.exe"
 }
