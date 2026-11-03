@@ -2,6 +2,19 @@
   "schemaVersion": 1,
   "releases": [
     {
+      "id": "yamasearch:windows:0.3.28",
+      "app": "yamasearch",
+      "kind": "update",
+      "version": "0.3.28",
+      "title": "YamaSearch 0.3.28",
+      "summary": "Oprava stability stahování: zahájení stahování z popupů a stránek, které rychle zavřou zdrojové okno, už neukončí YamaSearch. Chyby panelu nebo historie stahování jsou bezpečně oddělené od samotného stahování.",
+      "details": "Oprava stability stahování: zahájení stahování z popupů a stránek, které rychle zavřou zdrojové okno, už neukončí YamaSearch. Chyby panelu nebo historie stahování jsou bezpečně oddělené od samotného stahování.",
+      "releasedAt": "2026-11-03T08:20:59.754Z",
+      "platforms": [
+        "Windows"
+      ]
+    },
+    {
       "id": "yamasearch:windows:0.3.27",
       "app": "yamasearch",
       "kind": "update",
@@ -708,4 +721,3 @@
     }
   ]
 }
-
