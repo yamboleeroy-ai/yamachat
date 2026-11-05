@@ -1,4 +1,6 @@
 using System.Diagnostics;
+using System.Security.Cryptography;
+using System.Text;
 using System.Windows;
 using CommunityToolkit.WinUI.Notifications;
 using Microsoft.Web.WebView2.Core;
@@ -53,11 +55,16 @@ internal static class WindowsToastService
         {
             // Only a Web Notifications API tag is a safe replacement key. Equal
             // text without a tag can represent two separate chat messages.
-            if (taggedKey is not null && TaggedRouteIds.ContainsKey(taggedKey))
+            if (taggedKey is not null && TaggedRouteIds.TryGetValue(taggedKey, out var existingRouteId))
             {
-                args.Handled = true;
-                try { notification.ReportClosed(); } catch { }
-                return true;
+                // A web notification tag means replace, not suppress. Sites such
+                // as Facebook reuse one tag for a conversation; suppressing the
+                // second event made every later message disappear.
+                if (RoutesById.TryGetValue(existingRouteId, out var existingRoute))
+                {
+                    try { existingRoute.Notification?.ReportClosed(); } catch { }
+                }
+                RemoveRoute(existingRouteId);
             }
 
             try
@@ -79,7 +86,7 @@ internal static class WindowsToastService
                 // WebView requires this before ReportShown/ReportClicked/ReportClosed.
                 // It cannot be reverted, therefore an OS toast failure is reported closed.
                 args.Handled = true;
-                builder.Show();
+                Show(builder, taggedKey);
                 notification.ReportShown();
                 AddRoute(route);
                 notification.CloseRequested += (_, _) => RemoveRoute(routeId);
@@ -89,6 +96,44 @@ internal static class WindowsToastService
             {
                 try { notification.ReportClosed(); } catch { }
                 Debug.WriteLine("Windows notification could not be shown: " + error);
+                return false;
+            }
+        }
+    }
+
+    internal static bool TryShowUnreadCount(BrowserTab tab, int count, string pageTitle, bool playSound)
+    {
+        if (count <= 0 || !TryInitialize()) return false;
+
+        var routeId = Guid.NewGuid().ToString("N");
+        var taggedKey = $"title-count|{tab.Id:N}";
+        var route = new NotificationRoute(routeId, tab.Id, SafeUrl(tab), null, taggedKey);
+        lock (Sync)
+        {
+            try
+            {
+                if (TaggedRouteIds.TryGetValue(taggedKey, out var existingRouteId))
+                    RemoveRoute(existingRouteId);
+
+                var label = CleanUnreadTitle(pageTitle);
+                var builder = new ToastContentBuilder()
+                    .AddText(label)
+                    .AddText(count == 1 ? "Máte 1 nové oznámení." : $"Máte {count} nových oznámení.")
+                    .AddAttributionText(HostLabel(route.Url))
+                    .AddArgument("route", routeId);
+
+                if (TryGetTrustedUrl(route.Url, out var url)) builder.AddArgument("url", url);
+                if (!playSound) builder.AddAudio(new ToastAudio { Silent = true });
+                var logo = System.IO.Path.Combine(AppContext.BaseDirectory, "Assets", "YamaSearch-symbol-256.png");
+                if (System.IO.File.Exists(logo)) builder.AddAppLogoOverride(new Uri(logo));
+
+                Show(builder, taggedKey);
+                AddRoute(route);
+                return true;
+            }
+            catch (Exception error)
+            {
+                Debug.WriteLine("Windows unread-count notification could not be shown: " + error);
                 return false;
             }
         }
@@ -191,7 +236,7 @@ internal static class WindowsToastService
     private static void ReportClicked(NotificationRoute? route)
     {
         if (route is null) return;
-        try { route.Notification.ReportClicked(); }
+        try { route.Notification?.ReportClicked(); }
         catch (Exception error) { Debug.WriteLine("Web notification click could not be reported: " + error); }
         finally { RemoveRoute(route.RouteId); }
     }
@@ -223,6 +268,30 @@ internal static class WindowsToastService
     private static string? CreateTaggedKey(string origin, CoreWebView2Notification notification)
         => string.IsNullOrWhiteSpace(notification.Tag) ? null : $"{origin}|{notification.Tag}";
 
+    private static void Show(ToastContentBuilder builder, string? taggedKey)
+    {
+        if (taggedKey is null)
+        {
+            builder.Show();
+            return;
+        }
+
+        builder.Show(toast =>
+        {
+            toast.Tag = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(taggedKey)))[..16];
+            toast.Group = "YamaSearchWeb";
+        });
+    }
+
+    private static string CleanUnreadTitle(string title)
+    {
+        var cleaned = System.Text.RegularExpressions.Regex.Replace(
+            title ?? string.Empty,
+            @"^\s*[\[(]\s*\d{1,4}\+?\s*[\])]\s*",
+            string.Empty).Trim();
+        return string.IsNullOrWhiteSpace(cleaned) ? "Nové oznámení" : cleaned;
+    }
+
     private static string SafeUrl(BrowserTab tab) => tab.View.CoreWebView2?.Source ?? "";
 
     private static bool TryGetTrustedUrl(string? candidate, out string? trustedUrl)
@@ -236,5 +305,5 @@ internal static class WindowsToastService
     private static string HostLabel(string origin)
         => Uri.TryCreate(origin, UriKind.Absolute, out var uri) ? uri.Host : string.IsNullOrWhiteSpace(origin) ? "YamaSearch" : origin;
 
-    private sealed record NotificationRoute(string RouteId, Guid TabId, string Url, CoreWebView2Notification Notification, string? TaggedKey);
+    private sealed record NotificationRoute(string RouteId, Guid TabId, string Url, CoreWebView2Notification? Notification, string? TaggedKey);
 }

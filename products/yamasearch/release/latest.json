@@ -1,7 +1,7 @@
 {
   "product": "YamaSearch",
-  "version": "0.3.28",
-  "notes": "Oprava stability stahování: zahájení stahování z popupů a stránek, které rychle zavřou zdrojové okno, už neukončí YamaSearch. Chyby panelu nebo historie stahování jsou bezpečně oddělené od samotného stahování.",
+  "version": "0.3.29",
+  "notes": "Obecná oznámení z webů: YamaSearch nově upozorní také na skutečné zvýšení počtu nepřečtených položek v dynamickém titulku neaktivní karty, takže fungují i weby používající Service Worker oznámení, která WebView2 hostiteli nepředává. Opraveno nahrazování opakovaných oznámení se stejným tagem a zachováno respektování zákazu oznámení pro konkrétní web.",
   "portableUrl": "https://updates.yamachat.eu/yamasearch/YamaSearch-Portable-latest.zip",
   "installerUrl": "https://updates.yamachat.eu/yamasearch/YamaSearch-Setup-latest.exe"
 }
