@@ -2,6 +2,19 @@
   "schemaVersion": 1,
   "releases": [
     {
+      "id": "yamasearch:windows:0.3.29",
+      "app": "yamasearch",
+      "kind": "update",
+      "version": "0.3.29",
+      "title": "YamaSearch 0.3.29",
+      "summary": "Obecná oznámení z webů: YamaSearch nově upozorní také na skutečné zvýšení počtu nepřečtených položek v dynamickém titulku neaktivní karty, takže fungují i weby používající Service Worker oznámení, která WebView2 hostiteli nepředává. Opraveno nahrazování opakovaných oznámení se stejným tagem a zachováno respektování zákazu oznámení pro konkrétní web.",
+      "details": "Obecná oznámení z webů: YamaSearch nově upozorní také na skutečné zvýšení počtu nepřečtených položek v dynamickém titulku neaktivní karty, takže fungují i weby používající Service Worker oznámení, která WebView2 hostiteli nepředává. Opraveno nahrazování opakovaných oznámení se stejným tagem a zachováno respektování zákazu oznámení pro konkrétní web.",
+      "releasedAt": "2026-11-05T11:48:49.475Z",
+      "platforms": [
+        "Windows"
+      ]
+    },
+    {
       "id": "yamasearch:windows:0.3.28",
       "app": "yamasearch",
       "kind": "update",
