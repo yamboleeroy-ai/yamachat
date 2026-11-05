@@ -2234,11 +2234,13 @@ public partial class MainWindow : Window
 
         var title = observedTitle ?? tab.View.CoreWebView2?.DocumentTitle;
         var previousCount = tab.NotificationCount;
+        var hadObservedNotificationState = tab.HasObservedNotificationTitleState;
         tab.Title = tab.IsYamaNewTab
             ? "YamaSearch"
             : string.IsNullOrWhiteSpace(title) ? "Nová karta" : title;
         var currentCount = TryGetNotificationCount(tab.Title);
         tab.NotificationCount = currentCount;
+        tab.HasObservedNotificationTitleState = true;
         if (previousCount is > 0 && currentCount is (null or 0))
         {
             tab.HasWebNotification = false;
@@ -2248,6 +2250,27 @@ public partial class MainWindow : Window
                  && (previousCount is null or 0 || currentCount > previousCount))
         {
             tab.HasWebNotification = true;
+        }
+
+        // WebView2's native NotificationReceived event covers only non-persistent
+        // DOM notifications. Facebook, Gmail and many other sites deliver their
+        // alerts from a Service Worker, which WebView2 currently does not expose
+        // to the host. A real increase in the site's own dynamic title is the only
+        // generic fallback signal available. Never invent a count, never notify
+        // on the first observed title after navigation, and respect an explicit
+        // site-level notification denial.
+        if (hadObservedNotificationState
+            && currentCount is > 0
+            && currentCount > (previousCount ?? 0)
+            && !ReferenceEquals(tab, _active)
+            && _settings.Data.EnableNativeNotifications
+            && !IsNotificationExplicitlyDenied(tab))
+        {
+            WindowsToastService.TryShowUnreadCount(
+                tab,
+                currentCount.Value,
+                tab.Title,
+                _settings.Data.EnableNotificationSound);
         }
         RenderTabs();
     }
@@ -2262,8 +2285,18 @@ public partial class MainWindow : Window
 
         tab.Title = tab.IsYamaNewTab ? "YamaSearch" : "Načítání…";
         tab.NotificationCount = null;
+        tab.HasObservedNotificationTitleState = false;
         tab.HasWebNotification = false;
         RenderTabs();
+    }
+
+    private static bool IsNotificationExplicitlyDenied(BrowserTab tab)
+    {
+        var source = tab.View.CoreWebView2?.Source;
+        return tab.PermissionActivities.Any(activity =>
+            activity.Kind == CoreWebView2PermissionKind.Notifications
+            && PermissionLabels.SameOrigin(activity.Origin, source)
+            && (activity.State == CoreWebView2PermissionState.Deny || activity.BlockedByGlobalRule));
     }
     private void UpdateFavicon(BrowserTab tab)
     {
@@ -5655,6 +5688,7 @@ public sealed class BrowserTab
     public bool IsMuted { get; set; }
     public bool HasWebNotification { get; set; }
     public int? NotificationCount { get; set; }
+    public bool HasObservedNotificationTitleState { get; set; }
     public bool IsScriptPopup { get; set; }
 }
 public sealed record TabDragPayload(MainWindow Source, BrowserTab Tab)
