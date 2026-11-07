@@ -1,6 +1,6 @@
 {
   "name": "yamaportal",
-  "version": "0.2.5",
+  "version": "0.2.6",
   "productName": "Yamaportal",
   "description": "Yamaportal — aplikace a společný účet",
   "author": "Lukáš Hubáček",
@@ -11,3 +11,4 @@
     "electron-builder": "26.15.3"
   }
 }
+
