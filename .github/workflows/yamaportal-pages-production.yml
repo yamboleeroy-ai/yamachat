@@ -13,6 +13,7 @@ on:
       # after their platform assets are published. Deploy after that commit to
       # avoid exposing a release card before its downloads exist.
       - 'release-feed.json'
+      - 'products/yamaportal/preview/dist/yamahost-ui.js'
 permissions:
   contents: read
 concurrency:
