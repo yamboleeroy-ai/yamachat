@@ -5,14 +5,17 @@
     <UseWPF>true</UseWPF>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
-    <Version>0.3.29</Version>
-    <AssemblyVersion>0.3.29.0</AssemblyVersion>
-    <FileVersion>0.3.29.0</FileVersion>
+    <Version>0.3.30</Version>
+    <AssemblyVersion>0.3.30.0</AssemblyVersion>
+    <FileVersion>0.3.30.0</FileVersion>
     <ApplicationIcon>Assets\YamaSearch.ico</ApplicationIcon>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.4258.31" />
+    <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.4314.35" />
     <PackageReference Include="CommunityToolkit.WinUI.Notifications" Version="7.1.2" />
+    <!-- Override the toolkit's legacy 4.7.0 transitive dependency, which carries
+         CVE-2021-24112, with the serviced .NET 8 line used by this application. -->
+    <PackageReference Include="System.Drawing.Common" Version="8.0.34" />
   </ItemGroup>
   <ItemGroup>
     <Compile Remove="tests\**\*.cs" />

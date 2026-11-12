@@ -7,6 +7,7 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="..\..\AccountService.cs" Link="AccountService.cs" />
+    <Compile Include="..\..\AccountModeStore.cs" Link="AccountModeStore.cs" />
     <Compile Include="..\..\AccountProfileCache.cs" Link="AccountProfileCache.cs" />
     <Compile Include="..\..\AccountSessionPreferenceStore.cs" Link="AccountSessionPreferenceStore.cs" />
     <Compile Include="..\..\WindowsCredentialStore.cs" Link="WindowsCredentialStore.cs" />
