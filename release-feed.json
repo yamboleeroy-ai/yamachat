@@ -2,6 +2,19 @@
   "schemaVersion": 1,
   "releases": [
     {
+      "id": "yamasearch:windows:0.3.30",
+      "app": "yamasearch",
+      "kind": "update",
+      "version": "0.3.30",
+      "title": "YamaSearch 0.3.30",
+      "summary": "Stabilizační aktualizace prohlížeče: zavírací tlačítko zůstává dostupné i na silně zahuštěných kartách, názvy se bezpečně zkracují a přetahování i indikátory zůstávají zachované. Všechna okna nyní sdílejí jeden stav profilu, nastavení se ukládá atomicky se zálohou a zavřená okna deterministicky uvolňují WebView2. Doplněna ochrana asynchronní navigace, aktualizováno WebView2 SDK a odstraněna zranitelná transitivní knihovna.",
+      "details": "Stabilizační aktualizace prohlížeče: zavírací tlačítko zůstává dostupné i na silně zahuštěných kartách, názvy se bezpečně zkracují a přetahování i indikátory zůstávají zachované. Všechna okna nyní sdílejí jeden stav profilu, nastavení se ukládá atomicky se zálohou a zavřená okna deterministicky uvolňují WebView2. Doplněna ochrana asynchronní navigace, aktualizováno WebView2 SDK a odstraněna zranitelná transitivní knihovna.",
+      "releasedAt": "2026-11-12T15:07:41.891Z",
+      "platforms": [
+        "Windows"
+      ]
+    },
+    {
       "id": "yamasearch:windows:0.3.29",
       "app": "yamasearch",
       "kind": "update",
