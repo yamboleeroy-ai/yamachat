@@ -573,18 +573,28 @@ public partial class MainWindow : Window
         };
         core.NavigationCompleted += async (_, e) =>
         {
-            var owner = tab.Owner;
-            if (owner is null) return;
-            if (owner._active == tab) owner.StatusText.Text = e.IsSuccess ? "Hotovo" : "Stránku se nepodařilo načíst";
-            owner.UpdateTabTitle(tab);
-            if (e.IsSuccess && Uri.TryCreate(core.Source, UriKind.Absolute, out var page) && page.Scheme is "http" or "https")
+            try
             {
-                if (!owner._isPrivateWindow)
-                    owner.AddHistory(core.Source, core.DocumentTitle, core.FaviconUri);
-                await owner.ApplyYamaBlockPageRulesAsync(tab);
-                await owner.SyncPermissionActivitiesFromProfileAsync(tab);
+                var owner = tab.Owner;
+                if (owner is null || owner._isClosing) return;
+                if (owner._active == tab) owner.StatusText.Text = e.IsSuccess ? "Hotovo" : "Stránku se nepodařilo načíst";
+                owner.UpdateTabTitle(tab);
+                if (e.IsSuccess && Uri.TryCreate(core.Source, UriKind.Absolute, out var page) && page.Scheme is "http" or "https")
+                {
+                    if (!owner._isPrivateWindow)
+                        owner.AddHistory(core.Source, core.DocumentTitle, core.FaviconUri);
+                    await owner.ApplyYamaBlockPageRulesAsync(tab);
+                    await owner.SyncPermissionActivitiesFromProfileAsync(tab);
+                }
+                if (owner._active == tab) owner.UpdateNavigationControls();
             }
-            if (owner._active == tab) owner.UpdateNavigationControls();
+            catch (Exception exception)
+            {
+                // WebView2 event handlers are async void. A profile, history or
+                // page-rule failure must affect only this navigation, never the
+                // WPF dispatcher and all browser windows.
+                Debug.WriteLine($"YamaSearch navigation completion failed: {exception.GetType().Name}: {exception.Message}");
+            }
         };
         core.DocumentTitleChanged += (_, _) => tab.Owner?.UpdateTabTitle(tab);
         core.FaviconChanged += (_, _) => tab.Owner?.UpdateFavicon(tab);

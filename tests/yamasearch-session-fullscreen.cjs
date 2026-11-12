@@ -6,6 +6,8 @@ const settings = fs.readFileSync('products/yamasearch/SettingsWindow.xaml.cs', '
 const settingsView = fs.readFileSync('products/yamasearch/SettingsWindow.xaml', 'utf8');
 
 assert.match(main, /RestorePreviousSessionAsync\(\)/, 'startup must have a session restore path');
+assert.match(main, /core\.NavigationCompleted \+= async[\s\S]{0,1800}catch \(Exception exception\)/,
+  'async navigation completion must not terminate the WPF dispatcher');
 assert.match(main, /SavePreviousSessionSnapshot\(\)/, 'window close must save the opted-in session');
 assert.match(main, /Closed \+= \(_, _\) =>[\s\S]{0,300}CleanupWindowWebViews\(\)/,
   'every normal and private window must deterministically dispose remaining WebViews');
