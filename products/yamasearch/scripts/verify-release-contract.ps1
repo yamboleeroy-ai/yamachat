@@ -10,7 +10,7 @@ $manifest=Get-Content (Join-Path $root 'release\latest.json') -Raw | ConvertFrom
 
 if ($Version -notmatch '^\d+\.\d+\.\d+$') { throw 'Version must use X.Y.Z.' }
 if ($source -notmatch 'https://updates\.yamachat\.eu/yamasearch/latest\.json') { throw 'The updater manifest is not isolated to YamaSearch.' }
-if ($source -notmatch 'uri\.Scheme == Uri\.UriSchemeHttps' -or $source -notmatch 'string\.Equals\(uri\.Host, "updates\.yamachat\.eu"') { throw 'The updater no longer validates the trusted HTTPS host.' }
+if ($source -notmatch '\.Scheme == Uri\.UriSchemeHttps' -or $source -notmatch 'string\.Equals\([^,]+\.Host, "updates\.yamachat\.eu"') { throw 'The updater no longer validates the trusted HTTPS host.' }
 if ($installer -notmatch 'AppId=\{\{54F1C6D2-8A1C-4706-9FC8-5D7C3D80D5B1\}') { throw 'The installer identity is missing or changed.' }
 if ($installer -notmatch 'DefaultDirName=\{localappdata\}\\Programs\\YamaSearch') { throw 'The installer target is not isolated to YamaSearch.' }
 if ($manifest.product -ne 'YamaSearch') { throw 'The checked-in manifest has the wrong product identity.' }
