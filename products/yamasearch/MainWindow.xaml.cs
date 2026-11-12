@@ -117,21 +117,22 @@ public partial class MainWindow : Window
         Loaded += (_, _) => TabWindowRegistry.Register(_windowId, this);
         Closing += (_, _) =>
         {
-            SavePreviousSessionSnapshot();
             _isClosing = true;
+            try { SavePreviousSessionSnapshot(); }
+            catch (Exception error) { Debug.WriteLine("YamaSearch session snapshot failed while closing: " + error.Message); }
             foreach (var tab in _tabs.ToArray()) CancelPendingSitePermissionRequest(tab);
         };
         Closed += (_, _) =>
         {
             TabWindowRegistry.Unregister(_windowId);
             App.Accounts.StateChanged -= Accounts_StateChanged;
+            CleanupWindowWebViews();
         };
         if (_isPrivateWindow)
         {
             Title = "YamaSearch · Anonymní okno";
             BrandColumn.Width = new GridLength(310);
             PrivateModeBadge.Visibility = Visibility.Visible;
-            Closed += (_, _) => CleanupPrivateWebData();
         }
         SourceInitialized += (_, _) => InitializeWindowInterop();
         if (!_settings.Data.Theme.Equals("dark", StringComparison.OrdinalIgnoreCase))
@@ -306,12 +307,18 @@ public partial class MainWindow : Window
 
     private static bool TryGetTrustedUpdateUri(string? raw, out Uri uri)
     {
+        if (!string.IsNullOrWhiteSpace(raw)
+            && Uri.TryCreate(raw, UriKind.Absolute, out var candidate)
+            && candidate.Scheme == Uri.UriSchemeHttps
+            && string.Equals(candidate.Host, "updates.yamachat.eu", StringComparison.OrdinalIgnoreCase)
+            && candidate.AbsolutePath.StartsWith("/yamasearch/", StringComparison.OrdinalIgnoreCase))
+        {
+            uri = candidate;
+            return true;
+        }
+
         uri = null!;
-        return !string.IsNullOrWhiteSpace(raw)
-            && Uri.TryCreate(raw, UriKind.Absolute, out uri)
-            && uri.Scheme == Uri.UriSchemeHttps
-            && string.Equals(uri.Host, "updates.yamachat.eu", StringComparison.OrdinalIgnoreCase)
-            && uri.AbsolutePath.StartsWith("/yamasearch/", StringComparison.OrdinalIgnoreCase);
+        return false;
     }
 
     private static bool IsInstalledBuild()
@@ -1612,8 +1619,11 @@ public partial class MainWindow : Window
         TabsList.Items.Clear();
         var usableWidth = Math.Max(0, TabsScroller.ActualWidth - 42);
         var compact = _tabs.Count > 0 && usableWidth > 0 && _tabs.Count * 190 > usableWidth;
-        var tabWidth = compact ? Math.Max(46, Math.Min(94, usableWidth / _tabs.Count)) : 190;
-        var iconOnly = tabWidth < 82;
+        // A compact tab must always retain enough room for both its favicon and
+        // close button. The title is the flexible part and disappears first.
+        var tabWidth = compact ? Math.Max(54, Math.Min(104, usableWidth / _tabs.Count)) : 190;
+        var showTitle = !compact || tabWidth >= 72;
+        var horizontalPadding = compact ? 7d : 20d;
 
         foreach (var tab in _tabs)
         {
@@ -1622,7 +1632,7 @@ public partial class MainWindow : Window
             {
                 Width = 16,
                 Height = 16,
-                Margin = new Thickness(0, 0, iconOnly ? 0 : 7, 0)
+                Margin = new Thickness(0, 0, showTitle ? 7 : 0, 0)
             };
             faviconHost.Children.Add(new Image
             {
@@ -1648,13 +1658,18 @@ public partial class MainWindow : Window
             header.Children.Add(faviconHost);
 
             var showAudioButton = !compact && (tab.IsPlayingAudio || tab.IsMuted);
+            var closeWidth = compact ? 22d : 25d;
+            var closeMargin = compact ? 2d : 4d;
+            var audioFootprint = showAudioButton ? 31d : 0d;
+            var faviconFootprint = 16d + (showTitle ? 7d : 0d);
+            var titleWidth = Math.Max(0, tabWidth - horizontalPadding - faviconFootprint - audioFootprint - closeWidth - closeMargin);
 
-            if (!iconOnly)
+            if (showTitle && titleWidth >= 12)
             {
                 header.Children.Add(new TextBlock
                 {
                     Text = tab.Title,
-                    Width = tabWidth < 120 ? 55 : showAudioButton ? 92 : 125,
+                    Width = titleWidth,
                     TextTrimming = TextTrimming.CharacterEllipsis,
                     VerticalAlignment = VerticalAlignment.Center
                 });
@@ -1683,20 +1698,25 @@ public partial class MainWindow : Window
                     header.Children.Add(audio);
                 }
 
-                var close = new Button
-                {
-                    Content = "×",
-                    Padding = new Thickness(5, 0, 0, 0),
-                    Margin = new Thickness(4, 0, 0, 0),
-                    ToolTip = "Zavřít kartu"
-                };
-                close.Click += (_, e) =>
-                {
-                    e.Handled = true;
-                    CloseTab(tab);
-                };
-                header.Children.Add(close);
             }
+
+            // Closing must never disappear merely because many tabs are open.
+            // Give it a fixed hit target and let only the title surrender space.
+            var close = new Button
+            {
+                Content = "×",
+                Width = closeWidth,
+                Height = 22,
+                Padding = new Thickness(0),
+                Margin = new Thickness(closeMargin, 0, 0, 0),
+                ToolTip = "Zavřít kartu"
+            };
+            close.Click += (_, e) =>
+            {
+                e.Handled = true;
+                CloseTab(tab);
+            };
+            header.Children.Add(close);
 
             var button = new Button
             {
@@ -1709,6 +1729,7 @@ public partial class MainWindow : Window
                         ? $"{tab.Title} · zvuk ztlumen"
                         : tab.Title,
                 Width = tabWidth,
+                Padding = compact ? new Thickness(4, 6, 3, 6) : new Thickness(10, 6, 10, 6),
                 Margin = new Thickness(3, 8, 0, 8),
                 Background = tab == _active
                     ? new SolidColorBrush((Color)ColorConverter.ConvertFromString("#1B2A42"))
@@ -4294,7 +4315,7 @@ public partial class MainWindow : Window
         if (HistoryQuickPopup.IsOpen) RenderHistoryQuickPopup();
     }
 
-    private void CleanupPrivateWebData()
+    private void CleanupWindowWebViews()
     {
         foreach (var tab in _tabs.ToList())
         {
@@ -5766,8 +5787,46 @@ public sealed class DownloadEntry
 }
 public sealed class SettingsStore
 {
+    private static readonly object Sync = new();
+    private static AppData? SharedData;
     private readonly string _path = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "YamaSearch", "settings.json");
+    private string BackupPath => _path + ".bak";
     public AppData Data { get; }
-    public SettingsStore() { try { Data = File.Exists(_path) ? JsonSerializer.Deserialize<AppData>(File.ReadAllText(_path)) ?? new() : new(); } catch { Data = new(); } }
-    public void Save() { Directory.CreateDirectory(Path.GetDirectoryName(_path)!); File.WriteAllText(_path, JsonSerializer.Serialize(Data, new JsonSerializerOptions { WriteIndented = true })); }
+    public SettingsStore()
+    {
+        lock (Sync)
+        {
+            SharedData ??= TryLoad(_path) ?? TryLoad(BackupPath) ?? new AppData();
+            Data = SharedData;
+        }
+    }
+
+    public void Save()
+    {
+        lock (Sync)
+        {
+            var directory = Path.GetDirectoryName(_path)!;
+            Directory.CreateDirectory(directory);
+            var temporary = _path + ".tmp";
+            File.WriteAllText(temporary, JsonSerializer.Serialize(Data, new JsonSerializerOptions { WriteIndented = true }));
+
+            if (File.Exists(_path))
+                File.Replace(temporary, _path, BackupPath, ignoreMetadataErrors: true);
+            else
+                File.Move(temporary, _path);
+        }
+    }
+
+    private static AppData? TryLoad(string path)
+    {
+        try
+        {
+            return File.Exists(path)
+                ? JsonSerializer.Deserialize<AppData>(File.ReadAllText(path))
+                : null;
+        }
+        catch (IOException) { return null; }
+        catch (UnauthorizedAccessException) { return null; }
+        catch (JsonException) { return null; }
+    }
 }
