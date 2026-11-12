@@ -7,6 +7,12 @@ const settingsView = fs.readFileSync('products/yamasearch/SettingsWindow.xaml', 
 
 assert.match(main, /RestorePreviousSessionAsync\(\)/, 'startup must have a session restore path');
 assert.match(main, /SavePreviousSessionSnapshot\(\)/, 'window close must save the opted-in session');
+assert.match(main, /Closed \+= \(_, _\) =>[\s\S]{0,300}CleanupWindowWebViews\(\)/,
+  'every normal and private window must deterministically dispose remaining WebViews');
+assert.doesNotMatch(main, /Closed \+= \(_, _\) => CleanupPrivateWebData\(\)/,
+  'WebView cleanup must not be private-window-only');
+assert.match(main, /try \{ SavePreviousSessionSnapshot\(\); \}[\s\S]{0,140}catch/,
+  'a profile write failure must not abort window shutdown');
 assert.match(main, /!tab\.IsScriptPopup/, 'script/payment popups must not enter session restore data');
 assert.match(main, /_isPrivateWindow \|\| _siteAppMode/, 'private and installed-app windows must not persist sessions');
 assert.match(main, /LastSessionActiveIndex/, 'the selected tab must be restored');
