@@ -168,6 +168,16 @@ html=html.replace(
  html=withVoiceThemePolish(withMessageNotificationSound(withVoiceExperience(html)));
  html=withInteractionNotifications(html);
  html=withVoiceScaleHardening(html);
+// Voice roster correctness is shared with desktop.  Copy only the isolated
+// roster block after the scale layer has installed its base implementation so
+// a delayed REST snapshot cannot replace a newer Realtime participant update.
+const desktopVoiceSource=read('desktop/desktop-client.html');
+const rosterStart='function stopVoiceParticipantSubscription()';
+const rosterEnd='function updateVoicePresence(id)';
+const sourceRosterStart=desktopVoiceSource.indexOf(rosterStart),sourceRosterEnd=desktopVoiceSource.indexOf(rosterEnd,sourceRosterStart);
+const webRosterStart=html.indexOf(rosterStart),webRosterEnd=html.indexOf(rosterEnd,webRosterStart);
+if(sourceRosterStart<0||sourceRosterEnd<0||webRosterStart<0||webRosterEnd<0)throw Error('Voice roster consistency boundary missing');
+html=html.slice(0,webRosterStart)+desktopVoiceSource.slice(sourceRosterStart,sourceRosterEnd)+html.slice(webRosterEnd);
  html=withRuntimeStabilityHardening(html);
  html=withIosPwaMicrophone(html);
  html=withCommunityRealtimeConsolidation(html);
@@ -206,6 +216,19 @@ const sb=createClient(SUPABASE_URL,SUPABASE_KEY,{auth:{storageKey:'yamaportal-au
 if(!html.includes('class="yc-portal-signin"')) throw Error('Missing Yamaportal sign-in insertion point');
 if(!html.includes("storageKey:'yamaportal-auth-v1',storage:ycPortalStorage")) throw Error('Could not configure Yamachat web to share the Yamaportal session');
 html=withAuthProfileResilience(html);
+const joinPresenceOld="      void trackVoicePresence().catch(e=>console.warn('voice presence join',e));startVoiceHeartbeat();startVoiceActivityDetector();void ycTouchPresence(true);playVoiceCue('self-join');voiceJoinSoundArmed=true;";
+const joinPresenceNew="      await trackVoicePresence().catch(e=>console.warn('voice presence join',e));void refreshVoiceRosterSet(voiceChannelDefs,true);startVoiceHeartbeat();startVoiceActivityDetector();void ycTouchPresence(true);playVoiceCue('self-join');voiceJoinSoundArmed=true;";
+if(!html.includes(joinPresenceOld))throw Error('Voice join roster boundary missing');
+html=html.replace(joinPresenceOld,joinPresenceNew);
+const leaveRosterOld="for(const id of Object.keys(voicePresenceByChannel)){voicePresenceByChannel[id]=(voicePresenceByChannel[id]||[]).filter(p=>p.user_id!==leavingUserId)}renderVoiceChannels(voiceChannelDefs)";
+const leaveRosterNew="for(const id of Object.keys(voicePresenceByChannel)){ycBumpVoiceRosterRevision(id);voicePresenceByChannel[id]=(voicePresenceByChannel[id]||[]).filter(p=>p.user_id!==leavingUserId)}renderVoiceChannels(voiceChannelDefs)";
+if(!html.includes(leaveRosterOld))throw Error('Voice leave roster boundary missing');
+html=html.replace(leaveRosterOld,leaveRosterNew);
+// YamaHelp is inserted by the desktop source at DOMContentLoaded. Add the
+// YamaSearch download card in the generated client after that callback so both
+// products share the exact same login-card styling and layout.
+const yamaSearchLoginDownloads=`<script id="ycYamaSearchLoginDownloads">(()=>{const add=()=>{const legal=document.querySelector('.yc-auth-legal-links');if(!legal||document.querySelector('.yc-yamasearch-login'))return;legal.insertAdjacentHTML('beforebegin','<section class="yc-yamahelp-login yc-yamasearch-login" aria-label="YamaSearch pro Windows"><div class="yc-yamahelp-login-title">YamaSearch pro Windows</div><p class="yc-yamahelp-login-copy">Soukromější prohlížení s YamaBlock a YamaShield.</p><div class="yc-yamahelp-login-grid"><a class="yc-yamahelp-login-btn" href="https://updates.yamachat.eu/yamasearch/YamaSearch-Portable-latest.zip" download><strong>YamaSearch Portable</strong><small>Spustitelná verze bez instalace.</small></a><a class="yc-yamahelp-login-btn" href="https://updates.yamachat.eu/yamasearch/YamaSearch-Setup-latest.exe" download><strong>YamaSearch Installer</strong><small>Instalační verze pro Windows.</small></a></div><p class="yc-yamahelp-login-note">Soubory jsou určené pro Windows PC.</p></section>')};document.readyState==='loading'?document.addEventListener('DOMContentLoaded',add,{once:true}):add()})();</script>`;
+if(!html.includes('ycYamaSearchLoginDownloads')) html=html.replace('</body>',yamaSearchLoginDownloads+'\n</body>');
 fs.writeFileSync(path.join(root,'index.html'),html);
 console.log('Web generated from verified desktop 1.0.78 reference; desktop files were not modified.');
 
