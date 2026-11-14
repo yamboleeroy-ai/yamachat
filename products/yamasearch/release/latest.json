@@ -1,7 +1,7 @@
 {
   "product": "YamaSearch",
-  "version": "0.3.30",
-  "notes": "Stabilizační aktualizace prohlížeče: zavírací tlačítko zůstává dostupné i na silně zahuštěných kartách, názvy se bezpečně zkracují a přetahování i indikátory zůstávají zachované. Všechna okna nyní sdílejí jeden stav profilu, nastavení se ukládá atomicky se zálohou a zavřená okna deterministicky uvolňují WebView2. Doplněna ochrana asynchronní navigace, aktualizováno WebView2 SDK a odstraněna zranitelná transitivní knihovna.",
+  "version": "0.3.31",
+  "notes": "Oprava vykreslování webových stránek: weby s průhledným nebo částečně nevykresleným pozadím nyní používají standardní bílé plátno Chromium místo tmavého podkladu YamaSearch. Vlastní tmavý režim webů i vzhled aplikace zůstávají zachované.",
   "portableUrl": "https://updates.yamachat.eu/yamasearch/YamaSearch-Portable-latest.zip",
   "installerUrl": "https://updates.yamachat.eu/yamasearch/YamaSearch-Setup-latest.exe"
 }
