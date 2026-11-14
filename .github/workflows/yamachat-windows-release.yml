@@ -151,7 +151,12 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           VERSION: ${{ needs.prepare.outputs.version }}
         run: |
-          gh release create "v$VERSION" release-assets/* --target "$GITHUB_SHA" --title "Yamachat $VERSION" --generate-notes
+          if gh release view "v$VERSION" >/dev/null 2>&1; then
+            gh release upload "v$VERSION" release-assets/* --clobber
+            gh release edit "v$VERSION" --title "Yamachat $VERSION"
+          else
+            gh release create "v$VERSION" release-assets/* --target "$GITHUB_SHA" --title "Yamachat $VERSION" --generate-notes
+          fi
       - name: Publish release metadata to main
         env:
           VERSION: ${{ needs.prepare.outputs.version }}
