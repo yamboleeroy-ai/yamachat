@@ -2,6 +2,19 @@
   "schemaVersion": 1,
   "releases": [
     {
+      "id": "yamachat:android:200800",
+      "app": "yamachat",
+      "kind": "update",
+      "version": "1.1.0.800 (200800)",
+      "title": "Yamachat Android 1.1.0.800",
+      "summary": "Oprava synchronizace uživatelů ve voice místnostech při přepínání kanálů a po připojení.",
+      "details": "Oprava synchronizace uživatelů ve voice místnostech při přepínání kanálů a po připojení.",
+      "releasedAt": "2026-11-14T16:54:57.000Z",
+      "platforms": [
+        "Android"
+      ]
+    },
+    {
       "id": "yamasearch:windows:0.3.31",
       "app": "yamasearch",
       "kind": "update",

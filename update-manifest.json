@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "publishedAt": "2026-10-25T05:20:00.000Z",
+  "publishedAt": "2026-11-14T16:54:57Z",
   "windows": {
     "latestVersion": "1.0.129",
     "required": true,
@@ -9,15 +9,11 @@
     "installerUrl": "https://updates.yamachat.eu/windows/Yamachat-Setup-1.0.129.exe"
   },
   "android": {
-    "latestVersion": "1.1.0.799",
-    "latestVersionCode": 200799,
+    "latestVersion": "1.1.0.800",
+    "latestVersionCode": 200800,
     "required": true,
-    "apkUrl": "https://updates.yamachat.eu/android/Yamachat-Android-200799.apk",
-    "sha256": "1d5ede89ada060bd10f0d95b11f2a5abb20a3a96edbeae0ed6e64e28ce3291bc",
-    "notes": [
-      "Opravy přihlášení přes společný účet Yamaportal a obnovy profilu.",
-      "Stabilizační úpravy a ověřené podepsané sestavení Android APK.",
-      "Fyzický test na Android telefonu nebyl proveden."
-    ]
+    "apkUrl": "https://updates.yamachat.eu/android/Yamachat-Android-200800.apk",
+    "sha256": "4351e3a7ee07f2f773e1ccc81bae3ace67fc4975c6484a6e701ae151537339e8",
+    "notes": "Oprava synchronizace uživatelů ve voice místnostech při přepínání kanálů a po připojení."
   }
 }
