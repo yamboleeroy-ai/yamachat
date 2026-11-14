@@ -5702,7 +5702,10 @@ public sealed class BrowserTab
 {
     public Guid Id { get; } = Guid.NewGuid();
     internal string MediaUsageBridgeToken { get; } = Guid.NewGuid().ToString("N");
-    public WebView2 View { get; } = new() { DefaultBackgroundColor = System.Drawing.Color.FromArgb(0x0B, 0x10, 0x1A) };
+    // Match the normal Chromium canvas. Some sites intentionally leave their page
+    // background transparent and rely on the browser's default white surface.
+    // Using the YamaSearch shell color here incorrectly darkened those sites.
+    public WebView2 View { get; } = new() { DefaultBackgroundColor = System.Drawing.Color.White };
     public MainWindow? Owner { get; set; }
     internal PrivateWebSession? PrivateSession { get; set; }
     internal PrivateWebSession.ControllerInitialization? PrivateInitialization { get; set; }
