@@ -2,6 +2,19 @@
   "schemaVersion": 1,
   "releases": [
     {
+      "id": "yamasearch:windows:0.3.31",
+      "app": "yamasearch",
+      "kind": "update",
+      "version": "0.3.31",
+      "title": "YamaSearch 0.3.31",
+      "summary": "Oprava vykreslování webových stránek: weby s průhledným nebo částečně nevykresleným pozadím nyní používají standardní bílé plátno Chromium místo tmavého podkladu YamaSearch. Vlastní tmavý režim webů i vzhled aplikace zůstávají zachované.",
+      "details": "Oprava vykreslování webových stránek: weby s průhledným nebo částečně nevykresleným pozadím nyní používají standardní bílé plátno Chromium místo tmavého podkladu YamaSearch. Vlastní tmavý režim webů i vzhled aplikace zůstávají zachované.",
+      "releasedAt": "2026-11-14T09:43:53.129Z",
+      "platforms": [
+        "Windows"
+      ]
+    },
+    {
       "id": "yamasearch:windows:0.3.30",
       "app": "yamasearch",
       "kind": "update",
