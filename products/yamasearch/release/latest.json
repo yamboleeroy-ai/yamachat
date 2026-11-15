@@ -1,7 +1,7 @@
 {
   "product": "YamaSearch",
-  "version": "0.3.32",
-  "notes": "Oprava stability stahování: rychlé, opakované a popupové downloady už nezahltí hlavní vlákno ani neponechají aktivní posluchače po zániku WebView2. Dokončené a přerušené downloady se korektně uklidí, havárie vykreslovacího procesu se izoluje na kartu a ukládání historie méně blokuje navigaci.",
+  "version": "0.3.33",
+  "notes": "Plynulejší práce s kartami: po otevření nové karty lze okamžitě psát do adresního pole bez dalšího kliknutí. Obnova předchozí relace nyní připraví karty skrytě a zobrazí až hotový stav s původně aktivní kartou, takže při spuštění nedochází k postupnému problikávání obsahu.",
   "portableUrl": "https://updates.yamachat.eu/yamasearch/YamaSearch-Portable-latest.zip",
   "installerUrl": "https://updates.yamachat.eu/yamasearch/YamaSearch-Setup-latest.exe"
 }
