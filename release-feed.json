@@ -2,6 +2,19 @@
   "schemaVersion": 1,
   "releases": [
     {
+      "id": "yamasearch:windows:0.3.32",
+      "app": "yamasearch",
+      "kind": "update",
+      "version": "0.3.32",
+      "title": "YamaSearch 0.3.32",
+      "summary": "Oprava stability stahování: rychlé, opakované a popupové downloady už nezahltí hlavní vlákno ani neponechají aktivní posluchače po zániku WebView2. Dokončené a přerušené downloady se korektně uklidí, havárie vykreslovacího procesu se izoluje na kartu a ukládání historie méně blokuje navigaci.",
+      "details": "Oprava stability stahování: rychlé, opakované a popupové downloady už nezahltí hlavní vlákno ani neponechají aktivní posluchače po zániku WebView2. Dokončené a přerušené downloady se korektně uklidí, havárie vykreslovacího procesu se izoluje na kartu a ukládání historie méně blokuje navigaci.",
+      "releasedAt": "2026-11-15T00:32:22.640Z",
+      "platforms": [
+        "Windows"
+      ]
+    },
+    {
       "id": "yamachat:android:200800",
       "app": "yamachat",
       "kind": "update",
