@@ -2,6 +2,19 @@
   "schemaVersion": 1,
   "releases": [
     {
+      "id": "yamasearch:windows:0.3.33",
+      "app": "yamasearch",
+      "kind": "update",
+      "version": "0.3.33",
+      "title": "YamaSearch 0.3.33",
+      "summary": "Plynulejší práce s kartami: po otevření nové karty lze okamžitě psát do adresního pole bez dalšího kliknutí. Obnova předchozí relace nyní připraví karty skrytě a zobrazí až hotový stav s původně aktivní kartou, takže při spuštění nedochází k postupnému problikávání obsahu.",
+      "details": "Plynulejší práce s kartami: po otevření nové karty lze okamžitě psát do adresního pole bez dalšího kliknutí. Obnova předchozí relace nyní připraví karty skrytě a zobrazí až hotový stav s původně aktivní kartou, takže při spuštění nedochází k postupnému problikávání obsahu.",
+      "releasedAt": "2026-11-15T00:59:25.883Z",
+      "platforms": [
+        "Windows"
+      ]
+    },
+    {
       "id": "yamasearch:windows:0.3.32",
       "app": "yamasearch",
       "kind": "update",
