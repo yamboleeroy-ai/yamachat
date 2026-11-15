@@ -1,7 +1,7 @@
 {
   "product": "YamaSearch",
-  "version": "0.3.31",
-  "notes": "Oprava vykreslování webových stránek: weby s průhledným nebo částečně nevykresleným pozadím nyní používají standardní bílé plátno Chromium místo tmavého podkladu YamaSearch. Vlastní tmavý režim webů i vzhled aplikace zůstávají zachované.",
+  "version": "0.3.32",
+  "notes": "Oprava stability stahování: rychlé, opakované a popupové downloady už nezahltí hlavní vlákno ani neponechají aktivní posluchače po zániku WebView2. Dokončené a přerušené downloady se korektně uklidí, havárie vykreslovacího procesu se izoluje na kartu a ukládání historie méně blokuje navigaci.",
   "portableUrl": "https://updates.yamachat.eu/yamasearch/YamaSearch-Portable-latest.zip",
   "installerUrl": "https://updates.yamachat.eu/yamasearch/YamaSearch-Setup-latest.exe"
 }
