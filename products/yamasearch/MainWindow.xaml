@@ -176,7 +176,7 @@
     </Style>
 
   </Window.Resources>
-  <Grid>
+  <Grid x:Name="ShellRoot">
     <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="0" x:Name="PanelColumn"/></Grid.ColumnDefinitions>
     <Grid.RowDefinitions><RowDefinition Height="60"/><RowDefinition Height="64"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="30"/></Grid.RowDefinitions>
     <Grid x:Name="TitleBar" Background="{DynamicResource SurfaceBrush}" PreviewMouseLeftButtonDown="TitleBar_MouseDown">

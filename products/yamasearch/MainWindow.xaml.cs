@@ -113,6 +113,15 @@ public partial class MainWindow : Window
             ? _settings.Data.InstalledApps.FirstOrDefault(x => x.Id == siteAppId)
             : null;
         InitializeComponent();
+        if (_restorePreviousSession)
+        {
+            // The restored WebViews must stay in the visual tree while their
+            // controllers are initialized, but users should not see every tab
+            // becoming active in sequence. Reveal the completed session once.
+            TabsScroller.Visibility = Visibility.Hidden;
+            BrowserHost.Visibility = Visibility.Hidden;
+            StatusText.Text = "Obnovuji předchozí relaci…";
+        }
         PortalReturnButton.Visibility = PortalReturn.Available ? Visibility.Visible : Visibility.Collapsed;
         App.Accounts.StateChanged += Accounts_StateChanged;
         Loaded += (_, _) => TabWindowRegistry.Register(_windowId, this);
@@ -186,7 +195,10 @@ public partial class MainWindow : Window
         if (!_startEmpty)
         {
             if (_restorePreviousSession)
-                await RestorePreviousSessionAsync();
+            {
+                try { await RestorePreviousSessionAsync(); }
+                finally { CompleteSessionRestorePresentation(); }
+            }
             else
                 await CreateTabAsync(_startupUrl);
         }
@@ -228,6 +240,14 @@ public partial class MainWindow : Window
 
         var activeIndex = Math.Clamp(_settings.Data.LastSessionActiveIndex, 0, restored.Count - 1);
         SelectTab(restored[activeIndex]);
+    }
+
+    private void CompleteSessionRestorePresentation()
+    {
+        TabsScroller.Visibility = Visibility.Visible;
+        BrowserHost.Visibility = Visibility.Visible;
+        if (_active?.IsYamaNewTab == true)
+            FocusAddressBoxForNewTab(_active);
     }
 
     private void SavePreviousSessionSnapshot()
@@ -438,6 +458,7 @@ public partial class MainWindow : Window
     private async Task<BrowserTab?> CreateTabAsync(string? address = null, bool deferNavigationToNewWindow = false, bool isScriptPopup = false)
     {
         if (_isClosing) return null;
+        var focusAddressBar = address is null && !deferNavigationToNewWindow && !isScriptPopup;
         var tab = new BrowserTab { IsScriptPopup = isScriptPopup };
         if (_isPrivateWindow)
         {
@@ -504,6 +525,8 @@ public partial class MainWindow : Window
             _ = Dispatcher.BeginInvoke(() => TabsScroller.ScrollToRightEnd());
             if (!deferNavigationToNewWindow)
                 await NavigateAsync(tab, address ?? _settings.Data.HomePage);
+            if (focusAddressBar)
+                FocusAddressBoxForNewTab(tab);
             return tab;
         }
         catch (Exception exception)
@@ -528,6 +551,27 @@ public partial class MainWindow : Window
 
     private bool IsTabCreationStillCurrent(BrowserTab tab)
         => !_isClosing && _tabs.Contains(tab);
+
+    private void FocusAddressBoxForNewTab(BrowserTab tab)
+    {
+        if (_isClosing || !ReferenceEquals(_active, tab)) return;
+        try
+        {
+            _ = Dispatcher.BeginInvoke(
+                System.Windows.Threading.DispatcherPriority.Input,
+                new Action(() =>
+                {
+                    if (_isClosing || !ReferenceEquals(_active, tab)) return;
+                    AddressBox.Focus();
+                    Keyboard.Focus(AddressBox);
+                    AddressBox.SelectAll();
+                }));
+        }
+        catch (Exception exception)
+        {
+            Debug.WriteLine($"YamaSearch new-tab focus failed: {exception.GetType().Name}: {exception.Message}");
+        }
+    }
 
     private static bool HasLiveWebViewProcess(CoreWebView2Environment environment)
     {
