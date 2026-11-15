@@ -49,6 +49,7 @@ public partial class MainWindow : Window
     private int _addressSuggestionIndex = -1;
     private string _lastFindQuery = "";
     private bool _downloadUiRefreshQueued;
+    private bool _historySaveQueued;
     private Point? _tabDragOrigin;
     private BrowserTab? _draggedTab;
     private System.Windows.Controls.Primitives.Popup? _tabDragPreview;
@@ -60,7 +61,7 @@ public partial class MainWindow : Window
     private bool _suppressTabClick;
     private Button? _tabDropTarget;
     private bool _tabDropAfter;
-    private readonly Dictionary<CoreWebView2DownloadOperation, DownloadEntry> _activeDownloads = [];
+    private readonly Dictionary<CoreWebView2DownloadOperation, ActiveDownload> _activeDownloads = [];
     private readonly List<string> _favoriteOverflow = [];
     private bool _customMaximized;
     private bool _videoFullScreen;
@@ -118,6 +119,13 @@ public partial class MainWindow : Window
         Closing += (_, _) =>
         {
             _isClosing = true;
+            DetachDownloadListeners();
+            if (_historySaveQueued)
+            {
+                _historySaveQueued = false;
+                try { _settings.Save(); }
+                catch (Exception error) { Debug.WriteLine("YamaSearch history flush failed while closing: " + error.Message); }
+            }
             try { SavePreviousSessionSnapshot(); }
             catch (Exception error) { Debug.WriteLine("YamaSearch session snapshot failed while closing: " + error.Message); }
             foreach (var tab in _tabs.ToArray()) CancelPendingSitePermissionRequest(tab);
@@ -599,6 +607,13 @@ public partial class MainWindow : Window
         core.DocumentTitleChanged += (_, _) => tab.Owner?.UpdateTabTitle(tab);
         core.FaviconChanged += (_, _) => tab.Owner?.UpdateFavicon(tab);
         core.NotificationReceived += (_, e) => tab.Owner?.HandleWebNotification(tab, e);
+        core.ProcessFailed += (_, e) =>
+        {
+            var owner = tab.Owner;
+            if (owner is null || owner._isClosing) return;
+            var failureKind = e.ProcessFailedKind.ToString();
+            _ = owner.Dispatcher.BeginInvoke(new Action(() => owner.HandleWebViewProcessFailure(tab, failureKind)));
+        };
         tab.View.ZoomFactorChanged += (_, _) => tab.Owner?.Dispatcher.BeginInvoke(() =>
         {
             var owner = tab.Owner;
@@ -614,10 +629,10 @@ public partial class MainWindow : Window
 
         core.IsDocumentPlayingAudioChanged += (_, _) =>
         {
-            tab.Owner?.Dispatcher.Invoke(() =>
+            _ = tab.Owner?.Dispatcher.BeginInvoke(() =>
             {
                 var owner = tab.Owner;
-                if (owner is null) return;
+                if (owner is null || owner._isClosing) return;
                 tab.IsPlayingAudio = core.IsDocumentPlayingAudio;
                 owner.RenderTabs();
             });
@@ -625,10 +640,10 @@ public partial class MainWindow : Window
 
         core.IsMutedChanged += (_, _) =>
         {
-            tab.Owner?.Dispatcher.Invoke(() =>
+            _ = tab.Owner?.Dispatcher.BeginInvoke(() =>
             {
                 var owner = tab.Owner;
-                if (owner is null) return;
+                if (owner is null || owner._isClosing) return;
                 tab.IsMuted = core.IsMuted;
                 owner.RenderTabs();
             });
@@ -663,7 +678,12 @@ public partial class MainWindow : Window
                 owner.RefreshOpenSiteInformation(tab);
             }
         };
-        core.HistoryChanged += (_, _) => { var owner = tab.Owner; if (owner?._active == tab) owner.Dispatcher.Invoke(owner.UpdateNavigationControls); };
+        core.HistoryChanged += (_, _) =>
+        {
+            var owner = tab.Owner;
+            if (owner?._active == tab && !owner._isClosing)
+                _ = owner.Dispatcher.BeginInvoke(owner.UpdateNavigationControls);
+        };
         core.PermissionRequested += (_, e) => tab.Owner?.HandlePermissionRequest(tab, e);
         core.NewWindowRequested += async (_, e) =>
         {
@@ -2982,33 +3002,50 @@ public partial class MainWindow : Window
             _settings.Data.Downloads.RemoveRange(300, _settings.Data.Downloads.Count - 300);
         TrySaveDownloadHistory();
 
-        _activeDownloads[operation] = entry;
-        operation.BytesReceivedChanged += (_, _) => QueueDownloadEntryUpdate(operation, entry, false);
-        operation.StateChanged += (_, _) => QueueDownloadEntryUpdate(operation, entry, true);
+        var active = new ActiveDownload(operation, entry);
+        active.BytesReceivedChanged = (_, _) => QueueDownloadEntryUpdate(active, false);
+        active.StateChanged = (_, _) => QueueDownloadEntryUpdate(active, true);
+        _activeDownloads[operation] = active;
+        operation.BytesReceivedChanged += active.BytesReceivedChanged;
+        operation.StateChanged += active.StateChanged;
 
         if (!_isClosing)
             StatusText.Text = $"Stahování: {entry.FileName}";
-        TryUpdateDownloadEntry(operation, entry, false);
+        TryUpdateDownloadEntry(active, false);
     }
 
-    private void QueueDownloadEntryUpdate(CoreWebView2DownloadOperation operation, DownloadEntry entry, bool persist)
+    private void QueueDownloadEntryUpdate(ActiveDownload active, bool persist)
     {
         if (_isClosing || Dispatcher.HasShutdownStarted || Dispatcher.HasShutdownFinished) return;
+        if (persist) Interlocked.Exchange(ref active.PersistRequested, 1);
+
+        // WebView2 can raise thousands of BytesReceivedChanged events during a
+        // fast download. Keep at most one dispatcher operation per download;
+        // the callback reads the newest values when it actually runs.
+        if (Interlocked.Exchange(ref active.UpdateQueued, 1) != 0) return;
 
         try
         {
-            _ = Dispatcher.BeginInvoke(new Action(() => TryUpdateDownloadEntry(operation, entry, persist)));
+            _ = Dispatcher.BeginInvoke(
+                System.Windows.Threading.DispatcherPriority.Background,
+                new Action(() =>
+                {
+                    Interlocked.Exchange(ref active.UpdateQueued, 0);
+                    var shouldPersist = Interlocked.Exchange(ref active.PersistRequested, 0) != 0;
+                    TryUpdateDownloadEntry(active, shouldPersist);
+                }));
         }
         catch (Exception exception)
         {
+            Interlocked.Exchange(ref active.UpdateQueued, 0);
             Debug.WriteLine($"YamaSearch download update queue failed: {exception.GetType().Name}: {exception.Message}");
         }
     }
 
-    private void TryUpdateDownloadEntry(CoreWebView2DownloadOperation operation, DownloadEntry entry, bool persist)
+    private void TryUpdateDownloadEntry(ActiveDownload active, bool persist)
     {
         if (_isClosing) return;
-        try { UpdateDownloadEntry(operation, entry, persist); }
+        try { UpdateDownloadEntry(active, persist); }
         catch (Exception exception)
         {
             // A popup-based download can outlive its source WebView. Accessing
@@ -3030,8 +3067,10 @@ public partial class MainWindow : Window
         }
     }
 
-    private void UpdateDownloadEntry(CoreWebView2DownloadOperation operation, DownloadEntry entry, bool persist)
+    private void UpdateDownloadEntry(ActiveDownload active, bool persist)
     {
+        var operation = active.Operation;
+        var entry = active.Entry;
         entry.BytesReceived = operation.BytesReceived;
         entry.TotalBytes = operation.TotalBytesToReceive is ulong total && total <= long.MaxValue ? (long)total : 0;
         entry.FilePath = operation.ResultFilePath ?? entry.FilePath;
@@ -3048,20 +3087,51 @@ public partial class MainWindow : Window
         if (operation.State == CoreWebView2DownloadState.Completed)
         {
             entry.CompletedAt ??= DateTimeOffset.Now;
-            _activeDownloads.Remove(operation);
+            CompleteDownload(active);
             StatusText.Text = $"Staženo: {entry.FileName}";
             persist = true;
         }
         else if (operation.State == CoreWebView2DownloadState.Interrupted)
         {
             entry.CompletedAt ??= DateTimeOffset.Now;
-            _activeDownloads.Remove(operation);
+            CompleteDownload(active);
             StatusText.Text = $"Stahování přerušeno: {entry.FileName}";
             persist = true;
         }
 
         if (persist) TrySaveDownloadHistory();
         QueueDownloadUiRefresh();
+    }
+
+    private void CompleteDownload(ActiveDownload active)
+    {
+        if (!_activeDownloads.Remove(active.Operation)) return;
+        DetachDownloadListeners(active);
+    }
+
+    private static void DetachDownloadListeners(ActiveDownload active)
+    {
+        try { active.Operation.BytesReceivedChanged -= active.BytesReceivedChanged; }
+        catch (Exception exception) { Debug.WriteLine($"YamaSearch download progress detach failed: {exception.Message}"); }
+        try { active.Operation.StateChanged -= active.StateChanged; }
+        catch (Exception exception) { Debug.WriteLine($"YamaSearch download state detach failed: {exception.Message}"); }
+    }
+
+    private void DetachDownloadListeners()
+    {
+        foreach (var active in _activeDownloads.Values.ToArray())
+            DetachDownloadListeners(active);
+        _activeDownloads.Clear();
+    }
+
+    private sealed class ActiveDownload(CoreWebView2DownloadOperation operation, DownloadEntry entry)
+    {
+        public CoreWebView2DownloadOperation Operation { get; } = operation;
+        public DownloadEntry Entry { get; } = entry;
+        public EventHandler<object> BytesReceivedChanged { get; set; } = null!;
+        public EventHandler<object> StateChanged { get; set; } = null!;
+        public int UpdateQueued;
+        public int PersistRequested;
     }
 
     private void QueueDownloadUiRefresh()
@@ -4321,8 +4391,64 @@ public partial class MainWindow : Window
         _settings.Data.History.RemoveAll(x => x.Url == url);
         _settings.Data.History.Insert(0, new HistoryEntry { Url = url, Title = title, FaviconUrl = faviconUrl, VisitedAt = DateTimeOffset.Now });
         if (_settings.Data.History.Count > 500) _settings.Data.History.RemoveRange(500, _settings.Data.History.Count - 500);
-        _settings.Save();
+        QueueHistorySave();
         if (HistoryQuickPopup.IsOpen) RenderHistoryQuickPopup();
+    }
+
+    private void QueueHistorySave()
+    {
+        if (_isClosing || _historySaveQueued || Dispatcher.HasShutdownStarted || Dispatcher.HasShutdownFinished) return;
+        _historySaveQueued = true;
+        try
+        {
+            _ = Dispatcher.BeginInvoke(
+                System.Windows.Threading.DispatcherPriority.ApplicationIdle,
+                new Action(() =>
+                {
+                    _historySaveQueued = false;
+                    if (_isClosing) return;
+                    try { _settings.Save(); }
+                    catch (Exception exception)
+                    {
+                        Debug.WriteLine($"YamaSearch history save failed: {exception.GetType().Name}: {exception.Message}");
+                    }
+                }));
+        }
+        catch (Exception exception)
+        {
+            _historySaveQueued = false;
+            Debug.WriteLine($"YamaSearch history save queue failed: {exception.GetType().Name}: {exception.Message}");
+        }
+    }
+
+    private void HandleWebViewProcessFailure(BrowserTab tab, string failureKind)
+    {
+        if (_isClosing || tab.Owner != this || !_tabs.Contains(tab)) return;
+
+        Debug.WriteLine($"YamaSearch WebView2 process failure: {failureKind} ({tab.Id})");
+        if (_active == tab)
+            StatusText.Text = failureKind.Contains("Unresponsive", StringComparison.OrdinalIgnoreCase)
+                ? "Stránka neodpovídá"
+                : "Proces stránky selhal, obnovuji kartu…";
+
+        var recoverableExit = failureKind.Contains("RenderProcessExited", StringComparison.OrdinalIgnoreCase)
+            || failureKind.Contains("FrameRenderProcessExited", StringComparison.OrdinalIgnoreCase);
+        if (!recoverableExit) return;
+
+        var now = DateTimeOffset.UtcNow;
+        if (now - tab.LastProcessRecoveryAt < TimeSpan.FromSeconds(15))
+        {
+            if (_active == tab) StatusText.Text = "Stránka opakovaně selhala. Obnovte ji ručně.";
+            return;
+        }
+
+        tab.LastProcessRecoveryAt = now;
+        try { tab.View.CoreWebView2?.Reload(); }
+        catch (Exception exception)
+        {
+            Debug.WriteLine($"YamaSearch tab recovery failed: {exception.GetType().Name}: {exception.Message}");
+            if (_active == tab) StatusText.Text = "Kartu se nepodařilo obnovit";
+        }
     }
 
     private void CleanupWindowWebViews()
@@ -5724,6 +5850,7 @@ public sealed class BrowserTab
     public int? NotificationCount { get; set; }
     public bool HasObservedNotificationTitleState { get; set; }
     public bool IsScriptPopup { get; set; }
+    internal DateTimeOffset LastProcessRecoveryAt { get; set; } = DateTimeOffset.MinValue;
 }
 public sealed record TabDragPayload(MainWindow Source, BrowserTab Tab)
 {

@@ -17,6 +17,14 @@ assert.match(source, /private void TryUpdateDownloadEntry\(/,
   'an invalidated WebView2 download operation must be contained');
 assert.match(source, /private void TrySaveDownloadHistory\(/,
   'profile write failure must not abort a download');
+assert.match(source, /Interlocked\.Exchange\(ref active\.UpdateQueued, 1\)/,
+  'progress events must be coalesced per active download');
+assert.match(source, /active\.Operation\.BytesReceivedChanged -= active\.BytesReceivedChanged/,
+  'completed downloads must release their progress listener');
+assert.match(source, /active\.Operation\.StateChanged -= active\.StateChanged/,
+  'completed downloads must release their state listener');
+assert.match(source, /_isClosing = true;\s*DetachDownloadListeners\(\);/,
+  'closing a window must detach download callbacks before WebViews are disposed');
 assert.doesNotMatch(source, /BytesReceivedChanged \+= \(_, _\) => Dispatcher\.BeginInvoke\(\(\) => UpdateDownloadEntry/,
   'raw progress callbacks must not escape onto the WPF dispatcher');
 
