@@ -1,7 +1,7 @@
 {
   "product": "YamaSearch",
-  "version": "0.3.33",
-  "notes": "Plynulejší práce s kartami: po otevření nové karty lze okamžitě psát do adresního pole bez dalšího kliknutí. Obnova předchozí relace nyní připraví karty skrytě a zobrazí až hotový stav s původně aktivní kartou, takže při spuštění nedochází k postupnému problikávání obsahu.",
+  "version": "0.3.34",
+  "notes": "Spolehlivější účet YamaSearch se Supabase: po skutečném přihlášení aplikace inicializuje databázový profil a nastavení synchronizace, takže aktivní používání už nezůstává pro bezplatný projekt neviditelné. Dočasně nedostupný nebo uspávaný server nezruší uložené přihlášení a prohlížeč bezpečně pokračuje v offline režimu. Bez časovačů a umělého keep-alive provozu.",
   "portableUrl": "https://updates.yamachat.eu/yamasearch/YamaSearch-Portable-latest.zip",
   "installerUrl": "https://updates.yamachat.eu/yamasearch/YamaSearch-Setup-latest.exe"
 }
