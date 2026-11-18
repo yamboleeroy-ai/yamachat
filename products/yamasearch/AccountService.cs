@@ -730,10 +730,37 @@ public sealed class AccountService
                 throw;
             }
         }
+        else
+        {
+            // Auth requests alone do not count as user database activity for
+            // Supabase Free-project pausing. This RPC also creates the account's
+            // default browser profile and sync preferences, so the database call
+            // is useful application work rather than an artificial keep-alive.
+            try { await EnsureBrowserAccountAsync(token.AccessToken, cancellationToken); }
+            catch (Exception error) when (error is AccountApiException or HttpRequestException or IOException or TaskCanceledException or JsonException)
+            {
+                AccountDiagnostics.Write("ensure-browser-account", error);
+                status = rememberSession
+                    ? "Přihlášení je ověřené. Profil synchronizace teď není dostupný; uložená relace zůstává zachovaná."
+                    : "Přihlášení je ověřené. Profil synchronizace teď není dostupný; trvalé přihlášení je vypnuté.";
+            }
+        }
         var snapshot = CreateSignedInSnapshot(_session, providers, status);
         if (rememberSession) AccountProfileCache.Write(snapshot, _usePortalAccount);
         else AccountProfileCache.Delete(_usePortalAccount);
         Publish(snapshot);
+    }
+
+    private async Task EnsureBrowserAccountAsync(string accessToken, CancellationToken cancellationToken)
+    {
+        using var request = CreateRequest(
+            HttpMethod.Post,
+            new Uri(_config.RestBaseUri, "rpc/yamasearch_ensure_account").AbsoluteUri,
+            accessToken,
+            pathIsAbsolute: true);
+        request.Content = JsonContent.Create(new { });
+        using var response = await Client.SendAsync(request, cancellationToken);
+        await EnsureSuccessAsync(response, cancellationToken);
     }
 
     private static AccountSnapshot CreateSignedInSnapshot(AccountSession session, IReadOnlyList<AccountProviderSnapshot> providers, string status)
@@ -908,6 +935,9 @@ internal sealed class AccountBackendConfig
 
     [JsonIgnore]
     public Uri AuthBaseUri => new(new Uri(BackendUrl.TrimEnd('/') + "/"), "auth/v1/");
+
+    [JsonIgnore]
+    public Uri RestBaseUri => new(new Uri(BackendUrl.TrimEnd('/') + "/"), "rest/v1/");
 
     public static AccountBackendConfig Empty { get; } = new();
     internal static bool IsTrustedPortal(AccountBackendConfig config) => config.BackendUrl == "https://bxjvmjdppmqgbxfcowpf.supabase.co" && config.PublishableKey.StartsWith("sb_publishable_", StringComparison.Ordinal);

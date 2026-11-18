@@ -1,6 +1,8 @@
 using YamaSearch;
 
-var accounts = new AccountService();
+// Exercise the dedicated YamaSearch Supabase project regardless of the
+// interactive account-mode preference stored for the current Windows user.
+var accounts = new AccountService(usePortalAccount: false);
 try
 {
     await accounts.InitializeAsync();
