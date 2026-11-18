@@ -2,6 +2,19 @@
   "schemaVersion": 1,
   "releases": [
     {
+      "id": "yamasearch:windows:0.3.34",
+      "app": "yamasearch",
+      "kind": "update",
+      "version": "0.3.34",
+      "title": "YamaSearch 0.3.34",
+      "summary": "Spolehlivější účet YamaSearch se Supabase: po skutečném přihlášení aplikace inicializuje databázový profil a nastavení synchronizace, takže aktivní používání už nezůstává pro bezplatný projekt neviditelné. Dočasně nedostupný nebo uspávaný server nezruší uložené přihlášení a prohlížeč bezpečně pokračuje v offline režimu. Bez časovačů a umělého keep-alive provozu.",
+      "details": "Spolehlivější účet YamaSearch se Supabase: po skutečném přihlášení aplikace inicializuje databázový profil a nastavení synchronizace, takže aktivní používání už nezůstává pro bezplatný projekt neviditelné. Dočasně nedostupný nebo uspávaný server nezruší uložené přihlášení a prohlížeč bezpečně pokračuje v offline režimu. Bez časovačů a umělého keep-alive provozu.",
+      "releasedAt": "2026-11-18T23:03:49.008Z",
+      "platforms": [
+        "Windows"
+      ]
+    },
+    {
       "id": "yamasearch:windows:0.3.33",
       "app": "yamasearch",
       "kind": "update",
