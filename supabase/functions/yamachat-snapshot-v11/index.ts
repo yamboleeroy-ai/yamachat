@@ -139,7 +139,7 @@ Deno.serve(async (req: Request) => {
     })
   }
 
-  const ownerOnly = action === 'role-set' || action === 'role-audit'
+  const ownerOnly = action === 'role-set' || action === 'role-audit' || action === 'delete-account'
   if (ownerOnly) {
     const { data: isOwner, error: ownerError } = await service.rpc('service_is_platform_owner', { p_user_id: actor.id })
     if (ownerError) return json({ error: 'Unable to verify owner role' }, 503)
@@ -208,6 +208,58 @@ Deno.serve(async (req: Request) => {
     const { data, error } = await service.rpc('service_list_platform_role_audit', { p_actor_user_id: actor.id })
     if (error) return json({ error: 'Historii změn rolí se nepodařilo načíst.' }, 503)
     return json({ ok: true, entries: data || [] })
+  }
+
+  if (action === 'delete-account') {
+    const userId = clean(payload?.user_id, 80)
+    const confirmedId = clean(payload?.confirm_user_id, 80)
+    const reason = clean(payload?.reason, 500)
+    if (!isUuid(userId)) return json({ error: 'Invalid user id' }, 400)
+    if (userId === actor.id) return json({ error: 'Účet vlastníka Yamaportalu nelze odstranit.' }, 403)
+    if (confirmedId !== userId) return json({ error: 'Potvrď odstranění přesným ID účtu.' }, 400)
+    if (reason.length < 2) return json({ error: 'Zadej důvod odstranění účtu.' }, 400)
+
+    const { data: roleRows, error: rolesError } = await service.rpc('service_list_platform_roles', { p_actor_user_id: actor.id })
+    if (rolesError) return json({ error: 'Unable to verify target role' }, 503)
+    const targetRole = (roleRows || []).find((row: any) => row.user_id === userId)?.role || 'USER'
+    if (targetRole !== 'USER') return json({ error: 'Nejprve odeber účtu roli správce nebo moderátora.' }, 409)
+
+    const { count: ownedCommunities, error: communitiesError } = await service.from('communities')
+      .select('id', { count: 'exact', head: true }).eq('owner_id', userId)
+    if (communitiesError) return json({ error: 'Vlastnictví komunit se nepodařilo ověřit; účet zůstal beze změny.' }, 503)
+    if ((ownedCommunities || 0) > 0) return json({ error: 'Účet vlastní komunitu. Nejdřív převeď vlastnictví komunity.' }, 409)
+
+    const hostResponse = await fetch('https://yamahost.yamachat.eu/api/yamahost/admin/user-servers', {
+      method: 'POST',
+      headers: { Authorization: authorization, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ user_id: userId }),
+      cache: 'no-store',
+      redirect: 'error'
+    }).catch(() => null)
+    if (!hostResponse?.ok) return json({ error: 'YamaHost nelze ověřit; účet zůstal beze změny.' }, 503)
+    const hostData = await hostResponse.json().catch(() => null)
+    if (!hostData || !Array.isArray(hostData.servers)) return json({ error: 'Přehled YamaHostu není platný; účet zůstal beze změny.' }, 503)
+    if (hostData.servers.length) return json({ error: 'Účet vlastní YamaHost servery. Nejdřív je bezpečně odstraň nebo převeď.' }, 409)
+
+    const { data: target, error: targetError } = await service.auth.admin.getUserById(userId)
+    if (targetError || !target?.user) return json({ error: 'Účet nebyl nalezen.' }, 404)
+    const { data: audit, error: auditError } = await service.from('platform_admin_user_audit').insert({
+      actor_user_id: actor.id,
+      target_user_id: userId,
+      action: 'account-delete',
+      outcome: 'started',
+      reason
+    }).select('id').single()
+    if (auditError || !audit?.id) return json({ error: 'Účet nebyl odstraněn, protože se nepodařilo zapsat audit.' }, 503)
+
+    const { error: deleteError } = await service.auth.admin.deleteUser(userId)
+    if (deleteError) {
+      await service.from('platform_admin_user_audit').update({ outcome: 'failed' }).eq('id', audit.id)
+      return json({ error: 'Účet nebyl odstraněn. Zkontroluj soubory v úložišti nebo navázané záznamy a zkus to znovu.' }, 409)
+    }
+    const { error: auditUpdateError } = await service.from('platform_admin_user_audit').update({ outcome: 'succeeded' }).eq('id', audit.id)
+    if (auditUpdateError) return json({ error: 'Účet byl odstraněn, ale konečný stav auditu se nepodařilo uložit.', audit_id: audit.id }, 500)
+    return json({ ok: true, user_id: userId, audit_id: audit.id })
   }
 
   if (action === 'reset-password') {
@@ -432,3 +484,4 @@ Deno.serve(async (req: Request) => {
 
   return json({ error: 'Unknown action' }, 400)
 })
+
